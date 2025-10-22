@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-This is the documentation repository for Shannon - a production-grade AI agent orchestration platform. The docs are built with Mintlify and deployed to docs.shannon.dev.
+This is the documentation repository for Shannon - a production-grade AI agent orchestration platform. The docs are built with Mintlify and deployed to docs.shannon.kocoro.dev.
 
 Shannon itself is a distributed microservices system built with:
 - Go (Gateway, Orchestrator)
