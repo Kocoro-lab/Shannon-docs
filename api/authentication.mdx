@@ -1,0 +1,382 @@
+---
+title: "Authentication"
+description: "API key authentication and authorization in Shannon"
+---
+
+## Overview
+
+Shannon supports API key authentication to secure access to the orchestration platform. Authentication is **disabled by default** for easy local development and can be enabled for production deployments.
+
+## Authentication Modes
+
+### Development Mode (Default)
+
+```bash
+# In .env file
+GATEWAY_SKIP_AUTH=1
+```
+
+In development mode:
+- No API key required
+- All requests are accepted
+- Useful for local testing and development
+
+### Production Mode
+
+```bash
+# In .env file
+GATEWAY_SKIP_AUTH=0
+```
+
+In production mode:
+- API key required for all requests
+- Invalid keys return 401 Unauthorized
+- Rate limiting enforced per key
+
+## API Key Format
+
+Shannon uses prefixed API keys:
+
+```
+sk_test_1234567890abcdef    # Test keys
+sk_live_1234567890abcdef    # Production keys
+```
+
+<Warning>
+Never commit API keys to version control or share them publicly.
+</Warning>
+
+## Creating API Keys
+
+### Via Command Line
+
+```bash
+# Create a test API key
+cd go/orchestrator
+make seed-api-key
+
+# Output
+API Key created: sk_test_123456
+User ID: test-user
+```
+
+### Via API (Future)
+
+```bash
+curl -X POST http://localhost:8080/api/v1/keys \
+  -H "X-Admin-Token: admin-secret" \
+  -d '{
+    "name": "My Application",
+    "user_id": "user-123"
+  }'
+```
+
+## Using API Keys
+
+### HTTP Header (Recommended)
+
+```bash
+curl http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json"
+```
+
+### Bearer Token
+
+```bash
+curl http://localhost:8080/api/v1/tasks \
+  -H "Authorization: Bearer sk_test_123456" \
+  -H "Content-Type: application/json"
+```
+
+### Python SDK
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(
+    http_endpoint="http://localhost:8080",
+    api_key="sk_test_123456"
+)
+
+# API key automatically included in all requests
+handle = client.submit_task(query="Hello world")
+```
+
+## Rate Limiting
+
+Shannon enforces rate limits per API key using a token bucket algorithm:
+
+### Default Limits
+
+| Limit Type | Default Value | Burst |
+|------------|---------------|-------|
+| Requests per minute | 60 | 100 |
+| Tokens per minute | 100,000 | 150,000 |
+| Concurrent tasks | 10 | 15 |
+
+### Rate Limit Headers
+
+Responses include current window limits. On 429, `Retry-After` is set:
+
+```http
+X-RateLimit-Limit: 60
+X-RateLimit-Remaining: 45
+X-RateLimit-Reset: 1730001234
+```
+
+### Rate Limit Exceeded
+
+When you exceed the rate limit:
+
+```bash
+HTTP/1.1 429 Too Many Requests
+Retry-After: 30
+
+{
+  "error": "Rate limit exceeded",
+  "message": "Too many requests. Please retry after the rate limit window resets."
+}
+```
+
+### Handling Rate Limits
+
+Implement exponential backoff:
+
+```python
+import time
+import requests
+from requests.exceptions import HTTPError
+
+def submit_with_retry(query, max_retries=3):
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(
+                "http://localhost:8080/api/v1/tasks",
+                headers={"X-API-Key": "sk_test_123456"},
+                json={"query": query}
+            )
+            response.raise_for_status()
+            return response.json()
+
+        except HTTPError as e:
+            if e.response.status_code == 429:
+                retry_after = int(e.response.headers.get('Retry-After', 60))
+                print(f"Rate limited. Retrying after {retry_after}s...")
+                time.sleep(retry_after)
+            else:
+                raise
+
+    raise Exception("Max retries exceeded")
+```
+
+## Multi-Tenancy
+
+Shannon supports multi-tenant deployments with tenant isolation:
+
+### Tenant ID
+
+Include tenant ID in requests:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "X-Tenant-ID: org-acme" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Process data"}'
+```
+
+### Tenant Isolation
+
+Each tenant has:
+- Isolated session storage
+- Separate vector collections in Qdrant
+- Independent budget tracking
+- Dedicated metrics
+
+## OPA Policy Enforcement
+
+Shannon uses [Open Policy Agent](https://www.openpolicyagent.org/) for fine-grained access control:
+
+### Policy Structure
+
+```rego
+package shannon.auth
+
+import future.keywords.if
+
+# Default deny
+default allow = false
+
+# Allow if user has valid API key and appropriate permissions
+allow if {
+    input.api_key_valid
+    input.user.team in ["engineering", "data-science"]
+    input.task.mode in allowed_modes[input.user.team]
+}
+
+# Team-specific allowed modes
+allowed_modes := {
+    "engineering": ["simple", "standard", "complex"],
+    "data-science": ["standard", "complex"]
+}
+
+# Token budget limits by team
+max_tokens[team] := 50000 if team == "data-science"
+max_tokens[team] := 10000 if team == "engineering"
+```
+
+### Policy Modes
+
+Configure in `config/shannon.yaml`:
+
+```yaml
+policy:
+  enabled: true
+  mode: "enforce"  # dry-run, enforce, off
+  path: "/app/config/opa/policies"
+  fail_closed: false  # Allow on policy errors
+```
+
+**Modes:**
+- `enforce`: Deny requests that violate policies
+- `dry-run`: Log violations but allow requests
+- `off`: Disable policy enforcement
+
+### Example: Restricting Models
+
+```rego
+package shannon.models
+
+# Only allow specific models per team
+allowed_models[user.team] contains model if {
+    user.team == "cost-sensitive"
+    model in ["gpt-4o-mini", "claude-haiku"]
+}
+
+allowed_models[user.team] contains model if {
+    user.team == "premium"
+    model in ["gpt-4", "claude-opus", "gpt-4o", "claude-sonnet"]
+}
+```
+
+## Security Best Practices
+
+### 1. Rotate Keys Regularly
+
+```bash
+# Create new key
+make seed-api-key
+
+# Update applications with new key
+# Revoke old key after migration
+```
+
+### 2. Use Environment Variables
+
+```python
+import os
+
+client = ShannonClient(
+    http_endpoint=os.environ["SHANNON_ENDPOINT"],
+    api_key=os.environ["SHANNON_API_KEY"]
+)
+```
+
+### 3. Enable HTTPS in Production
+
+```yaml
+# config/shannon.yaml
+gateway:
+  tls:
+    enabled: true
+    cert_file: "/path/to/cert.pem"
+    key_file: "/path/to/key.pem"
+```
+
+### 4. Monitor API Key Usage
+
+Track usage in Prometheus metrics:
+
+```promql
+# Requests per API key
+sum by (api_key_id) (rate(shannon_gateway_requests_total[5m]))
+
+# Errors by API key
+sum by (api_key_id) (rate(shannon_gateway_errors_total[5m]))
+```
+
+### 5. Implement IP Whitelisting
+
+```yaml
+# config/shannon.yaml
+gateway:
+  ip_whitelist:
+    enabled: true
+    allowed_ips:
+      - "10.0.0.0/8"
+      - "192.168.1.100"
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="401 Unauthorized">
+    **Cause**: Missing or invalid API key
+
+    **Solution**:
+    ```bash
+    # Verify auth is enabled
+    grep GATEWAY_SKIP_AUTH .env
+
+    # If enabled, check your API key
+    curl -H "X-API-Key: sk_test_123456" \
+      http://localhost:8080/api/v1/tasks
+    ```
+  </Accordion>
+
+  <Accordion title="403 Forbidden">
+    **Cause**: Valid API key but insufficient permissions (OPA policy)
+
+    **Solution**: Check OPA policy logs:
+    ```bash
+    docker compose logs orchestrator | grep "policy"
+    ```
+  </Accordion>
+
+  <Accordion title="429 Rate Limited">
+    **Cause**: Exceeded rate limits
+
+    **Solution**: Implement retry logic with exponential backoff:
+    ```python
+    retry_after = response.headers.get('Retry-After', 60)
+    time.sleep(int(retry_after))
+    ```
+  </Accordion>
+
+  <Accordion title="API key not working">
+    **Cause**: Key may be expired or revoked
+
+    **Solution**: Create a new test key:
+    ```bash
+    make seed-api-key
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Submit Tasks" icon="paper-plane" href="/api/endpoints/submit-task">
+    Learn how to submit tasks with authentication
+  </Card>
+  <Card title="Rate Limiting" icon="gauge" href="/api/overview#rate-limiting">
+    Understand rate limits and quotas
+  </Card>
+  <Card title="Python SDK" icon="python" href="/sdk/python/quickstart">
+    Use SDK for automatic authentication
+  </Card>
+  <Card title="Cost Control" icon="dollar" href="/quickstart/concepts/cost-control">
+    Manage budgets and token limits
+  </Card>
+</CardGroup>

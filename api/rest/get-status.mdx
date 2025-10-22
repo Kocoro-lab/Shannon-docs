@@ -1,0 +1,693 @@
+---
+title: "GET /api/v1/tasks/{id}"
+description: "Get task status and result"
+---
+
+## Endpoint
+
+```
+GET http://localhost:8080/api/v1/tasks/{id}
+```
+
+## Description
+
+Retrieves the current status, result, and metadata for a specific task. Use this endpoint to check task progress or retrieve final results.
+
+## Authentication
+
+**Required**: Yes
+
+Include API key in header:
+```
+X-API-Key: sk_test_123456
+```
+
+## Request
+
+### Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | string | Yes | Task ID (also serves as workflow ID) |
+
+### Headers
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| `X-API-Key` | Yes | Authentication key |
+
+## Response
+
+### Success Response
+
+**Status**: `200 OK`
+
+**Headers**:
+- `X-Workflow-ID`: Temporal workflow identifier (same as task ID)
+
+**Body**:
+```json
+{
+  "task_id": "string",
+  "status": "string",
+  "response": {
+    "result": "string",
+    "metadata": {}
+  },
+  "error": "string",
+  "created_at": "timestamp",
+  "updated_at": "timestamp",
+  "query": "string",
+  "session_id": "string",
+  "mode": "string"
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `task_id` | string | Unique task identifier |
+| `status` | string | Current task status |
+| `response` | object | Task result (null if not completed) |
+| `error` | string | Error message (empty if no error) |
+| `created_at` | timestamp | Task creation time |
+| `updated_at` | timestamp | Last update time |
+| `query` | string | Original task query |
+| `session_id` | string | Session identifier |
+| `mode` | string | Execution mode used |
+
+### Status Values
+
+- `TASK_STATUS_UNSPECIFIED` - Status unknown
+- `TASK_STATUS_QUEUED` - Waiting to execute
+- `TASK_STATUS_RUNNING` - Currently executing
+- `TASK_STATUS_COMPLETED` - Successfully completed
+- `TASK_STATUS_FAILED` - Failed with error
+- `TASK_STATUS_CANCELLED` - Cancelled by user
+- `TASK_STATUS_TIMEOUT` - Exceeded timeout limit
+
+### Execution Mode Values
+
+- `EXECUTION_MODE_SIMPLE` - Single LLM call, no tools
+- `EXECUTION_MODE_STANDARD` - Multi-step with tools
+- `EXECUTION_MODE_COMPLEX` - Advanced reasoning patterns
+
+## Examples
+
+### Check Task Status
+
+```bash
+curl -X GET "http://localhost:8080/api/v1/tasks/task_01HQZX3Y9K8M2P4N5S7T9W2V" \
+  -H "X-API-Key: sk_test_123456"
+```
+
+**Response (Queued)**:
+```json
+{
+  "task_id": "task_01HQZX3Y9K8M2P4N5S7T9W2V",
+  "status": "TASK_STATUS_QUEUED",
+  "response": null,
+  "error": "",
+  "created_at": "2025-10-22T10:30:00Z",
+  "updated_at": "2025-10-22T10:30:00Z",
+  "query": "What is the capital of France?",
+  "session_id": "user-123-session",
+  "mode": "EXECUTION_MODE_SIMPLE"
+}
+```
+
+**Response (Running)**:
+```json
+{
+  "task_id": "task_01HQZX3Y9K8M2P4N5S7T9W2V",
+  "status": "TASK_STATUS_RUNNING",
+  "response": null,
+  "error": "",
+  "created_at": "2025-10-22T10:30:00Z",
+  "updated_at": "2025-10-22T10:30:02Z",
+  "query": "What is the capital of France?",
+  "session_id": "user-123-session",
+  "mode": "EXECUTION_MODE_SIMPLE"
+}
+```
+
+**Response (Completed)**:
+```json
+{
+  "task_id": "task_01HQZX3Y9K8M2P4N5S7T9W2V",
+  "status": "TASK_STATUS_COMPLETED",
+  "response": {
+    "result": "The capital of France is Paris. Paris has been the capital since 987 AD and is located in the north-central part of the country.",
+    "confidence": 1.0,
+    "sources": []
+  },
+  "error": "",
+  "created_at": "2025-10-22T10:30:00Z",
+  "updated_at": "2025-10-22T10:30:05Z",
+  "query": "What is the capital of France?",
+  "session_id": "user-123-session",
+  "mode": "EXECUTION_MODE_SIMPLE"
+}
+```
+
+**Response (Failed)**:
+```json
+{
+  "task_id": "task_01HQZX3Y9K8M2P4N5S7T9W2V",
+  "status": "TASK_STATUS_FAILED",
+  "response": null,
+  "error": "LLM service unavailable: connection timeout",
+  "created_at": "2025-10-22T10:30:00Z",
+  "updated_at": "2025-10-22T10:30:10Z",
+  "query": "What is the capital of France?",
+  "session_id": "user-123-session",
+  "mode": "EXECUTION_MODE_SIMPLE"
+}
+```
+
+## Error Responses
+
+### 401 Unauthorized
+
+```json
+{
+  "error": "Unauthorized"
+}
+```
+
+### 404 Not Found
+
+```json
+{
+  "error": "Task not found"
+}
+```
+
+### 500 Internal Server Error
+
+```json
+{
+  "error": "Failed to get task status: database error"
+}
+```
+
+## Code Examples
+
+### Python - Simple Status Check
+
+```python
+import httpx
+
+def get_task_status(task_id: str, api_key: str):
+    """Get task status."""
+    response = httpx.get(
+        f"http://localhost:8080/api/v1/tasks/{task_id}",
+        headers={"X-API-Key": api_key}
+    )
+
+    if response.status_code == 404:
+        return None
+
+    return response.json()
+
+status = get_task_status("task_abc123", "sk_test_123456")
+if status:
+    print(f"Status: {status['status']}")
+    if status['status'] == 'TASK_STATUS_COMPLETED':
+        print(f"Result: {status['response']['result']}")
+```
+
+### Python - Poll Until Completion
+
+```python
+import httpx
+import time
+
+def wait_for_completion(task_id: str, api_key: str, timeout: int = 300):
+    """Poll task status until completion or timeout."""
+    start_time = time.time()
+
+    while True:
+        response = httpx.get(
+            f"http://localhost:8080/api/v1/tasks/{task_id}",
+            headers={"X-API-Key": api_key}
+        )
+
+        status = response.json()
+        current_status = status["status"]
+
+        # Check if terminal state
+        if current_status == "TASK_STATUS_COMPLETED":
+            return status["response"]
+        elif current_status == "TASK_STATUS_FAILED":
+            raise Exception(f"Task failed: {status['error']}")
+        elif current_status == "TASK_STATUS_TIMEOUT":
+            raise Exception("Task timed out")
+        elif current_status == "TASK_STATUS_CANCELLED":
+            raise Exception("Task was cancelled")
+
+        # Check timeout
+        if time.time() - start_time > timeout:
+            raise TimeoutError(f"Polling timeout after {timeout}s")
+
+        # Wait before next poll
+        time.sleep(2)
+
+# Usage
+try:
+    result = wait_for_completion("task_abc123", "sk_test_123456")
+    print("Result:", result)
+except Exception as e:
+    print("Error:", e)
+```
+
+### JavaScript/Node.js
+
+```javascript
+const axios = require('axios');
+
+async function getTaskStatus(taskId) {
+  try {
+    const response = await axios.get(
+      `http://localhost:8080/api/v1/tasks/${taskId}`,
+      {
+        headers: {
+          'X-API-Key': 'sk_test_123456'
+        }
+      }
+    );
+
+    const status = response.data;
+
+    console.log('Status:', status.status);
+
+    if (status.status === 'TASK_STATUS_COMPLETED') {
+      console.log('Result:', status.response.result);
+    } else if (status.status === 'TASK_STATUS_FAILED') {
+      console.error('Error:', status.error);
+    }
+
+    return status;
+  } catch (error) {
+    if (error.response?.status === 404) {
+      console.error('Task not found');
+    } else {
+      console.error('Error:', error.response?.data || error.message);
+    }
+    throw error;
+  }
+}
+
+getTaskStatus('task_abc123');
+```
+
+### JavaScript - Poll with Async/Await
+
+```javascript
+async function waitForCompletion(taskId, timeout = 300000) {
+  const startTime = Date.now();
+  const pollInterval = 2000; // 2 seconds
+
+  while (true) {
+    const response = await axios.get(
+      `http://localhost:8080/api/v1/tasks/${taskId}`,
+      { headers: { 'X-API-Key': 'sk_test_123456' } }
+    );
+
+    const { status, response: result, error } = response.data;
+
+    if (status === 'TASK_STATUS_COMPLETED') {
+      return result;
+    } else if (status === 'TASK_STATUS_FAILED') {
+      throw new Error(`Task failed: ${error}`);
+    } else if (status === 'TASK_STATUS_TIMEOUT') {
+      throw new Error('Task timed out');
+    }
+
+    // Check timeout
+    if (Date.now() - startTime > timeout) {
+      throw new Error(`Polling timeout after ${timeout}ms`);
+    }
+
+    // Wait before next poll
+    await new Promise(resolve => setTimeout(resolve, pollInterval));
+  }
+}
+
+// Usage
+waitForCompletion('task_abc123')
+  .then(result => console.log('Result:', result))
+  .catch(error => console.error('Error:', error.message));
+```
+
+### Go
+
+```go
+package main
+
+import (
+    "encoding/json"
+    "fmt"
+    "net/http"
+    "time"
+)
+
+type TaskStatusResponse struct {
+    TaskID    string                 `json:"task_id"`
+    Status    string                 `json:"status"`
+    Response  map[string]interface{} `json:"response"`
+    Error     string                 `json:"error"`
+    Query     string                 `json:"query"`
+    SessionID string                 `json:"session_id"`
+    Mode      string                 `json:"mode"`
+}
+
+func getTaskStatus(taskID string) (*TaskStatusResponse, error) {
+    url := fmt.Sprintf("http://localhost:8080/api/v1/tasks/%s", taskID)
+
+    req, _ := http.NewRequest("GET", url, nil)
+    req.Header.Set("X-API-Key", "sk_test_123456")
+
+    client := &http.Client{}
+    resp, err := client.Do(req)
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
+
+    if resp.StatusCode == 404 {
+        return nil, fmt.Errorf("task not found")
+    }
+
+    var status TaskStatusResponse
+    json.NewDecoder(resp.Body).Decode(&status)
+
+    return &status, nil
+}
+
+func waitForCompletion(taskID string, timeout time.Duration) (map[string]interface{}, error) {
+    start := time.Now()
+
+    for {
+        status, err := getTaskStatus(taskID)
+        if err != nil {
+            return nil, err
+        }
+
+        switch status.Status {
+        case "TASK_STATUS_COMPLETED":
+            return status.Response, nil
+        case "TASK_STATUS_FAILED":
+            return nil, fmt.Errorf("task failed: %s", status.Error)
+        case "TASK_STATUS_TIMEOUT":
+            return nil, fmt.Errorf("task timed out")
+        }
+
+        if time.Since(start) > timeout {
+            return nil, fmt.Errorf("polling timeout")
+        }
+
+        time.Sleep(2 * time.Second)
+    }
+}
+
+func main() {
+    result, err := waitForCompletion("task_abc123", 5*time.Minute)
+    if err != nil {
+        fmt.Println("Error:", err)
+        return
+    }
+
+    fmt.Println("Result:", result)
+}
+```
+
+### Bash - Monitor Task Progress
+
+```bash
+#!/bin/bash
+
+API_KEY="sk_test_123456"
+TASK_ID="$1"
+
+if [ -z "$TASK_ID" ]; then
+  echo "Usage: $0 <task_id>"
+  exit 1
+fi
+
+echo "Monitoring task: $TASK_ID"
+echo ""
+
+while true; do
+  RESPONSE=$(curl -s "http://localhost:8080/api/v1/tasks/$TASK_ID" \
+    -H "X-API-Key: $API_KEY")
+
+  STATUS=$(echo $RESPONSE | jq -r '.status')
+
+  echo "[$(date +%T)] Status: $STATUS"
+
+  case $STATUS in
+    "TASK_STATUS_COMPLETED")
+      echo ""
+      echo "✓ Task completed!"
+      echo ""
+      echo $RESPONSE | jq -r '.response.result'
+      exit 0
+      ;;
+    "TASK_STATUS_FAILED")
+      echo ""
+      echo "✗ Task failed!"
+      ERROR=$(echo $RESPONSE | jq -r '.error')
+      echo "Error: $ERROR"
+      exit 1
+      ;;
+    "TASK_STATUS_TIMEOUT")
+      echo ""
+      echo "✗ Task timed out!"
+      exit 1
+      ;;
+    "TASK_STATUS_CANCELLED")
+      echo ""
+      echo "✗ Task cancelled!"
+      exit 1
+      ;;
+  esac
+
+  sleep 2
+done
+```
+
+## Use Cases
+
+### 1. Submit and Wait Pattern
+
+```python
+import httpx
+import time
+
+def submit_and_wait(query: str, api_key: str):
+    """Submit task and wait for result."""
+    # Submit
+    submit_response = httpx.post(
+        "http://localhost:8080/api/v1/tasks",
+        headers={"X-API-Key": api_key},
+        json={"query": query}
+    )
+    task_id = submit_response.json()["task_id"]
+    print(f"Task submitted: {task_id}")
+
+    # Wait
+    while True:
+        status_response = httpx.get(
+            f"http://localhost:8080/api/v1/tasks/{task_id}",
+            headers={"X-API-Key": api_key}
+        )
+        status = status_response.json()
+
+        if status["status"] == "TASK_STATUS_COMPLETED":
+            return status["response"]["result"]
+        elif status["status"] == "TASK_STATUS_FAILED":
+            raise Exception(status["error"])
+
+        time.sleep(2)
+
+result = submit_and_wait("What is Python?", "sk_test_123456")
+print(result)
+```
+
+### 2. Dashboard Status Widget
+
+```python
+def get_task_summary(task_id: str, api_key: str):
+    """Get task summary for dashboard."""
+    response = httpx.get(
+        f"http://localhost:8080/api/v1/tasks/{task_id}",
+        headers={"X-API-Key": api_key}
+    )
+
+    status = response.json()
+
+    return {
+        "id": task_id,
+        "query": status["query"][:50] + "...",
+        "status": status["status"].replace("TASK_STATUS_", ""),
+        "mode": status["mode"].replace("EXECUTION_MODE_", ""),
+        "created": status["created_at"]
+    }
+
+# Display in UI
+summary = get_task_summary("task_abc123", "sk_test_123456")
+print(f"{summary['status']}: {summary['query']}")
+```
+
+### 3. Batch Status Check
+
+```python
+def check_multiple_tasks(task_ids: list, api_key: str):
+    """Check status of multiple tasks."""
+    results = {}
+
+    for task_id in task_ids:
+        try:
+            response = httpx.get(
+                f"http://localhost:8080/api/v1/tasks/{task_id}",
+                headers={"X-API-Key": api_key},
+                timeout=5.0
+            )
+            results[task_id] = response.json()["status"]
+        except Exception as e:
+            results[task_id] = f"ERROR: {e}"
+
+    return results
+
+# Check 5 tasks
+task_ids = ["task_1", "task_2", "task_3", "task_4", "task_5"]
+statuses = check_multiple_tasks(task_ids, "sk_test_123456")
+
+for task_id, status in statuses.items():
+    print(f"{task_id}: {status}")
+```
+
+## Best Practices
+
+### 1. Use Streaming Instead of Polling
+
+For long-running tasks, use SSE streaming instead of polling:
+
+```python
+# ❌ Bad - Polls every 2 seconds
+while True:
+    status = httpx.get(f".../{task_id}")
+    if status["status"] == "COMPLETED":
+        break
+    time.sleep(2)
+
+# ✅ Good - Use streaming
+for event in client.stream(task_id):
+    print(event.type, event.message)
+    if event.type == "TASK_COMPLETED":
+        break
+```
+
+### 2. Handle All Status States
+
+```python
+status = get_task_status(task_id, api_key)
+
+match status["status"]:
+    case "TASK_STATUS_QUEUED":
+        print("Task is queued...")
+    case "TASK_STATUS_RUNNING":
+        print("Task is running...")
+    case "TASK_STATUS_COMPLETED":
+        result = status["response"]["result"]
+        print(f"Result: {result}")
+    case "TASK_STATUS_FAILED":
+        print(f"Failed: {status['error']}")
+    case "TASK_STATUS_TIMEOUT":
+        print("Task timed out")
+    case "TASK_STATUS_CANCELLED":
+        print("Task was cancelled")
+```
+
+### 3. Implement Exponential Backoff
+
+```python
+import time
+
+def poll_with_backoff(task_id, api_key, max_wait=60):
+    """Poll with exponential backoff."""
+    wait_time = 1
+
+    while True:
+        status = get_task_status(task_id, api_key)
+
+        if status["status"] in ["TASK_STATUS_COMPLETED", "TASK_STATUS_FAILED"]:
+            return status
+
+        time.sleep(wait_time)
+        wait_time = min(wait_time * 2, max_wait)  # Cap at 60s
+```
+
+### 4. Cache Status Responses
+
+```python
+from functools import lru_cache
+import time
+
+@lru_cache(maxsize=1000)
+def get_cached_status(task_id: str, api_key: str, timestamp: int):
+    """Cache status for 5 seconds."""
+    return get_task_status(task_id, api_key)
+
+# Usage
+current_time = int(time.time() / 5)  # 5-second buckets
+status = get_cached_status("task_abc123", "sk_test_123456", current_time)
+```
+
+### 5. Extract Metadata
+
+```python
+def extract_task_info(task_id: str, api_key: str):
+    """Extract useful metadata."""
+    status = get_task_status(task_id, api_key)
+
+    return {
+        "task_id": status["task_id"],
+        "query": status["query"],
+        "status": status["status"],
+        "mode": status["mode"],
+        "session_id": status["session_id"],
+        "has_result": status["response"] is not None,
+        "has_error": bool(status["error"]),
+        "workflow_url": f"http://localhost:8088/workflows/{task_id}"
+    }
+```
+
+## Related Endpoints
+
+<CardGroup cols={2}>
+  <Card title="Submit Task" icon="paper-plane" href="/api/rest/submit-task">
+    POST /api/v1/tasks
+  </Card>
+  <Card title="Stream Events" icon="stream" href="/api/rest/streaming">
+    Real-time monitoring
+  </Card>
+  <Card title="Get Events" icon="list" href="/api/rest/get-events">
+    GET /api/v1/tasks/{id}/events
+  </Card>
+  <Card title="Python SDK" icon="python" href="/sdk/python/quickstart">
+    Use client.get_status()
+  </Card>
+</CardGroup>
+
+## Notes
+
+<Warning>
+**Don't Poll in Production**: For long-running tasks, use streaming endpoints instead of polling status. Polling creates unnecessary load and adds latency.
+</Warning>
+
+<Tip>
+**Session Tracking**: The `session_id` field allows you to track which session a task belongs to, useful for multi-turn conversations and cost attribution.
+</Tip>

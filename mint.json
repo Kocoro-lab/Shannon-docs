@@ -1,0 +1,211 @@
+{
+  "$schema": "https://mintlify.com/schema.json",
+  "name": "Shannon",
+  "logo": {
+    "dark": "/logo/dark.svg",
+    "light": "/logo/light.svg",
+    "href": "https://shannon.dev"
+  },
+  "favicon": "/favicon.svg",
+  "colors": {
+    "primary": "#0070F3",
+    "light": "#00A3FF",
+    "dark": "#0051C3",
+    "background": {
+      "dark": "#0A0A0A",
+      "light": "#FFFFFF"
+    }
+  },
+  "topbar": {
+    "style": "gradient"
+  },
+  "topbarLinks": [
+    {
+      "name": "Kocoro",
+      "url": "https://kocoro.ai"
+    }
+  ],
+  "topbarCtaButton": {
+    "name": "GitHub",
+    "url": "https://github.com/Kocoro-lab/Shannon"
+  },
+  "tabs": [
+    {
+      "name": "Quick Start",
+      "url": "quickstart"
+    },
+    {
+      "name": "API Reference",
+      "url": "api"
+    },
+    {
+      "name": "SDKs",
+      "url": "sdk"
+    },
+    {
+      "name": "Tutorials",
+      "url": "tutorials"
+    },
+    {
+      "name": "Deployment",
+      "url": "deployment"
+    },
+    {
+      "name": "Architecture",
+      "url": "architecture"
+    }
+  ],
+  "anchors": [
+    {
+      "name": "GitHub",
+      "icon": "github",
+      "url": "https://github.com/Kocoro-lab/Shannon"
+    },
+    {
+      "name": "Community",
+      "icon": "discord",
+      "url": "https://discord.gg/NB7C2fMcQR"
+    }
+  ],
+  "navigation": [
+    {
+      "group": "Getting Started",
+      "pages": [
+        "quickstart/index",
+        "quickstart/installation",
+        "quickstart/quickstart"
+      ]
+    },
+    {
+      "group": "Core Concepts",
+      "pages": [
+        "quickstart/concepts/agents",
+        "quickstart/concepts/workflows",
+        "quickstart/concepts/cost-control",
+        "quickstart/concepts/streaming",
+        "quickstart/concepts/monitoring"
+      ]
+    },
+    {
+      "group": "Guides",
+      "pages": [
+        "quickstart/configuration",
+        "quickstart/troubleshooting"
+      ]
+    },
+    {
+      "group": "Overview",
+      "pages": [
+        "api/overview",
+        "api/authentication",
+        "api/event-types"
+      ]
+    },
+    {
+      "group": "REST API",
+      "pages": [
+        "api/rest/overview",
+        "api/rest/submit-task",
+        "api/rest/list-tasks",
+        "api/rest/get-status",
+        "api/rest/streaming",
+        "api/rest/authentication"
+      ]
+    },
+    {
+      "group": "Legacy Endpoints",
+      "pages": [
+        "api/endpoints/submit-task",
+        "api/endpoints/get-task-status",
+        "api/endpoints/list-tasks",
+        "api/endpoints/cancel-task",
+        "api/endpoints/stream-task",
+        "api/endpoints/sessions"
+      ]
+    },
+    {
+      "group": "Python SDK",
+      "pages": [
+        "sdk/python/installation",
+        "sdk/python/quickstart",
+        "sdk/python/streaming",
+        "sdk/python/async-usage",
+        "sdk/python/examples",
+        "sdk/python/error-handling"
+      ]
+    },
+    {
+      "group": "Overview",
+      "pages": [
+        "tutorials/index"
+      ]
+    },
+    {
+      "group": "Building Agents",
+      "pages": [
+        "tutorials/research-assistant",
+        "tutorials/code-review-bot",
+        "tutorials/data-analysis"
+      ]
+    },
+    {
+      "group": "Advanced Patterns",
+      "pages": [
+        "tutorials/custom-tools",
+        "tutorials/multi-agent-systems"
+      ]
+    },
+    {
+      "group": "Getting Started",
+      "pages": [
+        "deployment/index",
+        "deployment/docker-compose",
+        "deployment/kubernetes"
+      ]
+    },
+    {
+      "group": "Cloud Platforms",
+      "pages": [
+        "deployment/aws",
+        "deployment/azure"
+      ]
+    },
+    {
+      "group": "Operations",
+      "pages": [
+        "deployment/environment-variables",
+        "deployment/configuration-troubleshooting",
+        "deployment/monitoring",
+        "deployment/performance-tuning",
+        "deployment/security"
+      ]
+    },
+    {
+      "group": "System Design",
+      "pages": [
+        "architecture/overview",
+        "architecture/components",
+        "architecture/data-flow",
+        "architecture/grpc-api",
+        "architecture/database-schema"
+      ]
+    },
+    {
+      "group": "Deep Dives",
+      "pages": [
+        "architecture/temporal-workflows",
+        "architecture/vector-memory",
+        "architecture/tool-execution"
+      ]
+    }
+  ],
+  "footerSocials": {
+    "github": "https://github.com/Kocoro-lab/Shannon",
+    "twitter": "https://x.com/shannon_agents"
+  },
+  "feedback": {
+    "thumbsRating": true,
+    "suggestEdit": true,
+    "raiseIssue": true
+  }
+}

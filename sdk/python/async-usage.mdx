@@ -1,0 +1,201 @@
+---
+title: "Async/Await Usage"
+description: "Using Shannon Python SDK with asyncio for concurrent operations"
+---
+
+<Note>
+Full async documentation coming soon. Basic patterns are shown below.
+</Note>
+
+## Overview
+
+The Shannon Python SDK provides both synchronous and asynchronous clients for maximum flexibility. Use async operations for:
+
+- Concurrent task submission
+- Non-blocking event streaming
+- Parallel API calls
+- High-throughput applications
+
+## AsyncShannonClient
+
+### Basic Usage
+
+```python
+import asyncio
+from shannon import AsyncShannonClient
+
+async def main():
+    async with AsyncShannonClient(http_endpoint="http://localhost:8080") as client:
+        # Submit task asynchronously
+        handle = await client.submit_task(
+            query="Analyze this data",
+            # Mode auto-selected
+        )
+
+        # Get result
+        result = await client.get_status(handle.workflow_id)
+        print(result)
+
+asyncio.run(main())
+```
+
+## Concurrent Tasks
+
+Submit multiple tasks simultaneously:
+
+```python
+async def analyze_multiple():
+    async with AsyncShannonClient() as client:
+        # Submit tasks concurrently
+        tasks = [
+            client.submit_task(query="Analyze dataset 1"),
+            client.submit_task(query="Analyze dataset 2"),
+            client.submit_task(query="Analyze dataset 3"),
+        ]
+
+        # Wait for all to complete
+        handles = await asyncio.gather(*tasks)
+
+        # Get all results
+        results = await asyncio.gather(*[
+            client.get_status(h.workflow_id)
+            for h in handles
+        ])
+
+        return results
+```
+
+## Async Streaming
+
+Stream events without blocking:
+
+```python
+async def stream():
+    async with AsyncShannonClient() as client:
+        handle = await client.submit_task(query="Complex analysis")
+
+        # Stream events asynchronously
+        async for event in client.stream(handle.workflow_id):
+            print(f"[{event.type}] {event.message}")
+
+            if event.type == "TASK_COMPLETED":
+                return event.data.get('result')
+```
+
+## Timeout Handling
+
+```python
+async def with_timeout():
+    async with AsyncShannonClient() as client:
+        try:
+            # Submit with timeout
+            handle = await asyncio.wait_for(
+                client.submit_task(query="Analyze data"),
+                timeout=30.0
+            )
+
+            # Wait for completion with timeout
+            result = await asyncio.wait_for(
+                client.wait(handle.workflow_id),
+                timeout=300.0
+            )
+
+        except asyncio.TimeoutError:
+            print("Operation timed out")
+```
+
+## Background Tasks
+
+Run tasks in background while doing other work:
+
+```python
+async def background_processing():
+    async with AsyncShannonClient() as client:
+        # Start background task
+        task = asyncio.create_task(
+            client.submit_and_wait("Long running analysis")
+        )
+
+        # Do other work
+        await do_other_work()
+
+        # Check if done
+        if not task.done():
+            print("Still processing...")
+
+        # Wait for result when needed
+        result = await task
+```
+
+## Error Handling
+
+```python
+async def robust_submission():
+    async with AsyncShannonClient() as client:
+        try:
+            handle = await client.submit_task(
+                query="Analyze data",
+                config={"retry": {"max_attempts": 3}}
+            )
+            result = await client.get_status(handle.workflow_id)
+
+        except ConnectionError:
+            print("Failed to connect to Shannon")
+        except TimeoutError:
+            print("Request timed out")
+        except Exception as e:
+            print(f"Error: {e}")
+```
+
+## Integration with Web Frameworks
+
+### FastAPI Example
+
+```python
+from fastapi import FastAPI
+from shannon import AsyncShannonClient
+
+app = FastAPI()
+client = AsyncShannonClient()
+
+@app.post("/analyze")
+async def analyze(query: str):
+    handle = await client.submit_task(query=query)
+    result = await client.get_status(handle.workflow_id)
+    return {"result": result}
+```
+
+### aiohttp Example
+
+```python
+from aiohttp import web
+from shannon import AsyncShannonClient
+
+async def analyze_handler(request):
+    data = await request.json()
+
+    async with AsyncShannonClient() as client:
+        handle = await client.submit_task(query=data['query'])
+        result = await client.get_status(handle.workflow_id)
+
+    return web.json_response({'result': result})
+```
+
+## Best Practices
+
+1. **Use context managers** (`async with`) for proper cleanup
+2. **Handle timeouts** for long-running operations
+3. **Implement retry logic** for network failures
+4. **Use gather()** for concurrent operations
+5. **Stream events** for real-time updates
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Examples" icon="code" href="/sdk/python/examples">
+    More code examples
+  </Card>
+  <Card title="Error Handling" icon="shield" href="/sdk/python/error-handling">
+    Robust error handling
+  </Card>
+</CardGroup>

@@ -1,0 +1,22 @@
+# Mintlify
+node_modules/
+.mintlify/
+.DS_Store
+
+# Work in progress (prevent future commits of temp files)
+.work-in-progress/
+*_COMPLETE.md
+*_SUMMARY.md
+*_ANALYSIS.md
+*_STATUS.md
+*_FIXES*.md
+*_CLEANUP*.md
+*_RESTORATION.md
+*_REVIEW*.md
+*_GAPS*.md
+DOCUMENTATION_PROJECT_COMPLETE.md
+PHASE_*.md
+cleanup.sh
+
+# Claude Code
+.claude/

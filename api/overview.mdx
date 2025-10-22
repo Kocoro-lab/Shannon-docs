@@ -1,0 +1,337 @@
+---
+title: "API Overview"
+description: "Introduction to Shannon's REST and gRPC APIs"
+---
+
+## Introduction
+
+Shannon provides comprehensive APIs for orchestrating AI agents, managing tasks, and monitoring execution. The platform offers both REST and gRPC interfaces to accommodate different integration needs.
+
+## API Endpoints
+
+Shannon exposes two primary APIs:
+
+<CardGroup cols={2}>
+  <Card title="REST API" icon="code" href="#rest-api">
+    HTTP/JSON interface for easy integration
+  </Card>
+  <Card title="gRPC API" icon="bolt" href="#grpc-api">
+    High-performance binary protocol for advanced use cases
+  </Card>
+</CardGroup>
+
+## REST API
+
+The REST API is the recommended interface for most applications. It provides:
+
+- **Base URL**: `http://localhost:8080/api/v1` (development)
+- **Protocol**: HTTP/1.1 and HTTP/2
+- **Format**: JSON
+- **Authentication**: API Key (optional, disabled by default)
+
+### Key Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/tasks` | POST | Submit a new task |
+| `/tasks` | GET | List tasks (filter by status/session) |
+| `/tasks/{id}` | GET | Get task status |
+| `/tasks/{id}/events` | GET | Get historical task events |
+| `/tasks/{id}/stream` | GET | Stream task events (SSE) |
+| `/stream/sse` | GET | Direct SSE via gateway proxy (`workflow_id` query) |
+| `/openapi.json` | GET | OpenAPI specification |
+| `/health` | GET | Health check |
+
+### Example Request
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Analyze the sentiment of this text"
+  }'
+```
+
+### Example Response
+
+```json
+{
+  "task_id": "task-dev-1730000000",
+  "status": "TASK_STATUS_RUNNING",
+  "message": "Task submitted",
+  "created_at": "2024-10-22T10:30:00Z"
+}
+
+Note: The `X-Workflow-ID` and `X-Session-ID` headers are included in the response for convenience.
+```
+
+## gRPC API
+
+The gRPC API provides high-performance communication for latency-sensitive applications:
+
+- **Orchestrator**: `localhost:50052`
+- **Agent Core**: `localhost:50051` (internal)
+- **Protocol**: gRPC (HTTP/2)
+- **Format**: Protocol Buffers
+
+### Key Services
+
+#### OrchestratorService
+
+```protobuf
+service OrchestratorService {
+  rpc SubmitTask(SubmitTaskRequest) returns (SubmitTaskResponse)
+  rpc GetTaskStatus(GetTaskStatusRequest) returns (GetTaskStatusResponse)
+  rpc CancelTask(CancelTaskRequest) returns (CancelTaskResponse)
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse)
+  rpc GetSessionContext(GetSessionContextRequest) returns (GetSessionContextResponse)
+}
+```
+
+### Example (Python)
+
+```python
+import grpc
+from shannon.generated import orchestrator_pb2, orchestrator_pb2_grpc
+
+channel = grpc.insecure_channel('localhost:50052')
+stub = orchestrator_pb2_grpc.OrchestratorServiceStub(channel)
+
+request = orchestrator_pb2.SubmitTaskRequest(
+    query="Analyze sentiment",
+    mode=orchestrator_pb2.SIMPLE
+)
+
+response = stub.SubmitTask(request)
+print(f"Task ID: {response.task_id}")
+```
+
+## Authentication
+
+<Note>
+Authentication is **disabled by default** for development (`GATEWAY_SKIP_AUTH=1`). Enable it in production.
+</Note>
+
+### API Key Authentication
+
+When enabled, include your API key in requests:
+
+**Header (Recommended)**:
+```bash
+curl -H "X-API-Key: sk_test_123456" \
+  http://localhost:8080/api/v1/tasks
+```
+
+**Bearer Token**:
+```bash
+curl -H "Authorization: Bearer sk_test_123456" \
+  http://localhost:8080/api/v1/tasks
+```
+
+### Creating API Keys
+
+```bash
+# Create a test API key
+make seed-api-key
+
+# Output: sk_test_123456
+```
+
+For production, generate keys via the dashboard or API.
+
+## Rate Limiting
+
+Shannon enforces rate limits per API key:
+
+- **Default**: 60 requests/minute
+- **Burst**: Up to 10 requests (per-minute window)
+- **Scope**: Per API key (development may skip auth)
+
+Rate limit headers are included in responses:
+
+```
+X-RateLimit-Limit: 60
+X-RateLimit-Remaining: 45
+X-RateLimit-Reset: 1730001234
+```
+
+When exceeded, you'll receive:
+
+```json
+{
+  "error": "Rate limit exceeded",
+  "message": "Too many requests. Please retry after the rate limit window resets."
+}
+```
+
+## Idempotency
+
+Prevent duplicate task execution with idempotency keys:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Idempotency-Key: unique-request-id-123" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Process this"}'
+```
+
+The same idempotency key within 24 hours returns the original response.
+
+## Error Handling
+
+Shannon uses standard HTTP status codes:
+
+| Code | Meaning | Common Causes |
+|------|---------|---------------|
+| 200 | Success | Request completed successfully |
+| 400 | Bad Request | Invalid parameters or malformed JSON |
+| 401 | Unauthorized | Missing or invalid API key |
+| 404 | Not Found | Task ID doesn't exist |
+| 429 | Too Many Requests | Rate limit exceeded |
+| 500 | Internal Server Error | Shannon encountered an error |
+| 503 | Service Unavailable | Shannon is temporarily down |
+
+### Error Response Format
+
+```json
+{
+  "error": "Budget exceeded",
+  "error_code": "BUDGET_EXCEEDED",
+  "details": {
+    "max_tokens": 5000,
+    "used_tokens": 5127
+  },
+  "request_id": "req-abc123"
+}
+```
+
+## Versioning
+
+Shannon uses URL-based versioning:
+
+- **Current**: `/api/v1`
+- **Future**: `/api/v2` (when available)
+
+Breaking changes will be introduced in new versions while maintaining backward compatibility for at least 6 months.
+
+## Best Practices
+
+### 1. Use Appropriate Timeouts
+
+Long-running tasks may take minutes to complete:
+
+```python
+import requests
+
+response = requests.post(
+    "http://localhost:8080/api/v1/tasks",
+    json={"query": "Complex analysis"},
+    timeout=300  # 5 minute timeout
+)
+```
+
+### 2. Implement Retry Logic
+
+Use exponential backoff for transient errors:
+
+```python
+from tenacity import retry, wait_exponential, stop_after_attempt
+
+@retry(
+    wait=wait_exponential(multiplier=1, min=2, max=60),
+    stop=stop_after_attempt(3)
+)
+def submit_task(query):
+    return requests.post(url, json={"query": query})
+```
+
+### 3. Stream Events for Long Tasks
+
+Use SSE streaming for real-time feedback:
+
+```python
+import requests
+
+response = requests.get(
+    f"http://localhost:8080/api/v1/tasks/{task_id}/stream",
+    stream=True
+)
+
+for line in response.iter_lines():
+    if line:
+        event = parse_sse_event(line)
+        print(f"Event: {event['type']}")
+```
+
+### 4. Set Budget Limits
+
+Always specify budget constraints:
+
+```json
+{
+  "query": "Analyze data",
+  "config": {
+    "budget": {
+      "max_cost_usd": 1.0,
+      "max_tokens": 10000
+    }
+  }
+}
+```
+
+### 5. Use Sessions for Context
+
+Maintain conversation context with session IDs:
+
+```json
+{
+  "query": "Follow-up question",
+  "session_id": "user-123-conversation"
+}
+```
+
+## SDKs
+
+We recommend using official SDKs for easier integration:
+
+<CardGroup cols={2}>
+  <Card title="Python SDK" icon="python" href="/sdk/python/quickstart">
+    Full-featured client with async support
+  </Card>
+  <Card title="Go SDK" icon="golang">
+    Coming soon
+  </Card>
+  <Card title="JavaScript SDK" icon="js">
+    Coming soon
+  </Card>
+  <Card title="REST Clients" icon="code">
+    Use any HTTP client library
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/api/authentication">
+    Set up API key authentication
+  </Card>
+  <Card title="Submit Task" icon="paper-plane" href="/api/endpoints/submit-task">
+    Learn about task submission
+  </Card>
+  <Card title="Stream Events" icon="stream" href="/api/endpoints/stream-task">
+    Real-time event streaming
+  </Card>
+  <Card title="Python SDK" icon="python" href="/sdk/python/quickstart">
+    Use the Python SDK
+  </Card>
+</CardGroup>
+
+## OpenAPI Specification
+
+Full OpenAPI 3.1 specification is available at:
+
+```
+http://localhost:8080/openapi.json
+```
+
+Import this into tools like Postman, Insomnia, or Swagger UI for interactive exploration.

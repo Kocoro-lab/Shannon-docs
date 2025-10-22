@@ -1,0 +1,337 @@
+---
+title: "Cost Control"
+description: "Managing token budgets and minimizing LLM costs in Shannon"
+---
+
+## Overview
+
+Shannon provides comprehensive cost control features to prevent unexpected LLM charges and optimize spending. With built-in budget enforcement and intelligent routing, you can achieve **85-95% cost savings** compared to naive implementations.
+
+## Setting Budgets
+
+### Token Limits
+
+Limit the maximum tokens consumed per task:
+
+```python
+client.submit_task(
+    query="Analyze market trends",
+    config={
+        "budget": {
+            "max_tokens": 5000  # Hard limit
+        }
+    }
+)
+```
+
+When the limit is reached, the task terminates immediately with a budget error.
+
+### Cost Limits
+
+Set maximum dollar amounts:
+
+```python
+config={
+    "budget": {
+        "max_cost_usd": 0.50  # $0.50 maximum
+    }
+}
+```
+
+<Warning>
+Tasks exceeding budget limits will fail with `BUDGET_EXCEEDED` error. Always set appropriate limits for your use case.
+</Warning>
+
+### Combined Limits
+
+Use both for fine-grained control:
+
+```python
+config={
+    "budget": {
+        "max_tokens": 10000,
+        "max_cost_usd": 1.00
+    }
+}
+```
+
+The task stops when **either** limit is reached.
+
+## Model Tiers
+
+Shannon categorizes models into tiers based on capability and cost:
+
+| Tier | Models | Cost per 1M tokens | Use Case |
+|------|--------|-------------------|----------|
+| **SMALL** | gpt-4o-mini<br/>claude-haiku | $0.15 - $0.25 | Simple queries, high volume |
+| **MEDIUM** | gpt-4o<br/>claude-sonnet | $3.00 - $15.00 | General purpose tasks |
+| **LARGE** | gpt-4<br/>claude-opus | $15.00 - $75.00 | Complex reasoning, critical tasks |
+
+### Explicit Tier Selection
+
+Force a specific tier:
+
+```python
+client.submit_task(
+    query="What is 2+2?",
+    config={"model_tier": "SMALL"}  # Use cheapest models
+)
+```
+
+<Tip>
+For production, use `# Mode auto-selected` with `model_tier="SMALL"` for 90%+ cost reduction on simple queries.
+</Tip>
+
+## Intelligent Router
+
+Shannon's learning router automatically selects the cheapest model capable of handling each task.
+
+### How It Works
+
+1. **Task Analysis**: Analyzes complexity, required capabilities
+2. **Model Selection**: Starts with smallest viable model
+3. **Quality Check**: Validates output quality
+4. **Learning**: Remembers successful model-task pairings
+
+### Cost Savings
+
+```python
+# Without intelligent routing
+Traditional: Always use GPT-4 → $0.50 per task
+
+# With Shannon's routing
+Shannon:
+  - 70% routed to gpt-4o-mini → $0.01
+  - 25% routed to gpt-4o → $0.15
+  - 5% routed to gpt-4 → $0.50
+Average: $0.05 per task (90% savings)
+```
+
+### Monitoring Router Decisions
+
+```python
+result = handle.wait()
+print(f"Model used: {result.metrics.token_usage.model}")
+print(f"Tier: {result.metrics.token_usage.tier}")
+print(f"Cost: ${result.metrics.token_usage.cost_usd}")
+```
+
+## Response Caching
+
+Shannon caches LLM responses to eliminate redundant API calls:
+
+### Cache Strategy
+
+- **Key**: SHA256 hash of `(messages + model + parameters)`
+- **TTL**: 3600 seconds (1 hour) by default
+- **Storage**: In-memory LRU + optional Redis for distributed caching
+- **Hit Rate**: Typical 30-50% for production workloads
+
+### Cache Benefits
+
+```bash
+# First call: Cache miss
+Task 1: "What is Python?" → $0.002 (LLM call)
+
+# Second call: Cache hit
+Task 2: "What is Python?" → $0.000 (cached)
+```
+
+### Monitoring Cache Performance
+
+```python
+result = handle.wait()
+if result.metrics.cache_hit:
+    print("Response served from cache (no LLM cost)")
+else:
+    print(f"Cache miss - cost: ${result.metrics.token_usage.cost_usd}")
+```
+
+## Provider Rate Limits
+
+Shannon respects provider rate limits automatically:
+
+### Configured Limits
+
+From `config/models.yaml`:
+
+```yaml
+providers:
+  openai:
+    rpm: 10000  # Requests per minute
+    tpm: 2000000  # Tokens per minute
+  anthropic:
+    rpm: 4000
+    tpm: 400000
+```
+
+### Automatic Throttling
+
+When approaching limits:
+1. Queues requests
+2. Spreads load over time
+3. Falls back to alternative providers if available
+
+## Cost Monitoring
+
+### Track Spending Per Task
+
+```python
+result = handle.wait()
+print(f"Total tokens: {result.metrics.token_usage.total_tokens}")
+print(f"Prompt tokens: {result.metrics.token_usage.prompt_tokens}")
+print(f"Completion tokens: {result.metrics.token_usage.completion_tokens}")
+print(f"Cost: ${result.metrics.token_usage.cost_usd:.4f}")
+```
+
+### Aggregate Metrics
+
+Shannon tracks cumulative costs in the dashboard:
+- Total spend by day/week/month
+- Cost per user/team
+- Cost per cognitive pattern
+- Token usage trends
+
+Visit http://localhost:2111 to view real-time cost analytics.
+
+## Best Practices
+
+### 1. Always Set Budgets
+
+Never run production tasks without budget limits:
+
+```python
+# ❌ Bad: No budget limits
+client.submit_task(query="...")
+
+# ✅ Good: Budget protection
+client.submit_task(
+    query="...",
+    # Budget configured via .env}
+)
+```
+
+### 2. Use Simple Mode When Possible
+
+Complex patterns cost more:
+
+```python
+# Simple query: Use simple mode
+client.submit_task(
+    query="What is the capital of France?",
+    # Mode auto-selected  # Single agent, minimal tokens
+)
+
+# Complex query: Use standard/complex mode
+client.submit_task(
+    query="Research and compare 5 database technologies",
+    # Mode auto-selected  # Task decomposition justified
+)
+```
+
+### 3. Leverage Caching
+
+For repeated queries, use consistent phrasing to maximize cache hits:
+
+```python
+# ❌ Bad: Different phrasing prevents cache hits
+client.submit_task(query="What's Python?")
+client.submit_task(query="Tell me about Python")
+client.submit_task(query="Explain Python")
+
+# ✅ Good: Consistent queries hit cache
+standard_query = "What is Python?"
+client.submit_task(query=standard_query)  # Cache miss
+client.submit_task(query=standard_query)  # Cache hit
+client.submit_task(query=standard_query)  # Cache hit
+```
+
+### 4. Monitor and Optimize
+
+Review cost metrics regularly:
+
+```python
+# Enable detailed logging
+import logging
+logging.basicConfig(level=logging.INFO)
+
+# Track costs
+total_cost = 0
+for task in tasks:
+    result = handle.wait()
+    cost = result.metrics.token_usage.cost_usd
+    total_cost += cost
+    print(f"Task: ${cost:.4f}, Running total: ${total_cost:.4f}")
+```
+
+### 5. Use Smaller Models First
+
+Let the intelligent router prove when larger models are needed:
+
+```python
+# Let Shannon choose
+client.submit_task(query="...")  # Auto-selects tier
+
+# Or start small
+client.submit_task(
+    query="...",
+    config={"model_tier": "SMALL"}
+)
+```
+
+## Cost Optimization Checklist
+
+<Accordion title="Optimization Checklist">
+  - [ ] Set `max_cost_usd` on all tasks
+  - [ ] Use `# Mode auto-selected` for straightforward queries
+  - [ ] Enable response caching (default: enabled)
+  - [ ] Use `model_tier="SMALL"` when appropriate
+  - [ ] Standardize query phrasing for cache hits
+  - [ ] Monitor cost metrics in dashboard
+  - [ ] Set up budget alerts (via Prometheus)
+  - [ ] Review and optimize prompt templates
+  - [ ] Use session context to reduce token usage
+  - [ ] Enable learning router (default: enabled)
+</Accordion>
+
+## Example: Cost-Optimized Workflow
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient()
+
+# High-volume, simple queries
+simple_tasks = [
+    "Classify sentiment: Great product!",
+    "Classify sentiment: Terrible experience",
+    "Classify sentiment: It's okay"
+]
+
+total_cost = 0
+for query in simple_tasks:
+    handle = client.submit_task(query=query)
+    status = client.wait(handle.task_id)
+    if status.metrics:
+        total_cost += status.metrics.cost_usd
+
+print(f"Total cost for 3 tasks: ${total_cost:.4f}")
+# Expected: ~$0.006 (90% savings vs GPT-4)
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Streaming Events" icon="stream" href="/quickstart/concepts/streaming">
+    Real-time task monitoring
+  </Card>
+  <Card title="Configuration" icon="gear" href="/quickstart/configuration">
+    Advanced cost settings
+  </Card>
+  <Card title="API Overview" icon="code" href="/api/overview">
+    Endpoints and usage
+  </Card>
+  <Card title="Monitoring" icon="chart-line" href="/quickstart/concepts/monitoring">
+    Cost monitoring UI
+  </Card>
+</CardGroup>

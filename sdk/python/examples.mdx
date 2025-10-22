@@ -1,0 +1,318 @@
+---
+title: "Code Examples"
+description: "Practical examples using the Shannon Python SDK"
+---
+
+<Note>
+This examples collection is growing. More use cases will be added regularly.
+</Note>
+
+## Basic Examples
+
+### Simple Question Answering
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(http_endpoint="http://localhost:8080")
+
+# Ask a simple question
+handle = client.submit_task(
+    query="What is the capital of France?",
+    # Mode auto-selected
+)
+
+result = client.get_status(handle.workflow_id)
+print(f"Answer: {result}")
+```
+
+### Data Analysis
+
+```python
+# Analyze CSV data
+handle = client.submit_task(
+    query="Analyze the sales trends in this CSV file",
+    # Mode auto-selected,
+    context={"file_path": "/data/sales_2024.csv"}
+)
+
+# Stream progress
+for event in client.stream(handle.workflow_id):
+    if event.type == "AGENT_THINKING":
+        print(f"Analyzing: {event.message}")
+    elif event.type == "TASK_COMPLETED":
+        print(f"Analysis: {event.data['result']}")
+        break
+```
+
+## Advanced Examples
+
+### Multi-Step Workflow
+
+```python
+from shannon import ShannonClient
+
+def complex_analysis():
+    client = ShannonClient()
+
+    # Create session for context
+    session = client.create_session(name="Quarterly Analysis")
+
+    # Step 1: Load data
+    load_handle = client.submit_task(
+        query="Load Q4 financial data from database",
+        session_id=session.id,
+        # Mode auto-selected
+    )
+    client.wait(load_handle.workflow_id)
+
+    # Step 2: Analyze trends (has context from step 1)
+    analyze_handle = client.submit_task(
+        query="Identify top 3 revenue trends",
+        session_id=session.id,
+        # Mode auto-selected
+    )
+    trends = client.get_status(analyze_handle.workflow_id)
+
+    # Step 3: Generate report
+    report_handle = client.submit_task(
+        query="Create executive summary with visualizations",
+        session_id=session.id,
+        # Mode auto-selected
+    )
+
+    return client.get_status(report_handle.workflow_id)
+```
+
+### Parallel Processing
+
+```python
+import asyncio
+from shannon import AsyncShannonClient
+
+async def parallel_research(topics):
+    async with AsyncShannonClient() as client:
+        # Submit all research tasks in parallel
+        tasks = [
+            client.submit_task(
+                query=f"Research latest developments in {topic}",
+                # Mode auto-selected
+            )
+            for topic in topics
+        ]
+
+        # Wait for all handles
+        handles = await asyncio.gather(*tasks)
+
+        # Collect all results
+        results = await asyncio.gather(*[
+            client.get_status(h.workflow_id)
+            for h in handles
+        ])
+
+        return dict(zip(topics, results))
+
+# Use it
+topics = ["AI", "Quantum Computing", "Biotechnology"]
+results = asyncio.run(parallel_research(topics))
+```
+
+### Custom Budget Management
+
+```python
+def budget_controlled_task():
+    client = ShannonClient()
+
+    # Set strict budget limits
+    config = {
+        "budget": {
+            "max_cost_usd": 0.50,
+            "max_input_tokens": 10000,
+            "max_output_tokens": 5000,
+            "max_iterations": 3
+        },
+        "model_preferences": {
+            "preferred_models": ["gpt-3.5-turbo"],
+            "temperature": 0.7
+        }
+    }
+
+    handle = client.submit_task(
+        query="Generate a product description",
+        # Mode auto-selected,
+        config=config
+    )
+
+    # Monitor cost
+    for event in client.stream(handle.workflow_id):
+        if event.type == "BUDGET_UPDATE":
+            print(f"Cost so far: ${event.data['cost_usd']:.3f}")
+        elif event.type == "TASK_COMPLETED":
+            break
+
+    result = client.get_status(handle.workflow_id)
+    return result
+```
+
+## Real-World Use Cases
+
+### Customer Support Bot
+
+```python
+class SupportBot:
+    def __init__(self):
+        self.client = ShannonClient()
+        self.session = None
+
+    def start_conversation(self, customer_id):
+        self.session = self.client.create_session(
+            name=f"Support-{customer_id}"
+        )
+
+    def handle_query(self, message):
+        handle = self.client.submit_task(
+            query=f"Help customer with: {message}",
+            session_id=self.session.id,
+            # Mode auto-selected,
+            config={
+                "context": {
+                    "role": "customer_support",
+                    "tone": "friendly and helpful"
+                }
+            }
+        )
+
+        return self.client.get_status(handle.workflow_id)
+
+    def end_conversation(self):
+        self.client.delete_session(self.session.id)
+
+# Usage
+bot = SupportBot()
+bot.start_conversation("cust_12345")
+response = bot.handle_query("How do I reset my password?")
+print(response)
+bot.end_conversation()
+```
+
+### Code Review Assistant
+
+```python
+def automated_code_review(file_path, language="python"):
+    client = ShannonClient()
+
+    with open(file_path, 'r') as f:
+        code = f.read()
+
+    handle = client.submit_task(
+        query=f"Review this {language} code for bugs, security issues, and improvements",
+        # Mode auto-selected,
+        context={"code": code}
+    )
+
+    # Track progress
+    for event in client.stream(handle.workflow_id):
+        if event.type == "AGENT_THINKING":
+            print(f"Reviewing: {event.message}")
+        elif event.type == "TOOL_INVOKED":
+            print(f"Using tool: {event.data['tool_name']}")
+
+    return client.get_status(handle.workflow_id)
+
+# Use it
+review = automated_code_review("app.py")
+print(review)
+```
+
+### Research Assistant
+
+```python
+class ResearchAssistant:
+    def __init__(self):
+        self.client = ShannonClient()
+
+    def research_topic(self, topic, depth="standard"):
+        """Research a topic with configurable depth"""
+        queries = {
+            "simple": f"Provide a brief overview of {topic}",
+            "standard": f"Research {topic} including key concepts, recent developments, and applications",
+            "advanced": f"Comprehensive research on {topic} with citations, comparisons, and critical analysis"
+        }
+
+        handle = self.client.submit_task(
+            query=queries[depth],
+            context={
+                "depth": depth,
+                "tools": ["web_search", "arxiv", "wikipedia"]
+            }
+        )
+
+        return self.client.get_status(handle.workflow_id)
+
+    def compare_topics(self, topics):
+        """Compare multiple topics"""
+        query = f"Compare and contrast: {', '.join(topics)}"
+
+        handle = self.client.submit_task(
+            query=query,
+            # Mode auto-selected
+        )
+
+        return self.client.get_status(handle.workflow_id)
+
+# Usage
+assistant = ResearchAssistant()
+overview = assistant.research_topic("Large Language Models", depth="standard")
+comparison = assistant.compare_topics(["GPT-4", "Claude", "Gemini"])
+```
+
+## Error Handling Examples
+
+```python
+from shannon import ShannonClient, ShannonError
+import time
+
+def robust_task_submission(query, max_retries=3):
+    client = ShannonClient()
+
+    for attempt in range(max_retries):
+        try:
+            # Submit task
+            handle = client.submit_task(query=query, # Mode auto-selected)
+
+            # Wait with timeout
+            result = client.wait(
+                handle.workflow_id,
+                timeout_seconds=300
+            )
+
+            return result
+
+        except ConnectionError:
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)  # Exponential backoff
+                continue
+            raise
+
+        except ShannonError as e:
+            print(f"Shannon error: {e}")
+            if e.error_code == "BUDGET_EXCEEDED":
+                # Try with lower budget
+                return client.submit_task(
+                    query=query,
+                    # Mode auto-selected,
+                    config={"budget": {"max_cost_usd": 0.10}}
+                )
+            raise
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Async Usage" icon="bolt" href="/sdk/python/async-usage">
+    Async/await patterns
+  </Card>
+  <Card title="Error Handling" icon="shield" href="/sdk/python/error-handling">
+    Handle errors properly
+  </Card>
+</CardGroup>

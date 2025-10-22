@@ -1,0 +1,940 @@
+---
+title: "Database Schema"
+description: "Complete PostgreSQL database schema reference for Shannon"
+---
+
+## Overview
+
+Shannon uses PostgreSQL with pgvector extension for persistent storage. The database is organized into two schemas:
+- **`public`**: Core application tables (tasks, sessions, users, events)
+- **`auth`**: Authentication and multi-tenancy tables
+
+**Total Tables**: 18 tables
+**Extensions**: uuid-ossp, pg_trgm, btree_gin, pgcrypto
+
+## Entity Relationship Diagram
+
+```
+┌─────────────────┐
+│  auth.tenants   │
+└────────┬────────┘
+         │
+         │ 1:N
+         ▼
+┌─────────────────┐        ┌──────────────────┐
+│   auth.users    │◄───────│  auth.api_keys   │
+└────────┬────────┘   N:1  └──────────────────┘
+         │
+         │ 1:N
+         ▼
+┌─────────────────┐        ┌──────────────────┐
+│   public.users  │◄───────│   sessions       │
+└────────┬────────┘   1:N  └──────────────────┘
+         │
+         │ 1:N
+         ▼
+┌──────────────────────────┐
+│   task_executions        │
+│  (workflow_id = PK)      │
+└──────────┬───────────────┘
+           │
+           │ 1:N
+           ▼
+┌──────────────────────────┐        ┌──────────────────┐
+│   agent_executions       │◄───────│  tool_executions │
+└──────────┬───────────────┘   1:N  └──────────────────┘
+           │
+           │ 1:N
+           ▼
+┌──────────────────────────┐
+│     tool_calls           │
+└──────────────────────────┘
+
+┌──────────────────────────┐        ┌──────────────────┐
+│   event_logs             │        │  token_usage     │
+│  (workflow_id)           │        └──────────────────┘
+└──────────────────────────┘
+
+┌──────────────────────────┐        ┌───────────────────┐
+│  usage_daily_aggregates  │        │  learning_cases   │
+└──────────────────────────┘        └───────────────────┘
+```
+
+## Schema: `auth` (Authentication & Multi-Tenancy)
+
+### auth.tenants
+
+**Purpose**: Multi-tenant organization management
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | UUID | PK, DEFAULT gen_random_uuid() | Tenant identifier |
+| name | VARCHAR(255) | NOT NULL | Organization name |
+| slug | VARCHAR(100) | UNIQUE, NOT NULL | URL-safe identifier |
+| plan | VARCHAR(50) | DEFAULT 'free' | Subscription plan (free, pro, enterprise) |
+| token_limit | INTEGER | DEFAULT 10000 | Monthly token allowance |
+| monthly_token_usage | INTEGER | DEFAULT 0 | Current month usage |
+| rate_limit_per_hour | INTEGER | DEFAULT 1000 | API rate limit |
+| is_active | BOOLEAN | DEFAULT true | Tenant status |
+| created_at | TIMESTAMP | DEFAULT NOW() | Creation time |
+| updated_at | TIMESTAMP | DEFAULT NOW() | Last update time |
+| metadata | JSONB | DEFAULT '{}' | Additional tenant data |
+
+**Indexes**:
+- None (small table, PK sufficient)
+
+**Example**:
+```sql
+-- Get all active tenants
+SELECT id, name, plan, token_limit
+FROM auth.tenants
+WHERE is_active = true;
+
+-- Check token usage
+SELECT name, monthly_token_usage, token_limit,
+       (monthly_token_usage::FLOAT / token_limit * 100) as usage_percentage
+FROM auth.tenants
+WHERE monthly_token_usage > token_limit * 0.8;
+```
+
+### auth.users
+
+**Purpose**: User authentication and profile management
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | UUID | PK, DEFAULT gen_random_uuid() | User identifier |
+| email | VARCHAR(255) | UNIQUE, NOT NULL | User email |
+| username | VARCHAR(100) | UNIQUE, NOT NULL | Username |
+| password_hash | VARCHAR(255) | NOT NULL | Bcrypt password hash |
+| full_name | VARCHAR(255) | | Full name |
+| tenant_id | UUID | FK → auth.tenants, NOT NULL | Organization |
+| role | VARCHAR(50) | DEFAULT 'user' | Role (user, admin, owner) |
+| is_active | BOOLEAN | DEFAULT true | Account status |
+| is_verified | BOOLEAN | DEFAULT false | Email verification |
+| email_verified_at | TIMESTAMP | | Verification timestamp |
+| created_at | TIMESTAMP | DEFAULT NOW() | Account creation |
+| updated_at | TIMESTAMP | DEFAULT NOW() | Last update |
+| last_login | TIMESTAMP | | Last login time |
+| metadata | JSONB | DEFAULT '{}' | Additional user data |
+
+**Indexes**:
+- `idx_users_tenant_id` ON (tenant_id)
+- `idx_users_email` ON (email)
+
+**Example**:
+```sql
+-- Get all users in a tenant
+SELECT u.email, u.username, u.role, u.last_login
+FROM auth.users u
+WHERE u.tenant_id = '...'
+  AND u.is_active = true
+ORDER BY u.last_login DESC NULLS LAST;
+
+-- Find inactive users
+SELECT email, created_at, last_login
+FROM auth.users
+WHERE last_login < NOW() - INTERVAL '90 days'
+   OR last_login IS NULL;
+```
+
+### auth.api_keys
+
+**Purpose**: API key management for programmatic access
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | UUID | PK, DEFAULT gen_random_uuid() | Key identifier |
+| key_hash | VARCHAR(255) | UNIQUE, NOT NULL | SHA256 hash of key |
+| key_prefix | VARCHAR(20) | NOT NULL | First 8 chars (for display) |
+| user_id | UUID | FK → auth.users | Key owner |
+| tenant_id | UUID | FK → auth.tenants, NOT NULL | Organization |
+| name | VARCHAR(100) | NOT NULL | Key name/description |
+| description | TEXT | | Detailed description |
+| scopes | TEXT[] | DEFAULT [...] | Permissions array |
+| rate_limit_per_hour | INTEGER | DEFAULT 1000 | Key-specific rate limit |
+| last_used | TIMESTAMP | | Last usage timestamp |
+| expires_at | TIMESTAMP | | Expiration time |
+| is_active | BOOLEAN | DEFAULT true | Key status |
+| created_at | TIMESTAMP | DEFAULT NOW() | Creation time |
+| metadata | JSONB | DEFAULT '{}' | Additional key data |
+
+**Indexes**:
+- `idx_api_keys_tenant_id` ON (tenant_id)
+- `idx_api_keys_key_prefix` ON (key_prefix)
+
+**Default Scopes**:
+- `workflows:read` - Read task/workflow data
+- `workflows:write` - Create/modify workflows
+- `agents:execute` - Execute agent tasks
+
+**Example**:
+```sql
+-- List active API keys
+SELECT key_prefix, name, last_used, expires_at
+FROM auth.api_keys
+WHERE is_active = true
+  AND (expires_at IS NULL OR expires_at > NOW())
+ORDER BY last_used DESC NULLS LAST;
+
+-- Find unused keys
+SELECT key_prefix, name, created_at, last_used
+FROM auth.api_keys
+WHERE last_used IS NULL
+  AND created_at < NOW() - INTERVAL '30 days';
+
+-- Check expiring keys
+SELECT key_prefix, name, expires_at
+FROM auth.api_keys
+WHERE expires_at BETWEEN NOW() AND NOW() + INTERVAL '7 days'
+  AND is_active = true;
+```
+
+### auth.refresh_tokens
+
+**Purpose**: JWT refresh token storage and revocation
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | UUID | PK, DEFAULT gen_random_uuid() | Token identifier |
+| token_hash | VARCHAR(255) | UNIQUE, NOT NULL | SHA256 hash |
+| user_id | UUID | FK → auth.users | Token owner |
+| tenant_id | UUID | FK → auth.tenants, NOT NULL | Organization |
+| expires_at | TIMESTAMP | NOT NULL | Expiration time |
+| revoked | BOOLEAN | DEFAULT false | Revocation status |
+| revoked_at | TIMESTAMP | | Revocation time |
+| ip_address | INET | | Client IP |
+| user_agent | TEXT | | Client user agent |
+| created_at | TIMESTAMP | DEFAULT NOW() | Creation time |
+
+**Indexes**:
+- `idx_refresh_tokens_user_id` ON (user_id)
+- `idx_refresh_tokens_token_hash` ON (token_hash)
+
+**Example**:
+```sql
+-- Revoke all tokens for a user
+UPDATE auth.refresh_tokens
+SET revoked = true, revoked_at = NOW()
+WHERE user_id = '...'
+  AND revoked = false;
+
+-- Clean up expired tokens
+DELETE FROM auth.refresh_tokens
+WHERE expires_at < NOW() - INTERVAL '7 days';
+```
+
+### auth.audit_logs
+
+**Purpose**: Security event audit trail
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | UUID | PK, DEFAULT gen_random_uuid() | Log entry ID |
+| event_type | VARCHAR(100) | NOT NULL | Event type |
+| user_id | UUID | FK → auth.users | User (nullable) |
+| tenant_id | UUID | FK → auth.tenants | Tenant (nullable) |
+| ip_address | INET | | Client IP |
+| user_agent | TEXT | | Client user agent |
+| details | JSONB | DEFAULT '{}' | Event details |
+| created_at | TIMESTAMP | DEFAULT NOW() | Event time |
+
+**Indexes**:
+- `idx_audit_logs_user_id` ON (user_id)
+- `idx_audit_logs_tenant_id` ON (tenant_id)
+- `idx_audit_logs_event_type` ON (event_type)
+- `idx_audit_logs_created_at` ON (created_at)
+
+**Event Types**:
+- `login`, `logout`, `login_failed`
+- `api_key_created`, `api_key_revoked`
+- `permission_changed`, `role_changed`
+- `password_changed`, `email_verified`
+
+**Example**:
+```sql
+-- Recent security events
+SELECT event_type, user_id, ip_address, created_at
+FROM auth.audit_logs
+WHERE created_at > NOW() - INTERVAL '24 hours'
+ORDER BY created_at DESC
+LIMIT 100;
+
+-- Failed login attempts
+SELECT user_id, ip_address, COUNT(*) as attempts
+FROM auth.audit_logs
+WHERE event_type = 'login_failed'
+  AND created_at > NOW() - INTERVAL '1 hour'
+GROUP BY user_id, ip_address
+HAVING COUNT(*) > 5;
+```
+
+## Schema: `public` (Core Application)
+
+### users
+
+**Purpose**: Application user profiles (legacy, linked to auth.users)
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | UUID | PK, DEFAULT uuid_generate_v4() | User identifier |
+| external_id | VARCHAR(255) | UNIQUE, NOT NULL | External system ID |
+| email | VARCHAR(255) | | Email address |
+| tenant_id | UUID | | Tenant reference |
+| metadata | JSONB | DEFAULT '{}' | User metadata |
+| created_at | TIMESTAMPTZ | DEFAULT NOW() | Creation time |
+| updated_at | TIMESTAMPTZ | DEFAULT NOW() | Last update |
+
+**Indexes**:
+- `idx_users_tenant_id` ON (tenant_id)
+- `idx_users_external_id` ON (external_id)
+
+**Note**: This table exists for backward compatibility. New code should use `auth.users`.
+
+### sessions
+
+**Purpose**: User session management and context
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | UUID | PK, DEFAULT uuid_generate_v4() | Session identifier |
+| user_id | UUID | FK → users | Session owner |
+| tenant_id | UUID | | Tenant reference |
+| context | JSONB | DEFAULT '{}' | Session context data |
+| token_budget | INTEGER | DEFAULT 10000 | Token allocation |
+| tokens_used | INTEGER | DEFAULT 0 | Tokens consumed |
+| created_at | TIMESTAMPTZ | DEFAULT NOW() | Session start |
+| updated_at | TIMESTAMPTZ | DEFAULT NOW() | Last activity |
+| expires_at | TIMESTAMPTZ | | Expiration time |
+
+**Indexes**:
+- `idx_sessions_user_id` ON (user_id)
+- `idx_sessions_tenant_id` ON (tenant_id)
+- `idx_sessions_expires_at` ON (expires_at)
+
+**Example**:
+```sql
+-- Active sessions
+SELECT id, user_id, tokens_used, token_budget, created_at
+FROM sessions
+WHERE expires_at > NOW()
+  OR expires_at IS NULL
+ORDER BY created_at DESC;
+
+-- Session token usage
+SELECT
+    COUNT(*) as session_count,
+    AVG(tokens_used) as avg_tokens,
+    SUM(tokens_used) as total_tokens
+FROM sessions
+WHERE created_at > NOW() - INTERVAL '24 hours';
+```
+
+### task_executions
+
+**Purpose**: Task/workflow execution history and metrics
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | UUID | PK, DEFAULT uuid_generate_v4() | Task identifier |
+| workflow_id | VARCHAR(255) | UNIQUE, NOT NULL | Temporal workflow ID |
+| user_id | UUID | FK → users | Task creator |
+| tenant_id | UUID | | Tenant reference |
+| session_id | VARCHAR(255) | | Session identifier |
+| query | TEXT | NOT NULL | Task query/prompt |
+| mode | VARCHAR(50) | | Execution mode (SIMPLE, STANDARD, COMPLEX) |
+| status | VARCHAR(50) | NOT NULL | Task status |
+| started_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Start time |
+| completed_at | TIMESTAMPTZ | | Completion time |
+| result | TEXT | | Final result |
+| response | JSONB | DEFAULT '{}' | Structured response |
+| error_message | TEXT | | Error details |
+| total_tokens | INTEGER | DEFAULT 0 | Total tokens used |
+| prompt_tokens | INTEGER | DEFAULT 0 | Input tokens |
+| completion_tokens | INTEGER | DEFAULT 0 | Output tokens |
+| total_cost_usd | DECIMAL(10,6) | DEFAULT 0 | Total cost |
+| duration_ms | INTEGER | | Execution time (ms) |
+| agents_used | INTEGER | DEFAULT 0 | Number of agents |
+| tools_invoked | INTEGER | DEFAULT 0 | Number of tool calls |
+| cache_hits | INTEGER | DEFAULT 0 | Cache hit count |
+| complexity_score | DECIMAL(3,2) | | Complexity (0.0-1.0) |
+| metadata | JSONB | | Additional metadata |
+| created_at | TIMESTAMPTZ | DEFAULT NOW() | Record creation |
+
+**Indexes**:
+- `idx_task_user_session` ON (user_id, session_id)
+- `idx_task_created_at` ON (created_at DESC)
+- `idx_task_status` ON (status)
+- `idx_task_workflow_id` ON (workflow_id)
+- `idx_task_executions_tenant_id` ON (tenant_id)
+- `idx_task_executions_response` GIN (response)
+
+**Status Values**:
+- `RUNNING` - Task executing
+- `COMPLETED` - Successfully completed
+- `FAILED` - Failed with error
+- `CANCELLED` - Cancelled by user
+
+**Example**:
+```sql
+-- Recent tasks for user
+SELECT workflow_id, query, status, duration_ms, total_cost_usd
+FROM task_executions
+WHERE user_id = '...'
+ORDER BY started_at DESC
+LIMIT 20;
+
+-- Failed tasks analysis
+SELECT
+    DATE(started_at) as date,
+    COUNT(*) as failed_count,
+    AVG(duration_ms) as avg_duration
+FROM task_executions
+WHERE status = 'FAILED'
+  AND started_at > NOW() - INTERVAL '7 days'
+GROUP BY DATE(started_at)
+ORDER BY date DESC;
+
+-- Cost analysis
+SELECT
+    user_id,
+    COUNT(*) as task_count,
+    SUM(total_cost_usd) as total_cost,
+    AVG(total_cost_usd) as avg_cost,
+    SUM(total_tokens) as total_tokens
+FROM task_executions
+WHERE started_at > NOW() - INTERVAL '30 days'
+GROUP BY user_id
+ORDER BY total_cost DESC;
+```
+
+### agent_executions
+
+**Purpose**: Individual agent execution details within tasks
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | UUID | PK, DEFAULT uuid_generate_v4() | Execution ID |
+| task_execution_id | UUID | FK → task_executions | Parent task |
+| agent_id | VARCHAR(255) | NOT NULL | Agent identifier |
+| execution_order | INTEGER | NOT NULL | Execution sequence |
+| input | TEXT | NOT NULL | Agent input |
+| output | TEXT | | Agent output |
+| mode | VARCHAR(50) | | Execution mode |
+| state | VARCHAR(50) | | FSM state |
+| tokens_used | INTEGER | DEFAULT 0 | Tokens consumed |
+| cost_usd | DECIMAL(10,6) | DEFAULT 0 | Execution cost |
+| model_used | VARCHAR(100) | | LLM model |
+| duration_ms | INTEGER | | Execution time |
+| memory_used_mb | INTEGER | | Memory usage |
+| created_at | TIMESTAMPTZ | DEFAULT NOW() | Start time |
+| completed_at | TIMESTAMPTZ | | Completion time |
+
+**Indexes**:
+- `idx_agent_task_execution` ON (task_execution_id)
+- `idx_agent_created_at` ON (created_at DESC)
+- `idx_agent_state` ON (state)
+
+**State Values**:
+- `IDLE` - Ready to execute
+- `ANALYZING` - Analyzing input
+- `PLANNING` - Creating execution plan
+- `RETRIEVING` - Retrieving context
+- `EXECUTING` - Running tools
+- `VALIDATING` - Validating output
+- `SYNTHESIZING` - Synthesizing results
+- `COMPLETED` - Successfully completed
+- `FAILED` - Failed with error
+
+**Example**:
+```sql
+-- Agent execution chain for a task
+SELECT agent_id, execution_order, state, duration_ms, tokens_used
+FROM agent_executions
+WHERE task_execution_id = '...'
+ORDER BY execution_order;
+
+-- Agent performance metrics
+SELECT
+    agent_id,
+    COUNT(*) as execution_count,
+    AVG(duration_ms) as avg_duration,
+    AVG(tokens_used) as avg_tokens,
+    SUM(cost_usd) as total_cost
+FROM agent_executions
+WHERE created_at > NOW() - INTERVAL '7 days'
+GROUP BY agent_id
+ORDER BY execution_count DESC;
+```
+
+### tool_executions
+
+**Purpose**: Tool invocation history and performance
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | UUID | PK, DEFAULT uuid_generate_v4() | Execution ID |
+| agent_execution_id | UUID | FK → agent_executions | Parent agent |
+| task_execution_id | UUID | FK → task_executions | Parent task |
+| tool_name | VARCHAR(255) | NOT NULL | Tool identifier |
+| tool_version | VARCHAR(50) | | Tool version |
+| category | VARCHAR(100) | | Tool category |
+| input_params | JSONB | | Input parameters |
+| output | JSONB | | Tool output |
+| success | BOOLEAN | DEFAULT true | Success status |
+| error_message | TEXT | | Error details |
+| duration_ms | INTEGER | | Execution time |
+| tokens_consumed | INTEGER | DEFAULT 0 | Tokens used |
+| sandboxed | BOOLEAN | DEFAULT true | WASI sandbox used |
+| memory_used_mb | INTEGER | | Memory usage |
+| executed_at | TIMESTAMPTZ | DEFAULT NOW() | Execution time |
+
+**Indexes**:
+- `idx_tool_name` ON (tool_name)
+- `idx_tool_executed_at` ON (executed_at DESC)
+- `idx_tool_task_execution` ON (task_execution_id)
+- `idx_tool_success` ON (success)
+
+**Tool Categories**:
+- `search` - Web search tools
+- `calculation` - Math/computation
+- `file` - File operations
+- `database` - Database queries
+- `api` - External API calls
+
+**Example**:
+```sql
+-- Tool usage statistics
+SELECT
+    tool_name,
+    COUNT(*) as invocation_count,
+    COUNT(CASE WHEN success THEN 1 END) as successful,
+    AVG(duration_ms) as avg_duration
+FROM tool_executions
+WHERE executed_at > NOW() - INTERVAL '7 days'
+GROUP BY tool_name
+ORDER BY invocation_count DESC;
+
+-- Failed tool executions
+SELECT tool_name, error_message, executed_at
+FROM tool_executions
+WHERE success = false
+  AND executed_at > NOW() - INTERVAL '24 hours'
+ORDER BY executed_at DESC;
+
+-- Tool performance
+SELECT
+    tool_name,
+    AVG(duration_ms) as avg_ms,
+    MAX(duration_ms) as max_ms,
+    STDDEV(duration_ms) as stddev_ms
+FROM tool_executions
+WHERE success = true
+GROUP BY tool_name
+ORDER BY avg_ms DESC;
+```
+
+### event_logs
+
+**Purpose**: Streaming event storage for audit and replay
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | UUID | PK, DEFAULT uuid_generate_v4() | Event ID |
+| workflow_id | VARCHAR(255) | NOT NULL | Workflow identifier |
+| task_id | UUID | | Task reference (nullable) |
+| type | VARCHAR(100) | NOT NULL | Event type |
+| agent_id | VARCHAR(255) | | Agent identifier |
+| message | TEXT | | Event message |
+| payload | JSONB | DEFAULT '{}' | Event payload |
+| timestamp | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Event time |
+| seq | BIGINT | | Sequence number |
+| stream_id | VARCHAR(64) | | Redis stream ID |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Record creation |
+
+**Indexes**:
+- `idx_event_logs_workflow_id` ON (workflow_id)
+- `idx_event_logs_task_id` ON (task_id)
+- `idx_event_logs_type` ON (type)
+- `idx_event_logs_ts` ON (timestamp DESC)
+- `idx_event_logs_seq` ON (workflow_id, seq)
+- `idx_event_logs_workflow_ts` ON (workflow_id, timestamp DESC)
+- `uq_event_logs_wf_type_seq` UNIQUE (workflow_id, type, seq) WHERE seq IS NOT NULL
+
+**Event Types**:
+- `TASK_STARTED`, `TASK_COMPLETED`, `TASK_FAILED`
+- `AGENT_ASSIGNED`, `AGENT_THINKING`, `AGENT_COMPLETED`
+- `TOOL_INVOKED`, `TOOL_RESULT`, `TOOL_ERROR`
+- `WORKFLOW_STARTED`, `WORKFLOW_COMPLETED`
+
+**Example**:
+```sql
+-- Get all events for a task
+SELECT type, agent_id, message, timestamp
+FROM event_logs
+WHERE workflow_id = '...'
+ORDER BY timestamp;
+
+-- Event frequency analysis
+SELECT
+    type,
+    COUNT(*) as event_count,
+    DATE_TRUNC('hour', timestamp) as hour
+FROM event_logs
+WHERE timestamp > NOW() - INTERVAL '24 hours'
+GROUP BY type, hour
+ORDER BY hour DESC, event_count DESC;
+```
+
+### token_usage
+
+**Purpose**: Detailed token usage tracking per task
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | UUID | PK, DEFAULT uuid_generate_v4() | Record ID |
+| user_id | UUID | FK → users | User |
+| task_id | UUID | FK → task_executions | Task |
+| provider | VARCHAR(50) | NOT NULL | LLM provider |
+| model | VARCHAR(255) | NOT NULL | Model name |
+| prompt_tokens | INTEGER | NOT NULL | Input tokens |
+| completion_tokens | INTEGER | NOT NULL | Output tokens |
+| total_tokens | INTEGER | NOT NULL | Total tokens |
+| cost_usd | DECIMAL(10,6) | NOT NULL | Cost in USD |
+| created_at | TIMESTAMPTZ | DEFAULT NOW() | Record time |
+
+**Indexes**:
+- `idx_token_usage_user_id` ON (user_id)
+- `idx_token_usage_task_id` ON (task_id)
+- `idx_token_usage_created_at` ON (created_at DESC)
+- `idx_token_usage_provider_model` ON (provider, model)
+
+**Example**:
+```sql
+-- Token usage by provider
+SELECT
+    provider,
+    model,
+    COUNT(*) as call_count,
+    SUM(total_tokens) as total_tokens,
+    SUM(cost_usd) as total_cost
+FROM token_usage
+WHERE created_at > NOW() - INTERVAL '30 days'
+GROUP BY provider, model
+ORDER BY total_cost DESC;
+
+-- Daily token trend
+SELECT
+    DATE(created_at) as date,
+    SUM(total_tokens) as tokens,
+    SUM(cost_usd) as cost
+FROM token_usage
+WHERE created_at > NOW() - INTERVAL '30 days'
+GROUP BY DATE(created_at)
+ORDER BY date;
+```
+
+### usage_daily_aggregates
+
+**Purpose**: Pre-computed daily usage statistics
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | UUID | PK, DEFAULT uuid_generate_v4() | Record ID |
+| user_id | UUID | FK → users | User |
+| date | DATE | NOT NULL | Aggregation date |
+| total_tasks | INTEGER | DEFAULT 0 | Total task count |
+| successful_tasks | INTEGER | DEFAULT 0 | Successful count |
+| failed_tasks | INTEGER | DEFAULT 0 | Failed count |
+| total_tokens | INTEGER | DEFAULT 0 | Total tokens |
+| total_cost_usd | DECIMAL(10,6) | DEFAULT 0 | Total cost |
+| model_usage | JSONB | | Model distribution |
+| tools_invoked | INTEGER | DEFAULT 0 | Tool invocation count |
+| tool_distribution | JSONB | | Tool usage distribution |
+| avg_duration_ms | INTEGER | | Average task duration |
+| cache_hit_rate | DECIMAL(3,2) | | Cache hit percentage |
+| created_at | TIMESTAMPTZ | DEFAULT NOW() | Record time |
+
+**Indexes**:
+- `idx_usage_daily_user_date` ON (user_id, date)
+- `idx_usage_daily_date` ON (date DESC)
+
+**Unique Constraint**: (user_id, date)
+
+**Example**:
+```sql
+-- User usage summary
+SELECT date, total_tasks, successful_tasks, total_cost_usd
+FROM usage_daily_aggregates
+WHERE user_id = '...'
+  AND date > CURRENT_DATE - INTERVAL '30 days'
+ORDER BY date DESC;
+
+-- Aggregate metrics
+SELECT
+    SUM(total_tasks) as total_tasks,
+    SUM(total_cost_usd) as total_cost,
+    AVG(cache_hit_rate) as avg_cache_rate
+FROM usage_daily_aggregates
+WHERE date > CURRENT_DATE - INTERVAL '7 days';
+```
+
+## Additional Tables
+
+### tool_calls
+
+**Purpose**: Legacy tool call tracking (use tool_executions instead)
+
+### prompts
+
+**Purpose**: Prompt versioning and A/B testing
+
+### learning_cases
+
+**Purpose**: Reinforcement learning case storage
+
+### session_archives
+
+**Purpose**: Long-term session snapshots from Redis
+
+### audit_logs (public)
+
+**Purpose**: Application audit trail (separate from auth.audit_logs)
+
+## Database Functions
+
+### update_updated_at_column()
+
+**Purpose**: Automatically update `updated_at` on row changes
+
+**Usage**: Attached as trigger to `users` and `sessions` tables
+
+```sql
+CREATE TRIGGER update_users_updated_at
+BEFORE UPDATE ON users
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+```
+
+### update_daily_aggregate(user_id, date)
+
+**Purpose**: Update or create daily usage aggregate for a user
+
+**Usage**: Called automatically via trigger on task completion
+
+```sql
+-- Manual call
+SELECT update_daily_aggregate(
+    '00000000-0000-0000-0000-000000000002',
+    '2025-10-22'
+);
+```
+
+### trigger_update_daily_aggregate()
+
+**Purpose**: Trigger function to update aggregates on task status changes
+
+**Usage**: Automatically fires on task_executions INSERT/UPDATE
+
+## Sample Queries
+
+### Task Analytics
+
+```sql
+-- Task success rate by mode
+SELECT
+    mode,
+    COUNT(*) as total,
+    COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) as completed,
+    ROUND(100.0 * COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) / COUNT(*), 2) as success_rate
+FROM task_executions
+WHERE started_at > NOW() - INTERVAL '7 days'
+GROUP BY mode;
+
+-- Average execution time by complexity
+SELECT
+    CASE
+        WHEN complexity_score < 0.3 THEN 'Low'
+        WHEN complexity_score < 0.7 THEN 'Medium'
+        ELSE 'High'
+    END as complexity,
+    COUNT(*) as task_count,
+    AVG(duration_ms) as avg_ms,
+    AVG(total_cost_usd) as avg_cost
+FROM task_executions
+WHERE complexity_score IS NOT NULL
+GROUP BY complexity;
+```
+
+### Cost Analysis
+
+```sql
+-- Top cost users
+SELECT
+    u.email,
+    COUNT(t.id) as task_count,
+    SUM(t.total_cost_usd) as total_cost,
+    AVG(t.total_cost_usd) as avg_cost
+FROM task_executions t
+JOIN users u ON t.user_id = u.id
+WHERE t.started_at > NOW() - INTERVAL '30 days'
+GROUP BY u.email
+ORDER BY total_cost DESC
+LIMIT 10;
+
+-- Cost breakdown by model
+SELECT
+    tu.provider,
+    tu.model,
+    COUNT(*) as usage_count,
+    SUM(tu.total_tokens) as total_tokens,
+    SUM(tu.cost_usd) as total_cost,
+    AVG(tu.cost_usd) as avg_cost_per_call
+FROM token_usage tu
+WHERE tu.created_at > NOW() - INTERVAL '7 days'
+GROUP BY tu.provider, tu.model
+ORDER BY total_cost DESC;
+```
+
+### Performance Monitoring
+
+```sql
+-- Slow queries (tasks > 60 seconds)
+SELECT
+    workflow_id,
+    query,
+    duration_ms,
+    agents_used,
+    tools_invoked
+FROM task_executions
+WHERE duration_ms > 60000
+  AND started_at > NOW() - INTERVAL '24 hours'
+ORDER BY duration_ms DESC;
+
+-- Tool execution success rate
+SELECT
+    tool_name,
+    COUNT(*) as total,
+    COUNT(CASE WHEN success THEN 1 END) as successful,
+    ROUND(100.0 * COUNT(CASE WHEN success THEN 1 END) / COUNT(*), 2) as success_rate,
+    AVG(duration_ms) as avg_duration
+FROM tool_executions
+GROUP BY tool_name
+ORDER BY total DESC;
+```
+
+## Best Practices
+
+### 1. Indexing
+
+**Always use indexes for**:
+- Foreign key columns
+- Timestamp columns (for time-range queries)
+- Status/enum columns (for filtering)
+- Frequently searched columns
+
+**Current index coverage**: Excellent (all foreign keys and common queries indexed)
+
+### 2. Partitioning
+
+For high-volume tables, consider partitioning:
+
+```sql
+-- Monthly partitioning for task_executions
+CREATE TABLE task_executions_2025_10 PARTITION OF task_executions
+    FOR VALUES FROM ('2025-10-01') TO ('2025-11-01');
+```
+
+### 3. Data Retention
+
+**Recommended policies**:
+- `event_logs`: 90 days (high volume)
+- `task_executions`: 1 year
+- `audit_logs`: 7 years (compliance)
+- `session_archives`: 90 days
+
+**Cleanup script**:
+```sql
+-- Delete old events (run monthly)
+DELETE FROM event_logs
+WHERE created_at < NOW() - INTERVAL '90 days';
+
+-- Archive old tasks (run annually)
+INSERT INTO task_executions_archive
+SELECT * FROM task_executions
+WHERE started_at < NOW() - INTERVAL '1 year';
+
+DELETE FROM task_executions
+WHERE started_at < NOW() - INTERVAL '1 year';
+```
+
+### 4. Query Optimization
+
+**Use EXPLAIN ANALYZE**:
+```sql
+EXPLAIN ANALYZE
+SELECT * FROM task_executions
+WHERE user_id = '...'
+  AND started_at > NOW() - INTERVAL '7 days';
+```
+
+**Optimize with covering indexes**:
+```sql
+CREATE INDEX idx_task_user_date_status
+ON task_executions(user_id, started_at, status)
+INCLUDE (total_cost_usd, duration_ms);
+```
+
+### 5. Connection Pooling
+
+**Configuration** (already configured in Shannon):
+```bash
+DB_MAX_OPEN_CONNS=50
+DB_MAX_IDLE_CONNS=10
+```
+
+## Maintenance
+
+### Vacuum and Analyze
+
+```sql
+-- Manual vacuum (run weekly)
+VACUUM ANALYZE task_executions;
+VACUUM ANALYZE event_logs;
+
+-- Configure autovacuum
+ALTER TABLE task_executions SET (autovacuum_vacuum_threshold = 1000);
+```
+
+### Statistics
+
+```sql
+-- Update statistics
+ANALYZE task_executions;
+
+-- Check table bloat
+SELECT
+    schemaname,
+    tablename,
+    pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size
+FROM pg_tables
+WHERE schemaname = 'public'
+ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
+```
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="Data Flow" icon="diagram-project" href="/architecture/data-flow">
+    Data flow architecture
+  </Card>
+  <Card title="Environment Variables" icon="gear" href="/deployment/environment-variables">
+    Database configuration
+  </Card>
+  <Card title="Performance Tuning" icon="gauge" href="/deployment/performance-tuning">
+    Query optimization
+  </Card>
+  <Card title="Monitoring" icon="chart-line" href="/deployment/monitoring">
+    Database monitoring
+  </Card>
+</CardGroup>

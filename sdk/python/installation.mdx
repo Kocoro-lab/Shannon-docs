@@ -1,0 +1,258 @@
+---
+title: "Python SDK Installation"
+description: "Install and configure the Shannon Python SDK"
+---
+
+## Installation
+
+### Via pip (Recommended)
+
+```bash
+pip install shannon-sdk
+```
+
+### From Source
+
+```bash
+git clone https://github.com/Kocoro-lab/Shannon.git
+cd Shannon/clients/python
+pip install -e .
+```
+
+### Requirements
+
+- Python 3.9 or higher
+- pip or poetry for package management
+
+## Verify Installation
+
+```python
+import shannon
+print(shannon.__version__)
+```
+
+## Basic Setup
+
+### Import the Client
+
+```python
+from shannon import ShannonClient
+
+# Create client instance (defaults: gRPC localhost:50052, SSE http://localhost:8081)
+client = ShannonClient()
+```
+
+### With Authentication
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(api_key="sk_test_123456")
+```
+
+### Using Environment Variables
+
+The SDK does not auto-read environment variables. Use your own config loader or pass values explicitly:
+
+```python
+import os
+from shannon import ShannonClient
+
+client = ShannonClient(
+    grpc_endpoint=os.getenv("SHANNON_GRPC_ENDPOINT", "localhost:50052"),
+    api_key=os.getenv("SHANNON_API_KEY")
+)
+```
+
+## Quick Example
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient()
+
+handle = client.submit_task(query="What is the capital of France?")
+final = client.wait(handle.task_id, timeout=60)
+print("Result:", final.result)
+```
+
+## Configuration Options
+
+### Client Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `grpc_endpoint` | str | `localhost:50052` | gRPC endpoint (submit/status/cancel) |
+| `http_endpoint` | str | `http://localhost:8081` | Orchestrator admin endpoint for SSE |
+| `api_key` | str | None | API key for authentication |
+| `timeout` | int | 300 | Default request timeout (seconds) |
+
+### Full Configuration
+
+```python
+client = ShannonClient(
+    http_endpoint="https://api.shannon.dev",
+    api_key="sk_live_123456",
+    timeout=600,
+    max_retries=5
+)
+```
+
+## Async Client
+
+For async applications, use `AsyncShannonClient`:
+
+```python
+from shannon import AsyncShannonClient
+import asyncio
+
+async def main():
+    async with AsyncShannonClient() as client:
+        handle = await client.submit_task(query="Analyze data")
+        status = await client.wait(handle.task_id)
+        print(status.result)
+
+asyncio.run(main())
+```
+
+## Dependencies
+
+The SDK automatically installs:
+
+- `grpcio` - gRPC support
+- `protobuf` - Protocol buffer serialization
+- `requests` - HTTP client
+- `pydantic` - Data validation
+
+### Optional Dependencies
+
+```bash
+# For async support
+pip install shannon-sdk[async]
+
+# For CLI tool
+pip install shannon-sdk[cli]
+
+# All extras
+pip install shannon-sdk[all]
+```
+
+## CLI Tool
+
+The package includes a simple CLI (`shannon`). Run `shannon --help` for usage.
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="ImportError: No module named 'shannon'">
+    **Solution**: Install the SDK
+
+    ```bash
+    pip install shannon-sdk
+    ```
+  </Accordion>
+
+  <Accordion title="Connection refused">
+    **Solution**: Verify Shannon is running
+
+    ```bash
+    curl http://localhost:8080/health
+    ```
+
+    If not running, start Shannon:
+
+    ```bash
+    cd Shannon
+    make dev
+    ```
+  </Accordion>
+
+  <Accordion title="Authentication error">
+    **Solution**: Check API key
+
+    ```python
+    client = ShannonClient(
+        http_endpoint="http://localhost:8080",
+        api_key="sk_test_123456"  # Add API key
+    )
+    ```
+  </Accordion>
+
+  <Accordion title="grpc module not found">
+    **Solution**: Install grpcio
+
+    ```bash
+    pip install grpcio grpcio-tools
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Environment Variables
+
+The SDK recognizes these environment variables:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `SHANNON_ENDPOINT` | HTTP endpoint | `http://localhost:8080` |
+| `SHANNON_GRPC_ENDPOINT` | gRPC endpoint | `localhost:50052` |
+| `SHANNON_API_KEY` | API key | `sk_test_123456` |
+| `SHANNON_TIMEOUT` | Default timeout | `300` |
+| `SHANNON_LOG_LEVEL` | Logging level | `INFO` |
+
+### .env File
+
+Create a `.env` file:
+
+```bash
+SHANNON_ENDPOINT=http://localhost:8080
+SHANNON_API_KEY=sk_test_123456
+SHANNON_TIMEOUT=600
+```
+
+Load with python-dotenv:
+
+```python
+from dotenv import load_dotenv
+from shannon import ShannonClient
+
+load_dotenv()
+
+# Client uses .env values
+client = ShannonClient()
+```
+
+## Logging
+
+Enable SDK logging:
+
+```python
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger('shannon')
+```
+
+Debug mode:
+
+```python
+import logging
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/sdk/python/quickstart">
+    Learn SDK basics with examples
+  </Card>
+  <Card title="Async Usage" icon="bolt" href="/sdk/python/async-usage">
+    Async/await patterns
+  </Card>
+  <Card title="Examples" icon="code" href="/sdk/python/examples">
+    Real-world code examples
+  </Card>
+</CardGroup>

@@ -1,0 +1,225 @@
+---
+title: "Installation"
+description: "Get Shannon running in under 10 minutes with Docker Compose"
+---
+
+## Prerequisites
+
+Before installing Shannon, ensure you have:
+
+- **Docker** (20.10+) and **Docker Compose** (v2.0+)
+- **Git** for cloning the repository
+- **LLM API Key** (OpenAI, Anthropic, or other supported provider)
+- At least **4GB RAM** available for Docker
+
+<Note>
+Shannon works on Linux, macOS, and Windows (with WSL2). All examples assume a Unix-like environment.
+</Note>
+
+## One-Command Setup
+
+Shannon provides a streamlined setup process that gets you running in minutes:
+
+```bash
+# Clone the repository
+git clone https://github.com/Kocoro-lab/Shannon.git
+cd Shannon
+
+# Initialize configuration and generate protocol buffers
+make setup
+
+# Add your LLM API key
+echo "OPENAI_API_KEY=sk-your-key-here" >> .env
+
+# Download Python WASI interpreter (required for sandboxed execution)
+./scripts/setup_python_wasi.sh
+
+# Start all services
+make dev
+```
+
+That's it! Shannon is now running with all required services.
+
+## What Gets Installed
+
+The `make dev` command starts the following services via Docker Compose:
+
+| Service | Port | Description |
+|---------|------|-------------|
+| **Gateway** | 8080 | REST API gateway |
+| **Orchestrator** | 50052 | gRPC orchestration service |
+| **Agent Core** | 50051 | Rust-based agent execution |
+| **LLM Service** | 8000 | Python LLM provider gateway |
+| **Dashboard** | 2111 | Real-time monitoring UI |
+| **PostgreSQL** | 5432 | Persistent storage |
+| **Redis** | 6379 | Caching and pub/sub |
+| **Qdrant** | 6333 | Vector database |
+| **Temporal** | 7233 | Workflow engine |
+| **Temporal UI** | 8088 | Workflow visualization |
+
+## Verify Installation
+
+Check that all services are running:
+
+```bash
+# View service status
+docker compose ps
+
+# All services should show "healthy" or "running"
+```
+
+Test the API:
+
+```bash
+# Submit a simple task
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What is 2+2?"
+  }'
+
+# You should receive a response with a task_id
+```
+
+## Access the Dashboard
+
+Open your browser and navigate to:
+
+- **Shannon Dashboard**: http://localhost:2111
+- **Temporal UI**: http://localhost:8088
+
+The dashboard provides real-time task monitoring, event streaming, and system metrics.
+
+## Configuration
+
+Shannon is pre-configured for local development, but you can customize it:
+
+### Environment Variables
+
+The `.env` file (created by `make setup`) contains key configuration:
+
+```bash
+# LLM Provider Keys
+OPENAI_API_KEY=sk-your-key-here
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+
+# Service Configuration
+GATEWAY_SKIP_AUTH=1  # Disable auth for development
+LOG_LEVEL=info
+
+# Database
+POSTGRES_USER=shannon
+POSTGRES_PASSWORD=shannon_dev
+POSTGRES_DB=shannon
+
+# Redis
+REDIS_URL=redis://redis:6379
+```
+
+<Warning>
+In production, set `GATEWAY_SKIP_AUTH=0` to enable API key authentication.
+</Warning>
+
+### Configuration Files
+
+Advanced configuration is available in the `config/` directory:
+
+- `shannon.yaml` - Main system configuration
+- `features.yaml` - Feature flags
+- `models.yaml` - LLM provider pricing and routing
+
+## Common Issues
+
+<AccordionGroup>
+  <Accordion title="Port conflicts">
+    If you see port binding errors, check that ports 8080, 50051, 50052, 8000, etc. are not in use:
+
+    ```bash
+    # macOS/Linux
+    lsof -i :8080
+
+    # Stop conflicting services or change ports in docker-compose.yml
+    ```
+  </Accordion>
+
+  <Accordion title="Docker memory issues">
+    Shannon requires at least 4GB RAM. Increase Docker's memory limit:
+
+    - **Docker Desktop**: Settings → Resources → Memory (set to 6GB+)
+    - **Linux**: Docker uses all available memory by default
+  </Accordion>
+
+  <Accordion title="Python WASI download fails">
+    If `setup_python_wasi.sh` fails, manually download:
+
+    ```bash
+    mkdir -p wasm-interpreters
+    cd wasm-interpreters
+    wget https://github.com/vmware-labs/webassembly-language-runtimes/releases/download/python%2F3.11.4%2B20230714-11be424/python-3.11.4.wasm
+    ```
+  </Accordion>
+
+  <Accordion title="Services won't start">
+    Check Docker logs for errors:
+
+    ```bash
+    docker compose logs orchestrator
+    docker compose logs agent-core
+    docker compose logs llm-service
+    ```
+
+    Common causes:
+    - Missing `.env` file (run `make setup`)
+    - Invalid API keys
+    - Insufficient Docker resources
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+Now that Shannon is running:
+
+<CardGroup cols={2}>
+  <Card
+    title="Submit Your First Task"
+    icon="rocket"
+    href="/quickstart/quickstart"
+  >
+    Learn how to interact with Shannon
+  </Card>
+  <Card
+    title="Core Concepts"
+    icon="book"
+    href="/quickstart/concepts/agents"
+  >
+    Understand agents and workflows
+  </Card>
+</CardGroup>
+
+## Development Setup
+
+Run core dependencies via Docker, then run services locally to iterate:
+
+```bash
+# Terminal 1: Start dependencies only (DB, cache, vector, Temporal)
+docker compose -f deploy/compose/docker-compose.yml up -d postgres redis qdrant temporal
+
+# Terminal 2: Run Orchestrator locally (gRPC 50052, admin 8081)
+cd go/orchestrator
+go run ./cmd/server
+
+# Terminal 3: Run Agent Core locally (gRPC 50051)
+cd ../../rust/agent-core
+cargo run
+
+# Terminal 4: Run LLM Service locally (HTTP 8000)
+cd ../../python/llm-service
+pip install -r requirements.txt
+python main.py
+
+# (Optional) Terminal 5: Run Gateway locally (REST 8080)
+cd ../../go/orchestrator/cmd/gateway
+go run .
+```
+
+See the [Architecture Overview](/quickstart/architecture-overview) for system architecture details.

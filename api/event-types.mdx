@@ -1,0 +1,1205 @@
+---
+title: "Event Types Catalog"
+description: "Complete reference for Shannon streaming event types"
+---
+
+## Overview
+
+Shannon emits **real-time events** via Server-Sent Events (SSE) to provide visibility into task execution. This document catalogs **all 35+ event types**, their structure, and when they occur.
+
+Events provide:
+- **Real-time progress** - Track task execution as it happens
+- **Debugging insights** - LLM prompts, tool invocations, agent reasoning
+- **Cost monitoring** - Track token usage and costs in real-time
+- **Multi-agent coordination** - Observe team formation and collaboration
+- **Error recovery** - Monitor error handling and recovery attempts
+
+## Event Structure
+
+All events follow this base structure:
+
+```json
+{
+  "workflow_id": "wf-550e8400-e29b-41d4-a716-446655440000",
+  "type": "AGENT_THINKING",
+  "agent_id": "agent-001",
+  "message": "Analyzing task complexity...",
+  "timestamp": "2024-10-27T10:00:00Z",
+  "seq": 42,
+  "stream_id": "stream-abc123",
+  "data": {
+    // Event-specific payload
+  }
+}
+```
+
+### Base Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `workflow_id` | string | Unique task/workflow identifier |
+| `type` | string | Event type (see catalog below) |
+| `agent_id` | string | Agent that emitted the event |
+| `message` | string | Human-readable event description |
+| `timestamp` | ISO 8601 | When the event occurred |
+| `seq` | integer | Sequence number for ordering |
+| `stream_id` | string | Stream identifier for reconnection |
+| `data` | object | Event-specific payload (optional) |
+
+---
+
+## Event Categories
+
+Events are organized into logical categories:
+
+1. **Workflow Events** - Task lifecycle
+2. **Agent Events** - Agent execution
+3. **Tool Events** - Tool invocations
+4. **Pattern Events** - Cognitive pattern execution
+5. **Team Events** - Multi-agent coordination
+6. **LLM Events** - Language model interactions
+7. **Progress Events** - Task progress and status
+8. **System Events** - Errors and system state
+
+---
+
+## Event Type Quick Reference
+
+Complete list of all event types by category:
+
+| Event Type | Category | Description |
+|------------|----------|-------------|
+| `WORKFLOW_STARTED` | Workflow | Task begins execution |
+| `WORKFLOW_COMPLETED` | Workflow | Task completes successfully |
+| `WORKFLOW_FAILED` | Workflow | Task fails with error |
+| `AGENT_STARTED` | Agent | Agent begins processing |
+| `AGENT_THINKING` | Agent | Agent reasoning/planning |
+| `AGENT_COMPLETED` | Agent | Agent finishes successfully |
+| `AGENT_FAILED` | Agent | Agent encounters error |
+| `TOOL_INVOKED` | Tool | Tool is called |
+| `TOOL_COMPLETED` | Tool | Tool execution finishes |
+| `TOOL_FAILED` | Tool | Tool execution fails |
+| `TOOL_OBSERVATION` | Tool | Agent observes tool result |
+| `PATTERN_SELECTED` | Pattern | Cognitive pattern chosen |
+| `TASK_DECOMPOSED` | Pattern | Task broken into subtasks |
+| `SUBTASK_STARTED` | Pattern | Individual subtask begins |
+| `SUBTASK_COMPLETED` | Pattern | Subtask finishes |
+| `TEAM_RECRUITED` | Team | Multi-agent team assembled |
+| `TEAM_RETIRED` | Team | Team disbanded |
+| `TEAM_STATUS` | Team | Team coordination update |
+| `DEPENDENCY_SATISFIED` | Team | Dependencies resolved |
+| `MESSAGE_SENT` | Message | Agent sends message |
+| `MESSAGE_RECEIVED` | Message | Agent receives message |
+| `LLM_PROMPT` | LLM | Prompt sent to LLM |
+| `LLM_PARTIAL` | LLM | Incremental LLM output |
+| `LLM_OUTPUT` | LLM | Final LLM output |
+| `PROGRESS` | Progress | General progress update |
+| `DATA_PROCESSING` | Progress | Processing/analyzing data |
+| `WAITING` | Progress | Waiting for resources |
+| `ERROR_OCCURRED` | System | System error |
+| `ERROR_RECOVERY` | System | Error recovery attempt |
+| `BUDGET_UPDATE` | System | Cost/token update |
+| `APPROVAL_REQUESTED` | System | Human approval needed |
+| `APPROVAL_DECISION` | System | Approval decision made |
+| `WORKSPACE_UPDATED` | System | Memory/context updated |
+| `ROLE_ASSIGNED` | System | Agent role assigned |
+| `DELEGATION` | System | Task delegated |
+
+**Total**: 35 event types
+
+---
+
+## Workflow Events
+
+Events related to the overall task workflow.
+
+### WORKFLOW_STARTED
+
+**Emitted**: When a task begins execution
+
+**Data**:
+```json
+{
+  "type": "WORKFLOW_STARTED",
+  "message": "Workflow started",
+  "data": {
+    "query": "Analyze Q4 sales data",
+    "mode": "STANDARD",
+    "session_id": "sess-123",
+    "estimated_complexity": 0.75
+  }
+}
+```
+
+**Fields**:
+- `query`: Original task query
+- `mode`: Execution mode (SIMPLE, STANDARD, COMPLEX)
+- `session_id`: Session identifier
+- `estimated_complexity`: Complexity score (0.0-1.0)
+
+---
+
+### WORKFLOW_COMPLETED
+
+**Emitted**: When a task completes successfully
+
+**Data**:
+```json
+{
+  "type": "WORKFLOW_COMPLETED",
+  "message": "Workflow completed successfully",
+  "data": {
+    "result": "Analysis complete. Key findings: ...",
+    "duration_ms": 45000,
+    "total_tokens": 5420,
+    "total_cost_usd": 0.0814,
+    "agents_used": 3,
+    "tools_invoked": 7
+  }
+}
+```
+
+**Fields**:
+- `result`: Final task result
+- `duration_ms`: Total execution time
+- `total_tokens`: Cumulative token usage
+- `total_cost_usd`: Total cost
+- `agents_used`: Number of agents invoked
+- `tools_invoked`: Number of tool calls
+
+---
+
+### WORKFLOW_FAILED
+
+**Emitted**: When a task fails
+
+**Data**:
+```json
+{
+  "type": "WORKFLOW_FAILED",
+  "message": "Workflow failed: Budget exceeded",
+  "data": {
+    "error": "BUDGET_EXCEEDED",
+    "error_message": "Task exceeded maximum cost of $0.50",
+    "duration_ms": 12000,
+    "tokens_used": 8000,
+    "cost_usd": 0.52
+  }
+}
+```
+
+**Common Error Types**:
+- `BUDGET_EXCEEDED` - Cost/token limit reached
+- `TIMEOUT` - Execution timeout
+- `TOOL_EXECUTION_FAILED` - Tool error
+- `LLM_ERROR` - LLM provider error
+- `INVALID_INPUT` - Malformed request
+
+---
+
+## Agent Events
+
+Events related to individual agent execution.
+
+### AGENT_STARTED
+
+**Emitted**: When an agent begins processing
+
+**Data**:
+```json
+{
+  "type": "AGENT_STARTED",
+  "agent_id": "data-analyst",
+  "message": "Agent started",
+  "data": {
+    "role": "data-analyst",
+    "subtask": "Analyze revenue trends",
+    "tools_available": ["csv_loader", "pandas", "matplotlib"]
+  }
+}
+```
+
+---
+
+### AGENT_THINKING
+
+**Emitted**: Agent is reasoning/processing (most frequent event)
+
+**Data**:
+```json
+{
+  "type": "AGENT_THINKING",
+  "agent_id": "data-analyst",
+  "message": "Analyzing data structure...",
+  "data": {
+    "thought": "I need to first load the CSV and examine column types",
+    "next_action": "invoke_tool",
+    "confidence": 0.85
+  }
+}
+```
+
+**Usage**: Display as progress indicator to user
+
+---
+
+### AGENT_COMPLETED
+
+**Emitted**: Agent finished its subtask
+
+**Data**:
+```json
+{
+  "type": "AGENT_COMPLETED",
+  "agent_id": "data-analyst",
+  "message": "Agent completed successfully",
+  "data": {
+    "result": "Revenue increased 15% YoY",
+    "tokens_used": 1200,
+    "cost_usd": 0.018,
+    "duration_ms": 8000
+  }
+}
+```
+
+---
+
+### AGENT_FAILED
+
+**Emitted**: Agent encountered an error
+
+**Data**:
+```json
+{
+  "type": "AGENT_FAILED",
+  "agent_id": "data-analyst",
+  "message": "Agent failed: Tool execution error",
+  "data": {
+    "error": "TOOL_EXECUTION_FAILED",
+    "error_message": "CSV file not found",
+    "recoverable": true
+  }
+}
+```
+
+---
+
+## Tool Events
+
+Events related to tool invocations.
+
+### TOOL_INVOKED
+
+**Emitted**: When a tool is called
+
+**Data**:
+```json
+{
+  "type": "TOOL_INVOKED",
+  "message": "Invoking tool: csv_loader",
+  "data": {
+    "tool_name": "csv_loader",
+    "tool_args": {
+      "file_path": "sales_q4.csv"
+    },
+    "timeout_seconds": 30
+  }
+}
+```
+
+---
+
+### TOOL_COMPLETED
+
+**Emitted**: Tool execution finished
+
+**Data**:
+```json
+{
+  "type": "TOOL_COMPLETED",
+  "message": "Tool completed: csv_loader",
+  "data": {
+    "tool_name": "csv_loader",
+    "result": {
+      "rows": 15000,
+      "columns": 12,
+      "sample": ["date", "product", "revenue", "..."]
+    },
+    "duration_ms": 450,
+    "cached": false
+  }
+}
+```
+
+---
+
+### TOOL_FAILED
+
+**Emitted**: Tool execution failed
+
+**Data**:
+```json
+{
+  "type": "TOOL_FAILED",
+  "message": "Tool failed: web_search",
+  "data": {
+    "tool_name": "web_search",
+    "error": "RATE_LIMIT_EXCEEDED",
+    "error_message": "Search API rate limit reached",
+    "retry_after_seconds": 60
+  }
+}
+```
+
+---
+
+## Pattern Events
+
+Events specific to cognitive pattern execution.
+
+### PATTERN_SELECTED
+
+**Emitted**: When a cognitive pattern is chosen
+
+**Data**:
+```json
+{
+  "type": "PATTERN_SELECTED",
+  "message": "Selected pattern: Tree-of-Thoughts",
+  "data": {
+    "pattern": "TREE_OF_THOUGHTS",
+    "reason": "Task requires exploration of multiple solution paths",
+    "complexity": 0.82,
+    "estimated_cost_usd": 0.45
+  }
+}
+```
+
+**Available Patterns**:
+- `CHAIN_OF_THOUGHT` - Sequential reasoning
+- `TREE_OF_THOUGHTS` - Branching exploration
+- `REACT` - Reasoning + Acting cycle
+- `DEBATE` - Multi-perspective analysis
+- `REFLECTION` - Self-improvement loop
+
+---
+
+### TASK_DECOMPOSED
+
+**Emitted**: Task broken into subtasks
+
+**Data**:
+```json
+{
+  "type": "TASK_DECOMPOSED",
+  "message": "Task decomposed into 4 subtasks",
+  "data": {
+    "strategy": "DAG",
+    "subtasks": [
+      {
+        "id": "subtask-1",
+        "description": "Load data",
+        "dependencies": []
+      },
+      {
+        "id": "subtask-2",
+        "description": "Calculate statistics",
+        "dependencies": ["subtask-1"]
+      },
+      {
+        "id": "subtask-3",
+        "description": "Create visualizations",
+        "dependencies": ["subtask-2"]
+      },
+      {
+        "id": "subtask-4",
+        "description": "Generate report",
+        "dependencies": ["subtask-2", "subtask-3"]
+      }
+    ]
+  }
+}
+```
+
+---
+
+### SUBTASK_STARTED
+
+**Emitted**: Individual subtask begins
+
+**Data**:
+```json
+{
+  "type": "SUBTASK_STARTED",
+  "message": "Starting subtask: Load data",
+  "data": {
+    "subtask_id": "subtask-1",
+    "description": "Load Q4 sales data",
+    "assigned_agent": "data-loader"
+  }
+}
+```
+
+---
+
+### SUBTASK_COMPLETED
+
+**Emitted**: Subtask finishes
+
+**Data**:
+```json
+{
+  "type": "SUBTASK_COMPLETED",
+  "message": "Subtask completed: Load data",
+  "data": {
+    "subtask_id": "subtask-1",
+    "result": "Loaded 15,000 records",
+    "duration_ms": 2000,
+    "tokens_used": 150
+  }
+}
+```
+
+---
+
+## Team Events
+
+Multi-agent team coordination and management.
+
+### TEAM_RECRUITED
+
+**Emitted**: When a team of agents is assembled for execution
+
+**Data**:
+```json
+{
+  "type": "TEAM_RECRUITED",
+  "message": "Team recruited: 3 agents",
+  "data": {
+    "team_size": 3,
+    "agents": [
+      {
+        "agent_id": "data-analyst",
+        "role": "analyst",
+        "capabilities": ["data_loading", "analysis"]
+      },
+      {
+        "agent_id": "visualizer",
+        "role": "visualization",
+        "capabilities": ["charts", "graphs"]
+      },
+      {
+        "agent_id": "writer",
+        "role": "report_generation",
+        "capabilities": ["summarization", "writing"]
+      }
+    ]
+  }
+}
+```
+
+---
+
+### TEAM_RETIRED
+
+**Emitted**: When a team is disbanded after task completion
+
+**Data**:
+```json
+{
+  "type": "TEAM_RETIRED",
+  "message": "Team retired after task completion",
+  "data": {
+    "team_size": 3,
+    "duration_ms": 45000,
+    "total_tokens": 8000,
+    "reason": "task_completed"
+  }
+}
+```
+
+---
+
+### TEAM_STATUS
+
+**Emitted**: Periodic updates on multi-agent team coordination
+
+**Data**:
+```json
+{
+  "type": "TEAM_STATUS",
+  "message": "Team progress update",
+  "data": {
+    "active_agents": 2,
+    "idle_agents": 1,
+    "tasks_completed": 5,
+    "tasks_remaining": 3,
+    "coordination_mode": "parallel"
+  }
+}
+```
+
+---
+
+### DEPENDENCY_SATISFIED
+
+**Emitted**: When task dependencies are resolved and execution can proceed
+
+**Data**:
+```json
+{
+  "type": "DEPENDENCY_SATISFIED",
+  "message": "Dependencies satisfied for subtask-3",
+  "data": {
+    "subtask_id": "subtask-3",
+    "satisfied_dependencies": ["subtask-1", "subtask-2"],
+    "can_proceed": true
+  }
+}
+```
+
+---
+
+## Message Events
+
+Agent-to-agent communication.
+
+### MESSAGE_SENT
+
+**Emitted**: Agent sends message to another agent
+
+**Data**:
+```json
+{
+  "type": "MESSAGE_SENT",
+  "agent_id": "supervisor",
+  "message": "Message sent to data-analyst",
+  "data": {
+    "to": "data-analyst",
+    "content": "Please analyze revenue trends",
+    "message_type": "DELEGATION"
+  }
+}
+```
+
+---
+
+### MESSAGE_RECEIVED
+
+**Emitted**: Agent receives message
+
+**Data**:
+```json
+{
+  "type": "MESSAGE_RECEIVED",
+  "agent_id": "data-analyst",
+  "message": "Message received from supervisor",
+  "data": {
+    "from": "supervisor",
+    "content": "Please analyze revenue trends",
+    "acknowledged": true
+  }
+}
+```
+
+---
+
+## LLM Events
+
+Language model interaction events for debugging and monitoring.
+
+### LLM_PROMPT
+
+**Emitted**: When a prompt is sent to the LLM (sanitized for privacy)
+
+**Data**:
+```json
+{
+  "type": "LLM_PROMPT",
+  "message": "Sending prompt to LLM",
+  "data": {
+    "model": "gpt-4",
+    "prompt_length": 1200,
+    "max_tokens": 2000,
+    "temperature": 0.7,
+    "sanitized_prompt": "Analyze the provided data..."
+  }
+}
+```
+
+---
+
+### LLM_PARTIAL
+
+**Emitted**: Incremental LLM output chunk during streaming
+
+**Data**:
+```json
+{
+  "type": "LLM_PARTIAL",
+  "message": "Received partial LLM output",
+  "data": {
+    "chunk": "Based on the analysis",
+    "chunk_index": 5,
+    "total_tokens_so_far": 50
+  }
+}
+```
+
+---
+
+### LLM_OUTPUT
+
+**Emitted**: Final LLM output for a step
+
+**Data**:
+```json
+{
+  "type": "LLM_OUTPUT",
+  "message": "LLM output complete",
+  "data": {
+    "output": "Analysis complete. Revenue increased 15% YoY...",
+    "model": "gpt-4",
+    "tokens_used": 350,
+    "cost_usd": 0.0105,
+    "duration_ms": 2000
+  }
+}
+```
+
+---
+
+### TOOL_OBSERVATION
+
+**Emitted**: Tool result observation by agent
+
+**Data**:
+```json
+{
+  "type": "TOOL_OBSERVATION",
+  "message": "Agent observed tool result",
+  "data": {
+    "tool_name": "web_search",
+    "observation": "Found 10 relevant results about AI trends",
+    "relevance_score": 0.85
+  }
+}
+```
+
+---
+
+## Progress Events
+
+Task progress and status updates for user feedback.
+
+### PROGRESS
+
+**Emitted**: General progress update during execution
+
+**Data**:
+```json
+{
+  "type": "PROGRESS",
+  "message": "Progress: 60% complete",
+  "data": {
+    "percentage": 60,
+    "current_step": 3,
+    "total_steps": 5,
+    "current_task": "Generating visualizations"
+  }
+}
+```
+
+---
+
+### DATA_PROCESSING
+
+**Emitted**: Agent is processing or analyzing data
+
+**Data**:
+```json
+{
+  "type": "DATA_PROCESSING",
+  "message": "Processing sales data",
+  "data": {
+    "operation": "data_analysis",
+    "records_processed": 15000,
+    "total_records": 15000,
+    "processing_stage": "aggregation"
+  }
+}
+```
+
+---
+
+### WAITING
+
+**Emitted**: Agent is waiting for resources or responses
+
+**Data**:
+```json
+{
+  "type": "WAITING",
+  "message": "Waiting for dependencies",
+  "data": {
+    "waiting_for": "subtask-2",
+    "wait_reason": "dependency_not_satisfied",
+    "estimated_wait_seconds": 10
+  }
+}
+```
+
+---
+
+## System Events
+
+System-level events and errors.
+
+### ERROR_OCCURRED
+
+**Emitted**: System error during execution
+
+**Data**:
+```json
+{
+  "type": "ERROR_OCCURRED",
+  "message": "Database connection failed",
+  "data": {
+    "error_type": "DATABASE_ERROR",
+    "error_message": "Connection timeout",
+    "recoverable": true,
+    "retry_count": 2,
+    "max_retries": 3
+  }
+}
+```
+
+---
+
+### BUDGET_UPDATE
+
+**Emitted**: Periodically during execution to track costs
+
+**Data**:
+```json
+{
+  "type": "BUDGET_UPDATE",
+  "message": "Budget status update",
+  "data": {
+    "tokens_used": 3200,
+    "tokens_limit": 10000,
+    "cost_usd": 0.048,
+    "cost_limit_usd": 0.50,
+    "percentage_used": 9.6
+  }
+}
+```
+
+---
+
+### ERROR_RECOVERY
+
+**Emitted**: System is recovering from an error
+
+**Data**:
+```json
+{
+  "type": "ERROR_RECOVERY",
+  "message": "Recovering from database connection error",
+  "data": {
+    "error_type": "DATABASE_ERROR",
+    "recovery_action": "retry_connection",
+    "attempt": 2,
+    "max_attempts": 3,
+    "success": true
+  }
+}
+```
+
+---
+
+### APPROVAL_REQUESTED
+
+**Emitted**: Human approval needed to proceed
+
+**Data**:
+```json
+{
+  "type": "APPROVAL_REQUESTED",
+  "message": "Approval requested for file system access",
+  "data": {
+    "approval_id": "appr-123",
+    "tool_name": "file_system",
+    "operation": "write",
+    "risk_level": "HIGH",
+    "timeout_seconds": 7200,
+    "details": {
+      "file_path": "/data/critical.db",
+      "action": "delete"
+    }
+  }
+}
+```
+
+---
+
+### APPROVAL_DECISION
+
+**Emitted**: Human has made an approval decision
+
+**Data**:
+```json
+{
+  "type": "APPROVAL_DECISION",
+  "message": "Approval granted",
+  "data": {
+    "approval_id": "appr-123",
+    "decision": "approved",
+    "approved_by": "user-456",
+    "timestamp": "2024-10-27T10:05:00Z",
+    "comments": "Verified action is necessary"
+  }
+}
+```
+
+**Decision Values**:
+- `approved` - Action allowed to proceed
+- `denied` - Action blocked
+- `timeout` - No decision within timeout period
+
+---
+
+### WORKSPACE_UPDATED
+
+**Emitted**: Working memory/context updated
+
+**Data**:
+```json
+{
+  "type": "WORKSPACE_UPDATED",
+  "message": "Workspace updated",
+  "data": {
+    "key": "loaded_datasets",
+    "value": ["sales_q4.csv"],
+    "action": "ADD"
+  }
+}
+```
+
+---
+
+### ROLE_ASSIGNED
+
+**Emitted**: Agent role assigned during execution
+
+**Data**:
+```json
+{
+  "type": "ROLE_ASSIGNED",
+  "agent_id": "agent-002",
+  "message": "Role assigned: data-analyst",
+  "data": {
+    "role": "data-analyst",
+    "capabilities": ["data_loading", "analysis", "visualization"],
+    "tools": ["csv_loader", "pandas", "matplotlib"]
+  }
+}
+```
+
+---
+
+### DELEGATION
+
+**Emitted**: Task delegated to another agent
+
+**Data**:
+```json
+{
+  "type": "DELEGATION",
+  "agent_id": "supervisor",
+  "message": "Delegated to data-analyst",
+  "data": {
+    "to_agent": "data-analyst",
+    "task": "Analyze revenue trends",
+    "priority": "HIGH"
+  }
+}
+```
+
+---
+
+## Event Ordering
+
+Events are **strictly ordered** by sequence number (`seq`):
+
+```json
+{"seq": 1, "type": "WORKFLOW_STARTED"}
+{"seq": 2, "type": "PATTERN_SELECTED"}
+{"seq": 3, "type": "TASK_DECOMPOSED"}
+{"seq": 4, "type": "SUBTASK_STARTED"}
+{"seq": 5, "type": "AGENT_STARTED"}
+{"seq": 6, "type": "AGENT_THINKING"}
+{"seq": 7, "type": "TOOL_INVOKED"}
+{"seq": 8, "type": "TOOL_COMPLETED"}
+// ...
+{"seq": 42, "type": "WORKFLOW_COMPLETED"}
+```
+
+**Properties**:
+- Sequence numbers are monotonically increasing
+- No gaps in sequence (every number from 1 to N)
+- Events from same workflow always ordered correctly
+
+---
+
+## Typical Event Flow
+
+### Simple Task (SIMPLE mode)
+
+```
+1. WORKFLOW_STARTED
+2. AGENT_STARTED
+3. AGENT_THINKING
+4. TOOL_INVOKED (if needed)
+5. TOOL_COMPLETED
+6. AGENT_COMPLETED
+7. WORKFLOW_COMPLETED
+```
+
+### Standard Task (STANDARD mode)
+
+```
+1. WORKFLOW_STARTED
+2. PATTERN_SELECTED
+3. TASK_DECOMPOSED
+4. SUBTASK_STARTED (subtask 1)
+5. AGENT_STARTED
+6. AGENT_THINKING
+7. TOOL_INVOKED
+8. TOOL_COMPLETED
+9. AGENT_COMPLETED
+10. SUBTASK_COMPLETED (subtask 1)
+11. SUBTASK_STARTED (subtask 2)
+12. ... (repeat for each subtask)
+N. WORKFLOW_COMPLETED
+```
+
+### Complex Task (COMPLEX mode)
+
+```
+1. WORKFLOW_STARTED
+2. PATTERN_SELECTED (Tree-of-Thoughts)
+3. TASK_DECOMPOSED
+4. TEAM_RECRUITED (multi-agent team)
+5. Multiple parallel SUBTASK_STARTED
+6. AGENT_THINKING (exploration phase)
+7. Multiple AGENT_STARTED (parallel agents)
+8. ROLE_ASSIGNED (agents get specialized roles)
+9. DATA_PROCESSING (agents working)
+10. WAITING (for dependencies)
+11. DEPENDENCY_SATISFIED (unblock execution)
+12. LLM_PROMPT / LLM_OUTPUT (LLM interactions)
+13. TOOL_INVOKED / TOOL_COMPLETED
+14. TOOL_OBSERVATION (agents process results)
+15. MESSAGE_SENT / MESSAGE_RECEIVED (agent coordination)
+16. DELEGATION (task hand-offs)
+17. TEAM_STATUS (progress updates)
+18. PROGRESS (overall progress)
+19. Subtasks complete in parallel
+20. TEAM_RETIRED (team disbanded)
+21. WORKFLOW_COMPLETED
+```
+
+---
+
+## Streaming Best Practices
+
+### Progress Indicators
+
+```python
+# Track progress
+total_subtasks = 0
+completed_subtasks = 0
+
+for event in client.stream_events(workflow_id):
+    if event.type == 'TASK_DECOMPOSED':
+        total_subtasks = event.data['subtasks']
+
+    elif event.type == 'SUBTASK_COMPLETED':
+        completed_subtasks += 1
+        progress = (completed_subtasks / total_subtasks) * 100
+        print(f"Progress: {progress:.1f}%")
+
+    elif event.type == 'WORKFLOW_COMPLETED':
+        print("Done!")
+        break
+```
+
+### Cost Monitoring
+
+```python
+# Monitor costs in real-time
+for event in client.stream_events(workflow_id):
+    if event.type == 'BUDGET_UPDATE':
+        cost = event.data['cost_usd']
+        limit = event.data['cost_limit_usd']
+
+        if cost > limit * 0.8:
+            print(f"Warning: 80% of budget used (${cost:.3f}/${limit:.2f})")
+
+    elif event.type == 'WORKFLOW_FAILED':
+        if event.data['error'] == 'BUDGET_EXCEEDED':
+            print("Task cancelled: Budget exceeded")
+```
+
+### Error Handling
+
+```python
+# Handle errors gracefully
+for event in client.stream_events(workflow_id):
+    if event.type == 'ERROR_OCCURRED':
+        error = event.data
+
+        if error['recoverable']:
+            print(f"Recoverable error: {error['error_message']}")
+            print(f"Retry {error['retry_count']}/{error['max_retries']}")
+        else:
+            print(f"Fatal error: {error['error_message']}")
+            break
+
+    elif event.type == 'WORKFLOW_FAILED':
+        print(f"Task failed: {event.data['error_message']}")
+        break
+```
+
+---
+
+## Filtering Events
+
+Filter events by type for specific use cases:
+
+```python
+# Only show user-facing events
+USER_EVENTS = {
+    'WORKFLOW_STARTED',
+    'WORKFLOW_COMPLETED',
+    'PATTERN_SELECTED',
+    'TASK_DECOMPOSED',
+    'TOOL_INVOKED',
+    'ERROR_OCCURRED',
+    'BUDGET_UPDATE'
+}
+
+for event in client.stream_events(workflow_id):
+    if event.type in USER_EVENTS:
+        print(f"[{event.type}] {event.message}")
+```
+
+```python
+# Debug mode: show everything
+for event in client.stream_events(workflow_id):
+    print(f"[{event.seq}] {event.type}: {event.message}")
+    if event.data:
+        print(f"  Data: {json.dumps(event.data, indent=2)}")
+```
+
+---
+
+## Event Persistence
+
+Events are stored in:
+- **PostgreSQL**: Permanent event log
+- **Redis**: Recent events (hot cache)
+- **Real-time**: SSE stream
+
+**Retrieving Historical Events**:
+```bash
+# Get all events for a task
+GET /api/v1/tasks/{task_id}/events?limit=1000
+```
+
+---
+
+## Event Reliability and Guarantees
+
+### Ordering Guarantees
+
+Shannon provides **strict ordering** within a single workflow:
+- Events are numbered sequentially (`seq` field)
+- No gaps in sequence numbers (1, 2, 3, ...)
+- Events from the same workflow always arrive in order
+- Events from different workflows may be interleaved
+
+### Delivery Guarantees
+
+- **At-least-once delivery**: Events may be delivered multiple times (use `seq` for deduplication)
+- **Event persistence**: All events stored in PostgreSQL `event_logs` table
+- **Hot cache**: Recent events cached in Redis for fast retrieval
+- **Historical access**: Query past events via REST API
+
+### Stream Reconnection
+
+If SSE connection drops:
+```python
+# Reconnect and resume from last sequence number
+last_seq = 42  # Last received event
+for event in client.stream_events(workflow_id, from_seq=last_seq + 1):
+    process_event(event)
+```
+
+### Event Retention
+
+| Storage | Retention Period | Purpose |
+|---------|-----------------|---------|
+| Redis | 1 hour | Real-time streaming |
+| PostgreSQL | 90 days (default) | Historical queries |
+| Archival | 1+ years (optional) | Long-term audit |
+
+See [Database Schema](/architecture/database-schema#event-logs-table) for event storage details.
+
+---
+
+## Complete Event Type Reference
+
+All 35 event types are production-ready and actively emitted by Shannon. The following events are emitted most frequently:
+
+**High Frequency** (multiple per task):
+- `AGENT_THINKING` - Agent reasoning steps
+- `LLM_PARTIAL` - Streaming LLM output
+- `DATA_PROCESSING` - Data processing updates
+- `PROGRESS` - Progress updates
+
+**Medium Frequency** (few per task):
+- `TOOL_INVOKED` / `TOOL_COMPLETED` - Tool calls
+- `AGENT_STARTED` / `AGENT_COMPLETED` - Agent lifecycle
+- `SUBTASK_STARTED` / `SUBTASK_COMPLETED` - Subtask execution
+
+**Low Frequency** (once per task):
+- `WORKFLOW_STARTED` / `WORKFLOW_COMPLETED` - Workflow lifecycle
+- `PATTERN_SELECTED` - Pattern selection
+- `TASK_DECOMPOSED` - Task decomposition
+- `TEAM_RECRUITED` / `TEAM_RETIRED` - Team management
+
+**Rare** (only when needed):
+- `ERROR_OCCURRED` / `ERROR_RECOVERY` - Error handling
+- `APPROVAL_REQUESTED` / `APPROVAL_DECISION` - Human approval
+- `WORKFLOW_FAILED` / `AGENT_FAILED` / `TOOL_FAILED` - Failures
+
+---
+
+## Related Topics
+
+<CardGroup cols={2}>
+  <Card title="Stream Task Events" icon="stream" href="/api/endpoints/stream-task">
+    Streaming API endpoint
+  </Card>
+  <Card title="Python SDK Streaming" icon="python" href="/sdk/python/streaming">
+    SDK streaming guide
+  </Card>
+  <Card title="List Tasks" icon="list" href="/api/endpoints/list-tasks">
+    View task history
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/quickstart/troubleshooting">
+    Debug streaming issues
+  </Card>
+</CardGroup>

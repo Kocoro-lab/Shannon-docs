@@ -1,0 +1,276 @@
+---
+title: "Quick Start"
+description: "Submit your first task to Shannon in 5 minutes"
+---
+
+## Your First Task
+
+Let's submit a simple task to Shannon and see it in action. This guide assumes you've completed the [installation](/quickstart/installation).
+
+## Using the REST API
+
+The simplest way to interact with Shannon is through its REST API:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Analyze the sentiment of: Shannon makes AI agents simple and reliable!"
+  }'
+```
+
+You'll receive a response like:
+
+```json
+{
+  "task_id": "task-dev-1730000000",
+  "status": "TASK_STATUS_RUNNING",
+  "message": "Task submitted",
+  "created_at": "2024-10-22T10:30:00Z"
+}
+```
+
+## Check Task Status
+
+Use the `task_id` to check the status:
+
+```bash
+curl http://localhost:8080/api/v1/tasks/task-dev-1730000000
+```
+
+Response:
+
+```json
+{
+  "task_id": "task-dev-1730000000",
+  "status": "TASK_STATUS_COMPLETED",
+  "response": { "result": "The sentiment is overwhelmingly positive..." },
+  "error": "",
+  "query": "Analyze the sentiment of: Shannon makes AI agents simple and reliable!",
+  "session_id": "...",
+  "mode": "EXECUTION_MODE_STANDARD",
+  "created_at": "2024-10-22T10:30:00Z",
+  "updated_at": "2024-10-22T10:30:25Z"
+}
+```
+
+## Stream Events in Real-Time
+
+Shannon supports Server-Sent Events (SSE) for real-time updates:
+
+```bash
+curl -N http://localhost:8080/api/v1/tasks/task-dev-1730000000/stream
+```
+
+You'll see events as they happen:
+
+```
+event: AGENT_THINKING
+data: {"message":"Analyzing sentiment..."}
+
+event: TASK_COMPLETED
+data: {"result":"The sentiment is positive..."}
+```
+
+## Using the Python SDK
+
+For a better developer experience, use the Python SDK:
+
+### Installation
+
+```bash
+pip install shannon-sdk
+```
+
+### Submit and Monitor Tasks
+
+```python
+from shannon import ShannonClient
+
+# gRPC for submission; SSE uses admin 8081 by default
+client = ShannonClient()
+
+handle = client.submit_task(
+    query="Analyze the sentiment of: Shannon makes AI agents simple!"
+)
+print("Task submitted:", handle.task_id)
+
+# Wait for completion
+final = client.wait(handle.task_id, timeout=60)
+print("Result:", final.result)
+```
+
+### Stream Events
+
+```python
+# Stream events in real-time
+for event in client.stream(handle.workflow_id):
+    print(f"{event.type}: {event.message}")
+```
+
+## Execution Modes
+
+Shannon auto-selects execution modes internally based on task complexity. The REST API does not accept a `mode` parameter at this time.
+
+## Cost Control
+
+Budget controls are managed by Shannon. Explicit per‑request budget settings are not yet available via REST.
+
+## Multi-Turn Conversations
+
+Shannon supports session-based conversations:
+
+```python
+session_id = "my-conversation-123"
+
+# First message
+handle1 = client.submit_task(
+    query="What is the capital of France?",
+    session_id=session_id
+)
+
+# Follow-up message (Shannon remembers context)
+handle2 = client.submit_task(
+    query="What's the population?",
+    session_id=session_id
+)
+
+# Shannon knows you're asking about Paris's population
+```
+
+## Using the Dashboard
+
+Open http://localhost:2111 to access the interactive dashboard:
+
+<Steps>
+  <Step title="Submit Tasks">
+    Use the task submission form to create tasks with custom configurations
+  </Step>
+  <Step title="Monitor Execution">
+    Watch real-time event streams showing agent thinking, tool invocations, and progress
+  </Step>
+  <Step title="View Metrics">
+    Track token usage, costs, latency, and success rates across all tasks
+  </Step>
+  <Step title="Debug Workflows">
+    Click on tasks to view detailed execution traces and Temporal workflow history
+  </Step>
+</Steps>
+
+## Example Use Cases
+
+<Note>
+Shannon automatically selects the appropriate execution mode and cognitive strategy based on query complexity. You don't need to specify these parameters.
+</Note>
+
+### Sentiment Analysis
+
+```python
+client.submit_task(
+    query="Analyze sentiment: The product exceeded my expectations!"
+)
+```
+
+### Research & Summarization
+
+```python
+client.submit_task(
+    query="Research quantum computing breakthroughs in 2024 and create a summary"
+)
+```
+
+### Code Generation
+
+```python
+client.submit_task(
+    query="Write a Python function to calculate Fibonacci numbers with memoization"
+)
+```
+
+### Complex Analysis with Context
+
+```python
+client.submit_task(
+    query="Compare the pros and cons of microservices vs monolithic architecture",
+    context={
+        "domain": "software_architecture",
+        "depth": "comprehensive",
+        "include_examples": True
+    }
+)
+```
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card
+    title="Core Concepts"
+    icon="book"
+    href="/quickstart/concepts/agents"
+  >
+    Learn about agents, workflows, and cognitive patterns
+  </Card>
+  <Card
+    title="API Reference"
+    icon="code"
+    href="/api/overview"
+  >
+    Explore all API endpoints and parameters
+  </Card>
+  <Card
+    title="Python SDK Guide"
+    icon="python"
+    href="/sdk/python/quickstart"
+  >
+    Deep dive into SDK features and async usage
+  </Card>
+  <Card
+    title="Configuration"
+    icon="gear"
+    href="/quickstart/configuration"
+  >
+    Customize Shannon for your needs
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Task stays in 'running' state">
+    Check the logs for errors:
+
+    ```bash
+    docker compose logs orchestrator
+    docker compose logs agent-core
+    ```
+
+    Common causes:
+    - Invalid LLM API key
+    - LLM provider rate limiting
+    - Network connectivity issues
+  </Accordion>
+
+  <Accordion title="Authentication errors">
+    Shannon runs with authentication disabled by default (`GATEWAY_SKIP_AUTH=1`). If you've enabled auth, include an API key:
+
+    ```bash
+    curl -H "X-API-Key: sk_test_123456" \
+      http://localhost:8080/api/v1/tasks
+    ```
+  </Accordion>
+
+  <Accordion title="High costs / token usage">
+    Budget limits are configured at the platform level via environment variables:
+
+    ```bash
+    # In .env file
+    MAX_TOKENS_PER_REQUEST=10000
+    MAX_COST_PER_REQUEST=0.50
+
+    # Restart services for changes to take effect
+    docker compose restart
+    ```
+
+    For per-task monitoring, check costs via the status endpoint or streaming events.
+  </Accordion>
+</AccordionGroup>

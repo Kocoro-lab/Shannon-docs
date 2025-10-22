@@ -1,0 +1,620 @@
+---
+title: "GET /api/v1/tasks"
+description: "List and filter tasks"
+---
+
+## Endpoint
+
+```
+GET http://localhost:8080/api/v1/tasks
+```
+
+## Description
+
+Retrieves a paginated list of tasks with optional filtering by status and session.
+
+## Authentication
+
+**Required**: Yes
+
+Include API key in header:
+```
+X-API-Key: sk_test_123456
+```
+
+## Request
+
+### Headers
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| `X-API-Key` | Yes | Authentication key |
+
+### Query Parameters
+
+| Parameter | Type | Required | Description | Default |
+|-----------|------|----------|-------------|---------|
+| `limit` | integer | No | Number of tasks to return (1-100) | `20` |
+| `offset` | integer | No | Number of tasks to skip | `0` |
+| `session_id` | string | No | Filter by session ID | - |
+| `status` | string | No | Filter by task status | - |
+
+### Status Filter Values
+
+- `QUEUED` - Tasks waiting to execute
+- `RUNNING` - Tasks currently executing
+- `COMPLETED` - Successfully completed tasks
+- `FAILED` - Failed tasks
+- `CANCELLED` or `CANCELED` - Cancelled tasks
+- `TIMEOUT` - Tasks that exceeded timeout
+
+## Response
+
+### Success Response
+
+**Status**: `200 OK`
+
+**Body**:
+```json
+{
+  "tasks": [
+    {
+      "task_id": "string",
+      "query": "string",
+      "status": "string",
+      "mode": "string",
+      "created_at": "timestamp",
+      "completed_at": "timestamp",
+      "total_token_usage": {
+        "total_tokens": 0,
+        "cost_usd": 0.0,
+        "prompt_tokens": 0,
+        "completion_tokens": 0
+      }
+    }
+  ],
+  "total_count": 0
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `tasks` | array | Array of task summaries |
+| `total_count` | integer | Total number of tasks matching filters |
+
+### Task Summary Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `task_id` | string | Unique task identifier |
+| `query` | string | Original task query |
+| `status` | string | Current task status |
+| `mode` | string | Execution mode (`EXECUTION_MODE_SIMPLE`, `EXECUTION_MODE_STANDARD`, `EXECUTION_MODE_COMPLEX`) |
+| `created_at` | timestamp | Task creation time (ISO 8601) |
+| `completed_at` | timestamp | Task completion time (null if not completed) |
+| `total_token_usage` | object | Token usage and cost metrics |
+
+### Token Usage Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `total_tokens` | integer | Total tokens consumed |
+| `cost_usd` | float | Total cost in USD |
+| `prompt_tokens` | integer | Tokens in prompts |
+| `completion_tokens` | integer | Tokens in completions |
+
+## Examples
+
+### List All Tasks
+
+```bash
+curl -X GET "http://localhost:8080/api/v1/tasks" \
+  -H "X-API-Key: sk_test_123456"
+```
+
+**Response**:
+```json
+{
+  "tasks": [
+    {
+      "task_id": "task_01HQZX3Y9K8M2P4N5S7T9W2V",
+      "query": "What is the capital of France?",
+      "status": "TASK_STATUS_COMPLETED",
+      "mode": "EXECUTION_MODE_SIMPLE",
+      "created_at": "2025-10-22T10:30:00Z",
+      "completed_at": "2025-10-22T10:30:05Z",
+      "total_token_usage": {
+        "total_tokens": 150,
+        "cost_usd": 0.0023,
+        "prompt_tokens": 45,
+        "completion_tokens": 105
+      }
+    },
+    {
+      "task_id": "task_01HQZX4Y9K8M2P4N5S7T9W2W",
+      "query": "Analyze sales trends for Q4",
+      "status": "TASK_STATUS_RUNNING",
+      "mode": "EXECUTION_MODE_STANDARD",
+      "created_at": "2025-10-22T10:31:00Z",
+      "completed_at": null,
+      "total_token_usage": null
+    }
+  ],
+  "total_count": 2
+}
+```
+
+### Filter by Status
+
+```bash
+# Get only running tasks
+curl -X GET "http://localhost:8080/api/v1/tasks?status=RUNNING" \
+  -H "X-API-Key: sk_test_123456"
+```
+
+```bash
+# Get completed tasks
+curl -X GET "http://localhost:8080/api/v1/tasks?status=COMPLETED" \
+  -H "X-API-Key: sk_test_123456"
+```
+
+```bash
+# Get failed tasks
+curl -X GET "http://localhost:8080/api/v1/tasks?status=FAILED" \
+  -H "X-API-Key: sk_test_123456"
+```
+
+### Filter by Session
+
+```bash
+curl -X GET "http://localhost:8080/api/v1/tasks?session_id=user-123-chat" \
+  -H "X-API-Key: sk_test_123456"
+```
+
+**Response**:
+```json
+{
+  "tasks": [
+    {
+      "task_id": "task_abc123",
+      "query": "What is Python?",
+      "status": "TASK_STATUS_COMPLETED",
+      "created_at": "2025-10-22T10:00:00Z",
+      "completed_at": "2025-10-22T10:00:03Z"
+    },
+    {
+      "task_id": "task_def456",
+      "query": "What are its main advantages?",
+      "status": "TASK_STATUS_COMPLETED",
+      "created_at": "2025-10-22T10:01:00Z",
+      "completed_at": "2025-10-22T10:01:04Z"
+    }
+  ],
+  "total_count": 2
+}
+```
+
+### Pagination
+
+```bash
+# First page (20 tasks)
+curl -X GET "http://localhost:8080/api/v1/tasks?limit=20&offset=0" \
+  -H "X-API-Key: sk_test_123456"
+
+# Second page
+curl -X GET "http://localhost:8080/api/v1/tasks?limit=20&offset=20" \
+  -H "X-API-Key: sk_test_123456"
+
+# Third page
+curl -X GET "http://localhost:8080/api/v1/tasks?limit=20&offset=40" \
+  -H "X-API-Key: sk_test_123456"
+```
+
+### Combined Filters
+
+```bash
+# Get completed tasks in a session, paginated
+curl -X GET "http://localhost:8080/api/v1/tasks?session_id=user-123&status=COMPLETED&limit=10&offset=0" \
+  -H "X-API-Key: sk_test_123456"
+```
+
+## Error Responses
+
+### 401 Unauthorized
+
+```json
+{
+  "error": "Unauthorized"
+}
+```
+
+### 429 Too Many Requests
+
+```json
+{
+  "error": "Rate limit exceeded"
+}
+```
+
+### 500 Internal Server Error
+
+```json
+{
+  "error": "Failed to list tasks: database error"
+}
+```
+
+## Code Examples
+
+### Python with httpx
+
+```python
+import httpx
+
+response = httpx.get(
+    "http://localhost:8080/api/v1/tasks",
+    headers={"X-API-Key": "sk_test_123456"},
+    params={
+        "status": "COMPLETED",
+        "limit": 50,
+        "offset": 0
+    }
+)
+
+data = response.json()
+print(f"Total: {data['total_count']} tasks")
+
+for task in data["tasks"]:
+    print(f"- {task['task_id']}: {task['status']}")
+    if task['total_token_usage']:
+        print(f"  Cost: ${task['total_token_usage']['cost_usd']:.4f}")
+```
+
+### Python - List All Tasks (Pagination)
+
+```python
+import httpx
+
+def list_all_tasks(api_key: str, status: str = None):
+    """List all tasks with pagination."""
+    all_tasks = []
+    offset = 0
+    limit = 100
+
+    while True:
+        response = httpx.get(
+            "http://localhost:8080/api/v1/tasks",
+            headers={"X-API-Key": api_key},
+            params={
+                "status": status,
+                "limit": limit,
+                "offset": offset
+            }
+        )
+
+        data = response.json()
+        tasks = data["tasks"]
+        all_tasks.extend(tasks)
+
+        # Check if we've retrieved all tasks
+        if len(tasks) < limit:
+            break
+
+        offset += limit
+
+    return all_tasks
+
+# Usage
+completed_tasks = list_all_tasks("sk_test_123456", status="COMPLETED")
+print(f"Found {len(completed_tasks)} completed tasks")
+```
+
+### JavaScript/Node.js
+
+```javascript
+const axios = require('axios');
+
+async function listTasks(filters = {}) {
+  try {
+    const response = await axios.get(
+      'http://localhost:8080/api/v1/tasks',
+      {
+        headers: {
+          'X-API-Key': 'sk_test_123456'
+        },
+        params: {
+          status: filters.status,
+          session_id: filters.sessionId,
+          limit: filters.limit || 20,
+          offset: filters.offset || 0
+        }
+      }
+    );
+
+    console.log(`Total tasks: ${response.data.total_count}`);
+
+    response.data.tasks.forEach(task => {
+      console.log(`${task.task_id}: ${task.status}`);
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error('Error:', error.response?.data || error.message);
+    throw error;
+  }
+}
+
+// List running tasks
+listTasks({ status: 'RUNNING' });
+
+// List tasks in a session
+listTasks({ sessionId: 'user-123-chat', limit: 50 });
+```
+
+### Bash Script - Monitor Running Tasks
+
+```bash
+#!/bin/bash
+
+API_KEY="sk_test_123456"
+BASE_URL="http://localhost:8080"
+
+echo "Monitoring running tasks..."
+
+while true; do
+  clear
+  echo "=== Running Tasks ==="
+  echo ""
+
+  RESPONSE=$(curl -s "$BASE_URL/api/v1/tasks?status=RUNNING" \
+    -H "X-API-Key: $API_KEY")
+
+  TOTAL=$(echo $RESPONSE | jq -r '.total_count')
+  echo "Total running: $TOTAL"
+  echo ""
+
+  echo $RESPONSE | jq -r '.tasks[] | "\(.task_id): \(.query)"'
+
+  sleep 5
+done
+```
+
+### Go
+
+```go
+package main
+
+import (
+    "encoding/json"
+    "fmt"
+    "net/http"
+    "net/url"
+)
+
+type ListTasksResponse struct {
+    Tasks      []TaskSummary `json:"tasks"`
+    TotalCount int32         `json:"total_count"`
+}
+
+type TaskSummary struct {
+    TaskID      string  `json:"task_id"`
+    Query       string  `json:"query"`
+    Status      string  `json:"status"`
+    Mode        string  `json:"mode"`
+    CreatedAt   string  `json:"created_at"`
+    CompletedAt *string `json:"completed_at"`
+}
+
+func listTasks(status string, limit, offset int) (*ListTasksResponse, error) {
+    baseURL := "http://localhost:8080/api/v1/tasks"
+
+    // Build query parameters
+    params := url.Values{}
+    if status != "" {
+        params.Add("status", status)
+    }
+    params.Add("limit", fmt.Sprintf("%d", limit))
+    params.Add("offset", fmt.Sprintf("%d", offset))
+
+    reqURL := baseURL + "?" + params.Encode()
+
+    req, _ := http.NewRequest("GET", reqURL, nil)
+    req.Header.Set("X-API-Key", "sk_test_123456")
+
+    client := &http.Client{}
+    resp, err := client.Do(req)
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
+
+    var result ListTasksResponse
+    json.NewDecoder(resp.Body).Decode(&result)
+
+    return &result, nil
+}
+
+func main() {
+    tasks, err := listTasks("COMPLETED", 10, 0)
+    if err != nil {
+        fmt.Println("Error:", err)
+        return
+    }
+
+    fmt.Printf("Total tasks: %d\n", tasks.TotalCount)
+    for _, task := range tasks.Tasks {
+        fmt.Printf("- %s: %s\n", task.TaskID, task.Status)
+    }
+}
+```
+
+## Use Cases
+
+### 1. Dashboard - Show Recent Tasks
+
+```python
+def get_recent_tasks(api_key: str, limit: int = 10):
+    """Get most recent tasks for dashboard."""
+    response = httpx.get(
+        "http://localhost:8080/api/v1/tasks",
+        headers={"X-API-Key": api_key},
+        params={"limit": limit, "offset": 0}
+    )
+    return response.json()["tasks"]
+
+recent = get_recent_tasks("sk_test_123456", limit=5)
+for task in recent:
+    print(f"{task['created_at']}: {task['query'][:50]}...")
+```
+
+### 2. Cost Tracking
+
+```python
+def calculate_session_cost(api_key: str, session_id: str):
+    """Calculate total cost for a session."""
+    response = httpx.get(
+        "http://localhost:8080/api/v1/tasks",
+        headers={"X-API-Key": api_key},
+        params={"session_id": session_id, "limit": 100}
+    )
+
+    total_cost = 0
+    for task in response.json()["tasks"]:
+        if task["total_token_usage"]:
+            total_cost += task["total_token_usage"]["cost_usd"]
+
+    return total_cost
+
+cost = calculate_session_cost("sk_test_123456", "user-123-chat")
+print(f"Session cost: ${cost:.4f}")
+```
+
+### 3. Failure Monitoring
+
+```python
+import time
+
+def monitor_failures(api_key: str, interval: int = 60):
+    """Monitor for failed tasks."""
+    while True:
+        response = httpx.get(
+            "http://localhost:8080/api/v1/tasks",
+            headers={"X-API-Key": api_key},
+            params={"status": "FAILED", "limit": 10}
+        )
+
+        failed_tasks = response.json()["tasks"]
+
+        if failed_tasks:
+            print(f"⚠️  {len(failed_tasks)} failed tasks:")
+            for task in failed_tasks:
+                print(f"  - {task['task_id']}: {task['query']}")
+
+                # Get details
+                details = httpx.get(
+                    f"http://localhost:8080/api/v1/tasks/{task['task_id']}",
+                    headers={"X-API-Key": api_key}
+                )
+                error = details.json().get("error", "Unknown error")
+                print(f"    Error: {error}")
+
+        time.sleep(interval)
+
+monitor_failures("sk_test_123456")
+```
+
+## Implementation Notes
+
+### Rate Limiting
+
+This endpoint is rate limited. Default limits:
+- **100 requests/minute** per API key
+- **20 requests/second** burst
+
+### Performance
+
+- **Indexed queries**: Filtering by `status` and `session_id` is fast
+- **Pagination**: Use `limit` and `offset` to avoid large responses
+- **Total count**: Includes all matching tasks, not just returned page
+
+### Ordering
+
+Tasks are returned in **reverse chronological order** (newest first).
+
+## Best Practices
+
+### 1. Use Pagination
+
+Always paginate for large result sets:
+
+```python
+def fetch_page(offset, limit=20):
+    return httpx.get(
+        "http://localhost:8080/api/v1/tasks",
+        headers={"X-API-Key": "sk_test_123456"},
+        params={"limit": limit, "offset": offset}
+    ).json()
+
+# Fetch first 3 pages
+for page in range(3):
+    tasks = fetch_page(offset=page * 20, limit=20)
+    process_tasks(tasks)
+```
+
+### 2. Filter by Status
+
+Don't fetch all tasks if you only need specific statuses:
+
+```python
+# ✅ Good - filter server-side
+running = httpx.get(..., params={"status": "RUNNING"})
+
+# ❌ Bad - filter client-side
+all_tasks = httpx.get(...)
+running = [t for t in all_tasks if t["status"] == "RUNNING"]
+```
+
+### 3. Cache Results
+
+Cache task lists for dashboards:
+
+```python
+import time
+
+cache = {"data": None, "timestamp": 0}
+
+def get_cached_tasks():
+    now = time.time()
+    if cache["data"] is None or now - cache["timestamp"] > 60:
+        # Refresh every 60 seconds
+        response = httpx.get(...)
+        cache["data"] = response.json()
+        cache["timestamp"] = now
+
+    return cache["data"]
+```
+
+## Related Endpoints
+
+<CardGroup cols={2}>
+  <Card title="Submit Task" icon="paper-plane" href="/api/rest/submit-task">
+    POST /api/v1/tasks
+  </Card>
+  <Card title="Get Task Status" icon="circle-info" href="/api/rest/get-status">
+    GET /api/v1/tasks/{id}
+  </Card>
+  <Card title="Stream Events" icon="stream" href="/api/rest/streaming">
+    Real-time monitoring
+  </Card>
+  <Card title="Python SDK" icon="python" href="/sdk/python/quickstart">
+    Use the SDK instead
+  </Card>
+</CardGroup>
+
+## Notes
+
+<Note>
+**SDK Alternative**: The Python SDK does not expose a `list_tasks()` method. This endpoint is REST-only. For SDK usage, store task IDs and query status individually using `client.get_status(task_id)`.
+</Note>

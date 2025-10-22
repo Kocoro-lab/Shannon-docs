@@ -1,0 +1,741 @@
+---
+title: "Troubleshooting"
+description: "Common issues and solutions when using Shannon"
+---
+
+## Quick Diagnostics
+
+Before diving into specific issues, run these quick checks:
+
+```bash
+# Check all services are running
+docker compose ps
+
+# View recent logs from all services
+docker compose logs --tail=50
+
+# Check specific service health
+curl http://localhost:8080/health
+curl http://localhost:8000/health  # LLM Service
+```
+
+## Installation & Setup Issues
+
+### Docker Compose Fails to Start
+
+**Symptoms**:
+- Services won't start
+- Exit code errors
+- Container crashes immediately
+
+**Common Causes**:
+
+<AccordionGroup>
+  <Accordion title="1. Docker daemon not running">
+    **Check**:
+    ```bash
+    docker info
+    ```
+
+    **Solution**:
+    ```bash
+    # macOS
+    open -a Docker
+
+    # Linux
+    sudo systemctl start docker
+
+    # Verify
+    docker info
+    ```
+  </Accordion>
+
+  <Accordion title="2. Port conflicts">
+    **Check which ports are in use**:
+    ```bash
+    # Check all Shannon ports
+    lsof -i :8080  # Gateway
+    lsof -i :50051 # Agent Core
+    lsof -i :50052 # Orchestrator
+    lsof -i :8000  # LLM Service
+    lsof -i :5432  # PostgreSQL
+    lsof -i :6379  # Redis
+    lsof -i :6333  # Qdrant
+    lsof -i :7233  # Temporal
+    ```
+
+    **Solution - Kill conflicting processes**:
+    ```bash
+    # Find process using port
+    lsof -ti :8080
+
+    # Kill the process (macOS/Linux)
+    kill -9 $(lsof -ti :8080)
+    ```
+
+    **Solution - Change Shannon ports**:
+    Edit `docker-compose.yml` to use different ports:
+    ```yaml
+    gateway:
+      ports:
+        - "8081:8080"  # Use 8081 instead of 8080
+    ```
+  </Accordion>
+
+  <Accordion title="3. Insufficient system resources">
+    **Check Docker resources**:
+    ```bash
+    docker system df
+    docker stats
+    ```
+
+    **Solution - Increase Docker resources**:
+    - **macOS**: Docker Desktop → Preferences → Resources
+      - RAM: Minimum 8GB (16GB recommended)
+      - CPUs: Minimum 4 cores
+      - Disk: Minimum 20GB free
+
+    - **Linux**: Edit Docker daemon config
+      ```bash
+      sudo nano /etc/docker/daemon.json
+      ```
+      ```json
+      {
+        "default-ulimits": {
+          "nofile": {
+            "Name": "nofile",
+            "Hard": 64000,
+            "Soft": 64000
+          }
+        }
+      }
+      ```
+  </Accordion>
+
+  <Accordion title="4. Missing .env file">
+    **Error**: `WARNING: The OPENAI_API_KEY variable is not set`
+
+    **Solution**:
+    ```bash
+    # Create .env from template
+    make setup
+
+    # Or manually
+    cp .env.example .env
+
+    # Add your API keys
+    echo "OPENAI_API_KEY=sk-..." >> .env
+    echo "ANTHROPIC_API_KEY=sk-ant-..." >> .env
+    ```
+  </Accordion>
+
+  <Accordion title="5. Python WASI interpreter missing">
+    **Error**: `python_wasi/bin/python3.11: No such file or directory`
+
+    **Solution**:
+    ```bash
+    # Download and setup Python WASI (20MB)
+    ./scripts/setup_python_wasi.sh
+
+    # Verify installation
+    ls -lh python_wasi/bin/python3.11
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## API & Connection Issues
+
+### 401 Unauthorized
+
+**Symptoms**:
+- HTTP 401 responses
+- "Unauthorized" error messages
+
+**Diagnosis**:
+```bash
+# Check if auth is enabled
+docker compose exec orchestrator env | grep GATEWAY_SKIP_AUTH
+```
+
+<AccordionGroup>
+  <Accordion title="Solution 1: Disable authentication (development)">
+    **Edit `.env`**:
+    ```bash
+    GATEWAY_SKIP_AUTH=1  # 1 = disabled, 0 = enabled
+    ```
+
+    **Restart**:
+    ```bash
+    docker compose restart gateway
+    ```
+
+    **Test**:
+    ```bash
+    curl http://localhost:8080/api/v1/tasks
+    # Should work without X-API-Key header
+    ```
+  </Accordion>
+
+  <Accordion title="Solution 2: Provide valid API key (production)">
+    **Request with API key**:
+    ```bash
+    curl -H "X-API-Key: sk_test_123456" \
+      http://localhost:8080/api/v1/tasks
+    ```
+
+    **Python SDK**:
+    ```python
+    from shannon import ShannonClient
+
+    client = ShannonClient(
+        http_endpoint="http://localhost:8080",
+        api_key="sk_test_123456"
+    )
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Connection Refused / Service Unavailable
+
+**Symptoms**:
+- `connection refused`
+- `dial tcp: connect: connection refused`
+- Services not responding
+
+**Diagnosis**:
+```bash
+# Check service status
+docker compose ps
+
+# Check specific service logs
+docker compose logs orchestrator --tail=50
+docker compose logs agent-core --tail=50
+docker compose logs llm-service --tail=50
+
+# Test endpoints
+curl http://localhost:8080/health
+curl http://localhost:50052  # Should fail - gRPC doesn't support HTTP GET
+```
+
+<AccordionGroup>
+  <Accordion title="Solution 1: Services not ready">
+    **Wait for all services to initialize**:
+    ```bash
+    # Watch logs until services are ready
+    docker compose logs -f
+
+    # Look for these messages:
+    # orchestrator: "gRPC server listening on :50052"
+    # agent-core: "Server started on :50051"
+    # llm-service: "Uvicorn running on http://0.0.0.0:8000"
+    # gateway: "Gateway listening on :8080"
+    ```
+
+    **Typical startup time**: 30-60 seconds
+  </Accordion>
+
+  <Accordion title="Solution 2: Service crashed">
+    **Check for crash errors**:
+    ```bash
+    docker compose logs orchestrator | grep -i error
+    docker compose logs orchestrator | grep -i fatal
+    ```
+
+    **Restart crashed service**:
+    ```bash
+    docker compose restart orchestrator
+    docker compose restart agent-core
+    docker compose restart llm-service
+    ```
+
+    **Full reset if needed**:
+    ```bash
+    docker compose down
+    docker compose up -d
+    ```
+  </Accordion>
+
+  <Accordion title="Solution 3: Database connection failed">
+    **Check PostgreSQL**:
+    ```bash
+    docker compose logs postgres --tail=20
+
+    # Test connection
+    docker compose exec postgres psql -U shannon -d shannon -c "SELECT 1;"
+    ```
+
+    **Solution**:
+    ```bash
+    # Restart database
+    docker compose restart postgres
+
+    # Wait for it to be ready
+    docker compose exec postgres pg_isready -U shannon
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Task Stuck in RUNNING or QUEUED State
+
+**Symptoms**:
+- Task never completes
+- Status remains RUNNING for hours
+- No progress updates
+
+**Diagnosis**:
+```bash
+# Check Temporal workflows
+docker compose logs temporal --tail=100
+
+# Check orchestrator worker
+docker compose logs orchestrator | grep -i workflow
+
+# View task in Temporal UI
+open http://localhost:8088
+```
+
+<AccordionGroup>
+  <Accordion title="Solution 1: LLM API key invalid or quota exceeded">
+    **Check LLM service logs**:
+    ```bash
+    docker compose logs llm-service | grep -i "api key\|unauthorized\|quota"
+    ```
+
+    **Solution**:
+    ```bash
+    # Verify API keys in .env
+    grep -E "OPENAI_API_KEY|ANTHROPIC_API_KEY" .env
+
+    # Test API key
+    curl https://api.openai.com/v1/models \
+      -H "Authorization: Bearer $OPENAI_API_KEY"
+
+    # Update .env with valid key
+    nano .env
+
+    # Restart LLM service
+    docker compose restart llm-service
+    ```
+  </Accordion>
+
+  <Accordion title="Solution 2: Temporal worker deadlock">
+    **Restart Temporal workers**:
+    ```bash
+    docker compose restart orchestrator
+
+    # Check workflow in Temporal UI
+    open http://localhost:8088
+    # Navigate to Workflows → Find your workflow → View execution history
+    ```
+
+    **Force workflow termination** (last resort):
+    ```bash
+    # In Temporal UI: Workflows → Select workflow → Terminate
+    ```
+  </Accordion>
+
+  <Accordion title="Solution 3: Circuit breaker open">
+    **Check circuit breaker status**:
+    ```bash
+    docker compose logs orchestrator | grep -i "circuit"
+    ```
+
+    **Circuit breakers protect against cascading failures**:
+    - LLM Service circuit breaker
+    - Database circuit breaker
+    - Redis circuit breaker
+
+    **Solution - Wait for automatic recovery** (30-60 seconds)
+    Or **restart services**:
+    ```bash
+    docker compose restart orchestrator agent-core llm-service
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Budget & Cost Issues
+
+### Budget Exceeded Errors
+
+**Symptoms**:
+- `budget exceeded` error
+- Tasks fail with cost limit errors
+- HTTP 429 (Rate Limited) Payment Required
+
+**Diagnosis**:
+```bash
+# Check budget configuration
+docker compose exec orchestrator env | grep BUDGET
+docker compose exec orchestrator env | grep MAX_COST
+```
+
+<AccordionGroup>
+  <Accordion title="Solution 1: Increase budget limits">
+    **Edit `.env`**:
+    ```bash
+    MAX_COST_PER_REQUEST=1.00    # Increase from 0.50
+    MAX_TOKENS_PER_REQUEST=20000  # Increase from 10000
+    ```
+
+    **Restart**:
+    ```bash
+    docker compose restart orchestrator llm-service
+    ```
+
+    **Or set per-task budget**:
+    ```python
+    client.submit_task(
+        query="Complex analysis",
+        config={
+            "budget": {
+                "max_cost_usd": 2.0,
+                "max_input_tokens": 50000,
+                "max_output_tokens": 10000
+            }
+        }
+    )
+    ```
+  </Accordion>
+
+  <Accordion title="Solution 2: Use simpler execution mode">
+    ```python
+    # Instead of advanced mode
+    client.submit_task(query="...", # Mode auto-selected)
+
+    # Advanced → Standard → Simple (cheapest)
+    ```
+
+    **Cost comparison**:
+    - **Simple**: 1 LLM call, $0.01-0.05
+    - **Standard**: 3-5 LLM calls, $0.05-0.20
+    - **Advanced**: 10+ LLM calls, $0.20-1.00+
+  </Accordion>
+
+  <Accordion title="Solution 3: Disable budget enforcement (development only)">
+    **⚠️ Warning**: Only for development/testing
+
+    **Edit `.env`**:
+    ```bash
+    LLM_DISABLE_BUDGETS=1  # Disable budget checks
+    ```
+
+    **Restart**:
+    ```bash
+    docker compose restart orchestrator llm-service
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Performance Issues
+
+### Slow Response Times
+
+**Symptoms**:
+- Tasks take 2-3x longer than expected
+- High latency
+- Timeouts
+
+**Diagnosis**:
+```bash
+# Check resource usage
+docker stats
+
+# Check for slow queries
+docker compose logs postgres | grep "duration:"
+
+# Check Redis latency
+docker compose exec redis redis-cli --latency
+
+# Check Qdrant performance
+curl http://localhost:6333/metrics
+```
+
+<AccordionGroup>
+  <Accordion title="Solution 1: Insufficient CPU/Memory">
+    **Check resources**:
+    ```bash
+    docker stats
+    # Look for CPU > 80% or Memory near limit
+    ```
+
+    **Increase Docker resources**:
+    - macOS: Docker Desktop → Resources → increase RAM to 16GB, CPUs to 6
+    - Linux: More powerful machine or reduce concurrent workflows
+
+    **Tune worker concurrency** in `.env`:
+    ```bash
+    WORKER_ACT_CRITICAL=5   # Reduce from 10
+    WORKER_WF_CRITICAL=3     # Reduce from 5
+    TOOL_PARALLELISM=2       # Reduce from 5
+    ```
+  </Accordion>
+
+  <Accordion title="Solution 2: Cold start / cache misses">
+    **First request is always slower** (10-30s)
+
+    **Subsequent requests use caching**:
+    - LLM response cache (Redis)
+    - Session context cache
+    - Tool result cache
+
+    **Solution**: Warm up with a test request
+    ```bash
+    curl -X POST http://localhost:8080/api/v1/tasks \
+      -H "Content-Type: application/json" \
+      -d '{"query": "Hello"}'
+    ```
+  </Accordion>
+
+  <Accordion title="Solution 3: Database connection pool exhausted">
+    **Increase pool size** in `.env`:
+    ```bash
+    DB_MAX_OPEN_CONNS=50    # Increase from 25
+    DB_MAX_IDLE_CONNS=10    # Increase from 5
+    ```
+
+    **Restart**:
+    ```bash
+    docker compose restart orchestrator
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### High Memory Usage
+
+**Symptoms**:
+- OOM (Out of Memory) errors
+- Container restarts
+- Swap usage high
+
+**Diagnosis**:
+```bash
+docker stats
+
+# Check session cache size
+docker compose logs orchestrator | grep "session.*cache"
+```
+
+<AccordionGroup>
+  <Accordion title="Solution: Reduce cache sizes">
+    **Edit `config/shannon.yaml`** or **set env vars**:
+    ```bash
+    # Reduce session cache
+    SESSION_CACHE_SIZE=5000  # From 10000
+
+    # Reduce history
+    SESSION_MAX_HISTORY=250  # From 500
+
+    # Reduce LRU caches
+    TOOL_CACHE_SIZE=1000     # From 5000
+    ```
+
+    **Restart**:
+    ```bash
+    docker compose restart orchestrator agent-core
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Data & State Issues
+
+### Sessions Not Persisting
+
+**Symptoms**:
+- Session context lost between requests
+- Agent doesn't remember previous tasks
+
+**Diagnosis**:
+```bash
+# Check Redis connectivity
+docker compose exec orchestrator nc -zv redis 6379
+
+# Check session data
+docker compose exec redis redis-cli KEYS "session:*"
+```
+
+<AccordionGroup>
+  <Accordion title="Solution 1: Redis connection failed">
+    **Check Redis status**:
+    ```bash
+    docker compose ps redis
+    docker compose logs redis --tail=20
+    ```
+
+    **Restart Redis**:
+    ```bash
+    docker compose restart redis
+    ```
+
+    **Test connection**:
+    ```bash
+    docker compose exec redis redis-cli ping
+    # Should return "PONG"
+    ```
+  </Accordion>
+
+  <Accordion title="Solution 2: Session expired (TTL)">
+    **Sessions expire after 30 days by default**
+
+    **Increase TTL** in `.env`:
+    ```bash
+    REDIS_TTL_SECONDS=7776000  # 90 days
+    ```
+
+    **Check session expiry**:
+    ```bash
+    docker compose exec redis redis-cli TTL "session:YOUR_SESSION_ID"
+    # Returns seconds until expiry, or -1 for no expiry
+    ```
+  </Accordion>
+
+  <Accordion title="Solution 3: Using different session IDs">
+    **Verify session ID consistency**:
+    ```python
+    # First task
+    handle1 = client.submit_task("Load data")
+    session_id = handle1.session_id
+    print(f"Session: {session_id}")
+
+    # Subsequent tasks MUST use same session_id
+    handle2 = client.submit_task(
+        "Analyze data",
+        session_id=session_id  # ← Must match!
+    )
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Database Migration Errors
+
+**Symptoms**:
+- Table doesn't exist errors
+- Column not found errors
+- Schema version mismatch
+
+**Solution**:
+```bash
+# Run migrations
+docker compose exec orchestrator make migrate
+
+# Or reset database (⚠️ DESTRUCTIVE)
+docker compose down -v  # Remove volumes
+docker compose up -d
+```
+
+## Debugging Tools
+
+### Viewing Logs
+
+```bash
+# All services
+docker compose logs -f
+
+# Specific service
+docker compose logs -f orchestrator
+docker compose logs -f agent-core
+docker compose logs -f llm-service
+
+# Last N lines
+docker compose logs --tail=100 orchestrator
+
+# Search logs
+docker compose logs orchestrator | grep -i error
+docker compose logs orchestrator | grep "task_id=YOUR_TASK_ID"
+```
+
+### Temporal UI
+
+**Access**: http://localhost:8088
+
+**Features**:
+- View all workflows
+- See execution history
+- Replay failed workflows
+- Terminate stuck workflows
+- Time-travel debugging
+
+**Usage**:
+1. Navigate to **Workflows**
+2. Search by workflow ID (task ID)
+3. View execution history to see where it failed
+4. Check Activity logs for detailed errors
+
+### Prometheus Metrics
+
+```bash
+# Orchestrator metrics
+curl http://localhost:2112/metrics
+
+# Agent Core metrics
+curl http://localhost:2113/metrics
+
+# LLM Service metrics
+curl http://localhost:8000/metrics
+```
+
+**Key metrics**:
+- `tasks_submitted_total`
+- `tasks_completed_total`
+- `tasks_failed_total`
+- `llm_requests_total`
+- `circuit_breaker_state`
+
+### Real-time Dashboard
+
+**Access**: http://localhost:2111
+
+**Features**:
+- Live task execution
+- Event streams
+- Token usage graphs
+- System health
+
+## Getting Help
+
+<CardGroup cols={2}>
+  <Card title="Installation Guide" icon="download" href="/quickstart/installation">
+    Detailed setup instructions
+  </Card>
+  <Card title="API Documentation" icon="book" href="/api/overview">
+    Complete API reference
+  </Card>
+  <Card title="Discord Community" icon="discord" href="https://discord.gg/NB7C2fMcQR">
+    Get help from the community
+  </Card>
+  <Card title="GitHub Issues" icon="github" href="https://github.com/Kocoro-lab/Shannon/issues">
+    Report bugs or request features
+  </Card>
+</CardGroup>
+
+## Quick Reference Commands
+
+```bash
+# Health checks
+curl http://localhost:8080/health
+curl http://localhost:8000/health
+
+# Service status
+docker compose ps
+docker stats
+
+# Restart services
+docker compose restart orchestrator
+docker compose restart agent-core
+docker compose restart llm-service
+
+# View logs
+docker compose logs -f orchestrator
+
+# Full reset
+docker compose down -v
+docker compose up -d
+
+# Database access
+docker compose exec postgres psql -U shannon -d shannon
+
+# Redis CLI
+docker compose exec redis redis-cli
+
+# Check environment
+docker compose exec orchestrator env | grep -E "OPENAI|ANTHROPIC"
+```

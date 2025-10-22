@@ -1,0 +1,104 @@
+---
+title: "Stream Task Events"
+description: "GET /api/v1/tasks/{id}/stream - Real-time task event streaming"
+---
+
+<Note>
+This documentation is being expanded. Basic streaming information is available below.
+</Note>
+
+## Endpoint
+
+```
+GET /api/v1/tasks/{task_id}/stream
+```
+
+Stream real-time events as a task executes using Server-Sent Events (SSE).
+
+## Request
+
+### Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `task_id` | string | Yes | Task identifier |
+
+### Headers
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| `X-API-Key` | Conditional | API key (when auth enabled) |
+
+## Response
+
+Server-Sent Events stream with real-time updates.
+
+## Event Types
+
+| Event | Description |
+|-------|-------------|
+| `AGENT_THINKING` | Agent is processing |
+| `TASK_DECOMPOSED` | Task broken into subtasks |
+| `SUBTASK_STARTED` | Subtask execution begins |
+| `SUBTASK_COMPLETED` | Subtask finished |
+| `TOOL_INVOKED` | Tool execution started |
+| `TOOL_RESULT` | Tool returned result |
+| `TASK_COMPLETED` | Entire task done |
+| `TASK_FAILED` | Task encountered error |
+
+## Examples
+
+### Using cURL
+
+```bash
+curl -N http://localhost:8080/api/v1/tasks/task-dev-1730000000/stream
+```
+
+### Using Python SDK
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient()
+
+for event in client.stream(workflow_id):
+    print(f"[{event.type}] {event.message}")
+    if event.type == "TASK_COMPLETED":
+        break
+```
+
+### Example Event Stream
+
+```
+event: AGENT_THINKING
+data: {"message":"Analyzing task complexity..."}
+
+event: TASK_DECOMPOSED
+data: {"subtasks":3,"strategy":"DAG"}
+
+event: SUBTASK_STARTED
+data: {"subtask_id":"1","query":"Research topic"}
+
+event: SUBTASK_COMPLETED
+data: {"subtask_id":"1","status":"COMPLETED"}
+
+event: TASK_COMPLETED
+data: {"result":"Final result","metrics":{"latency_ms":5000}}
+```
+
+## More Information
+
+For detailed streaming documentation, see:
+- [Streaming Concepts](/quickstart/concepts/streaming)
+- [Python SDK Streaming](/sdk/python/quickstart)
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Cancel Task" icon="xmark" href="/api/endpoints/cancel-task">
+    Cancel running tasks
+  </Card>
+  <Card title="Sessions" icon="comments" href="/api/endpoints/sessions">
+    Session management
+  </Card>
+</CardGroup>

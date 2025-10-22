@@ -1,0 +1,832 @@
+---
+title: "Configuration Troubleshooting"
+description: "Common configuration issues and solutions"
+---
+
+## Overview
+
+This guide covers common configuration issues, how to diagnose them, and proven solutions.
+
+## Quick Diagnostics
+
+### Check Environment Variables
+
+```bash
+# View all environment variables for a service
+docker compose exec orchestrator env | sort
+
+# Check specific variable
+docker compose exec orchestrator env | grep MAX_COST_PER_REQUEST
+
+# Check if variable is set
+docker compose exec orchestrator printenv MAX_COST_PER_REQUEST
+```
+
+### Verify Configuration Files
+
+```bash
+# Check if config file exists
+docker compose exec orchestrator ls -la ./config/
+
+# View config file contents
+docker compose exec orchestrator cat ./config/features.yaml
+
+# Check for syntax errors
+docker compose exec orchestrator cat ./config/models.yaml | yq .
+```
+
+### Check Service Health
+
+```bash
+# Gateway health
+curl http://localhost:8080/health
+
+# Orchestrator metrics
+curl http://localhost:2112/metrics
+
+# Agent Core health
+grpcurl -plaintext localhost:50051 list
+```
+
+## Common Issues
+
+### 1. Services Won't Start
+
+#### Missing Environment Variables
+
+**Symptoms**:
+- Service crashes immediately
+- Logs show "variable not set" errors
+- Container exits with code 1
+
+**Diagnosis**:
+```bash
+docker compose logs orchestrator | grep -i "not set\|missing\|required"
+```
+
+**Solution**:
+```bash
+# Check .env file exists
+ls -la .env
+
+# Verify required variables are set
+grep -E "OPENAI_API_KEY|POSTGRES" .env
+
+# Copy from example if missing
+cp .env.example .env
+nano .env  # Fill in required values
+
+# Restart services
+docker compose restart
+```
+
+**Required Variables**:
+- At least one LLM provider key (OPENAI_API_KEY, ANTHROPIC_API_KEY, etc.)
+- Database credentials (POSTGRES_*)
+- Redis connection (REDIS_*)
+
+#### Invalid Configuration Syntax
+
+**Symptoms**:
+- "Failed to parse config" errors
+- YAML syntax errors
+- Service fails to start
+
+**Diagnosis**:
+```bash
+# Check YAML syntax
+docker compose exec orchestrator cat ./config/features.yaml | yq .
+```
+
+**Solution**:
+```bash
+# Validate YAML locally
+yq eval ./config/features.yaml
+
+# Check for common issues
+cat ./config/features.yaml | grep -E "^\s+- |^\w+:"
+
+# Reset to defaults
+cp ./config/features.yaml.example ./config/features.yaml
+```
+
+### 2. Authentication Failures
+
+#### Gateway Returns 401 Unauthorized
+
+**Symptoms**:
+- All requests return 401
+- "Unauthorized" error
+- API key rejected
+
+**Diagnosis**:
+```bash
+# Check if auth is enabled
+docker compose exec gateway env | grep GATEWAY_SKIP_AUTH
+
+# Test with curl
+curl -v http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" 2>&1 | grep "401"
+```
+
+**Solution 1**: Disable auth for development
+```bash
+# Add to .env
+GATEWAY_SKIP_AUTH=1
+
+# Restart gateway
+docker compose restart gateway
+
+# Test
+curl http://localhost:8080/api/v1/tasks
+```
+
+**Solution 2**: Use valid API key
+```bash
+# Insert API key in database
+docker compose exec postgres psql -U shannon -d shannon -c "
+INSERT INTO auth.api_keys (key, user_id, tenant_id, name, enabled)
+VALUES ('sk_test_123456', gen_random_uuid(), gen_random_uuid(), 'Test Key', true);
+"
+
+# Test with key
+curl -H "X-API-Key: sk_test_123456" \
+  http://localhost:8080/api/v1/tasks
+```
+
+#### JWT Secret Not Set
+
+**Symptoms**:
+- "JWT secret not configured" error
+- Authentication middleware fails
+
+**Solution**:
+```bash
+# Generate secure secret
+JWT_SECRET=$(openssl rand -base64 32)
+
+# Add to .env
+echo "JWT_SECRET=$JWT_SECRET" >> .env
+
+# Restart gateway
+docker compose restart gateway
+```
+
+### 3. Database Connection Issues
+
+#### Cannot Connect to PostgreSQL
+
+**Symptoms**:
+- "connection refused" errors
+- "dial tcp: connect: connection refused"
+- Services crash on startup
+
+**Diagnosis**:
+```bash
+# Check if PostgreSQL is running
+docker compose ps postgres
+
+# Check PostgreSQL logs
+docker compose logs postgres --tail=50
+
+# Test connection
+docker compose exec postgres pg_isready -U shannon
+```
+
+**Solution 1**: PostgreSQL not started
+```bash
+# Start PostgreSQL
+docker compose up -d postgres
+
+# Wait for ready
+docker compose exec postgres pg_isready -U shannon
+
+# Restart dependent services
+docker compose restart gateway orchestrator
+```
+
+**Solution 2**: Wrong credentials
+```bash
+# Verify .env settings
+grep POSTGRES .env
+
+# Should match docker-compose.yml
+docker compose exec postgres psql -U shannon -d shannon -c "SELECT 1;"
+
+# If password wrong, update .env and restart
+docker compose down
+docker compose up -d
+```
+
+**Solution 3**: Port conflict
+```bash
+# Check if port 5432 is in use
+lsof -i :5432
+
+# If conflict, change port in .env
+POSTGRES_PORT=5433
+
+# Update docker-compose.yml
+# Restart
+docker compose down
+docker compose up -d
+```
+
+#### Database Schema Not Initialized
+
+**Symptoms**:
+- "table does not exist" errors
+- "column not found" errors
+- SQL errors in logs
+
+**Solution**:
+```bash
+# Run migrations
+docker compose exec orchestrator make migrate
+
+# Or reset database (⚠️ DESTRUCTIVE)
+docker compose down -v
+docker compose up -d
+```
+
+### 4. Redis Connection Issues
+
+#### Cannot Connect to Redis
+
+**Symptoms**:
+- "connection refused" to Redis
+- Session state not persisting
+- Cache misses
+
+**Diagnosis**:
+```bash
+# Check Redis status
+docker compose ps redis
+
+# Test connection
+docker compose exec redis redis-cli ping
+
+# Check logs
+docker compose logs redis --tail=20
+```
+
+**Solution**:
+```bash
+# Start Redis
+docker compose up -d redis
+
+# Test connection
+docker compose exec redis redis-cli ping
+# Should return: PONG
+
+# Restart dependent services
+docker compose restart gateway orchestrator llm-service
+```
+
+#### Redis Authentication Failed
+
+**Symptoms**:
+- "NOAUTH Authentication required"
+- Connection works but commands fail
+
+**Solution**:
+```bash
+# Check if password is set
+docker compose exec redis redis-cli CONFIG GET requirepass
+
+# If password required, add to .env
+REDIS_PASSWORD=your-password
+
+# Or disable auth (development only)
+docker compose exec redis redis-cli CONFIG SET requirepass ""
+
+# Restart services
+docker compose restart
+```
+
+### 5. LLM Provider Issues
+
+#### API Key Invalid or Expired
+
+**Symptoms**:
+- "Invalid API key" errors
+- 401 from LLM provider
+- Tasks fail immediately
+
+**Diagnosis**:
+```bash
+# Check which provider is configured
+docker compose exec llm-service env | grep API_KEY
+
+# Test OpenAI key
+curl https://api.openai.com/v1/models \
+  -H "Authorization: Bearer $OPENAI_API_KEY"
+
+# Test Anthropic key
+curl https://api.anthropic.com/v1/messages \
+  -H "X-API-Key: $ANTHROPIC_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"claude-3-haiku-20240307","max_tokens":10,"messages":[{"role":"user","content":"Hi"}]}'
+```
+
+**Solution**:
+```bash
+# Update key in .env
+OPENAI_API_KEY=sk-...new-key...
+
+# Restart LLM service
+docker compose restart llm-service
+
+# Verify
+docker compose logs llm-service | grep "API key"
+```
+
+#### Rate Limit Exceeded
+
+**Symptoms**:
+- 429 errors from LLM provider
+- "Rate limit exceeded" in logs
+- Tasks timeout or fail
+
+**Solution 1**: Wait for rate limit reset
+```bash
+# Check rate limit headers
+docker compose logs llm-service | grep "rate"
+
+# Typical reset: 60 seconds for most providers
+```
+
+**Solution 2**: Configure rate limiting
+```bash
+# Add to .env
+RATE_LIMIT_REQUESTS=50  # Lower than provider limit
+RATE_LIMIT_WINDOW=60
+
+# Restart
+docker compose restart llm-service
+```
+
+**Solution 3**: Use multiple providers
+```bash
+# Configure fallback providers in models.yaml
+providers:
+  - id: openai
+    primary: true
+  - id: anthropic
+    fallback: true
+```
+
+#### Quota Exceeded
+
+**Symptoms**:
+- "insufficient_quota" errors
+- "You exceeded your current quota"
+- All LLM calls fail
+
+**Solution**:
+```bash
+# Check quota
+# OpenAI: https://platform.openai.com/account/usage
+# Anthropic: https://console.anthropic.com/settings/limits
+
+# Add credits or upgrade plan
+# Or use different provider
+OPENAI_API_KEY=
+ANTHROPIC_API_KEY=sk-ant-...
+
+# Restart
+docker compose restart llm-service
+```
+
+### 6. Model Configuration Issues
+
+#### Model Not Found
+
+**Symptoms**:
+- "model not found" errors
+- "invalid model" errors
+- Tasks fail with model errors
+
+**Diagnosis**:
+```bash
+# Check configured models
+docker compose exec llm-service cat ./config/models.yaml | grep "id:"
+
+# Check environment variables
+docker compose exec orchestrator env | grep MODEL
+```
+
+**Solution**:
+```bash
+# Use valid model IDs in .env
+DEFAULT_MODEL_TIER=small
+COMPLEXITY_MODEL_ID=gpt-4o  # Verify this exists
+DECOMPOSITION_MODEL_ID=claude-sonnet-4-20250514
+
+# Or configure in models.yaml
+docker compose exec orchestrator cat ./config/models.yaml
+
+# Restart
+docker compose restart orchestrator llm-service
+```
+
+### 7. Budget and Cost Issues
+
+#### Tasks Exceed Budget
+
+**Symptoms**:
+- "Budget exceeded" errors
+- Tasks fail with cost errors
+- `MAX_COST_PER_REQUEST` exceeded
+
+**Solution**:
+```bash
+# Increase budget limits
+# In .env:
+MAX_COST_PER_REQUEST=1.00  # Increase from 0.50
+MAX_TOKENS_PER_REQUEST=20000  # Increase from 10000
+
+# Restart
+docker compose restart orchestrator
+
+# Or use cheaper models
+DEFAULT_MODEL_TIER=small  # Use GPT-4o-mini instead of GPT-4
+```
+
+#### Budget Enforcement Not Working
+
+**Symptoms**:
+- Costs exceed limits
+- No budget errors
+
+**Diagnosis**:
+```bash
+# Check budget enforcement
+docker compose exec orchestrator env | grep LLM_DISABLE_BUDGETS
+```
+
+**Solution**:
+```bash
+# Enable budget enforcement
+LLM_DISABLE_BUDGETS=1  # Orchestrator enforces budgets
+
+# Set limits
+MAX_COST_PER_REQUEST=0.50
+MAX_TOKENS_PER_REQUEST=10000
+
+# Restart
+docker compose restart orchestrator
+```
+
+### 8. Performance Issues
+
+#### Slow Task Execution
+
+**Symptoms**:
+- Tasks take 2-3x expected time
+- High latency
+- Timeouts
+
+**Diagnosis**:
+```bash
+# Check resource usage
+docker stats
+
+# Check worker concurrency
+docker compose exec orchestrator env | grep WORKER
+
+# Check tool parallelism
+docker compose exec orchestrator env | grep TOOL_PARALLELISM
+```
+
+**Solution 1**: Increase parallelism
+```bash
+# In .env:
+TOOL_PARALLELISM=10  # Increase from 5
+WORKER_ACT_CRITICAL=20  # Increase from 10
+
+# Restart
+docker compose restart orchestrator
+```
+
+**Solution 2**: Enable caching
+```bash
+# In .env:
+ENABLE_CACHE=true
+CACHE_SIMILARITY_THRESHOLD=0.95
+
+# Restart
+docker compose restart llm-service
+```
+
+**Solution 3**: Optimize model selection
+```bash
+# Use faster models
+DEFAULT_MODEL_TIER=small  # GPT-4o-mini is 10x faster than GPT-4
+```
+
+#### High Memory Usage
+
+**Symptoms**:
+- OOM errors
+- Container restarts
+- High swap usage
+
+**Diagnosis**:
+```bash
+docker stats
+```
+
+**Solution**:
+```bash
+# Reduce cache sizes
+HISTORY_WINDOW_MESSAGES=25  # Reduce from 50
+STREAMING_RING_CAPACITY=500  # Reduce from 1000
+
+# Limit tool parallelism
+TOOL_PARALLELISM=3  # Reduce from 5
+
+# Restart
+docker compose restart
+```
+
+### 9. Streaming Issues
+
+#### SSE Connection Drops
+
+**Symptoms**:
+- SSE stream disconnects
+- Events stop mid-task
+- "Connection closed" errors
+
+**Solution 1**: Increase timeouts
+```bash
+# In nginx/proxy config:
+proxy_read_timeout 600s;
+proxy_connect_timeout 600s;
+
+# In docker-compose.yml for gateway:
+GATEWAY_READ_TIMEOUT=600
+```
+
+**Solution 2**: Handle reconnection
+```python
+# Client-side reconnection
+while True:
+    try:
+        for event in stream_events(task_id):
+            process(event)
+        break  # Task completed
+    except ConnectionError:
+        time.sleep(2)  # Wait and retry
+```
+
+#### Events Not Received
+
+**Symptoms**:
+- No events in stream
+- Empty SSE response
+- Stream connects but no data
+
+**Diagnosis**:
+```bash
+# Check if events are being created
+docker compose exec postgres psql -U shannon -d shannon -c "
+SELECT COUNT(*) FROM event_logs WHERE workflow_id = 'task_abc123';
+"
+
+# Check Redis streams
+docker compose exec redis redis-cli XLEN "stream:task_abc123"
+```
+
+**Solution**:
+```bash
+# Verify admin server is running
+docker compose ps orchestrator
+
+# Check admin server endpoint
+curl http://localhost:8081/health
+
+# Restart orchestrator
+docker compose restart orchestrator
+```
+
+### 10. Tool Execution Issues
+
+#### Python Code Execution Fails
+
+**Symptoms**:
+- "WASI interpreter not found"
+- Python code tools fail
+- Sandbox errors
+
+**Solution**:
+```bash
+# Download Python WASI interpreter
+./scripts/setup_python_wasi.sh
+
+# Or manual download
+wget https://github.com/vmware-labs/webassembly-language-runtimes/releases/download/python%2F3.11.4%2B20230908-ba7c2cf/python-3.11.4.wasm
+mkdir -p ./wasm-interpreters
+mv python-3.11.4.wasm ./wasm-interpreters/
+
+# Verify path in .env
+PYTHON_WASI_WASM_PATH=./wasm-interpreters/python-3.11.4.wasm
+
+# Restart
+docker compose restart agent-core llm-service
+```
+
+#### Tool Timeout
+
+**Symptoms**:
+- "Tool execution timeout" errors
+- Tools hang indefinitely
+- WASI timeout errors
+
+**Solution**:
+```bash
+# Increase timeouts
+WASI_TIMEOUT_SECONDS=120  # Increase from 60
+ENFORCE_TIMEOUT_SECONDS=180  # Increase from 90
+
+# Restart
+docker compose restart agent-core
+```
+
+## Configuration Validation
+
+### Validate All Settings
+
+```bash
+#!/bin/bash
+
+echo "=== Shannon Configuration Validation ==="
+
+# Check .env file
+if [ ! -f .env ]; then
+  echo "❌ .env file not found"
+  exit 1
+fi
+echo "✓ .env file exists"
+
+# Check required variables
+required_vars=(
+  "POSTGRES_HOST"
+  "REDIS_HOST"
+  "TEMPORAL_HOST"
+)
+
+for var in "${required_vars[@]}"; do
+  if grep -q "^${var}=" .env; then
+    echo "✓ $var is set"
+  else
+    echo "❌ $var is missing"
+  fi
+done
+
+# Check at least one LLM provider
+if grep -qE "^(OPENAI|ANTHROPIC|GOOGLE)_API_KEY=.+" .env; then
+  echo "✓ LLM provider configured"
+else
+  echo "❌ No LLM provider API key set"
+fi
+
+# Check services are running
+echo ""
+echo "=== Service Health ==="
+services=("postgres" "redis" "temporal" "qdrant" "orchestrator" "agent-core" "llm-service" "gateway")
+
+for service in "${services[@]}"; do
+  if docker compose ps | grep -q "$service.*running"; then
+    echo "✓ $service is running"
+  else
+    echo "❌ $service is not running"
+  fi
+done
+
+echo ""
+echo "=== Endpoint Tests ==="
+
+# Test Gateway
+if curl -f -s http://localhost:8080/health > /dev/null; then
+  echo "✓ Gateway health check passed"
+else
+  echo "❌ Gateway health check failed"
+fi
+
+# Test Orchestrator metrics
+if curl -f -s http://localhost:2112/metrics > /dev/null; then
+  echo "✓ Orchestrator metrics available"
+else
+  echo "❌ Orchestrator metrics failed"
+fi
+
+echo ""
+echo "=== Configuration Validation Complete ==="
+```
+
+## Best Practices
+
+### 1. Use Environment-Specific Configs
+
+```bash
+# Development
+.env.development
+ENVIRONMENT=dev
+DEBUG=true
+GATEWAY_SKIP_AUTH=1
+
+# Production
+.env.production
+ENVIRONMENT=prod
+DEBUG=false
+GATEWAY_SKIP_AUTH=0
+JWT_SECRET=<secure-secret>
+```
+
+### 2. Document Custom Settings
+
+```bash
+# In .env, add comments
+# Custom rate limit for high-volume API
+RATE_LIMIT_REQUESTS=500  # Increased for enterprise tier
+```
+
+### 3. Version Control
+
+```bash
+# .gitignore
+.env
+.env.local
+
+# Commit templates
+.env.example
+.env.template
+```
+
+### 4. Regular Validation
+
+```bash
+# Add to CI/CD
+./scripts/validate-config.sh
+```
+
+### 5. Monitor Configuration
+
+```bash
+# Track configuration changes
+git diff .env.example
+
+# Alert on critical changes
+# Monitor environment variables in production
+```
+
+## Quick Fixes Checklist
+
+When things go wrong, try these in order:
+
+- [ ] Restart all services: `docker compose restart`
+- [ ] Check logs: `docker compose logs --tail=50`
+- [ ] Verify .env file exists and has required variables
+- [ ] Test database connection: `docker compose exec postgres pg_isready`
+- [ ] Test Redis: `docker compose exec redis redis-cli ping`
+- [ ] Verify at least one LLM API key is set
+- [ ] Check disk space: `df -h`
+- [ ] Check memory: `docker stats`
+- [ ] Full reset (last resort): `docker compose down -v && docker compose up -d`
+
+## Getting Help
+
+If issues persist:
+
+1. **Collect logs**:
+   ```bash
+   docker compose logs > shannon-logs.txt
+   ```
+
+2. **Export configuration**:
+   ```bash
+   docker compose exec orchestrator env | grep -v API_KEY > config.txt
+   ```
+
+3. **Check GitHub issues**: https://github.com/Kocoro-lab/Shannon/issues
+
+4. **Join Discord**: https://discord.gg/NB7C2fMcQR
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="Environment Variables" icon="gear" href="/deployment/environment-variables">
+    Complete variable reference
+  </Card>
+  <Card title="Docker Compose" icon="docker" href="/deployment/docker-compose">
+    Docker deployment guide
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/quickstart/troubleshooting">
+    General troubleshooting
+  </Card>
+  <Card title="Performance Tuning" icon="gauge" href="/deployment/performance-tuning">
+    Performance optimization
+  </Card>
+</CardGroup>
