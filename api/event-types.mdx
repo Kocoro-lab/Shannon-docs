@@ -27,9 +27,7 @@ All events follow this base structure:
   "timestamp": "2024-10-27T10:00:00Z",
   "seq": 42,
   "stream_id": "stream-abc123",
-  "data": {
-    // Event-specific payload
-  }
+  "data": {}
 }
 ```
 
@@ -941,7 +939,6 @@ Events are **strictly ordered** by sequence number (`seq`):
 {"seq": 6, "type": "AGENT_THINKING"}
 {"seq": 7, "type": "TOOL_INVOKED"}
 {"seq": 8, "type": "TOOL_COMPLETED"}
-// ...
 {"seq": 42, "type": "WORKFLOW_COMPLETED"}
 ```
 
