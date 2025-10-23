@@ -1,0 +1,269 @@
+---
+title: "Python SDK Quick Start"
+description: "Get started with the Shannon Python SDK in 5 minutes"
+---
+
+> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
+
+**原文件**: `sdk/python/quickstart.mdx`
+**英文版本**: [查看英文文档](/en/sdk/python/quickstart)
+
+---
+
+
+## Installation
+
+```bash
+pip install shannon-sdk
+```
+
+## Your First Task
+
+### 1. Import and Initialize
+
+```python
+from shannon import ShannonClient
+
+# Defaults: gRPC localhost:50052, SSE http://localhost:8081
+client = ShannonClient()
+```
+
+### 2. Submit a Task
+
+```python
+handle = client.submit_task(query="What is the capital of France?")
+print("Task submitted:", handle.task_id)
+```
+
+### 3. Get Results
+
+```python
+final = client.wait(handle.task_id, timeout=60)
+print("Result:", final.result)
+```
+
+## Complete Example
+
+```python
+from shannon import ShannonClient
+
+def main():
+    client = ShannonClient()
+    handle = client.submit_task(
+        query="Analyze the sentiment: Shannon makes AI agents simple!",
+    )
+    print("Task ID:", handle.task_id)
+    print("Waiting for completion...")
+    result = client.wait(handle.task_id, timeout=60)
+    print("\nResult:", result.result)
+
+if __name__ == "__main__":
+    main()
+```
+
+## Common Patterns
+
+### Idempotency
+
+```python
+# Use HTTP via gateway for idempotency on submit if needed
+# (Idempotency is a REST feature; SDK submits via gRPC.)
+```
+
+### Multi-Turn Conversation
+
+```python
+session_id = "user-123-chat"
+handle1 = client.submit_task(query="What is Python?", session_id=session_id)
+print(client.wait(handle1.task_id).result)
+
+handle2 = client.submit_task(query="What are its main advantages?", session_id=session_id)
+print(client.wait(handle2.task_id).result)
+```
+
+### Streaming Events
+
+```python
+handle = client.submit_task(query="Research quantum computing breakthroughs")
+for event in client.stream(handle.workflow_id):
+    print(f"[{event.type}] {event.message}")
+    if event.type == "TASK_COMPLETED":
+        break
+```
+
+### Error Handling
+
+```python
+from shannon.errors import ShannonError, TaskTimeoutError
+
+try:
+    handle = client.submit_task(query="Complex analysis")
+    result = client.wait(handle.task_id, timeout=120)
+    print(result.result)
+
+except TaskTimeoutError:
+    print("Task timed out")
+except ShannonError as e:
+    print(f"Shannon error: {e}")
+```
+
+## Task Modes
+
+Shannon selects execution modes internally. SDK calls do not accept a `mode` parameter.
+
+## Checking Status
+
+### Synchronous
+
+```python
+handle = client.submit_task(query="...")
+status = client.get_status(handle.task_id)
+print("Status:", status.status)
+```
+
+### With Polling
+
+```python
+import time
+
+handle = client.submit_task(query="Long running task")
+while True:
+    status = client.get_status(handle.task_id)
+    print("Status:", status.status)
+    if status.status in [status.status.COMPLETED, status.status.FAILED]:
+        break
+    time.sleep(2)
+```
+
+## Async Usage
+
+```python
+import asyncio
+from shannon import AsyncShannonClient
+
+async def main():
+    async with AsyncShannonClient() as client:
+        handle = await client.submit_task(query="Analyze sentiment")
+        result = await client.wait(handle.task_id)
+        print(result.result)
+
+asyncio.run(main())
+```
+
+### Multiple Tasks in Parallel
+
+```python
+async def analyze_multiple():
+    async with AsyncShannonClient() as client:
+        handles = await asyncio.gather(*[
+            client.submit_task(query=f"Analyze text {i}") for i in range(5)
+        ])
+        results = await asyncio.gather(*[
+            client.wait(h.task_id) for h in handles
+        ])
+        for i, result in enumerate(results):
+            print(f"Task {i}: {result.result}")
+
+asyncio.run(analyze_multiple())
+```
+
+## Configuration
+
+### Client Configuration
+
+```python
+client = ShannonClient(api_key="sk_test_123456")
+```
+
+### Task Configuration
+
+Explicit per-request budget/mode settings are not yet configurable via SDK.
+
+## Best Practices
+
+### 1. Prefer streaming for long tasks
+
+### 2. Use Context Managers
+
+```python
+async with AsyncShannonClient() as client:
+    handle = await client.submit_task(...)
+    status = await client.wait(handle.task_id)
+```
+
+### 3. Handle Errors
+
+```python
+try:
+    result = client.wait(handle.task_id)
+except ShannonError as e:
+    print(f"Task failed: {e}")
+```
+
+### 4. Use Streaming for Long Tasks
+
+```python
+# ✅ Good: Real-time feedback
+for event in client.stream(workflow_id):
+    update_ui(event)
+
+# ❌ Less ideal: Blocking wait
+result = handle.wait(timeout=600)
+```
+
+## Examples by Use Case
+
+### Sentiment Analysis
+
+```python
+handle = client.submit_task(query="Analyze sentiment: The product is amazing!")
+print(client.wait(handle.task_id).result)
+```
+
+### Data Research
+
+```python
+handle = client.submit_task(query="Research the top 3 cloud providers and compare pricing")
+for event in client.stream(handle.workflow_id):
+    print(event.type)
+```
+
+### Code Generation
+
+```python
+handle = client.submit_task(query="Write a Python function to calculate Fibonacci numbers")
+print(client.wait(handle.task_id).result)
+```
+
+### Complex Analysis
+
+```python
+handle = client.submit_task(
+    query="Compare SQL vs NoSQL databases for an e-commerce platform"
+)
+print(client.wait(handle.task_id, timeout=300).result)
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Streaming" icon="stream" href="/sdk/python/streaming">
+    Real-time event streaming
+  </Card>
+  <Card title="Async Usage" icon="bolt" href="/sdk/python/async-usage">
+    Async/await patterns
+  </Card>
+  <Card title="Streaming" icon="stream" href="/sdk/python/streaming">
+    Real-time event streaming
+  </Card>
+  <Card title="Examples" icon="code" href="/sdk/python/examples">
+    More code examples
+  </Card>
+</CardGroup>
+
+
+---
+
+## 参与翻译
+
+如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。

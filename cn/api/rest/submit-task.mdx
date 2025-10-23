@@ -1,0 +1,571 @@
+---
+title: "POST /api/v1/tasks"
+description: "Submit a new task for execution"
+---
+
+> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
+
+**原文件**: `api/rest/submit-task.mdx`
+**英文版本**: [查看英文文档](/en/api/rest/submit-task)
+
+---
+
+
+## Endpoint
+
+```
+POST http://localhost:8080/api/v1/tasks
+```
+
+## Description
+
+Submits a new task to Shannon for execution. The task is queued immediately and processed asynchronously by the Temporal workflow engine.
+
+## Authentication
+
+**Required**: Yes
+
+Include API key in header:
+```
+X-API-Key: sk_test_123456
+```
+
+## Request
+
+### Headers
+
+| Header | Required | Description | Example |
+|--------|----------|-------------|---------|
+| `X-API-Key` | Yes | Authentication key | `sk_test_123456` |
+| `Content-Type` | Yes | Must be `application/json` | `application/json` |
+| `Idempotency-Key` | No | Unique key for idempotency | `550e8400-e29b-41d4-a716-446655440000` |
+| `traceparent` | No | W3C trace context | `00-4bf92f...` |
+
+### Body Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `query` | string | Yes | Natural language task description |
+| `session_id` | string | No | Session identifier for multi-turn conversations |
+| `context` | object | No | Additional context data as key-value pairs |
+
+### Request Body Schema
+
+```json
+{
+  "query": "string (required)",
+  "session_id": "string (optional)",
+  "context": {
+    "key1": "value1",
+    "key2": "value2"
+  }
+}
+```
+
+## Response
+
+### Success Response
+
+**Status**: `200 OK`
+
+**Headers**:
+- `X-Workflow-ID`: Temporal workflow identifier
+- `X-Session-ID`: Session identifier (auto-generated if not provided)
+
+**Body**:
+```json
+{
+  "task_id": "string",
+  "status": "string",
+  "message": "string (optional)",
+  "created_at": "timestamp"
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `task_id` | string | Unique task identifier (also workflow ID) |
+| `status` | string | Initial task status (usually `TASK_STATUS_QUEUED`) |
+| `message` | string | Optional status message |
+| `created_at` | timestamp | Task creation time (ISO 8601) |
+
+### Status Values
+
+- `TASK_STATUS_UNSPECIFIED` - Status unknown
+- `TASK_STATUS_QUEUED` - Task queued for execution
+- `TASK_STATUS_RUNNING` - Task is executing
+- `TASK_STATUS_COMPLETED` - Task completed successfully
+- `TASK_STATUS_FAILED` - Task failed with error
+- `TASK_STATUS_CANCELLED` - Task was cancelled
+- `TASK_STATUS_TIMEOUT` - Task exceeded timeout
+
+## Examples
+
+### Basic Task Submission
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What is the capital of France?"
+  }'
+```
+
+**Response**:
+```json
+{
+  "task_id": "task_01HQZX3Y9K8M2P4N5S7T9W2V",
+  "status": "TASK_STATUS_QUEUED",
+  "message": "Task submitted successfully",
+  "created_at": "2025-10-22T10:30:00Z"
+}
+```
+
+### Task with Session ID (Multi-Turn)
+
+```bash
+# First turn
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What is Python?",
+    "session_id": "user-123-chat"
+  }'
+
+# Second turn (references previous context)
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What are its main advantages?",
+    "session_id": "user-123-chat"
+  }'
+```
+
+### Task with Context
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Summarize this user feedback",
+    "context": {
+      "user_id": "user_12345",
+      "feedback_type": "bug_report",
+      "severity": "high",
+      "product": "mobile_app"
+    }
+  }'
+```
+
+### With Idempotency
+
+```bash
+# Generate idempotency key (use UUID)
+IDEMPOTENCY_KEY=$(uuidgen)
+
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Idempotency-Key: $IDEMPOTENCY_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Analyze sales data for Q4"
+  }'
+```
+
+### With Distributed Tracing
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Research latest AI trends"
+  }'
+```
+
+## Error Responses
+
+### 400 Bad Request
+
+**Missing Query**:
+```json
+{
+  "error": "Query is required"
+}
+```
+
+**Invalid JSON**:
+```json
+{
+  "error": "Invalid request body: unexpected EOF"
+}
+```
+
+### 401 Unauthorized
+
+**Missing API Key**:
+```json
+{
+  "error": "Unauthorized"
+}
+```
+
+**Invalid API Key**:
+```json
+{
+  "error": "Unauthorized"
+}
+```
+
+### 429 Too Many Requests
+
+```json
+{
+  "error": "Rate limit exceeded"
+}
+```
+
+**Headers**:
+- `X-RateLimit-Limit: 100`
+- `X-RateLimit-Remaining: 0`
+- `X-RateLimit-Reset: 1609459200`
+- `Retry-After: 60`
+
+### 500 Internal Server Error
+
+```json
+{
+  "error": "Failed to submit task: database connection failed"
+}
+```
+
+## Code Examples
+
+### Python with httpx
+
+```python
+import httpx
+
+response = httpx.post(
+    "http://localhost:8080/api/v1/tasks",
+    headers={
+        "X-API-Key": "sk_test_123456",
+        "Content-Type": "application/json"
+    },
+    json={
+        "query": "What is the capital of France?"
+    }
+)
+
+if response.status_code == 200:
+    data = response.json()
+    print(f"Task ID: {data['task_id']}")
+    print(f"Status: {data['status']}")
+else:
+    print(f"Error: {response.status_code}")
+    print(response.json())
+```
+
+### Python with requests
+
+```python
+import requests
+
+response = requests.post(
+    "http://localhost:8080/api/v1/tasks",
+    headers={
+        "X-API-Key": "sk_test_123456"
+    },
+    json={
+        "query": "Analyze customer sentiment",
+        "context": {
+            "source": "twitter",
+            "date_range": "2025-10-01 to 2025-10-22"
+        }
+    }
+)
+
+task = response.json()
+print(f"Task submitted: {task['task_id']}")
+```
+
+### JavaScript/Node.js
+
+```javascript
+const axios = require('axios');
+
+async function submitTask(query) {
+  try {
+    const response = await axios.post(
+      'http://localhost:8080/api/v1/tasks',
+      {
+        query: query
+      },
+      {
+        headers: {
+          'X-API-Key': 'sk_test_123456',
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    console.log('Task ID:', response.data.task_id);
+    console.log('Status:', response.data.status);
+
+    return response.data;
+  } catch (error) {
+    console.error('Error:', error.response?.data || error.message);
+    throw error;
+  }
+}
+
+submitTask('What is quantum computing?');
+```
+
+### cURL with Idempotency
+
+```bash
+#!/bin/bash
+
+API_KEY="sk_test_123456"
+IDEMPOTENCY_KEY=$(uuidgen)
+
+# Submit task
+RESPONSE=$(curl -s -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: $API_KEY" \
+  -H "Idempotency-Key: $IDEMPOTENCY_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Analyze Q4 revenue trends"
+  }')
+
+echo $RESPONSE | jq
+
+TASK_ID=$(echo $RESPONSE | jq -r '.task_id')
+echo "Track progress: http://localhost:8088/workflows/$TASK_ID"
+```
+
+### Go
+
+```go
+package main
+
+import (
+    "bytes"
+    "encoding/json"
+    "fmt"
+    "net/http"
+)
+
+type TaskRequest struct {
+    Query     string                 `json:"query"`
+    SessionID string                 `json:"session_id,omitempty"`
+    Context   map[string]interface{} `json:"context,omitempty"`
+}
+
+type TaskResponse struct {
+    TaskID    string `json:"task_id"`
+    Status    string `json:"status"`
+    Message   string `json:"message,omitempty"`
+}
+
+func submitTask(query string) (*TaskResponse, error) {
+    req := TaskRequest{
+        Query: query,
+    }
+
+    body, _ := json.Marshal(req)
+
+    httpReq, _ := http.NewRequest(
+        "POST",
+        "http://localhost:8080/api/v1/tasks",
+        bytes.NewBuffer(body),
+    )
+
+    httpReq.Header.Set("X-API-Key", "sk_test_123456")
+    httpReq.Header.Set("Content-Type", "application/json")
+
+    client := &http.Client{}
+    resp, err := client.Do(httpReq)
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
+
+    var taskResp TaskResponse
+    json.NewDecoder(resp.Body).Decode(&taskResp)
+
+    return &taskResp, nil
+}
+
+func main() {
+    task, err := submitTask("What is machine learning?")
+    if err != nil {
+        fmt.Println("Error:", err)
+        return
+    }
+
+    fmt.Printf("Task ID: %s\n", task.TaskID)
+    fmt.Printf("Status: %s\n", task.Status)
+}
+```
+
+## Implementation Details
+
+### Workflow Creation
+
+When you submit a task:
+
+1. **Gateway receives request** → Validates authentication, rate limits
+2. **Generates session ID** → If not provided, auto-generates UUID
+3. **Calls Orchestrator gRPC** → `SubmitTask(metadata, query, context)`
+4. **Orchestrator starts Temporal workflow** → Durable execution
+5. **Response returned** → Task ID, initial status
+6. **Task executes asynchronously** → Independent of HTTP connection
+
+### Idempotency Behavior
+
+- **First request**: Creates new task, caches response in Redis
+- **Duplicate requests** (same `Idempotency-Key`): Returns cached response
+- **Cache TTL**: 24 hours
+- **Cache key format**: `idempotency:{key}`
+
+### Session Management
+
+- **No session_id**: Auto-generates UUID, fresh context
+- **With session_id**: Loads previous conversation history from Redis
+- **Session persistence**: 30 days default TTL
+- **Multi-turn conversations**: All tasks with same `session_id` share context
+
+### Context Object
+
+The `context` object is stored as metadata and passed to:
+- Agent execution environment
+- Tool invocations (can access via `ctx.get("key")`)
+- Session memory (for reference in future turns)
+
+**Example use cases**:
+- User preferences: `{"language": "spanish", "format": "markdown"}`
+- Business context: `{"company_id": "acme", "department": "sales"}`
+- Constraints: `{"max_length": 500, "tone": "formal"}`
+
+## Best Practices
+
+### 1. Always Use Idempotency Keys for Critical Tasks
+
+```python
+import uuid
+
+idempotency_key = str(uuid.uuid4())
+
+response = httpx.post(
+    "http://localhost:8080/api/v1/tasks",
+    headers={
+        "X-API-Key": "sk_test_123456",
+        "Idempotency-Key": idempotency_key
+    },
+    json={"query": "Process payment for order #12345"}
+)
+```
+
+### 2. Use Sessions for Conversations
+
+```python
+session_id = "user-456-chat"
+
+# Turn 1
+httpx.post(..., json={
+    "query": "Load sales data for Q4",
+    "session_id": session_id
+})
+
+# Turn 2 (references Q4 data from Turn 1)
+httpx.post(..., json={
+    "query": "Compare it to Q3",
+    "session_id": session_id
+})
+```
+
+### 3. Provide Rich Context
+
+```python
+httpx.post(..., json={
+    "query": "Analyze this customer feedback",
+    "context": {
+        "customer_id": "cust_789",
+        "subscription_tier": "enterprise",
+        "account_age_days": 365,
+        "previous_tickets": 3,
+        "sentiment_history": ["positive", "neutral", "negative"]
+    }
+})
+```
+
+### 4. Handle Errors Gracefully
+
+```python
+try:
+    response = httpx.post(..., timeout=30.0)
+    response.raise_for_status()
+    task = response.json()
+except httpx.TimeoutException:
+    print("Request timed out")
+except httpx.HTTPStatusError as e:
+    if e.response.status_code == 429:
+        retry_after = int(e.response.headers.get("Retry-After", 60))
+        time.sleep(retry_after)
+        # Retry...
+    else:
+        print(f"Error: {e.response.json()}")
+```
+
+### 5. Store Task IDs for Tracking
+
+```python
+response = httpx.post(...)
+task_id = response.json()["task_id"]
+workflow_id = response.headers["X-Workflow-ID"]
+
+# Save to database
+db.tasks.insert({
+    "task_id": task_id,
+    "workflow_id": workflow_id,
+    "user_id": "user_123",
+    "query": "...",
+    "created_at": datetime.now()
+})
+
+# Later: check status
+status = httpx.get(f"http://localhost:8080/api/v1/tasks/{task_id}")
+```
+
+## Related Endpoints
+
+<CardGroup cols={2}>
+  <Card title="Get Task Status" icon="circle-info" href="/api/rest/get-status">
+    GET /api/v1/tasks/{id}
+  </Card>
+  <Card title="Stream Events" icon="stream" href="/api/rest/streaming">
+    Real-time task events
+  </Card>
+  <Card title="List Tasks" icon="list" href="/api/rest/list-tasks">
+    GET /api/v1/tasks
+  </Card>
+  <Card title="Python SDK" icon="python" href="/sdk/python/quickstart">
+    Use the SDK instead
+  </Card>
+</CardGroup>
+
+
+---
+
+## 参与翻译
+
+如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。

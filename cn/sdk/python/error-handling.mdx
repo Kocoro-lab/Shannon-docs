@@ -1,0 +1,375 @@
+---
+title: "错误处理"
+description: "Handle errors gracefully in the Shannon Python SDK"
+---
+
+> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
+
+**原文件**: `sdk/python/error-handling.mdx`
+**英文版本**: [查看英文文档](/en/sdk/python/error-handling)
+
+---
+
+
+<Note>
+Error handling documentation is being expanded. Core patterns are shown below.
+</Note>
+
+## Overview
+
+The Shannon Python SDK provides comprehensive error handling to help you build robust applications. All SDK exceptions inherit from `ShannonError`.
+
+## Exception Hierarchy
+
+```python
+ShannonError                    # Base exception
+├── ConnectionError             # Network/connection issues
+├── AuthenticationError         # API key/auth problems
+├── ValidationError            # Invalid parameters
+├── TaskNotFoundError          # Task doesn't exist
+├── SessionNotFoundError       # Session doesn't exist
+├── TaskTimeoutError           # Task exceeded timeout
+└── ConnectionError            # Includes HTTP 429 rate limits
+```
+
+<Note>
+**Budget and Task Failure Handling**: Budget exceeded and task failures are not exceptions. Check `status.status` field for `TASK_STATUS_FAILED` or monitor cost via `status.metrics.cost_usd`.
+</Note>
+
+## Basic Error Handling
+
+### Try-Catch Pattern
+
+```python
+from shannon import ShannonClient, ShannonError
+
+client = ShannonClient(http_endpoint="http://localhost:8080")
+
+try:
+    handle = client.submit_task(
+        query="Analyze this data",
+        # Mode auto-selected
+    )
+    result = client.get_status(handle.workflow_id)
+
+except ConnectionError:
+    print("Could not connect to Shannon server")
+except AuthenticationError:
+    print("Invalid API credentials")
+except TaskTimeoutError:
+    print("Task exceeded timeout limit")
+except ShannonError as e:
+    print(f"Shannon error: {e}")
+
+# Check for budget/failure in status
+status = client.get_status(handle.task_id)
+if status.status == "TASK_STATUS_FAILED":
+    print(f"Task failed: {status.error}")
+if status.metrics and status.metrics.cost_usd > 1.0:
+    print(f"High cost: ${status.metrics.cost_usd}")
+except Exception as e:
+    print(f"Unexpected error: {e}")
+```
+
+## Specific Error Types
+
+### Connection Errors
+
+Handle network and connection issues:
+
+```python
+import time
+from shannon import ShannonClient, ConnectionError
+
+def connect_with_retry(max_retries=3):
+    client = ShannonClient()
+
+    for attempt in range(max_retries):
+        try:
+            # Test connection with a simple task
+            handle = client.submit_task(query="ping")
+            return client
+
+        except ConnectionError as e:
+            if attempt < max_retries - 1:
+                wait_time = 2 ** attempt  # Exponential backoff
+                print(f"Connection failed, retrying in {wait_time}s...")
+                time.sleep(wait_time)
+            else:
+                print(f"Failed to connect after {max_retries} attempts")
+                raise
+```
+
+### Budget Errors
+
+Handle cost limit exceeded:
+
+```python
+from shannon import ShannonClient
+
+def submit_with_fallback(query):
+    client = ShannonClient()
+
+    try:
+        # Try with advanced mode
+        handle = client.submit_task(
+            query=query,
+            # Mode auto-selected,
+            config={"budget": {"max_cost_usd": 1.0}}
+        )
+
+    except ValidationError:
+        print("Budget exceeded, falling back to simple mode")
+
+        # Fallback to simpler, cheaper mode
+        handle = client.submit_task(
+            query=query,
+            # Mode auto-selected,
+            config={"budget": {"max_cost_usd": 0.10}}
+        )
+
+    return client.get_status(handle.workflow_id)
+```
+
+### Timeout Errors
+
+Handle long-running operations:
+
+```python
+from shannon import ShannonClient, TimeoutError
+import asyncio
+
+async def with_timeout_handling():
+    client = AsyncShannonClient()
+
+    try:
+        # Set aggressive timeout
+        result = await asyncio.wait_for(
+            client.submit_and_wait(query="Complex analysis"),
+            timeout=60.0
+        )
+
+    except TimeoutError:
+        print("Operation timed out after 60 seconds")
+        # Could retry with simpler query or longer timeout
+        return None
+
+    except asyncio.TimeoutError:
+        print("Asyncio timeout reached")
+        return None
+
+    return result
+```
+
+### Rate Limiting
+
+Handle API rate limits gracefully:
+
+```python
+from shannon import ShannonClient
+import time
+
+def handle_rate_limits(queries):
+    client = ShannonClient()
+    results = []
+
+    for query in queries:
+        while True:
+            try:
+                handle = client.submit_task(query=query)
+                result = client.get_status(handle.workflow_id)
+                results.append(result)
+                break  # Success, move to next
+
+            except ConnectionError:
+                # Wait for rate limit reset
+                reset_time = e.reset_after
+                print(f"Rate limited, waiting {reset_time}s")
+                time.sleep(reset_time)
+
+    return results
+```
+
+## Validation Errors
+
+Handle invalid parameters:
+
+```python
+from shannon import ShannonClient, ValidationError
+
+def validate_and_submit(query, session_id=None):
+    client = ShannonClient()
+
+    try:
+        handle = client.submit_task(
+            query=query,
+            session_id=session_id
+        )
+
+    except ValidationError as e:
+        print(f"Invalid parameters: {e}")
+
+        # Retry with minimal parameters
+        handle = client.submit_task(
+            query=query
+            # Mode auto-selected by Shannon
+            )
+        elif "query" in str(e):
+            print("Query cannot be empty")
+            return None
+        else:
+            raise
+
+    return handle
+```
+
+## Task Failure Handling
+
+Handle task execution failures:
+
+```python
+from shannon import ShannonClient
+
+def handle_task_failure(query):
+    client = ShannonClient()
+
+    try:
+        handle = client.submit_task(query=query, # Mode auto-selected)
+        result = client.get_status(handle.workflow_id)
+
+    except TaskTimeoutError:
+        print(f"Task failed: {e.reason}")
+
+        # Check failure reason
+        if e.reason == "INSUFFICIENT_CONTEXT":
+            # Retry with more context
+            handle = client.submit_task(
+                query=f"{query}. Please make reasonable assumptions.",
+                # Mode auto-selected
+            )
+        elif e.reason == "TOOL_ERROR":
+            # Retry without tools
+            handle = client.submit_task(
+                query=query,
+                # Mode auto-selected
+            )
+        else:
+            # Log and re-raise
+            print(f"Unrecoverable error: {e}")
+            raise
+
+    return client.get_status(handle.workflow_id)
+```
+
+## Logging Errors
+
+Implement comprehensive error logging:
+
+```python
+import logging
+from shannon import ShannonClient, ShannonError
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger('shannon')
+
+def logged_task_submission(query):
+    client = ShannonClient()
+
+    try:
+        logger.info(f"Submitting task: {query[:50]}...")
+        handle = client.submit_task(query=query)
+
+        logger.info(f"Task submitted: {handle.workflow_id}")
+        result = client.get_status(handle.workflow_id)
+
+        logger.info("Task completed successfully")
+        return result
+
+    except ShannonError as e:
+        logger.error(f"Shannon error: {e}", exc_info=True)
+        raise
+
+    except Exception as e:
+        logger.critical(f"Unexpected error: {e}", exc_info=True)
+        raise
+```
+
+## Circuit Breaker Pattern
+
+Implement circuit breaker for resilience:
+
+```python
+class CircuitBreaker:
+    def __init__(self, failure_threshold=5, reset_timeout=60):
+        self.failure_count = 0
+        self.failure_threshold = failure_threshold
+        self.reset_timeout = reset_timeout
+        self.last_failure_time = None
+        self.state = "closed"  # closed, open, half-open
+
+    def call(self, func, *args, **kwargs):
+        if self.state == "open":
+            if time.time() - self.last_failure_time > self.reset_timeout:
+                self.state = "half-open"
+            else:
+                raise Exception("Circuit breaker is open")
+
+        try:
+            result = func(*args, **kwargs)
+            if self.state == "half-open":
+                self.state = "closed"
+                self.failure_count = 0
+            return result
+
+        except Exception as e:
+            self.failure_count += 1
+            self.last_failure_time = time.time()
+
+            if self.failure_count >= self.failure_threshold:
+                self.state = "open"
+
+            raise
+
+# Usage
+breaker = CircuitBreaker()
+client = ShannonClient()
+
+try:
+    result = breaker.call(
+        client.submit_task,
+        query="Analyze data"
+    )
+except Exception as e:
+    print(f"Service unavailable: {e}")
+```
+
+## Best Practices
+
+1. **Always catch specific exceptions** before generic ones
+2. **Implement retry logic** with exponential backoff
+3. **Log errors** for debugging and monitoring
+4. **Provide fallback options** for critical operations
+5. **Set reasonable timeouts** to avoid hanging
+6. **Validate inputs** before submission
+7. **Use circuit breakers** for external dependencies
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Examples" icon="code" href="/sdk/python/examples">
+    See error handling in action
+  </Card>
+  <Card title="Async Usage" icon="bolt" href="/sdk/python/async-usage">
+    Async error patterns
+  </Card>
+</CardGroup>
+
+---
+
+## 参与翻译
+
+如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。

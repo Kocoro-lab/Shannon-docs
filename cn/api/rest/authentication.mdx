@@ -1,0 +1,594 @@
+---
+title: "Authentication & Headers"
+description: "Authentication methods and header reference for Shannon REST API"
+---
+
+> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
+
+**原文件**: `api/rest/authentication.mdx`
+**英文版本**: [查看英文文档](/en/api/rest/authentication)
+
+---
+
+
+## Authentication
+
+Shannon Gateway supports API key authentication for all protected endpoints.
+
+### API Key Authentication
+
+Include your API key in the `X-API-Key` header:
+
+```bash
+curl -H "X-API-Key: sk_test_123456" \
+  http://localhost:8080/api/v1/tasks
+```
+
+### Obtaining an API Key
+
+API keys are managed through the database:
+
+```sql
+-- Insert new API key
+INSERT INTO auth.api_keys (key, user_id, tenant_id, name, enabled)
+VALUES ('sk_test_123456', 'user-uuid', 'tenant-uuid', 'My API Key', true);
+```
+
+**Key Format**: `sk_{env}_{random}`
+- `sk_test_*` - Test/development keys
+- `sk_prod_*` - Production keys
+- `sk_live_*` - Live environment keys
+
+### Development Mode (Skip Authentication)
+
+For local development, you can disable authentication:
+
+```bash
+# In .env file
+GATEWAY_SKIP_AUTH=1
+```
+
+```bash
+# Restart gateway
+docker compose restart gateway
+```
+
+**Warning**: Never use `GATEWAY_SKIP_AUTH=1` in production.
+
+### Authentication Errors
+
+**401 Unauthorized** - Missing or invalid API key:
+
+```json
+{
+  "error": "Unauthorized"
+}
+```
+
+**Common causes**:
+- Missing `X-API-Key` header
+- Invalid API key format
+- Disabled or expired API key
+- Wrong authentication endpoint
+
+## Request Headers
+
+### Required Headers
+
+#### X-API-Key
+
+**Purpose**: Authentication
+**Required**: Yes (unless `GATEWAY_SKIP_AUTH=1`)
+**Format**: String
+
+```bash
+X-API-Key: sk_test_123456
+```
+
+#### Content-Type (POST requests)
+
+**Purpose**: Specify request body format
+**Required**: Yes for POST requests
+**Format**: `application/json`
+
+```bash
+Content-Type: application/json
+```
+
+### Optional Headers
+
+#### Idempotency-Key
+
+**Purpose**: Prevent duplicate task submissions
+**Required**: No (recommended for critical operations)
+**Format**: UUID or unique string
+**Cache Duration**: 24 hours
+
+```bash
+Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
+```
+
+**Example**:
+```bash
+# First request - creates task
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Process payment #12345"}'
+
+# Duplicate request - returns cached response
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Process payment #12345"}'
+```
+
+#### traceparent
+
+**Purpose**: W3C distributed tracing
+**Required**: No (recommended for observability)
+**Format**: `{version}-{trace-id}-{parent-id}-{flags}`
+
+```bash
+traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
+```
+
+**Format Specification**:
+- **version**: `00` (current version)
+- **trace-id**: 32 hex characters (128 bits)
+- **parent-id**: 16 hex characters (64 bits)
+- **flags**: 2 hex characters (sampled: `01`, not sampled: `00`)
+
+**Example**:
+```python
+import uuid
+
+def generate_traceparent():
+    trace_id = uuid.uuid4().hex + uuid.uuid4().hex  # 32 chars
+    parent_id = uuid.uuid4().hex[:16]                # 16 chars
+    return f"00-{trace_id}-{parent_id}-01"
+
+traceparent = generate_traceparent()
+# "00-4bf92f3577b34da6a3ce929d0e0e47360011223344556677-00f067aa0ba902b7-01"
+```
+
+#### tracestate
+
+**Purpose**: Vendor-specific trace context
+**Required**: No
+**Format**: Comma-separated key-value pairs
+
+```bash
+tracestate: shannon=task_abc123,vendor=value
+```
+
+#### Cache-Control
+
+**Purpose**: Control caching behavior
+**Required**: No
+**Format**: Standard HTTP cache directives
+
+```bash
+Cache-Control: no-cache
+Cache-Control: max-age=300
+```
+
+#### Last-Event-ID (SSE only)
+
+**Purpose**: Resume SSE stream from specific event
+**Required**: No
+**Format**: Event ID string
+
+```bash
+Last-Event-ID: 42
+```
+
+Used for SSE reconnection:
+```javascript
+const eventSource = new EventSource(url, {
+  headers: {
+    'X-API-Key': 'sk_test_123456',
+    'Last-Event-ID': '42'  // Resume from event 42
+  }
+});
+```
+
+## Response Headers
+
+### Standard Response Headers
+
+#### X-Workflow-ID
+
+**Purpose**: Temporal workflow identifier
+**Present In**: POST /api/v1/tasks, GET /api/v1/tasks/{id}
+**Format**: String (same as task_id)
+
+```bash
+X-Workflow-ID: task_01HQZX3Y9K8M2P4N5S7T9W2V
+```
+
+**Use Case**: Track workflow execution in Temporal UI
+```bash
+WORKFLOW_ID=$(curl -s -X POST ... | grep -i "X-Workflow-ID" | cut -d: -f2)
+echo "Monitor at: http://localhost:8088/workflows/$WORKFLOW_ID"
+```
+
+#### X-Session-ID
+
+**Purpose**: Session identifier for multi-turn conversations
+**Present In**: POST /api/v1/tasks
+**Format**: UUID string
+
+```bash
+X-Session-ID: user-123-chat-session
+```
+
+#### Content-Type
+
+**Purpose**: Response body format
+**Present In**: All JSON responses
+**Format**: `application/json`
+
+```bash
+Content-Type: application/json
+```
+
+For SSE:
+```bash
+Content-Type: text/event-stream
+```
+
+### Rate Limiting Headers
+
+#### X-RateLimit-Limit
+
+**Purpose**: Maximum requests allowed per window
+**Present In**: All authenticated requests
+**Format**: Integer
+
+```bash
+X-RateLimit-Limit: 100
+```
+
+#### X-RateLimit-Remaining
+
+**Purpose**: Remaining requests in current window
+**Present In**: All authenticated requests
+**Format**: Integer
+
+```bash
+X-RateLimit-Remaining: 95
+```
+
+#### X-RateLimit-Reset
+
+**Purpose**: Unix timestamp when rate limit resets
+**Present In**: All authenticated requests
+**Format**: Unix timestamp (seconds)
+
+```bash
+X-RateLimit-Reset: 1609459200
+```
+
+**Example - Check Rate Limit**:
+```bash
+curl -v http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" 2>&1 | grep -i "X-RateLimit"
+
+# Output:
+# < X-RateLimit-Limit: 100
+# < X-RateLimit-Remaining: 95
+# < X-RateLimit-Reset: 1609459200
+```
+
+#### Retry-After
+
+**Purpose**: Seconds to wait before retrying (429 responses)
+**Present In**: 429 Too Many Requests responses
+**Format**: Integer (seconds)
+
+```bash
+Retry-After: 60
+```
+
+**Example - Handle Rate Limit**:
+```python
+import time
+import httpx
+
+response = httpx.post(...)
+
+if response.status_code == 429:
+    retry_after = int(response.headers.get("Retry-After", 60))
+    print(f"Rate limited, waiting {retry_after}s...")
+    time.sleep(retry_after)
+    # Retry request...
+```
+
+### CORS Headers
+
+#### Access-Control-Allow-Origin
+
+**Purpose**: Allowed origins for CORS
+**Present In**: All responses (development mode)
+**Format**: Domain or `*`
+
+```bash
+Access-Control-Allow-Origin: *
+```
+
+**Production**: Configure specific domains:
+```go
+// gateway/main.go
+w.Header().Set("Access-Control-Allow-Origin", "https://app.example.com")
+```
+
+#### Access-Control-Allow-Methods
+
+**Purpose**: Allowed HTTP methods
+**Present In**: CORS preflight responses
+**Format**: Comma-separated methods
+
+```bash
+Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+```
+
+#### Access-Control-Allow-Headers
+
+**Purpose**: Allowed request headers
+**Present In**: CORS preflight responses
+**Format**: Comma-separated headers
+
+```bash
+Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Key, Idempotency-Key, traceparent
+```
+
+## Header Examples
+
+### Minimal Request (GET)
+
+```bash
+curl http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456"
+```
+
+### Full Request (POST)
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \
+  -H "traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01" \
+  -d '{"query": "Analyze data"}'
+```
+
+### Python - All Headers
+
+```python
+import httpx
+import uuid
+
+def generate_traceparent():
+    trace_id = uuid.uuid4().hex + uuid.uuid4().hex
+    parent_id = uuid.uuid4().hex[:16]
+    return f"00-{trace_id}-{parent_id}-01"
+
+response = httpx.post(
+    "http://localhost:8080/api/v1/tasks",
+    headers={
+        "X-API-Key": "sk_test_123456",
+        "Content-Type": "application/json",
+        "Idempotency-Key": str(uuid.uuid4()),
+        "traceparent": generate_traceparent()
+    },
+    json={"query": "Analyze data"}
+)
+
+# Extract response headers
+workflow_id = response.headers.get("X-Workflow-ID")
+session_id = response.headers.get("X-Session-ID")
+rate_limit = response.headers.get("X-RateLimit-Remaining")
+
+print(f"Workflow: {workflow_id}")
+print(f"Session: {session_id}")
+print(f"Rate limit remaining: {rate_limit}")
+```
+
+### JavaScript - Fetch API
+
+```javascript
+const response = await fetch('http://localhost:8080/api/v1/tasks', {
+  method: 'POST',
+  headers: {
+    'X-API-Key': 'sk_test_123456',
+    'Content-Type': 'application/json',
+    'Idempotency-Key': crypto.randomUUID()
+  },
+  body: JSON.stringify({
+    query: 'Analyze data'
+  })
+});
+
+// Read response headers
+const workflowId = response.headers.get('X-Workflow-ID');
+const rateLimit = response.headers.get('X-RateLimit-Remaining');
+
+console.log('Workflow:', workflowId);
+console.log('Rate limit remaining:', rateLimit);
+```
+
+## Security Best Practices
+
+### 1. Protect API Keys
+
+**Never commit API keys to version control**:
+
+```bash
+# ✅ Good - Use environment variables
+export SHANNON_API_KEY="sk_test_123456"
+curl -H "X-API-Key: $SHANNON_API_KEY" ...
+
+# ❌ Bad - Hardcoded in scripts
+curl -H "X-API-Key: sk_test_123456" ...
+```
+
+**Store in secure configuration**:
+```python
+import os
+
+API_KEY = os.environ.get("SHANNON_API_KEY")
+if not API_KEY:
+    raise ValueError("SHANNON_API_KEY not set")
+```
+
+### 2. Use HTTPS in Production
+
+```python
+# ✅ Production
+BASE_URL = "https://shannon.example.com"
+
+# ⚠️ Development only
+BASE_URL = "http://localhost:8080"
+```
+
+### 3. Rotate API Keys Regularly
+
+```sql
+-- Disable old key
+UPDATE auth.api_keys SET enabled = false WHERE key = 'sk_test_old';
+
+-- Create new key
+INSERT INTO auth.api_keys (key, user_id, tenant_id, name, enabled)
+VALUES ('sk_test_new', 'user-uuid', 'tenant-uuid', 'Rotated Key', true);
+```
+
+### 4. Implement Key Expiration
+
+```sql
+-- Add expiration to keys
+UPDATE auth.api_keys SET expires_at = NOW() + INTERVAL '90 days';
+
+-- Check for expired keys
+SELECT * FROM auth.api_keys WHERE expires_at < NOW();
+```
+
+### 5. Monitor API Key Usage
+
+```python
+def track_api_usage(api_key: str):
+    """Log API key usage for monitoring."""
+    response = httpx.post(...)
+
+    # Log usage
+    logger.info("API request", extra={
+        "api_key": api_key[:10] + "...",  # Partial key only
+        "endpoint": "/api/v1/tasks",
+        "status": response.status_code,
+        "rate_limit_remaining": response.headers.get("X-RateLimit-Remaining")
+    })
+```
+
+## Troubleshooting
+
+### Authentication Failures
+
+**Problem**: Getting 401 Unauthorized
+
+**Solutions**:
+1. Check API key is included:
+   ```bash
+   curl -v http://localhost:8080/api/v1/tasks 2>&1 | grep "X-API-Key"
+   ```
+
+2. Verify API key format:
+   ```bash
+   # Should start with sk_
+   echo $API_KEY | grep -E "^sk_"
+   ```
+
+3. Check if auth is disabled:
+   ```bash
+   docker compose exec gateway env | grep GATEWAY_SKIP_AUTH
+   ```
+
+4. Verify key in database:
+   ```sql
+   SELECT key, enabled, expires_at FROM auth.api_keys WHERE key = 'sk_test_123456';
+   ```
+
+### Rate Limit Issues
+
+**Problem**: Getting 429 Too Many Requests
+
+**Solutions**:
+1. Check rate limit headers:
+   ```bash
+   curl -v ... 2>&1 | grep "X-RateLimit"
+   ```
+
+2. Implement exponential backoff:
+   ```python
+   if response.status_code == 429:
+       retry_after = int(response.headers.get("Retry-After", 60))
+       time.sleep(retry_after)
+   ```
+
+3. Increase rate limits (if needed):
+   ```bash
+   # In .env
+   RATE_LIMIT_RPM=200
+   RATE_LIMIT_BURST=50
+   ```
+
+### Idempotency Issues
+
+**Problem**: Duplicate tasks created
+
+**Solutions**:
+1. Always include Idempotency-Key:
+   ```python
+   idempotency_key = str(uuid.uuid4())
+   headers["Idempotency-Key"] = idempotency_key
+   ```
+
+2. Store idempotency keys:
+   ```python
+   # Store key with request
+   db.requests.insert({
+       "idempotency_key": idempotency_key,
+       "task_id": task_id,
+       "created_at": datetime.now()
+   })
+   ```
+
+3. Check Redis cache:
+   ```bash
+   docker compose exec redis redis-cli KEYS "idempotency:*"
+   ```
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="REST API Overview" icon="book" href="/api/rest/overview">
+    Complete API reference
+  </Card>
+  <Card title="Submit Task" icon="paper-plane" href="/api/rest/submit-task">
+    POST /api/v1/tasks
+  </Card>
+  <Card title="Rate Limiting" icon="gauge" href="/api/rest/overview#rate-limiting">
+    Rate limit details
+  </Card>
+  <Card title="Distributed Tracing" icon="route" href="/api/rest/overview#distributed-tracing">
+    Tracing setup
+  </Card>
+</CardGroup>
+
+
+---
+
+## 参与翻译
+
+如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。

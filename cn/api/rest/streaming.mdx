@@ -1,0 +1,737 @@
+---
+title: "Streaming Endpoints"
+description: "Real-time event streaming via SSE and WebSocket"
+---
+
+> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
+
+**原文件**: `api/rest/streaming.mdx`
+**英文版本**: [查看英文文档](/en/api/rest/streaming)
+
+---
+
+
+## Overview
+
+Shannon provides real-time event streaming through Server-Sent Events (SSE) and WebSocket protocols. Use streaming to monitor task execution, display progress, and receive results as they're generated.
+
+## Endpoints
+
+| Method | Endpoint | Protocol | Description |
+|--------|----------|----------|-------------|
+| `GET` | `/api/v1/tasks/{id}/stream` | SSE | Stream events for specific task |
+| `GET` | `/api/v1/stream/sse` | SSE | Server-Sent Events endpoint |
+| `GET` | `/api/v1/stream/ws` | WebSocket | WebSocket streaming endpoint |
+| `GET` | `/api/v1/tasks/{id}/events` | HTTP | Get historical events (paginated) |
+
+## Server-Sent Events (SSE)
+
+### GET /api/v1/stream/sse
+
+Real-time event streaming using Server-Sent Events.
+
+#### Authentication
+
+**Required**: Yes
+
+```
+X-API-Key: sk_test_123456
+```
+
+#### Query Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `workflow_id` | string | Yes | Task/workflow identifier |
+| `types` | string | No | Comma-separated event types to filter |
+| `last_event_id` | string | No | Resume from specific event ID |
+
+#### Event Format
+
+Each event follows SSE specification:
+
+```
+id: <event_id>
+event: <event_type>
+data: <json_payload>
+
+```
+
+#### Example Request
+
+```bash
+curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id=task_abc123" \
+  -H "X-API-Key: sk_test_123456"
+```
+
+#### Example Response
+
+```
+id: 1
+event: WORKFLOW_STARTED
+data: {"workflow_id":"task_abc123","timestamp":"2025-10-22T10:30:00Z","message":"Workflow started"}
+
+id: 2
+event: AGENT_THINKING
+data: {"workflow_id":"task_abc123","agent_id":"agent_1","message":"Analyzing query...","timestamp":"2025-10-22T10:30:01Z"}
+
+id: 3
+event: TOOL_INVOKED
+data: {"workflow_id":"task_abc123","tool":"web_search","params":{"query":"Python programming"},"timestamp":"2025-10-22T10:30:02Z"}
+
+id: 4
+event: TOOL_RESULT
+data: {"workflow_id":"task_abc123","tool":"web_search","result":"...","timestamp":"2025-10-22T10:30:05Z"}
+
+id: 5
+event: AGENT_COMPLETED
+data: {"workflow_id":"task_abc123","agent_id":"agent_1","result":"Python is a high-level programming language...","timestamp":"2025-10-22T10:30:06Z"}
+
+id: 6
+event: TASK_COMPLETED
+data: {"workflow_id":"task_abc123","status":"COMPLETED","result":"...","timestamp":"2025-10-22T10:30:07Z"}
+```
+
+### GET /api/v1/tasks/{id}/stream
+
+Convenience endpoint that redirects to `/api/v1/stream/sse` with workflow_id set.
+
+```bash
+# This endpoint
+curl -N "http://localhost:8080/api/v1/tasks/task_abc123/stream" \
+  -H "X-API-Key: sk_test_123456"
+
+# Redirects to (307 Temporary Redirect)
+curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id=task_abc123" \
+  -H "X-API-Key: sk_test_123456"
+```
+
+## WebSocket
+
+### GET /api/v1/stream/ws
+
+Bidirectional streaming via WebSocket.
+
+#### Authentication
+
+The gateway authenticates WebSocket connections via headers only (`X-API-Key` or `Authorization`). Browsers cannot set custom headers during the WebSocket handshake. For browser usage:
+
+- Run locally with `GATEWAY_SKIP_AUTH=1`, or
+- Use a reverse proxy that injects the header before forwarding to the gateway.
+
+Header-based examples for server environments:
+
+Node (ws):
+```js
+import WebSocket from 'ws';
+
+const ws = new WebSocket('ws://localhost:8080/api/v1/stream/ws', {
+  headers: { 'X-API-Key': 'sk_test_123456' },
+});
+
+ws.on('open', () => {
+  ws.send(JSON.stringify({ type: 'subscribe', workflow_id: 'task_abc123' }));
+});
+
+ws.on('message', (msg) => {
+  const data = JSON.parse(msg.toString());
+  console.log('Event:', data.type, data.message);
+});
+
+ws.on('error', (err) => console.error('WebSocket error:', err));
+```
+
+Python (websockets):
+```python
+import asyncio, json, websockets
+
+async def main():
+    async with websockets.connect(
+        'ws://localhost:8080/api/v1/stream/ws',
+        extra_headers={'X-API-Key': 'sk_test_123456'},
+    ) as ws:
+        await ws.send(json.dumps({'type': 'subscribe', 'workflow_id': 'task_abc123'}))
+        async for message in ws:
+            data = json.loads(message)
+            print('Event:', data.get('type'), data.get('message'))
+
+asyncio.run(main())
+```
+
+<Note>
+Passing the API key in the query string or via an "auth" message after connect is not supported by the gateway.
+</Note>
+
+#### Message Types
+
+**Client → Server**:
+
+```json
+// Subscribe to workflow
+{
+  "type": "subscribe",
+  "workflow_id": "task_abc123",
+  "types": ["AGENT_THINKING", "TOOL_INVOKED"]
+}
+
+// Unsubscribe
+{
+  "type": "unsubscribe",
+  "workflow_id": "task_abc123"
+}
+
+// Ping (keep-alive)
+{
+  "type": "ping"
+}
+```
+
+**Server → Client**:
+
+```json
+// Event
+{
+  "type": "AGENT_THINKING",
+  "workflow_id": "task_abc123",
+  "message": "Analyzing query...",
+  "timestamp": "2025-10-22T10:30:00Z"
+}
+
+// Pong (keep-alive response)
+{
+  "type": "pong"
+}
+```
+
+## Event Types
+
+### Core Events
+
+| Event Type | Description | When Fired |
+|------------|-------------|------------|
+| `WORKFLOW_STARTED` | Workflow execution began | Start of task |
+| `WORKFLOW_COMPLETED` | Workflow finished successfully | End of task (success) |
+| `WORKFLOW_FAILED` | Workflow failed with error | End of task (failure) |
+| `TASK_COMPLETED` | Task result available | Final result ready |
+
+### Agent Events
+
+| Event Type | Description | Payload Fields |
+|------------|-------------|----------------|
+| `AGENT_THINKING` | Agent reasoning/planning | `agent_id`, `message` |
+| `AGENT_PLANNING` | Agent creating execution plan | `agent_id`, `plan` |
+| `AGENT_COMPLETED` | Agent finished execution | `agent_id`, `result` |
+
+### Tool Events
+
+| Event Type | Description | Payload Fields |
+|------------|-------------|----------------|
+| `TOOL_INVOKED` | Tool execution started | `tool`, `params` |
+| `TOOL_RESULT` | Tool execution completed | `tool`, `result` |
+| `TOOL_ERROR` | Tool execution failed | `tool`, `error` |
+
+### Progress Events
+
+| Event Type | Description | Payload Fields |
+|------------|-------------|----------------|
+| `PARTIAL_OUTPUT` | Streaming LLM output | `text`, `is_final` |
+| `PROGRESS_UPDATE` | Progress percentage | `progress`, `message` |
+
+### Error Events
+
+| Event Type | Description | Payload Fields |
+|------------|-------------|----------------|
+| `ERROR` | General error occurred | `error`, `severity` |
+| `TIMEOUT` | Task exceeded timeout | `timeout_seconds` |
+
+## Code Examples
+
+### Python with httpx (SSE)
+
+```python
+import httpx
+import json
+
+def stream_task_events(task_id: str, api_key: str):
+    """Stream task events using SSE."""
+    url = f"http://localhost:8080/api/v1/stream/sse?workflow_id={task_id}"
+
+    with httpx.stream(
+        "GET",
+        url,
+        headers={"X-API-Key": api_key},
+        timeout=None  # No timeout for streaming
+    ) as response:
+        for line in response.iter_lines():
+            if line.startswith("data:"):
+                data = json.loads(line[5:])  # Remove "data:" prefix
+                yield data
+
+# Usage
+for event in stream_task_events("task_abc123", "sk_test_123456"):
+    print(f"[{event.get('type')}] {event.get('message', '')}")
+
+    if event.get('type') == 'TASK_COMPLETED':
+        print("Final result:", event.get('result'))
+        break
+```
+
+### Python - Stream with Event Filtering
+
+```python
+def stream_filtered_events(task_id: str, api_key: str, event_types: list):
+    """Stream only specific event types."""
+    types_param = ",".join(event_types)
+    url = f"http://localhost:8080/api/v1/stream/sse?workflow_id={task_id}&types={types_param}"
+
+    with httpx.stream("GET", url, headers={"X-API-Key": api_key}) as response:
+        for line in response.iter_lines():
+            if line.startswith("data:"):
+                yield json.loads(line[5:])
+
+# Only receive agent thinking and tool events
+for event in stream_filtered_events(
+    "task_abc123",
+    "sk_test_123456",
+    ["AGENT_THINKING", "TOOL_INVOKED", "TOOL_RESULT"]
+):
+    print(f"{event['type']}: {event.get('message', event.get('tool'))}")
+```
+
+### JavaScript/Node.js (SSE)
+
+```javascript
+const EventSource = require('eventsource');
+
+function streamTaskEvents(taskId, apiKey) {
+  const url = `http://localhost:8080/api/v1/stream/sse?workflow_id=${taskId}`;
+
+  const eventSource = new EventSource(url, {
+    headers: {
+      'X-API-Key': apiKey
+    }
+  });
+
+  eventSource.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    console.log(`[${data.type}] ${data.message || ''}`);
+
+    if (data.type === 'TASK_COMPLETED') {
+      console.log('Final result:', data.result);
+      eventSource.close();
+    }
+  };
+
+  eventSource.onerror = (error) => {
+    console.error('SSE error:', error);
+    eventSource.close();
+  };
+
+  return eventSource;
+}
+
+// Usage
+const stream = streamTaskEvents('task_abc123', 'sk_test_123456');
+
+// Close manually
+setTimeout(() => stream.close(), 60000);
+```
+
+### JavaScript/Node.js - WebSocket (ws)
+
+```javascript
+import WebSocket from 'ws';
+
+function connectWebSocket(taskId, apiKey) {
+  const ws = new WebSocket(
+    `ws://localhost:8080/api/v1/stream/ws?workflow_id=${taskId}`,
+    { headers: { 'X-API-Key': apiKey } }
+  );
+
+  ws.on('open', () => console.log('✓ Connected'));
+
+  ws.on('message', (msg) => {
+    const data = JSON.parse(msg.toString());
+    switch (data.type) {
+      case 'AGENT_THINKING':
+        console.log(`💭 ${data.message}`);
+        break;
+      case 'TOOL_INVOKED':
+        console.log(`🔧 Tool: ${data.tool}`);
+        break;
+      case 'TOOL_RESULT':
+        console.log(`✓ Result: ${data.result}`);
+        break;
+      case 'TASK_COMPLETED':
+        console.log(`✓ Done: ${data.result}`);
+        ws.close();
+        break;
+      default:
+        console.log(`[${data.type}] ${data.message || ''}`);
+    }
+  });
+
+  ws.on('error', (err) => console.error('❌ Error:', err));
+  ws.on('close', () => console.log('Connection closed'));
+
+  return ws;
+}
+
+const ws = connectWebSocket('task_abc123', 'sk_test_123456');
+```
+
+### Go (SSE)
+
+```go
+package main
+
+import (
+    "bufio"
+    "encoding/json"
+    "fmt"
+    "net/http"
+    "strings"
+)
+
+type Event struct {
+    Type      string                 `json:"type"`
+    WorkflowID string                `json:"workflow_id"`
+    Message   string                 `json:"message,omitempty"`
+    Data      map[string]interface{} `json:",inline"`
+}
+
+func streamEvents(taskID, apiKey string) error {
+    url := fmt.Sprintf(
+        "http://localhost:8080/api/v1/stream/sse?workflow_id=%s",
+        taskID,
+    )
+
+    req, _ := http.NewRequest("GET", url, nil)
+    req.Header.Set("X-API-Key", apiKey)
+
+    client := &http.Client{}
+    resp, err := client.Do(req)
+    if err != nil {
+        return err
+    }
+    defer resp.Body.Close()
+
+    scanner := bufio.NewScanner(resp.Body)
+
+    for scanner.Scan() {
+        line := scanner.Text()
+
+        if strings.HasPrefix(line, "data:") {
+            data := strings.TrimPrefix(line, "data:")
+
+            var event Event
+            json.Unmarshal([]byte(data), &event)
+
+            fmt.Printf("[%s] %s\n", event.Type, event.Message)
+
+            if event.Type == "TASK_COMPLETED" {
+                fmt.Println("✓ Task completed")
+                break
+            }
+        }
+    }
+
+    return scanner.Err()
+}
+
+func main() {
+    err := streamEvents("task_abc123", "sk_test_123456")
+    if err != nil {
+        fmt.Println("Error:", err)
+    }
+}
+```
+
+### Bash/curl (SSE)
+
+```bash
+#!/bin/bash
+
+API_KEY="sk_test_123456"
+TASK_ID="$1"
+
+curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id=$TASK_ID" \
+  -H "X-API-Key: $API_KEY" \
+  | while IFS= read -r line; do
+    if [[ $line == data:* ]]; then
+      # Extract JSON from "data: {...}"
+      JSON="${line#data:}"
+
+      # Parse and display
+      TYPE=$(echo "$JSON" | jq -r '.type')
+      MESSAGE=$(echo "$JSON" | jq -r '.message // ""')
+
+      echo "[$(date +%T)] $TYPE: $MESSAGE"
+
+      # Exit on completion
+      if [[ "$TYPE" == "TASK_COMPLETED" ]]; then
+        echo ""
+        echo "$JSON" | jq -r '.result'
+        break
+      fi
+    fi
+  done
+```
+
+## Use Cases
+
+### 1. Real-Time Progress Display
+
+```python
+def display_progress(task_id: str, api_key: str):
+    """Display real-time progress to user."""
+    print(f"Task {task_id} starting...")
+
+    for event in stream_task_events(task_id, api_key):
+        event_type = event.get('type')
+
+        if event_type == 'AGENT_THINKING':
+            print(f"💭 {event['message']}")
+        elif event_type == 'TOOL_INVOKED':
+            print(f"🔧 Using tool: {event['tool']}")
+        elif event_type == 'TOOL_RESULT':
+            print(f"✓ Tool completed")
+        elif event_type == 'PARTIAL_OUTPUT':
+            print(event['text'], end='', flush=True)
+        elif event_type == 'TASK_COMPLETED':
+            print(f"\n\n✓ Done!")
+            return event['result']
+```
+
+### 2. Log All Events to File
+
+```python
+import json
+from datetime import datetime
+
+def log_events_to_file(task_id: str, api_key: str, log_file: str):
+    """Log all events to JSON Lines file."""
+    with open(log_file, 'a') as f:
+        for event in stream_task_events(task_id, api_key):
+            # Add timestamp
+            event['logged_at'] = datetime.now().isoformat()
+
+            # Write as JSON Lines
+            f.write(json.dumps(event) + '\n')
+            f.flush()
+
+            if event.get('type') == 'TASK_COMPLETED':
+                break
+
+log_events_to_file("task_abc123", "sk_test_123456", "task_events.jsonl")
+```
+
+### 3. Collect Tool Usage Metrics
+
+```python
+def collect_tool_metrics(task_id: str, api_key: str):
+    """Collect metrics about tool usage."""
+    metrics = {
+        "tools_invoked": 0,
+        "tools_succeeded": 0,
+        "tools_failed": 0,
+        "tool_list": []
+    }
+
+    for event in stream_task_events(task_id, api_key):
+        if event.get('type') == 'TOOL_INVOKED':
+            metrics['tools_invoked'] += 1
+            metrics['tool_list'].append(event['tool'])
+        elif event.get('type') == 'TOOL_RESULT':
+            metrics['tools_succeeded'] += 1
+        elif event.get('type') == 'TOOL_ERROR':
+            metrics['tools_failed'] += 1
+        elif event.get('type') == 'TASK_COMPLETED':
+            break
+
+    return metrics
+
+metrics = collect_tool_metrics("task_abc123", "sk_test_123456")
+print(f"Tools used: {metrics['tool_list']}")
+print(f"Success rate: {metrics['tools_succeeded']}/{metrics['tools_invoked']}")
+```
+
+### 4. React UI Integration
+
+```javascript
+import { useState, useEffect } from 'react';
+
+function TaskMonitor({ taskId, apiKey }) {
+  const [events, setEvents] = useState([]);
+  const [status, setStatus] = useState('connecting');
+
+  useEffect(() => {
+    const eventSource = new EventSource(
+      `http://localhost:8080/api/v1/stream/sse?workflow_id=${taskId}`,
+      { headers: { 'X-API-Key': apiKey } }
+    );
+
+    eventSource.onopen = () => setStatus('connected');
+
+    eventSource.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      setEvents(prev => [...prev, data]);
+
+      if (data.type === 'TASK_COMPLETED') {
+        setStatus('completed');
+        eventSource.close();
+      }
+    };
+
+    eventSource.onerror = () => {
+      setStatus('error');
+      eventSource.close();
+    };
+
+    return () => eventSource.close();
+  }, [taskId, apiKey]);
+
+  return (
+    <div>
+      <h3>Status: {status}</h3>
+      <ul>
+        {events.map((event, i) => (
+          <li key={i}>
+            <strong>{event.type}</strong>: {event.message || event.tool}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+## Best Practices
+
+### 1. Handle Connection Errors
+
+```python
+import time
+
+def stream_with_retry(task_id: str, api_key: str, max_retries: int = 3):
+    """Stream with automatic retry on connection failure."""
+    for attempt in range(max_retries):
+        try:
+            for event in stream_task_events(task_id, api_key):
+                yield event
+
+                if event.get('type') == 'TASK_COMPLETED':
+                    return
+        except Exception as e:
+            if attempt < max_retries - 1:
+                print(f"Connection failed, retrying in {2 ** attempt}s...")
+                time.sleep(2 ** attempt)
+            else:
+                raise
+```
+
+### 2. Implement Timeout
+
+```python
+import signal
+
+def stream_with_timeout(task_id: str, api_key: str, timeout: int = 300):
+    """Stream with timeout."""
+    def timeout_handler(signum, frame):
+        raise TimeoutError("Stream timeout")
+
+    signal.signal(signal.SIGALRM, timeout_handler)
+    signal.alarm(timeout)
+
+    try:
+        for event in stream_task_events(task_id, api_key):
+            yield event
+            if event.get('type') == 'TASK_COMPLETED':
+                break
+    finally:
+        signal.alarm(0)  # Cancel alarm
+```
+
+### 3. Filter Events Client-Side
+
+```python
+def stream_specific_events(task_id: str, api_key: str, event_types: set):
+    """Filter events client-side."""
+    for event in stream_task_events(task_id, api_key):
+        if event.get('type') in event_types:
+            yield event
+
+        if event.get('type') == 'TASK_COMPLETED':
+            yield event
+            break
+
+# Only receive agent and tool events
+for event in stream_specific_events(
+    "task_abc123",
+    "sk_test_123456",
+    {"AGENT_THINKING", "TOOL_INVOKED", "TOOL_RESULT"}
+):
+    print(event)
+```
+
+### 4. Resume from Last Event
+
+```python
+def stream_with_resume(task_id: str, api_key: str, last_event_id: str = None):
+    """Resume streaming from specific event."""
+    url = f"http://localhost:8080/api/v1/stream/sse?workflow_id={task_id}"
+
+    if last_event_id:
+        url += f"&last_event_id={last_event_id}"
+
+    # Stream events...
+```
+
+## Comparison: SSE vs WebSocket vs Polling
+
+| Feature | SSE | WebSocket | Polling |
+|---------|-----|-----------|---------|
+| **Direction** | Server → Client | Bidirectional | Client → Server |
+| **Protocol** | HTTP | WebSocket | HTTP |
+| **Auto-reconnect** | Yes (browser) | No (manual) | N/A |
+| **Overhead** | Low | Very Low | High |
+| **Simplicity** | High | Medium | High |
+| **Use Case** | Real-time updates | Interactive apps | Simple status |
+| **Shannon Support** | ✅ Recommended | ✅ Available | ⚠️ Not ideal |
+
+### When to Use Each
+
+- **SSE**: Most use cases, real-time monitoring, progress display
+- **WebSocket**: Interactive applications, bidirectional communication needed
+- **Polling** (GET /api/v1/tasks/{id}): Legacy systems, no streaming support
+
+## Related Endpoints
+
+<CardGroup cols={2}>
+  <Card title="Submit Task" icon="paper-plane" href="/api/rest/submit-task">
+    POST /api/v1/tasks
+  </Card>
+  <Card title="Get Status" icon="circle-info" href="/api/rest/get-status">
+    GET /api/v1/tasks/{id}
+  </Card>
+  <Card title="Python SDK" icon="python" href="/sdk/python/quickstart">
+    Use client.stream()
+  </Card>
+</CardGroup>
+
+## Notes
+
+<Tip>
+**Event Retention**: Events are stored in Redis for 24 hours. Use `last_event_id` to resume streaming if connection drops.
+</Tip>
+
+<Warning>
+**Connection Limits**: Maximum 100 concurrent streaming connections per API key. Consider multiplexing multiple workflows over a single WebSocket.
+</Warning>
+
+
+---
+
+## 参与翻译
+
+如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。

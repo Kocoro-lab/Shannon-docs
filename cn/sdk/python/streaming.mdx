@@ -1,0 +1,106 @@
+---
+title: "Event Streaming"
+description: "Real-time event streaming with the Python SDK"
+---
+
+> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
+
+**原文件**: `sdk/python/streaming.mdx`
+**英文版本**: [查看英文文档](/en/sdk/python/streaming)
+
+---
+
+
+<Note>
+Complete streaming documentation coming soon. For now, see the [Quick Start guide](/sdk/python/quickstart) for basic streaming examples.
+</Note>
+
+## Overview
+
+Shannon provides real-time event streaming to monitor task execution as it happens.
+
+## Basic Usage
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient()  # SSE uses http://localhost:8081 by default
+
+handle = client.submit_task(query="Analyze market trends")
+
+for event in client.stream(handle.workflow_id):
+    print(f"[{event.type}] {event.message}")
+    if event.type == "TASK_COMPLETED":
+        break
+```
+
+## Event Types
+
+Common events you'll see:
+- `AGENT_THINKING` - Agent processing
+- `TASK_DECOMPOSED` - Task broken into subtasks
+- `SUBTASK_COMPLETED` - Subtask finished
+- `TOOL_INVOKED` - Tool execution
+- `TASK_COMPLETED` - Task finished
+- `TASK_FAILED` - Task error
+
+## Async Streaming
+
+```python
+import asyncio
+from shannon import AsyncShannonClient
+
+async def stream_task():
+    async with AsyncShannonClient() as client:
+        handle = await client.submit_task(query="Analyze data")
+
+        async for event in client.stream(handle.workflow_id):
+            print(f"Event: {event.type}")
+            if event.type == "TASK_COMPLETED":
+                break
+
+asyncio.run(stream_task())
+```
+
+## Progress Tracking
+
+Track task progress from events:
+
+```python
+total_subtasks = 0
+completed_subtasks = 0
+
+for event in client.stream(workflow_id):
+    if event.type == 'TASK_DECOMPOSED':
+        total_subtasks = event.data['subtasks']
+
+    elif event.type == 'SUBTASK_COMPLETED':
+        completed_subtasks += 1
+        progress = (completed_subtasks / total_subtasks) * 100
+        print(f"Progress: {progress:.1f}%")
+```
+
+## More Examples
+
+For more streaming examples, see:
+- [SDK Quick Start](/sdk/python/quickstart)
+- [Streaming Concepts](/quickstart/concepts/streaming)
+- [API Streaming Endpoint](/api/endpoints/stream-task)
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Async Usage" icon="bolt" href="/sdk/python/async-usage">
+    Async/await patterns
+  </Card>
+  <Card title="Examples" icon="code" href="/sdk/python/examples">
+    More code examples
+  </Card>
+</CardGroup>
+
+
+---
+
+## 参与翻译
+
+如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。

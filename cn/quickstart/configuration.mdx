@@ -1,0 +1,659 @@
+---
+title: "Configuration Reference"
+description: "Complete environment variables and configuration options for Shannon"
+---
+
+> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
+
+**原文件**: `quickstart/configuration.mdx`
+**英文版本**: [查看英文文档](/en/quickstart/configuration)
+
+---
+
+
+## Overview
+
+Shannon is configured through **environment variables** and **YAML configuration files**. This guide documents all available configuration options.
+
+## Configuration Files
+
+Shannon uses multiple configuration approaches:
+
+1. **`.env` file**: Environment variables (this document)
+2. **`config/features.yaml`**: Feature flags and toggles
+3. **`config/models.yaml`**: LLM model definitions and pricing
+4. **Docker Compose**: Service orchestration and networking
+
+### Setup
+
+```bash
+# Create .env from template
+cp .env.example .env
+
+# Edit with your values
+nano .env
+
+# Apply changes
+docker compose down
+docker compose up -d
+```
+
+---
+
+## Core Runtime
+
+Essential variables for all deployments.
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `ENVIRONMENT` | string | `dev` | Runtime environment: `dev`, `staging`, `prod` |
+| `DEBUG` | boolean | `false` | Enable debug logging |
+| `SERVICE_NAME` | string | `shannon-llm-service` | Service identifier for logs and metrics |
+
+**Example**:
+```bash
+ENVIRONMENT=prod
+DEBUG=false
+SERVICE_NAME=shannon-production
+```
+
+---
+
+## LLM Provider API Keys
+
+**At least one provider must be configured.**
+
+| Variable | Provider | Required | Format |
+|----------|----------|----------|--------|
+| `OPENAI_API_KEY` | OpenAI | Conditional | `sk-...` |
+| `ANTHROPIC_API_KEY` | Anthropic (Claude) | Conditional | `sk-ant-...` |
+| `GOOGLE_API_KEY` | Google (Gemini) | Conditional | `AIza...` |
+| `GROQ_API_KEY` | Groq | No | `gsk_...` |
+| `XAI_API_KEY` | xAI (Grok) | No | Custom |
+| `DEEPSEEK_API_KEY` | DeepSeek | No | Custom |
+| `QWEN_API_KEY` | Qwen | No | Custom |
+| `MISTRAL_API_KEY` | Mistral | No | Custom |
+| `ZAI_API_KEY` | ZAI | No | Custom |
+
+**AWS Bedrock Configuration**:
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AWS_ACCESS_KEY_ID` | - | AWS access key for Bedrock |
+| `AWS_SECRET_ACCESS_KEY` | - | AWS secret key |
+| `AWS_REGION` | `us-east-1` | AWS region |
+
+**Example**:
+```bash
+OPENAI_API_KEY=sk-proj-abc123...
+ANTHROPIC_API_KEY=sk-ant-xyz789...
+AWS_REGION=us-west-2
+```
+
+**Testing API Keys**:
+```bash
+# Test OpenAI
+curl https://api.openai.com/v1/models \
+  -H "Authorization: Bearer $OPENAI_API_KEY"
+
+# Test Anthropic
+curl https://api.anthropic.com/v1/messages \
+  -H "x-api-key: $ANTHROPIC_API_KEY" \
+  -H "anthropic-version: 2023-06-01" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"claude-3-sonnet-20240229","max_tokens":10,"messages":[{"role":"user","content":"Hi"}]}'
+```
+
+---
+
+## Web Search Providers
+
+Optional but **highly recommended** for research and data gathering tasks.
+
+| Variable | Type | Default | Options |
+|----------|------|---------|---------|
+| `WEB_SEARCH_PROVIDER` | string | `google` | `google`, `serper`, `bing`, `exa`, `firecrawl` |
+
+**Provider-Specific Keys**:
+| Variable | Provider | Get Key From |
+|----------|----------|--------------|
+| `GOOGLE_SEARCH_API_KEY` | Google | [Google Cloud Console](https://console.cloud.google.com/) |
+| `GOOGLE_SEARCH_ENGINE_ID` | Google | [Programmable Search Engine](https://programmablesearchengine.google.com/) |
+| `SERPER_API_KEY` | Serper | [serper.dev](https://serper.dev) |
+| `BING_API_KEY` | Bing | [Azure Portal](https://portal.azure.com/) |
+| `EXA_API_KEY` | Exa | [exa.ai](https://exa.ai) |
+| `FIRECRAWL_API_KEY` | Firecrawl | [firecrawl.dev](https://firecrawl.dev) |
+
+**Example**:
+```bash
+WEB_SEARCH_PROVIDER=google
+GOOGLE_SEARCH_API_KEY=AIzaSyAbc123...
+GOOGLE_SEARCH_ENGINE_ID=0123456789abcdef
+```
+
+---
+
+## Data Stores
+
+Configuration for PostgreSQL, Redis, and Qdrant.
+
+### PostgreSQL
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `POSTGRES_HOST` | string | `postgres` | Database hostname |
+| `POSTGRES_PORT` | integer | `5432` | Database port |
+| `POSTGRES_DB` | string | `shannon` | Database name |
+| `POSTGRES_USER` | string | `shannon` | Database username |
+| `POSTGRES_PASSWORD` | string | `shannon` | Database password |
+| `POSTGRES_SSLMODE` | string | `disable` | SSL mode: `disable`, `require`, `verify-full` |
+| `DB_MAX_OPEN_CONNS` | integer | `25` | Maximum open connections |
+| `DB_MAX_IDLE_CONNS` | integer | `5` | Maximum idle connections |
+
+### Redis
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `REDIS_HOST` | string | `redis` | Redis hostname |
+| `REDIS_PORT` | integer | `6379` | Redis port |
+| `REDIS_PASSWORD` | string | ` ` | Redis password (empty = no auth) |
+| `REDIS_TTL_SECONDS` | integer | `3600` | Default TTL for cached items (1 hour) |
+| `REDIS_ADDR` | string | `redis:6379` | Redis address (host:port) |
+| `REDIS_URL` | string | `redis://redis:6379` | Redis connection URL |
+| `LLM_REDIS_URL` | string | - | Dedicated Redis for LLM caching (optional) |
+
+### Qdrant (Vector Database)
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `QDRANT_URL` | string | `http://qdrant:6333` | Qdrant HTTP endpoint |
+| `QDRANT_HOST` | string | `qdrant` | Qdrant hostname |
+| `QDRANT_PORT` | integer | `6333` | Qdrant port |
+
+**Example**:
+```bash
+# PostgreSQL
+POSTGRES_HOST=db.example.com
+POSTGRES_PORT=5432
+POSTGRES_PASSWORD=secure_password_here
+
+# Redis (with auth)
+REDIS_HOST=redis.example.com
+REDIS_PASSWORD=redis_password_here
+REDIS_TTL_SECONDS=7200  # 2 hours
+
+# Qdrant
+QDRANT_URL=http://vector-db.example.com:6333
+```
+
+---
+
+## Service Endpoints
+
+Internal service URLs for communication.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TEMPORAL_HOST` | `temporal:7233` | Temporal workflow engine |
+| `LLM_SERVICE_URL` | `http://llm-service:8000` | Python LLM service HTTP endpoint |
+| `AGENT_CORE_ADDR` | `agent-core:50051` | Rust agent core gRPC endpoint |
+| `ADMIN_SERVER` | `http://orchestrator:8081` | Orchestrator admin API |
+| `ORCHESTRATOR_GRPC` | `orchestrator:50052` | Orchestrator gRPC endpoint |
+| `EVENTS_INGEST_URL` | `http://orchestrator:8081/events` | Event ingestion endpoint |
+| `EVENTS_AUTH_TOKEN` | - | Auth token for event ingestion |
+| `APPROVALS_AUTH_TOKEN` | - | Auth token for approval webhooks |
+
+**Config File Paths**:
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CONFIG_PATH` | `./config/features.yaml` | Feature flags configuration |
+| `MODELS_CONFIG_PATH` | `./config/models.yaml` | Model definitions and pricing |
+
+---
+
+## Model Routing & Budgets
+
+Control LLM selection, token limits, and cost management.
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `DEFAULT_MODEL_TIER` | string | `small` | Default model size: `small`, `medium`, `large` |
+| `COMPLEXITY_MODEL_ID` | string | `gpt-4o` | Model for complexity analysis |
+| `DECOMPOSITION_MODEL_ID` | string | `claude-sonnet-4-20250514` | Model for task decomposition |
+| `MAX_TOKENS` | integer | `2000` | Default max output tokens |
+| `TEMPERATURE` | float | `0.7` | Default sampling temperature (0.0-1.0) |
+| `MAX_TOKENS_PER_REQUEST` | integer | `10000` | Maximum tokens per API request |
+| `MAX_COST_PER_REQUEST` | float | `0.50` | Maximum cost per request (USD) |
+| `LLM_DISABLE_BUDGETS` | integer | `1` | `1` = orchestrator manages budgets, `0` = enforce in LLM service |
+| `HISTORY_WINDOW_MESSAGES` | integer | `50` | Number of history messages to include |
+| `HISTORY_WINDOW_DEBUG_MESSAGES` | integer | `75` | History messages in debug mode |
+| `WORKFLOW_SYNTH_BYPASS_SINGLE` | boolean | `true` | Skip synthesis for single-result tasks |
+| `TOKEN_BUDGET_PER_AGENT` | integer | - | Per-agent token limit |
+| `TOKEN_BUDGET_PER_TASK` | integer | - | Per-task token limit |
+
+**Example - Cost-Optimized**:
+```bash
+DEFAULT_MODEL_TIER=small
+MAX_COST_PER_REQUEST=0.10
+MAX_TOKENS_PER_REQUEST=5000
+TEMPERATURE=0.5
+```
+
+**Example - High-Quality**:
+```bash
+DEFAULT_MODEL_TIER=large
+MAX_COST_PER_REQUEST=2.00
+MAX_TOKENS_PER_REQUEST=50000
+TEMPERATURE=0.7
+```
+
+---
+
+## Cache & Rate Limiting
+
+Performance and cost optimization through caching and rate limits.
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `ENABLE_CACHE` | boolean | `true` | Enable LLM response caching |
+| `CACHE_SIMILARITY_THRESHOLD` | float | `0.95` | Semantic similarity threshold (0.0-1.0) |
+| `RATE_LIMIT_REQUESTS` | integer | `100` | Requests per window |
+| `RATE_LIMIT_WINDOW` | integer | `60` | Rate limit window (seconds) |
+| `WEB_SEARCH_RATE_LIMIT` | integer | `120` | Web search requests per minute |
+| `CALCULATOR_RATE_LIMIT` | integer | `2000` | Calculator tool requests per minute |
+| `PYTHON_EXECUTOR_RATE_LIMIT` | integer | `60` | Python execution requests per minute |
+| `PARTIAL_CHUNK_CHARS` | integer | `512` | Streaming chunk size (characters) |
+
+**Cache Behavior**:
+- Responses are cached by **semantic similarity**
+- Cache key: SHA256 hash of (prompt + model + temperature)
+- TTL: Controlled by `REDIS_TTL_SECONDS`
+
+**Example**:
+```bash
+ENABLE_CACHE=true
+CACHE_SIMILARITY_THRESHOLD=0.98  # Higher = more exact matches
+RATE_LIMIT_REQUESTS=200
+RATE_LIMIT_WINDOW=60
+```
+
+---
+
+## Tool Execution & Workflow Controls
+
+Fine-tune parallelism, timeouts, and execution behavior.
+
+| Variable | Type | Default | Range | Description |
+|----------|------|---------|-------|-------------|
+| `TOOL_PARALLELISM` | integer | `5` | 1-10 | Concurrent tool executions (1=sequential) |
+| `ENABLE_TOOL_SELECTION` | integer | `1` | 0,1 | `1`=auto tool selection, `0`=manual only |
+| `PRIORITY_QUEUES` | string | `off` | on/off | Enable priority-based task queuing |
+| `STREAMING_RING_CAPACITY` | integer | `1000` | - | Event stream buffer size |
+| `COMPRESSION_TRIGGER_RATIO` | float | `0.75` | 0.0-1.0 | Context compression trigger threshold |
+| `COMPRESSION_TARGET_RATIO` | float | `0.375` | 0.0-1.0 | Target compression ratio |
+| `ENFORCE_TIMEOUT_SECONDS` | integer | `90` | - | Hard timeout for operations |
+| `ENFORCE_MAX_TOKENS` | integer | `32768` | - | Absolute maximum tokens |
+| `ENFORCE_RATE_RPS` | integer | `20` | - | Requests per second limit |
+
+**Circuit Breaker Settings**:
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `ENFORCE_CB_ERROR_THRESHOLD` | float | `0.5` | Error rate to open circuit (50%) |
+| `ENFORCE_CB_WINDOW_SECONDS` | integer | `30` | Sliding window for error rate |
+| `ENFORCE_CB_MIN_REQUESTS` | integer | `20` | Minimum requests before opening circuit |
+
+**Performance Tuning**:
+```bash
+# High throughput
+TOOL_PARALLELISM=10
+ENFORCE_RATE_RPS=50
+
+# Conservative / Low resources
+TOOL_PARALLELISM=2
+ENFORCE_RATE_RPS=10
+```
+
+---
+
+## Approvals & Security
+
+Human-in-the-loop and authentication settings.
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `APPROVAL_ENABLED` | boolean | `false` | Enable manual approval workflow |
+| `APPROVAL_COMPLEXITY_THRESHOLD` | float | `0.5` | Complexity score requiring approval (0.0-1.0) |
+| `APPROVAL_DANGEROUS_TOOLS` | string | `file_system,code_execution` | Comma-separated tools requiring approval |
+| `APPROVAL_TIMEOUT_SECONDS` | integer | `7200` | Approval wait timeout (2 hours) |
+| `JWT_SECRET` | string | `development-only-secret-change-in-production` | JWT signing secret (⚠️ **CHANGE IN PRODUCTION**) |
+| `GATEWAY_SKIP_AUTH` | integer | `1` | `1`=auth disabled, `0`=auth enabled |
+
+**Security Best Practices**:
+```bash
+# Production setup
+APPROVAL_ENABLED=true
+APPROVAL_DANGEROUS_TOOLS=file_system,code_execution,shell,network_access
+JWT_SECRET=$(openssl rand -base64 64)
+GATEWAY_SKIP_AUTH=0
+```
+
+**Development setup**:
+```bash
+# Fast iteration (⚠️ NOT FOR PRODUCTION)
+APPROVAL_ENABLED=false
+GATEWAY_SKIP_AUTH=1
+```
+
+---
+
+## Python WASI Sandbox
+
+Secure Python code execution environment.
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `PYTHON_WASI_WASM_PATH` | string | `./wasm-interpreters/python-3.11.4.wasm` | Path to Python WASI interpreter |
+| `PYTHON_WASI_SESSION_TIMEOUT` | integer | `3600` | Session timeout (seconds) |
+| `WASI_MEMORY_LIMIT_MB` | integer | `512` | Memory limit per execution (MB) |
+| `WASI_TIMEOUT_SECONDS` | integer | `60` | Execution timeout per run |
+
+**Setup**:
+```bash
+# Download Python WASI interpreter (20MB)
+./scripts/setup_python_wasi.sh
+
+# Verify
+ls -lh wasm-interpreters/python-3.11.4.wasm
+```
+
+**Tuning**:
+```bash
+# Tight limits (basic scripts)
+WASI_MEMORY_LIMIT_MB=256
+WASI_TIMEOUT_SECONDS=30
+
+# Generous limits (data processing)
+WASI_MEMORY_LIMIT_MB=1024
+WASI_TIMEOUT_SECONDS=300
+```
+
+---
+
+## OpenAPI & MCP Integrations
+
+External tool and API integration settings.
+
+### OpenAPI Tools
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `OPENAPI_ALLOWED_DOMAINS` | string | `*` | Allowed domains (`*` or comma-separated) |
+| `OPENAPI_MAX_SPEC_SIZE` | integer | `5242880` | Max OpenAPI spec size (5MB) |
+| `OPENAPI_FETCH_TIMEOUT` | integer | `30` | Spec fetch timeout (seconds) |
+| `OPENAPI_RETRIES` | integer | `3` | Retry attempts |
+
+### MCP (Model Context Protocol)
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `MCP_ALLOWED_DOMAINS` | string | `*` | Allowed MCP domains |
+| `MCP_MAX_RESPONSE_BYTES` | integer | `10485760` | Max response size (10MB) |
+| `MCP_RETRIES` | integer | `3` | Retry attempts |
+| `MCP_TIMEOUT_SECONDS` | integer | `10` | Request timeout |
+| `MCP_REGISTER_TOKEN` | string | - | Registration auth token |
+| `MCP_RATE_LIMIT_DEFAULT` | integer | `60` | Default rate limit (req/min) |
+| `MCP_CB_FAILURES` | integer | `5` | Circuit breaker failure threshold |
+| `MCP_CB_RECOVERY_SECONDS` | integer | `60` | Circuit breaker recovery time |
+| `MCP_COST_TO_TOKENS` | integer | `0` | Cost-to-token conversion |
+
+**Example - Restricted**:
+```bash
+OPENAPI_ALLOWED_DOMAINS=api.example.com,api.partner.com
+MCP_ALLOWED_DOMAINS=mcp.trusted.com
+MCP_REGISTER_TOKEN=secret_token_here
+```
+
+---
+
+## Observability & Telemetry
+
+Metrics, tracing, and logging configuration.
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `OTEL_SERVICE_NAME` | string | `shannon-llm-service` | OpenTelemetry service name |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | string | `localhost:4317` | OTLP endpoint |
+| `OTEL_ENABLED` | boolean | `false` | Enable OpenTelemetry tracing |
+| `LOG_FORMAT` | string | `plain` | Log format: `plain` or `json` |
+| `METRICS_PORT` | integer | `2112` | Prometheus metrics port |
+
+**Prometheus Endpoints**:
+- Orchestrator: `http://localhost:2112/metrics`
+- Agent Core: `http://localhost:2113/metrics`
+- LLM Service: `http://localhost:8000/metrics`
+
+**Example - Production Observability**:
+```bash
+OTEL_ENABLED=true
+OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
+LOG_FORMAT=json
+METRICS_PORT=2112
+```
+
+---
+
+## Advanced Orchestrator Controls
+
+Low-level tuning for Temporal workers and orchestrator behavior.
+
+### Worker Concurrency
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `WORKER_ACT` | integer | - | Activity worker concurrency (all priorities) |
+| `WORKER_WF` | integer | - | Workflow worker concurrency (all priorities) |
+| `WORKER_ACT_CRITICAL` | integer | `10` | Critical priority activity workers |
+| `WORKER_WF_CRITICAL` | integer | `5` | Critical priority workflow workers |
+| `WORKER_ACT_HIGH` | integer | - | High priority activity workers |
+| `WORKER_WF_HIGH` | integer | - | High priority workflow workers |
+| `WORKER_ACT_NORMAL` | integer | - | Normal priority activity workers |
+| `WORKER_WF_NORMAL` | integer | - | Normal priority workflow workers |
+| `WORKER_ACT_LOW` | integer | - | Low priority activity workers |
+| `WORKER_WF_LOW` | integer | - | Low priority workflow workers |
+
+### Event & Circuit Settings
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `EVENTLOG_BATCH_SIZE` | integer | `100` | Event batch size |
+| `EVENTLOG_BATCH_INTERVAL_MS` | integer | `100` | Event batch interval (ms) |
+| `RATE_LIMIT_INTERVAL_MS` | integer | `60000` | Rate limit window (ms) |
+| `BACKPRESSURE_THRESHOLD` | integer | - | Backpressure trigger threshold |
+| `MAX_BACKPRESSURE_DELAY_MS` | integer | - | Max backpressure delay |
+| `CIRCUIT_FAILURE_THRESHOLD` | integer | - | Circuit breaker failure count |
+| `CIRCUIT_HALF_OPEN_REQUESTS` | integer | - | Half-open state test requests |
+| `CIRCUIT_RESET_TIMEOUT_MS` | integer | - | Circuit reset timeout |
+| `LLM_TIMEOUT_SECONDS` | integer | `120` | LLM request timeout |
+
+**Performance Tuning**:
+```bash
+# High load
+WORKER_ACT_CRITICAL=20
+WORKER_WF_CRITICAL=10
+EVENTLOG_BATCH_SIZE=500
+
+# Low resources
+WORKER_ACT_CRITICAL=5
+WORKER_WF_CRITICAL=3
+EVENTLOG_BATCH_SIZE=50
+```
+
+---
+
+## Miscellaneous
+
+Additional configuration options.
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `SHANNON_WORKSPACE` | string | `./workspace` | Workspace directory for file operations |
+| `SEED_DATA` | boolean | `false` | Seed Qdrant with sample data on startup |
+| `AGENT_TIMEOUT_SECONDS` | integer | `600` | Max runtime per agent execution (10 minutes) |
+| `TEMPLATE_FALLBACK_ENABLED` | boolean | `false` | Fallback to AI if template execution fails |
+
+---
+
+## Configuration Profiles
+
+### Development Profile
+
+```bash
+# .env.dev
+ENVIRONMENT=dev
+DEBUG=true
+GATEWAY_SKIP_AUTH=1
+APPROVAL_ENABLED=false
+LOG_FORMAT=plain
+MAX_COST_PER_REQUEST=0.10
+LLM_DISABLE_BUDGETS=1
+OTEL_ENABLED=false
+```
+
+### Staging Profile
+
+```bash
+# .env.staging
+ENVIRONMENT=staging
+DEBUG=false
+GATEWAY_SKIP_AUTH=0
+APPROVAL_ENABLED=true
+LOG_FORMAT=json
+MAX_COST_PER_REQUEST=1.00
+LLM_DISABLE_BUDGETS=0
+OTEL_ENABLED=true
+JWT_SECRET=$(openssl rand -base64 64)
+```
+
+### Production Profile
+
+```bash
+# .env.prod
+ENVIRONMENT=prod
+DEBUG=false
+GATEWAY_SKIP_AUTH=0
+APPROVAL_ENABLED=true
+APPROVAL_DANGEROUS_TOOLS=file_system,code_execution,shell,network_access
+LOG_FORMAT=json
+MAX_COST_PER_REQUEST=2.00
+LLM_DISABLE_BUDGETS=0
+OTEL_ENABLED=true
+JWT_SECRET=$(openssl rand -base64 64)
+POSTGRES_SSLMODE=require
+REDIS_PASSWORD=secure_password
+# Add strong passwords and restrict domains
+OPENAPI_ALLOWED_DOMAINS=api.trusted.com
+MCP_ALLOWED_DOMAINS=mcp.trusted.com
+```
+
+---
+
+## Hot-Reload Support
+
+Most configuration changes require a service restart:
+
+```bash
+# After editing .env
+docker compose restart orchestrator
+docker compose restart agent-core
+docker compose restart llm-service
+docker compose restart gateway
+```
+
+**Services that auto-reload**:
+- ✅ Feature flags (`config/features.yaml`)
+- ✅ Model configuration (`config/models.yaml`)
+
+**Services requiring restart**:
+- ❌ Environment variables (`.env`)
+- ❌ Database credentials
+- ❌ Service endpoints
+
+---
+
+## Validation & Testing
+
+### Verify Configuration
+
+```bash
+# Check loaded environment variables
+docker compose exec orchestrator env | sort
+
+# Test database connection
+docker compose exec postgres psql -U shannon -d shannon -c "SELECT 1;"
+
+# Test Redis connection
+docker compose exec redis redis-cli ping
+
+# Test API endpoints
+curl http://localhost:8080/health
+curl http://localhost:8000/health
+```
+
+### Configuration Debugging
+
+```bash
+# View service logs
+docker compose logs orchestrator | grep -i "config\|environment"
+
+# Check for errors
+docker compose logs orchestrator | grep -i "error\|warning"
+
+# Validate YAML syntax
+docker compose config
+```
+
+---
+
+## Security Checklist
+
+<AccordionGroup>
+  <Accordion title="Production Deployment Checklist">
+    - [ ] Change `JWT_SECRET` to strong random value
+    - [ ] Enable authentication (`GATEWAY_SKIP_AUTH=0`)
+    - [ ] Set strong database passwords
+    - [ ] Enable Redis authentication
+    - [ ] Use SSL for PostgreSQL (`POSTGRES_SSLMODE=require`)
+    - [ ] Enable approvals (`APPROVAL_ENABLED=true`)
+    - [ ] Restrict `OPENAPI_ALLOWED_DOMAINS`
+    - [ ] Restrict `MCP_ALLOWED_DOMAINS`
+    - [ ] Enable structured logging (`LOG_FORMAT=json`)
+    - [ ] Set up monitoring (`OTEL_ENABLED=true`)
+    - [ ] Configure budget limits appropriately
+    - [ ] Review worker concurrency for your load
+    - [ ] Backup `.env` file securely
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Related Topics
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/quickstart/installation">
+    Initial setup guide
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/quickstart/troubleshooting">
+    Common configuration issues
+  </Card>
+  <Card title="Cost Control" icon="dollar" href="/quickstart/concepts/cost-control">
+    Budget management
+  </Card>
+  <Card title="Monitoring" icon="chart-line" href="/quickstart/concepts/monitoring">
+    Observability setup
+  </Card>
+</CardGroup>
+
+---
+
+## 参与翻译
+
+如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。

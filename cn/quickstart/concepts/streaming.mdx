@@ -1,0 +1,434 @@
+---
+title: "Real-Time Streaming"
+description: "Monitor task execution with Server-Sent Events and WebSockets"
+---
+
+> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
+
+**原文件**: `quickstart/concepts/streaming.mdx`
+**英文版本**: [查看英文文档](/en/quickstart/concepts/streaming)
+
+---
+
+
+## Overview
+
+Shannon provides real-time event streaming so you can monitor task execution as it happens. This is essential for:
+
+- Providing live feedback to users
+- Debugging workflow execution
+- Building interactive UIs
+- Monitoring long-running tasks
+
+## Streaming Technologies
+
+Shannon supports two streaming protocols:
+
+| Protocol | Use Case | Features |
+|----------|----------|----------|
+| **SSE** (Server-Sent Events) | One-way server→client | Simple, HTTP-based, auto-reconnect |
+| **WebSocket** | Bidirectional | Full duplex, lower latency |
+
+<Note>
+SSE is recommended for most use cases due to its simplicity and built-in reconnection handling.
+</Note>
+
+## Server-Sent Events (SSE)
+
+### Using cURL
+
+```bash
+curl -N http://localhost:8080/api/v1/tasks/{task_id}/stream
+```
+
+Output:
+```
+event: AGENT_THINKING
+data: {"message":"Analyzing task complexity..."}
+
+event: TASK_DECOMPOSED
+data: {"subtasks":3,"strategy":"DAG"}
+
+event: SUBTASK_STARTED
+data: {"subtask_id":"1","query":"Research topic A"}
+
+event: AGENT_THINKING
+data: {"message":"Searching for information..."}
+
+event: TOOL_INVOKED
+data: {"tool_name":"web_search","args":{"query":"topic A"}}
+
+event: TOOL_RESULT
+data: {"tool_name":"web_search","result":"Found 5 results"}
+
+event: SUBTASK_COMPLETED
+data: {"subtask_id":"1","status":"COMPLETED"}
+
+event: TASK_COMPLETED
+data: {"result":"Final synthesized result","metrics":{"latency_ms":5000}}
+```
+
+### Using Python SDK
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(http_endpoint="http://localhost:8080")
+
+# Submit task
+handle = client.submit_task(
+    query="Research AI trends and create summary"
+)
+
+# Stream events
+for event in client.stream(handle.workflow_id):
+    print(f"[{event.type}] {event.message}")
+
+    if event.type == "TASK_COMPLETED":
+        print(f"Task completed: {event.message}")
+        break
+```
+
+### Event Types
+
+| Event Type | Description | Data Fields |
+|------------|-------------|-------------|
+| `AGENT_THINKING` | Agent is processing | `message` |
+| `TASK_DECOMPOSED` | Task broken into subtasks | `subtasks`, `strategy` |
+| `SUBTASK_STARTED` | Subtask execution begins | `subtask_id`, `query` |
+| `SUBTASK_COMPLETED` | Subtask finished | `subtask_id`, `status`, `result` |
+| `TOOL_INVOKED` | Tool execution started | `tool_name`, `args` |
+| `TOOL_RESULT` | Tool returned result | `tool_name`, `result` |
+| `AGENT_COMPLETED` | Agent finished | `agent_id`, `result` |
+| `TASK_COMPLETED` | Entire task done | `result`, `metrics` |
+| `TASK_FAILED` | Task encountered error | `error`, `error_code` |
+| `BUDGET_WARNING` | Approaching budget limit | `used_tokens`, `max_tokens` |
+| `BUDGET_EXCEEDED` | Budget limit reached | `final_cost` |
+
+## WebSocket Streaming
+
+### Connect via WebSocket
+
+```python
+import asyncio
+import websockets
+import json
+
+async def stream_task():
+    uri = f"ws://localhost:8080/api/v1/stream/ws?workflow_id={workflow_id}"
+
+    # Pass API key via headers (gateway requires header-based auth)
+    async with websockets.connect(
+        uri, extra_headers={'X-API-Key': 'sk_test_123456'}
+    ) as websocket:
+        while True:
+            message = await websocket.recv()
+            event = json.loads(message)
+            print(f"Event: {event['type']}")
+
+            if event['type'] == 'TASK_COMPLETED':
+                break
+
+asyncio.run(stream_task())
+```
+
+<Note>
+WebSocket streaming is currently server-to-client only. Use the REST API `/api/v1/tasks/{id}/cancel` to cancel tasks.
+</Note>
+
+## Filtering Events
+
+Filter events by type to reduce noise:
+
+```python
+# Only show important events
+for event in client.stream(workflow_id):
+    if event.type in ['TASK_DECOMPOSED', 'SUBTASK_COMPLETED', 'TASK_COMPLETED']:
+        print(f"{event.type}: {event.message}")
+```
+
+## Progress Tracking
+
+Calculate task progress from events:
+
+```python
+def track_progress(workflow_id):
+    total_subtasks = 0
+    completed_subtasks = 0
+
+    for event in client.stream(workflow_id):
+        if event.type == 'TASK_DECOMPOSED':
+            # Track that decomposition happened
+            print(f"Task decomposed: {event.message}")
+
+        elif event.type == 'SUBTASK_COMPLETED':
+            completed_subtasks += 1
+            print(f"Subtask {completed_subtasks} completed")
+
+        elif event.type == 'TASK_COMPLETED':
+            print("✅ Task complete!")
+            break
+
+track_progress(handle.workflow_id)
+```
+
+Output:
+```
+Task split into 3 parts
+Progress: 33.3%
+Progress: 66.7%
+Progress: 100.0%
+✅ Task complete!
+```
+
+## Real-Time UI Example
+
+### React Component
+
+```jsx
+import { useEffect, useState } from 'react';
+
+function TaskMonitor({ taskId }) {
+  const [events, setEvents] = useState([]);
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    const eventSource = new EventSource(
+      `http://localhost:8080/api/v1/tasks/${taskId}/stream`
+    );
+
+    eventSource.onmessage = (e) => {
+      const event = JSON.parse(e.data);
+      setEvents(prev => [...prev, event]);
+
+      // Update progress
+      if (event.type === 'SUBTASK_COMPLETED') {
+        setProgress(prev => prev + (100 / event.totalSubtasks));
+      }
+    };
+
+    return () => eventSource.close();
+  }, [taskId]);
+
+  return (
+    <div>
+      <progress value={progress} max={100} />
+      <ul>
+        {events.map((e, i) => (
+          <li key={i}>[{e.type}] {e.message}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+## Error Handling
+
+Handle connection failures gracefully:
+
+```python
+from shannon import ShannonClient
+from shannon.errors import StreamingError
+import time
+
+def robust_streaming(workflow_id, max_retries=3):
+    client = ShannonClient(http_endpoint="http://localhost:8080")
+
+    for attempt in range(max_retries):
+        try:
+            for event in client.stream(workflow_id):
+                print(f"Event: {event.type}")
+
+                if event.type == 'TASK_COMPLETED':
+                    # Get final status to retrieve result
+                    status = client.get_status(workflow_id.replace('wf-', 'task-'))
+                    return status.result
+
+        except StreamingError as e:
+            print(f"Stream error (attempt {attempt + 1}): {e}")
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)  # Exponential backoff
+            else:
+                raise
+```
+
+## Authentication with Streaming
+
+When authentication is enabled, provide API key:
+
+### SSE with API Key
+
+```bash
+curl -N \
+  -H "X-API-Key: sk_test_123456" \
+  http://localhost:8080/api/v1/tasks/{task_id}/stream
+```
+
+### Python SDK with API Key
+
+```python
+client = ShannonClient(
+    http_endpoint="http://localhost:8080",
+    api_key="sk_test_123456"
+)
+
+# API key automatically included in all requests
+for event in client.stream(workflow_id):
+    print(event)
+```
+
+## Performance Considerations
+
+### Event Buffering
+
+Shannon buffers events to prevent overwhelming clients:
+
+```yaml
+# config/shannon.yaml
+streaming:
+  buffer_size: 100  # Maximum queued events
+  flush_interval_ms: 100  # Send batches every 100ms
+```
+
+### Keepalive
+
+SSE sends keepalive comments every 15 seconds to prevent timeout:
+
+```
+: keepalive
+: keepalive
+event: AGENT_THINKING
+data: {"message":"..."}
+```
+
+### Resource Cleanup
+
+Always close streams when done:
+
+```python
+# Iterate through events (automatically handles connection)
+for event in client.stream(workflow_id):
+    if event.type == 'TASK_COMPLETED':
+        break
+# No explicit close needed
+```
+
+## Multi-Task Monitoring
+
+Monitor multiple tasks simultaneously:
+
+```python
+import asyncio
+
+async def monitor_task(client, workflow_id):
+    # Use sync stream() in async context
+    for event in client.stream(workflow_id):
+        print(f"[{workflow_id}] {event.type}")
+        if event.type == 'TASK_COMPLETED':
+            # Get final result from status
+            task_id = workflow_id.replace('wf-', 'task-')
+            status = client.get_status(task_id)
+            return status.result
+
+async def monitor_all(task_ids):
+    client = AsyncShannonClient(http_endpoint="http://localhost:8080")
+
+    # Monitor all tasks in parallel
+    results = await asyncio.gather(*[
+        monitor_task(client, tid) for tid in task_ids
+    ])
+
+    return results
+
+# Run
+task_ids = ["task-1", "task-2", "task-3"]
+results = asyncio.run(monitor_all(task_ids))
+```
+
+## Dashboard Integration
+
+Shannon's built-in dashboard (http://localhost:2111) uses SSE for real-time updates:
+
+- Live event feed for active tasks
+- Real-time metrics updates
+- Agent status visualization
+- Token usage graphs
+
+## Best Practices
+
+### 1. Use SSE for Simple Monitoring
+
+```python
+# ✅ Good: Simple SSE streaming
+for event in client.stream(workflow_id):
+    print(event.type)
+```
+
+### 2. Handle Disconnections
+
+```python
+# ✅ Good: Retry logic
+for attempt in range(3):
+    try:
+        for event in client.stream(workflow_id):
+            process_event(event)
+        break
+    except StreamingError:
+        if attempt == 2:
+            raise
+        time.sleep(2)
+```
+
+### 3. Filter Unnecessary Events
+
+```python
+# ✅ Good: Only critical events
+critical_events = ['TASK_DECOMPOSED', 'TASK_COMPLETED', 'TASK_FAILED']
+for event in client.stream(workflow_id):
+    if event.type in critical_events:
+        handle_event(event)
+```
+
+### 4. Set Timeouts
+
+```python
+# ✅ Good: Timeout protection
+import signal
+
+def timeout_handler(signum, frame):
+    raise TimeoutError("Stream timeout")
+
+signal.signal(signal.SIGALRM, timeout_handler)
+signal.alarm(300)  # 5 minute timeout
+
+try:
+    for event in client.stream(workflow_id):
+        print(event)
+finally:
+    signal.alarm(0)  # Cancel alarm
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Python SDK" icon="python" href="/sdk/python/streaming">
+    Async streaming with SDK
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/endpoints/stream-task">
+    Streaming API details
+  </Card>
+  <Card title="Monitoring" icon="chart-line" href="/quickstart/concepts/monitoring">
+    Task monitoring guide
+  </Card>
+  <Card title="WebSocket API" icon="plug" href="/api/overview">
+    WebSocket documentation
+  </Card>
+</CardGroup>
+
+
+---
+
+## 参与翻译
+
+如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。

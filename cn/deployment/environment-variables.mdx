@@ -1,0 +1,1734 @@
+---
+title: "环境变量"
+description: "Complete environment variable reference for Shannon configuration"
+---
+
+> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
+
+**原文件**: `deployment/environment-variables.mdx`
+**英文版本**: [查看英文文档](/en/deployment/environment-variables)
+
+---
+
+
+## Overview
+
+Shannon uses environment variables for configuration across all services. This page documents all 100+ configuration options with types, defaults, and impact.
+
+## Quick Reference
+
+| Category | Variables | Service |
+|----------|-----------|---------|
+| [Core Runtime](#core-runtime) | 3 | All |
+| [LLM Provider Keys](#llm-provider-api-keys) | 11 | LLM Service |
+| [Web Search](#web-search-providers) | 6 | LLM Service |
+| [Data Stores](#data-stores) | 17 | All |
+| [Service Endpoints](#service-endpoints) | 8 | All |
+| [Model Routing](#model-routing-and-budgets) | 13 | Orchestrator, LLM Service |
+| [Cache & Rate Limiting](#cache-and-rate-limiting) | 8 | All |
+| [Tool Execution](#tool-execution-and-workflow) | 11 | Orchestrator, Agent Core |
+| [Security](#approvals-and-security) | 6 | Gateway, Orchestrator |
+| [Observability](#observability-and-telemetry) | 5 | All |
+| [WASI Sandbox](#python-wasi-sandbox) | 4 | Agent Core, LLM Service |
+| [Integrations](#openapi-and-mcp) | 13 | LLM Service |
+| [Advanced](#advanced-orchestrator-controls) | 20+ | Orchestrator |
+
+**Total**: 100+ configuration variables
+
+## Configuration File
+
+Copy `.env.example` to `.env` and customize:
+
+```bash
+cp .env.example .env
+nano .env
+```
+
+Restart services after changes:
+
+```bash
+docker compose restart
+```
+
+## Core Runtime
+
+### ENVIRONMENT
+
+**Type**: String
+**Default**: `dev`
+**Valid Values**: `dev`, `staging`, `prod`
+**Services**: All
+**Hot-Reload**: No (requires restart)
+
+Controls logging verbosity and policy enforcement.
+
+```bash
+ENVIRONMENT=prod
+```
+
+**Impact**:
+- `dev`: Verbose logging, relaxed policies
+- `staging`: Moderate logging, standard policies
+- `prod`: Minimal logging, strict policies
+
+### DEBUG
+
+**Type**: Boolean
+**Default**: `false`
+**Valid Values**: `true`, `false`
+**Services**: All
+**Hot-Reload**: No
+
+Enable debug logging across all services.
+
+```bash
+DEBUG=true
+```
+
+**Impact**:
+- `true`: Debug-level logs, stack traces
+- `false`: Info-level logs only
+
+### SERVICE_NAME
+
+**Type**: String
+**Default**: `shannon-llm-service`
+**Services**: LLM Service
+**Hot-Reload**: No
+
+Service identifier for logging and telemetry.
+
+```bash
+SERVICE_NAME=shannon-llm-service
+```
+
+## LLM Provider API Keys
+
+### OPENAI_API_KEY
+
+**Type**: String
+**Required**: At least one provider key
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+OpenAI API key for GPT models.
+
+```bash
+OPENAI_API_KEY=sk-...
+```
+
+**Models Enabled**: GPT-4, GPT-4o, GPT-4o-mini, GPT-3.5-turbo
+
+### ANTHROPIC_API_KEY
+
+**Type**: String
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+Anthropic API key for Claude models.
+
+```bash
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+**Models Enabled**: Claude 3.5 Sonnet, Claude 3 Opus, Claude 3 Haiku
+
+### GOOGLE_API_KEY
+
+**Type**: String
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+Google AI API key for Gemini models.
+
+```bash
+GOOGLE_API_KEY=...
+```
+
+**Models Enabled**: Gemini Pro, Gemini Flash
+
+### GROQ_API_KEY
+
+**Type**: String
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+Groq API key for fast inference.
+
+```bash
+GROQ_API_KEY=...
+```
+
+**Models Enabled**: Llama 3, Mixtral
+
+### XAI_API_KEY
+
+**Type**: String
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+xAI API key for Grok models.
+
+```bash
+XAI_API_KEY=...
+```
+
+### DEEPSEEK_API_KEY
+
+**Type**: String
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+DeepSeek API key.
+
+```bash
+DEEPSEEK_API_KEY=...
+```
+
+### QWEN_API_KEY
+
+**Type**: String
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+Qwen API key for Alibaba Cloud models.
+
+```bash
+QWEN_API_KEY=...
+```
+
+### MISTRAL_API_KEY
+
+**Type**: String
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+Mistral API key.
+
+```bash
+MISTRAL_API_KEY=...
+```
+
+### AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
+
+**Type**: String
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+AWS credentials for Bedrock models.
+
+```bash
+AWS_ACCESS_KEY_ID=AKIA...
+AWS_SECRET_ACCESS_KEY=...
+AWS_REGION=us-east-1
+```
+
+**Models Enabled**: Claude (Bedrock), Llama (Bedrock), Titan
+
+### ZAI_API_KEY
+
+**Type**: String
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+ZAI API key.
+
+```bash
+ZAI_API_KEY=...
+```
+
+## Web Search Providers
+
+### WEB_SEARCH_PROVIDER
+
+**Type**: String
+**Default**: `google`
+**Valid Values**: `google`, `serper`, `bing`, `exa`, `firecrawl`
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+Active web search provider.
+
+```bash
+WEB_SEARCH_PROVIDER=google
+```
+
+### GOOGLE_SEARCH_API_KEY
+
+**Type**: String
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+Google Custom Search API key.
+
+```bash
+GOOGLE_SEARCH_API_KEY=...
+GOOGLE_SEARCH_ENGINE_ID=...
+```
+
+Obtain from: https://console.cloud.google.com/apis/credentials
+
+### SERPER_API_KEY
+
+**Type**: String
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+Serper.dev API key (Google Search API alternative).
+
+```bash
+SERPER_API_KEY=...
+```
+
+Obtain from: https://serper.dev
+
+### BING_API_KEY
+
+**Type**: String
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+Microsoft Bing Search API key.
+
+```bash
+BING_API_KEY=...
+```
+
+### EXA_API_KEY
+
+**Type**: String
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+Exa AI search API key.
+
+```bash
+EXA_API_KEY=...
+```
+
+### FIRECRAWL_API_KEY
+
+**Type**: String
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+Firecrawl API key for web scraping.
+
+```bash
+FIRECRAWL_API_KEY=...
+```
+
+## Data Stores
+
+### PostgreSQL
+
+#### POSTGRES_HOST
+
+**Type**: String
+**Default**: `postgres`
+**Services**: Gateway, Orchestrator
+**Hot-Reload**: No
+
+PostgreSQL hostname.
+
+```bash
+POSTGRES_HOST=postgres
+```
+
+#### POSTGRES_PORT
+
+**Type**: Integer
+**Default**: `5432`
+**Range**: 1-65535
+**Services**: Gateway, Orchestrator
+**Hot-Reload**: No
+
+PostgreSQL port.
+
+```bash
+POSTGRES_PORT=5432
+```
+
+#### POSTGRES_DB
+
+**Type**: String
+**Default**: `shannon`
+**Services**: Gateway, Orchestrator
+**Hot-Reload**: No
+
+PostgreSQL database name.
+
+```bash
+POSTGRES_DB=shannon
+```
+
+#### POSTGRES_USER
+
+**Type**: String
+**Default**: `shannon`
+**Services**: Gateway, Orchestrator
+**Hot-Reload**: No
+
+PostgreSQL username.
+
+```bash
+POSTGRES_USER=shannon
+```
+
+#### POSTGRES_PASSWORD
+
+**Type**: String
+**Default**: `shannon`
+**Services**: Gateway, Orchestrator
+**Hot-Reload**: No
+
+PostgreSQL password.
+
+```bash
+POSTGRES_PASSWORD=secure-password
+```
+
+**Security**: Change in production!
+
+#### POSTGRES_SSLMODE
+
+**Type**: String
+**Default**: `disable`
+**Valid Values**: `disable`, `require`, `verify-ca`, `verify-full`
+**Services**: Gateway, Orchestrator
+**Hot-Reload**: No
+
+SSL mode for PostgreSQL connections.
+
+```bash
+POSTGRES_SSLMODE=require
+```
+
+### Redis
+
+#### REDIS_HOST
+
+**Type**: String
+**Default**: `redis`
+**Services**: All
+**Hot-Reload**: No
+
+Redis hostname.
+
+```bash
+REDIS_HOST=redis
+```
+
+#### REDIS_PORT
+
+**Type**: Integer
+**Default**: `6379`
+**Services**: All
+**Hot-Reload**: No
+
+Redis port.
+
+```bash
+REDIS_PORT=6379
+```
+
+#### REDIS_PASSWORD
+
+**Type**: String
+**Default**: Empty
+**Services**: All
+**Hot-Reload**: No
+
+Redis password (if authentication enabled).
+
+```bash
+REDIS_PASSWORD=secure-password
+```
+
+#### REDIS_TTL_SECONDS
+
+**Type**: Integer
+**Default**: `3600`
+**Range**: 0-∞ (0 = no expiration)
+**Services**: All
+**Hot-Reload**: Yes
+
+Default TTL for Redis keys.
+
+```bash
+REDIS_TTL_SECONDS=3600
+```
+
+**Impact**: Cache duration for sessions, events, responses
+
+#### REDIS_URL
+
+**Type**: String
+**Default**: `redis://redis:6379`
+**Services**: All
+**Hot-Reload**: No
+
+Full Redis connection URL.
+
+```bash
+REDIS_URL=redis://redis:6379
+# With auth:
+REDIS_URL=redis://:password@redis:6379
+```
+
+#### LLM_REDIS_URL
+
+**Type**: String
+**Default**: Empty (uses REDIS_URL)
+**Services**: LLM Service
+**Hot-Reload**: No
+
+Dedicated Redis instance for LLM response caching.
+
+```bash
+LLM_REDIS_URL=redis://llm-redis:6379
+```
+
+**Use Case**: Separate LLM cache from session data for scaling
+
+### Qdrant (Vector Store)
+
+#### QDRANT_URL
+
+**Type**: String
+**Default**: `http://qdrant:6333`
+**Services**: Orchestrator, LLM Service
+**Hot-Reload**: No
+
+Qdrant connection URL.
+
+```bash
+QDRANT_URL=http://qdrant:6333
+```
+
+#### QDRANT_HOST / QDRANT_PORT
+
+**Type**: String / Integer
+**Default**: `qdrant` / `6333`
+**Services**: Orchestrator, LLM Service
+**Hot-Reload**: No
+
+Alternative to QDRANT_URL (host/port separately).
+
+```bash
+QDRANT_HOST=qdrant
+QDRANT_PORT=6333
+```
+
+## Service Endpoints
+
+### TEMPORAL_HOST
+
+**Type**: String
+**Default**: `temporal:7233`
+**Services**: Orchestrator
+**Hot-Reload**: No
+
+Temporal server address.
+
+```bash
+TEMPORAL_HOST=temporal:7233
+```
+
+### LLM_SERVICE_URL
+
+**Type**: String
+**Default**: `http://llm-service:8000`
+**Services**: Orchestrator, Agent Core
+**Hot-Reload**: No
+
+LLM Service endpoint.
+
+```bash
+LLM_SERVICE_URL=http://llm-service:8000
+```
+
+### AGENT_CORE_ADDR
+
+**Type**: String
+**Default**: `agent-core:50051`
+**Services**: Orchestrator
+**Hot-Reload**: No
+
+Agent Core gRPC address.
+
+```bash
+AGENT_CORE_ADDR=agent-core:50051
+```
+
+### ORCHESTRATOR_GRPC
+
+**Type**: String
+**Default**: `orchestrator:50052`
+**Services**: Gateway
+**Hot-Reload**: No
+
+Orchestrator gRPC endpoint.
+
+```bash
+ORCHESTRATOR_GRPC=orchestrator:50052
+```
+
+### ADMIN_SERVER
+
+**Type**: String
+**Default**: `http://orchestrator:8081`
+**Services**: Gateway
+**Hot-Reload**: No
+
+Admin/SSE server for streaming events.
+
+```bash
+ADMIN_SERVER=http://orchestrator:8081
+```
+
+### CONFIG_PATH
+
+**Type**: String
+**Default**: `./config/features.yaml`
+**Services**: Orchestrator, Agent Core
+**Hot-Reload**: Yes (with file watcher)
+
+Path to feature flags configuration.
+
+```bash
+CONFIG_PATH=./config/features.yaml
+```
+
+### MODELS_CONFIG_PATH
+
+**Type**: String
+**Default**: `./config/models.yaml`
+**Services**: LLM Service, Orchestrator
+**Hot-Reload**: Yes (with file watcher)
+
+Path to model and pricing configuration.
+
+```bash
+MODELS_CONFIG_PATH=./config/models.yaml
+```
+
+### EVENTS_INGEST_URL
+
+**Type**: String
+**Default**: `http://orchestrator:8081/events`
+**Services**: Agent Core
+**Hot-Reload**: No
+
+Event ingestion endpoint.
+
+```bash
+EVENTS_INGEST_URL=http://orchestrator:8081/events
+```
+
+## Model Routing and Budgets
+
+### DEFAULT_MODEL_TIER
+
+**Type**: String
+**Default**: `small`
+**Valid Values**: `small`, `medium`, `large`
+**Services**: Orchestrator
+**Hot-Reload**: Yes
+
+Default model tier for tasks.
+
+```bash
+DEFAULT_MODEL_TIER=small
+```
+
+**Tiers**:
+- `small`: GPT-4o-mini, Claude Haiku (~$0.15/1M tokens)
+- `medium`: GPT-4o, Claude Sonnet (~$3-15/1M tokens)
+- `large`: GPT-4, Claude Opus (~$15-75/1M tokens)
+
+### COMPLEXITY_MODEL_ID
+
+**Type**: String
+**Default**: `gpt-4o`
+**Services**: Orchestrator
+**Hot-Reload**: Yes
+
+Model used for complexity analysis.
+
+```bash
+COMPLEXITY_MODEL_ID=gpt-4o
+```
+
+### DECOMPOSITION_MODEL_ID
+
+**Type**: String
+**Default**: `claude-sonnet-4-20250514`
+**Services**: Orchestrator
+**Hot-Reload**: Yes
+
+Model used for task decomposition.
+
+```bash
+DECOMPOSITION_MODEL_ID=claude-sonnet-4-20250514
+```
+
+### MAX_TOKENS
+
+**Type**: Integer
+**Default**: `2000`
+**Range**: 1-∞
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+Default max output tokens per LLM call.
+
+```bash
+MAX_TOKENS=2000
+```
+
+### TEMPERATURE
+
+**Type**: Float
+**Default**: `0.7`
+**Range**: 0.0-2.0
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+Default temperature for LLM sampling.
+
+```bash
+TEMPERATURE=0.7
+```
+
+**Impact**:
+- `0.0`: Deterministic, focused
+- `0.7`: Balanced creativity
+- `1.0+`: More random, creative
+
+### MAX_TOKENS_PER_REQUEST
+
+**Type**: Integer
+**Default**: `10000`
+**Range**: 1-∞
+**Services**: Orchestrator
+**Hot-Reload**: Yes
+
+Maximum total tokens per task request.
+
+```bash
+MAX_TOKENS_PER_REQUEST=10000
+```
+
+**Impact**: Hard budget limit, task fails when exceeded
+
+### MAX_COST_PER_REQUEST
+
+**Type**: Float
+**Default**: `0.50`
+**Range**: 0.0-∞
+**Services**: Orchestrator
+**Hot-Reload**: Yes
+
+Maximum cost (USD) per task request.
+
+```bash
+MAX_COST_PER_REQUEST=0.50
+```
+
+**Impact**: Task fails when cost exceeds this limit
+
+### LLM_DISABLE_BUDGETS
+
+**Type**: Integer
+**Default**: `1`
+**Valid Values**: `0`, `1`
+**Services**: Orchestrator, LLM Service
+**Hot-Reload**: Yes
+
+Budget enforcement location.
+
+```bash
+LLM_DISABLE_BUDGETS=1
+```
+
+**Values**:
+- `1`: Orchestrator manages budgets (recommended)
+- `0`: LLM service enforces budgets
+
+### HISTORY_WINDOW_MESSAGES
+
+**Type**: Integer
+**Default**: `50`
+**Range**: 1-∞
+**Services**: Orchestrator
+**Hot-Reload**: Yes
+
+Number of messages to include in conversation history.
+
+```bash
+HISTORY_WINDOW_MESSAGES=50
+```
+
+### HISTORY_WINDOW_DEBUG_MESSAGES
+
+**Type**: Integer
+**Default**: `75`
+**Services**: Orchestrator
+**Hot-Reload**: Yes
+
+History window size for debug mode.
+
+```bash
+HISTORY_WINDOW_DEBUG_MESSAGES=75
+```
+
+### WORKFLOW_SYNTH_BYPASS_SINGLE
+
+**Type**: Boolean
+**Default**: `true`
+**Services**: Orchestrator
+**Hot-Reload**: Yes
+
+Skip synthesis for single-result workflows.
+
+```bash
+WORKFLOW_SYNTH_BYPASS_SINGLE=true
+```
+
+**Impact**:
+- `true`: Faster for simple tasks (skips synthesis step)
+- `false`: Always synthesize results
+
+### TOKEN_BUDGET_PER_AGENT
+
+**Type**: Integer
+**Default**: Empty (unlimited)
+**Services**: Orchestrator
+**Hot-Reload**: Yes
+
+Token budget per agent execution.
+
+```bash
+TOKEN_BUDGET_PER_AGENT=5000
+```
+
+### TOKEN_BUDGET_PER_TASK
+
+**Type**: Integer
+**Default**: Empty (unlimited)
+**Services**: Orchestrator
+**Hot-Reload**: Yes
+
+Token budget per entire task.
+
+```bash
+TOKEN_BUDGET_PER_TASK=20000
+```
+
+## Cache and Rate Limiting
+
+### ENABLE_CACHE
+
+**Type**: Boolean
+**Default**: `true`
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+Enable LLM response caching.
+
+```bash
+ENABLE_CACHE=true
+```
+
+**Impact**:
+- `true`: Cache responses in Redis, faster & cheaper
+- `false`: Always hit LLM API
+
+### CACHE_SIMILARITY_THRESHOLD
+
+**Type**: Float
+**Default**: `0.95`
+**Range**: 0.0-1.0
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+Semantic similarity threshold for cache hits.
+
+```bash
+CACHE_SIMILARITY_THRESHOLD=0.95
+```
+
+**Impact**:
+- `1.0`: Exact matches only
+- `0.95`: Very similar queries
+- `0.8`: Looser matching (more cache hits, less accuracy)
+
+### RATE_LIMIT_REQUESTS
+
+**Type**: Integer
+**Default**: `100`
+**Services**: Gateway
+**Hot-Reload**: Yes
+
+Requests per window per API key.
+
+```bash
+RATE_LIMIT_REQUESTS=100
+```
+
+### RATE_LIMIT_WINDOW
+
+**Type**: Integer
+**Default**: `60`
+**Range**: 1-∞ (seconds)
+**Services**: Gateway
+**Hot-Reload**: Yes
+
+Rate limit window duration.
+
+```bash
+RATE_LIMIT_WINDOW=60
+```
+
+**Combined**:
+```bash
+RATE_LIMIT_REQUESTS=100
+RATE_LIMIT_WINDOW=60
+# = 100 requests per 60 seconds
+```
+
+### WEB_SEARCH_RATE_LIMIT
+
+**Type**: Integer
+**Default**: `120`
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+Web search requests per minute.
+
+```bash
+WEB_SEARCH_RATE_LIMIT=120
+```
+
+### CALCULATOR_RATE_LIMIT
+
+**Type**: Integer
+**Default**: `2000`
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+Calculator tool requests per minute.
+
+```bash
+CALCULATOR_RATE_LIMIT=2000
+```
+
+### PYTHON_EXECUTOR_RATE_LIMIT
+
+**Type**: Integer
+**Default**: `60`
+**Services**: Agent Core
+**Hot-Reload**: Yes
+
+Python code execution requests per minute.
+
+```bash
+PYTHON_EXECUTOR_RATE_LIMIT=60
+```
+
+### PARTIAL_CHUNK_CHARS
+
+**Type**: Integer
+**Default**: `512`
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+Characters per streaming chunk.
+
+```bash
+PARTIAL_CHUNK_CHARS=512
+```
+
+## Tool Execution and Workflow
+
+### TOOL_PARALLELISM
+
+**Type**: Integer
+**Default**: `5`
+**Range**: 1-∞ (1 = sequential)
+**Services**: Orchestrator, Agent Core
+**Hot-Reload**: Yes
+
+Concurrent tool executions.
+
+```bash
+TOOL_PARALLELISM=5
+```
+
+**Impact**:
+- `1`: Sequential execution (slower, safer)
+- `5`: 5 tools in parallel (faster, more resources)
+- `10+`: High parallelism (fastest, highest resource usage)
+
+### ENABLE_TOOL_SELECTION
+
+**Type**: Integer
+**Default**: `1`
+**Valid Values**: `0`, `1`
+**Services**: Orchestrator
+**Hot-Reload**: Yes
+
+Automatic tool selection by planner.
+
+```bash
+ENABLE_TOOL_SELECTION=1
+```
+
+**Values**:
+- `1`: Planner auto-selects tools (recommended)
+- `0`: Manual tool specification only
+
+### PRIORITY_QUEUES
+
+**Type**: String
+**Default**: `off`
+**Valid Values**: `on`, `off`
+**Services**: Orchestrator
+**Hot-Reload**: Yes
+
+Enable priority-based task queuing.
+
+```bash
+PRIORITY_QUEUES=on
+```
+
+### STREAMING_RING_CAPACITY
+
+**Type**: Integer
+**Default**: `1000`
+**Services**: Orchestrator
+**Hot-Reload**: No
+
+Ring buffer capacity for streaming events.
+
+```bash
+STREAMING_RING_CAPACITY=1000
+```
+
+### COMPRESSION_TRIGGER_RATIO
+
+**Type**: Float
+**Default**: `0.75`
+**Range**: 0.0-1.0
+**Services**: Orchestrator
+**Hot-Reload**: Yes
+
+Context compression trigger threshold.
+
+```bash
+COMPRESSION_TRIGGER_RATIO=0.75
+```
+
+**Impact**: Compress context when 75% of token budget used
+
+### COMPRESSION_TARGET_RATIO
+
+**Type**: Float
+**Default**: `0.375`
+**Range**: 0.0-1.0
+**Services**: Orchestrator
+**Hot-Reload**: Yes
+
+Target size after compression.
+
+```bash
+COMPRESSION_TARGET_RATIO=0.375
+```
+
+### ENFORCE_TIMEOUT_SECONDS
+
+**Type**: Integer
+**Default**: `90`
+**Services**: Agent Core
+**Hot-Reload**: Yes
+
+Tool execution timeout.
+
+```bash
+ENFORCE_TIMEOUT_SECONDS=90
+```
+
+### ENFORCE_MAX_TOKENS
+
+**Type**: Integer
+**Default**: `32768`
+**Services**: Agent Core
+**Hot-Reload**: Yes
+
+Maximum tokens per agent execution.
+
+```bash
+ENFORCE_MAX_TOKENS=32768
+```
+
+### ENFORCE_RATE_RPS
+
+**Type**: Integer
+**Default**: `20`
+**Services**: Agent Core
+**Hot-Reload**: Yes
+
+Rate limit (requests per second) for agent operations.
+
+```bash
+ENFORCE_RATE_RPS=20
+```
+
+### ENFORCE_CB_ERROR_THRESHOLD
+
+**Type**: Float
+**Default**: `0.5`
+**Range**: 0.0-1.0
+**Services**: Agent Core
+**Hot-Reload**: Yes
+
+Circuit breaker error rate threshold.
+
+```bash
+ENFORCE_CB_ERROR_THRESHOLD=0.5
+```
+
+**Impact**: Circuit opens when 50% of requests fail
+
+### ENFORCE_CB_WINDOW_SECONDS
+
+**Type**: Integer
+**Default**: `30`
+**Services**: Agent Core
+**Hot-Reload**: Yes
+
+Circuit breaker measurement window.
+
+```bash
+ENFORCE_CB_WINDOW_SECONDS=30
+```
+
+### ENFORCE_CB_MIN_REQUESTS
+
+**Type**: Integer
+**Default**: `20`
+**Services**: Agent Core
+**Hot-Reload**: Yes
+
+Minimum requests before circuit breaker activates.
+
+```bash
+ENFORCE_CB_MIN_REQUESTS=20
+```
+
+## Approvals and Security
+
+### APPROVAL_ENABLED
+
+**Type**: Boolean
+**Default**: `false`
+**Services**: Orchestrator
+**Hot-Reload**: Yes
+
+Enable human-in-the-loop approvals.
+
+```bash
+APPROVAL_ENABLED=true
+```
+
+### APPROVAL_COMPLEXITY_THRESHOLD
+
+**Type**: Float
+**Default**: `0.5`
+**Range**: 0.0-1.0
+**Services**: Orchestrator
+**Hot-Reload**: Yes
+
+Complexity threshold requiring approval.
+
+```bash
+APPROVAL_COMPLEXITY_THRESHOLD=0.5
+```
+
+### APPROVAL_DANGEROUS_TOOLS
+
+**Type**: String (comma-separated)
+**Default**: `file_system,code_execution`
+**Services**: Orchestrator
+**Hot-Reload**: Yes
+
+Tools requiring approval.
+
+```bash
+APPROVAL_DANGEROUS_TOOLS=file_system,code_execution,database_query
+```
+
+### APPROVAL_TIMEOUT_SECONDS
+
+**Type**: Integer
+**Default**: `7200`
+**Services**: Orchestrator
+**Hot-Reload**: Yes
+
+Approval request timeout (2 hours).
+
+```bash
+APPROVAL_TIMEOUT_SECONDS=7200
+```
+
+### JWT_SECRET
+
+**Type**: String
+**Default**: `development-only-secret-change-in-production`
+**Services**: Gateway
+**Hot-Reload**: No
+
+JWT signing secret.
+
+```bash
+JWT_SECRET=secure-random-256-bit-key
+```
+
+**Security**: **Must change in production!**
+
+### GATEWAY_SKIP_AUTH
+
+**Type**: Integer
+**Default**: `1`
+**Valid Values**: `0`, `1`
+**Services**: Gateway
+**Hot-Reload**: Yes (restart recommended)
+
+Skip authentication (development only).
+
+```bash
+GATEWAY_SKIP_AUTH=0  # Enable auth
+```
+
+**Security**: **Must set to `0` in production!**
+
+## Templates
+
+### TEMPLATE_FALLBACK_ENABLED
+
+**Type**: Boolean
+**Default**: `false`
+**Services**: Orchestrator
+**Hot-Reload**: Yes
+
+Fallback to AI when template fails.
+
+```bash
+TEMPLATE_FALLBACK_ENABLED=true
+```
+
+## Observability and Telemetry
+
+### OTEL_SERVICE_NAME
+
+**Type**: String
+**Default**: `shannon-llm-service`
+**Services**: All
+**Hot-Reload**: No
+
+Service name for OpenTelemetry.
+
+```bash
+OTEL_SERVICE_NAME=shannon-llm-service
+```
+
+### OTEL_EXPORTER_OTLP_ENDPOINT
+
+**Type**: String
+**Default**: `localhost:4317`
+**Services**: All
+**Hot-Reload**: No
+
+OTLP exporter endpoint.
+
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=localhost:4317
+```
+
+### OTEL_ENABLED
+
+**Type**: Boolean
+**Default**: `false`
+**Services**: All
+**Hot-Reload**: No
+
+Enable OpenTelemetry tracing.
+
+```bash
+OTEL_ENABLED=true
+```
+
+### LOG_FORMAT
+
+**Type**: String
+**Default**: `plain`
+**Valid Values**: `plain`, `json`
+**Services**: Agent Core (Rust)
+**Hot-Reload**: No
+
+Log output format.
+
+```bash
+LOG_FORMAT=json
+```
+
+### METRICS_PORT
+
+**Type**: Integer
+**Default**: `2112`
+**Services**: All
+**Hot-Reload**: No
+
+Prometheus metrics port.
+
+```bash
+METRICS_PORT=2112
+```
+
+## Python WASI Sandbox
+
+### PYTHON_WASI_WASM_PATH
+
+**Type**: String
+**Default**: `./wasm-interpreters/python-3.11.4.wasm`
+**Services**: Agent Core, LLM Service
+**Hot-Reload**: No
+
+Path to Python WASI interpreter.
+
+```bash
+PYTHON_WASI_WASM_PATH=./wasm-interpreters/python-3.11.4.wasm
+```
+
+### PYTHON_WASI_SESSION_TIMEOUT
+
+**Type**: Integer
+**Default**: `3600`
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+Python session timeout (seconds).
+
+```bash
+PYTHON_WASI_SESSION_TIMEOUT=3600
+```
+
+### WASI_MEMORY_LIMIT_MB
+
+**Type**: Integer
+**Default**: `512`
+**Services**: Agent Core
+**Hot-Reload**: Yes
+
+WASI sandbox memory limit (MB).
+
+```bash
+WASI_MEMORY_LIMIT_MB=512
+```
+
+### WASI_TIMEOUT_SECONDS
+
+**Type**: Integer
+**Default**: `60`
+**Services**: Agent Core
+**Hot-Reload**: Yes
+
+WASI execution timeout.
+
+```bash
+WASI_TIMEOUT_SECONDS=60
+```
+
+## OpenAPI and MCP
+
+### OpenAPI Integration
+
+#### OPENAPI_ALLOWED_DOMAINS
+
+**Type**: String
+**Default**: `*`
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+Allowed domains for OpenAPI spec fetching.
+
+```bash
+OPENAPI_ALLOWED_DOMAINS=*
+# Or specific domains:
+OPENAPI_ALLOWED_DOMAINS=api.example.com,api2.example.com
+```
+
+#### OPENAPI_MAX_SPEC_SIZE
+
+**Type**: Integer
+**Default**: `5242880` (5 MB)
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+Maximum OpenAPI spec file size.
+
+```bash
+OPENAPI_MAX_SPEC_SIZE=5242880
+```
+
+#### OPENAPI_FETCH_TIMEOUT
+
+**Type**: Integer
+**Default**: `30`
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+Timeout for fetching OpenAPI specs.
+
+```bash
+OPENAPI_FETCH_TIMEOUT=30
+```
+
+#### OPENAPI_RETRIES
+
+**Type**: Integer
+**Default**: `3`
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+Retry attempts for spec fetching.
+
+```bash
+OPENAPI_RETRIES=3
+```
+
+### MCP Integration
+
+#### MCP_ALLOWED_DOMAINS
+
+**Type**: String
+**Default**: `*`
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+Allowed domains for MCP servers.
+
+```bash
+MCP_ALLOWED_DOMAINS=*
+```
+
+#### MCP_MAX_RESPONSE_BYTES
+
+**Type**: Integer
+**Default**: `10485760` (10 MB)
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+Maximum MCP response size.
+
+```bash
+MCP_MAX_RESPONSE_BYTES=10485760
+```
+
+#### MCP_RETRIES
+
+**Type**: Integer
+**Default**: `3`
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+MCP request retry attempts.
+
+```bash
+MCP_RETRIES=3
+```
+
+#### MCP_TIMEOUT_SECONDS
+
+**Type**: Integer
+**Default**: `10`
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+MCP request timeout.
+
+```bash
+MCP_TIMEOUT_SECONDS=10
+```
+
+#### MCP_REGISTER_TOKEN
+
+**Type**: String
+**Default**: Empty
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+Authentication token for MCP server registration.
+
+```bash
+MCP_REGISTER_TOKEN=secret-token
+```
+
+#### MCP_RATE_LIMIT_DEFAULT
+
+**Type**: Integer
+**Default**: `60`
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+Default rate limit for MCP tools (requests/minute).
+
+```bash
+MCP_RATE_LIMIT_DEFAULT=60
+```
+
+#### MCP_CB_FAILURES
+
+**Type**: Integer
+**Default**: `5`
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+Circuit breaker failure threshold for MCP.
+
+```bash
+MCP_CB_FAILURES=5
+```
+
+#### MCP_CB_RECOVERY_SECONDS
+
+**Type**: Integer
+**Default**: `60`
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+Circuit breaker recovery time.
+
+```bash
+MCP_CB_RECOVERY_SECONDS=60
+```
+
+#### MCP_COST_TO_TOKENS
+
+**Type**: Integer
+**Default**: `0`
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+Token cost multiplier for MCP tools.
+
+```bash
+MCP_COST_TO_TOKENS=100
+```
+
+## Advanced Orchestrator Controls
+
+### EVENTLOG_BATCH_SIZE
+
+**Type**: Integer
+**Default**: `100`
+**Services**: Orchestrator
+**Hot-Reload**: Yes
+
+Events per batch for database writes.
+
+```bash
+EVENTLOG_BATCH_SIZE=100
+```
+
+### EVENTLOG_BATCH_INTERVAL_MS
+
+**Type**: Integer
+**Default**: `100`
+**Services**: Orchestrator
+**Hot-Reload**: Yes
+
+Batch interval (milliseconds).
+
+```bash
+EVENTLOG_BATCH_INTERVAL_MS=100
+```
+
+### RATE_LIMIT_INTERVAL_MS
+
+**Type**: Integer
+**Default**: `60000`
+**Services**: Orchestrator
+**Hot-Reload**: Yes
+
+Rate limit window (milliseconds).
+
+```bash
+RATE_LIMIT_INTERVAL_MS=60000
+```
+
+### Worker Concurrency
+
+Configure Temporal worker concurrency per priority queue:
+
+```bash
+# Default workers (all priorities)
+WORKER_ACT=10
+WORKER_WF=5
+
+# Critical priority
+WORKER_ACT_CRITICAL=20
+WORKER_WF_CRITICAL=10
+
+# High priority
+WORKER_ACT_HIGH=15
+WORKER_WF_HIGH=8
+
+# Normal priority
+WORKER_ACT_NORMAL=10
+WORKER_WF_NORMAL=5
+
+# Low priority
+WORKER_ACT_LOW=5
+WORKER_WF_LOW=3
+```
+
+**Impact**:
+- Higher values = more concurrency, more resource usage
+- Lower values = less concurrency, lower resource usage
+
+### LLM_TIMEOUT_SECONDS
+
+**Type**: Integer
+**Default**: `120`
+**Services**: Orchestrator
+**Hot-Reload**: Yes
+
+Timeout for LLM API calls.
+
+```bash
+LLM_TIMEOUT_SECONDS=120
+```
+
+## Miscellaneous
+
+### SHANNON_WORKSPACE
+
+**Type**: String
+**Default**: `./workspace`
+**Services**: Agent Core
+**Hot-Reload**: No
+
+Workspace directory for file operations.
+
+```bash
+SHANNON_WORKSPACE=./workspace
+```
+
+### SEED_DATA
+
+**Type**: Boolean
+**Default**: `false`
+**Services**: All
+**Hot-Reload**: No
+
+Seed Qdrant with sample data on startup.
+
+```bash
+SEED_DATA=true
+```
+
+### AGENT_TIMEOUT_SECONDS
+
+**Type**: Integer
+**Default**: `600`
+**Services**: Agent Core
+**Hot-Reload**: Yes
+
+Maximum runtime per agent execution.
+
+```bash
+AGENT_TIMEOUT_SECONDS=600
+```
+
+## Configuration Examples
+
+### Development
+
+```bash
+ENVIRONMENT=dev
+DEBUG=true
+GATEWAY_SKIP_AUTH=1
+ENABLE_CACHE=true
+DEFAULT_MODEL_TIER=small
+MAX_COST_PER_REQUEST=0.10
+TOOL_PARALLELISM=3
+```
+
+### Production
+
+```bash
+ENVIRONMENT=prod
+DEBUG=false
+GATEWAY_SKIP_AUTH=0
+JWT_SECRET=<secure-256-bit-key>
+POSTGRES_PASSWORD=<secure-password>
+REDIS_PASSWORD=<secure-password>
+ENABLE_CACHE=true
+DEFAULT_MODEL_TIER=medium
+MAX_COST_PER_REQUEST=1.00
+TOOL_PARALLELISM=5
+OTEL_ENABLED=true
+LOG_FORMAT=json
+```
+
+### High Performance
+
+```bash
+TOOL_PARALLELISM=10
+WORKER_ACT_CRITICAL=30
+WORKER_WF_CRITICAL=15
+ENABLE_CACHE=true
+CACHE_SIMILARITY_THRESHOLD=0.90
+STREAMING_RING_CAPACITY=2000
+```
+
+### Cost Optimized
+
+```bash
+DEFAULT_MODEL_TIER=small
+MAX_COST_PER_REQUEST=0.25
+MAX_TOKENS_PER_REQUEST=5000
+ENABLE_CACHE=true
+CACHE_SIMILARITY_THRESHOLD=0.95
+WORKFLOW_SYNTH_BYPASS_SINGLE=true
+```
+
+## Troubleshooting
+
+See [Configuration Troubleshooting](/deployment/configuration-troubleshooting) for common issues.
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="Docker Compose" icon="docker" href="/deployment/docker-compose">
+    Docker deployment guide
+  </Card>
+  <Card title="Kubernetes" icon="cubes" href="/deployment/kubernetes">
+    Kubernetes deployment
+  </Card>
+  <Card title="Performance Tuning" icon="gauge" href="/deployment/performance-tuning">
+    Optimize performance
+  </Card>
+  <Card title="Security" icon="shield" href="/deployment/security">
+    Security hardening
+  </Card>
+</CardGroup>
+
+
+---
+
+## 参与翻译
+
+如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。

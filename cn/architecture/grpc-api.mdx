@@ -1,0 +1,1328 @@
+---
+title: "gRPC API Reference"
+description: "Complete Protocol Buffer definitions for Shannon"
+---
+
+> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
+
+**原文件**: `architecture/grpc-api.mdx`
+**英文版本**: [查看英文文档](/en/architecture/grpc-api)
+
+---
+
+
+## Overview
+
+Shannon's internal architecture uses **gRPC** (HTTP/2 + Protocol Buffers) for high-performance inter-service communication. This document provides complete Protocol Buffer definitions for all 5 services and 27 RPC methods.
+
+**Services**:
+- **OrchestratorService** (8 RPCs) - Task orchestration and workflow management
+- **StreamingService** (1 RPC) - Real-time event streaming
+- **AgentService** (6 RPCs) - Agent execution and tool management
+- **LLMService** (5 RPCs) - LLM provider gateway
+- **SessionService** (7 RPCs) - Multi-turn conversation management
+
+**Total**: 27 RPC methods
+
+## Common Types
+
+Shared types used across all services.
+
+### ExecutionMode
+
+```protobuf
+enum ExecutionMode {
+  EXECUTION_MODE_UNSPECIFIED = 0;
+  EXECUTION_MODE_SIMPLE = 1;      // Direct tool/cache response
+  EXECUTION_MODE_STANDARD = 2;    // Single agent with LLM
+  EXECUTION_MODE_COMPLEX = 3;     // Multi-agent DAG execution
+}
+```
+
+**Usage**: Determines task execution strategy
+- `SIMPLE`: Direct tool invocation or cache lookup (fastest)
+- `STANDARD`: Single-agent LLM-powered execution (balanced)
+- `COMPLEX`: Multi-agent DAG with parallel execution (most capable)
+
+---
+
+### ModelTier
+
+```protobuf
+enum ModelTier {
+  MODEL_TIER_UNSPECIFIED = 0;
+  MODEL_TIER_SMALL = 1;    // GPT-3.5, Haiku, etc. (50% target)
+  MODEL_TIER_MEDIUM = 2;   // GPT-4, Sonnet, etc. (40% target)
+  MODEL_TIER_LARGE = 3;    // GPT-4-turbo, Opus, etc. (10% target)
+}
+```
+
+**Cost Optimization**: Shannon automatically selects models within tier to optimize cost
+- Small: $0.001-0.002 per 1K tokens
+- Medium: $0.01-0.03 per 1K tokens
+- Large: $0.03-0.075 per 1K tokens
+
+---
+
+### StatusCode
+
+```protobuf
+enum StatusCode {
+  STATUS_CODE_UNSPECIFIED = 0;
+  STATUS_CODE_OK = 1;
+  STATUS_CODE_ERROR = 2;
+  STATUS_CODE_TIMEOUT = 3;
+  STATUS_CODE_RATE_LIMITED = 4;
+  STATUS_CODE_BUDGET_EXCEEDED = 5;
+}
+```
+
+---
+
+### TaskMetadata
+
+```protobuf
+message TaskMetadata {
+  string task_id = 1;
+  string user_id = 2;
+  string session_id = 3;
+  string tenant_id = 4;
+  google.protobuf.Timestamp created_at = 5;
+  map<string, string> labels = 6;
+  int32 max_agents = 7;       // Max concurrent agents (default: 5)
+  double token_budget = 8;     // Token budget for this task
+}
+```
+
+**Example**:
+```json
+{
+  "task_id": "task-123",
+  "user_id": "user-456",
+  "session_id": "sess-789",
+  "tenant_id": "tenant-001",
+  "labels": {
+    "environment": "production",
+    "priority": "high"
+  },
+  "max_agents": 10,
+  "token_budget": 50000
+}
+```
+
+---
+
+### TokenUsage
+
+```protobuf
+message TokenUsage {
+  int32 prompt_tokens = 1;
+  int32 completion_tokens = 2;
+  int32 total_tokens = 3;
+  double cost_usd = 4;
+  string model = 5;
+  ModelTier tier = 6;
+}
+```
+
+---
+
+### ExecutionMetrics
+
+```protobuf
+message ExecutionMetrics {
+  int64 latency_ms = 1;
+  TokenUsage token_usage = 2;
+  bool cache_hit = 3;
+  double cache_score = 4;
+  int32 agents_used = 5;
+  ExecutionMode mode = 6;
+}
+```
+
+---
+
+## OrchestratorService
+
+Task orchestration and workflow management service.
+
+### Service Definition
+
+```protobuf
+service OrchestratorService {
+  rpc SubmitTask(SubmitTaskRequest) returns (SubmitTaskResponse);
+  rpc GetTaskStatus(GetTaskStatusRequest) returns (GetTaskStatusResponse);
+  rpc CancelTask(CancelTaskRequest) returns (CancelTaskResponse);
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse);
+  rpc GetSessionContext(GetSessionContextRequest) returns (GetSessionContextResponse);
+  rpc ListTemplates(ListTemplatesRequest) returns (ListTemplatesResponse);
+  rpc ApproveTask(ApproveTaskRequest) returns (ApproveTaskResponse);
+  rpc GetPendingApprovals(GetPendingApprovalsRequest) returns (GetPendingApprovalsResponse);
+}
+```
+
+---
+
+### SubmitTask
+
+Submit a new task for execution.
+
+**Request**:
+```protobuf
+message SubmitTaskRequest {
+  TaskMetadata metadata = 1;
+  string query = 2;
+  google.protobuf.Struct context = 3;
+  bool auto_decompose = 4;
+  TaskDecomposition manual_decomposition = 5;
+  SessionContext session_context = 6;
+  bool require_approval = 10;
+}
+```
+
+**Response**:
+```protobuf
+message SubmitTaskResponse {
+  string workflow_id = 1;
+  string task_id = 2;
+  StatusCode status = 3;
+  TaskDecomposition decomposition = 4;
+  string message = 5;
+}
+```
+
+**Example** (gRPC CLI):
+```bash
+grpcurl -plaintext -d '{
+  "metadata": {
+    "user_id": "user-123",
+    "session_id": "sess-456",
+    "token_budget": 10000
+  },
+  "query": "Analyze Q4 sales data and create visualizations",
+  "auto_decompose": true
+}' localhost:50052 shannon.orchestrator.OrchestratorService/SubmitTask
+```
+
+**Response**:
+```json
+{
+  "workflow_id": "wf-550e8400-e29b-41d4-a716-446655440000",
+  "task_id": "task-789",
+  "status": "STATUS_CODE_OK",
+  "decomposition": {
+    "mode": "EXECUTION_MODE_COMPLEX",
+    "complexity_score": 0.78,
+    "agent_tasks": [
+      {
+        "agent_id": "data-loader",
+        "description": "Load Q4 sales data",
+        "required_tools": ["csv_loader"],
+        "model_tier": "MODEL_TIER_SMALL"
+      },
+      {
+        "agent_id": "analyst",
+        "description": "Analyze sales trends",
+        "dependencies": ["data-loader"],
+        "model_tier": "MODEL_TIER_MEDIUM"
+      },
+      {
+        "agent_id": "visualizer",
+        "description": "Create charts",
+        "dependencies": ["analyst"],
+        "required_tools": ["matplotlib"],
+        "model_tier": "MODEL_TIER_SMALL"
+      }
+    ]
+  },
+  "message": "Task submitted successfully"
+}
+```
+
+---
+
+### GetTaskStatus
+
+Retrieve current status and result of a task.
+
+**Request**:
+```protobuf
+message GetTaskStatusRequest {
+  string task_id = 1;
+  bool include_details = 2;
+}
+```
+
+**Response**:
+```protobuf
+message GetTaskStatusResponse {
+  string task_id = 1;
+  TaskStatus status = 2;
+  double progress = 3;              // 0.0 - 1.0
+  string result = 4;
+  ExecutionMetrics metrics = 5;
+  repeated AgentTaskStatus agent_statuses = 6;
+  string error_message = 7;
+}
+
+enum TaskStatus {
+  TASK_STATUS_UNSPECIFIED = 0;
+  TASK_STATUS_QUEUED = 1;
+  TASK_STATUS_RUNNING = 2;
+  TASK_STATUS_COMPLETED = 3;
+  TASK_STATUS_FAILED = 4;
+  TASK_STATUS_CANCELLED = 5;
+  TASK_STATUS_TIMEOUT = 6;
+}
+```
+
+**Example**:
+```bash
+grpcurl -plaintext -d '{
+  "task_id": "task-789",
+  "include_details": true
+}' localhost:50052 shannon.orchestrator.OrchestratorService/GetTaskStatus
+```
+
+**Response**:
+```json
+{
+  "task_id": "task-789",
+  "status": "TASK_STATUS_COMPLETED",
+  "progress": 1.0,
+  "result": "Analysis complete. Q4 revenue increased 15% YoY...",
+  "metrics": {
+    "latency_ms": 45000,
+    "token_usage": {
+      "total_tokens": 5420,
+      "cost_usd": 0.0814,
+      "model": "gpt-4"
+    },
+    "agents_used": 3,
+    "mode": "EXECUTION_MODE_COMPLEX"
+  },
+  "agent_statuses": [
+    {
+      "agent_id": "data-loader",
+      "status": "TASK_STATUS_COMPLETED",
+      "result": "Loaded 15,000 records",
+      "token_usage": {
+        "total_tokens": 150,
+        "cost_usd": 0.0003
+      }
+    }
+  ]
+}
+```
+
+---
+
+### CancelTask
+
+Cancel a running task.
+
+**Request**:
+```protobuf
+message CancelTaskRequest {
+  string task_id = 1;
+  string reason = 2;
+}
+```
+
+**Response**:
+```protobuf
+message CancelTaskResponse {
+  bool success = 1;
+  string message = 2;
+}
+```
+
+---
+
+### ListTasks
+
+List tasks with optional filtering.
+
+**Request**:
+```protobuf
+message ListTasksRequest {
+  string user_id = 1;
+  string session_id = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+  TaskStatus filter_status = 5;
+}
+```
+
+**Response**:
+```protobuf
+message ListTasksResponse {
+  repeated TaskSummary tasks = 1;
+  int32 total_count = 2;
+}
+
+message TaskSummary {
+  string task_id = 1;
+  string query = 2;
+  TaskStatus status = 3;
+  ExecutionMode mode = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp completed_at = 6;
+  TokenUsage total_token_usage = 7;
+}
+```
+
+---
+
+### GetSessionContext
+
+Retrieve session context and history.
+
+**Request**:
+```protobuf
+message GetSessionContextRequest {
+  string session_id = 1;
+}
+```
+
+**Response**:
+```protobuf
+message GetSessionContextResponse {
+  string session_id = 1;
+  google.protobuf.Struct context = 2;
+  repeated TaskSummary recent_tasks = 3;
+  TokenUsage session_token_usage = 4;
+}
+```
+
+---
+
+### ListTemplates
+
+List available task templates.
+
+**Request**:
+```protobuf
+message ListTemplatesRequest {}
+```
+
+**Response**:
+```protobuf
+message ListTemplatesResponse {
+  repeated TemplateSummary templates = 1;
+}
+
+message TemplateSummary {
+  string name = 1;
+  string version = 2;
+  string key = 3;
+  string content_hash = 4;
+}
+```
+
+---
+
+### ApproveTask
+
+Approve or deny a task requiring human approval.
+
+**Request**:
+```protobuf
+message ApproveTaskRequest {
+  string approval_id = 1;
+  string workflow_id = 2;
+  string run_id = 3;
+  bool approved = 4;
+  string feedback = 5;
+  string modified_action = 6;
+  string approved_by = 7;
+}
+```
+
+**Response**:
+```protobuf
+message ApproveTaskResponse {
+  bool success = 1;
+  string message = 2;
+}
+```
+
+---
+
+### GetPendingApprovals
+
+List pending approval requests.
+
+**Request**:
+```protobuf
+message GetPendingApprovalsRequest {
+  string user_id = 1;
+  string session_id = 2;
+}
+```
+
+**Response**:
+```protobuf
+message GetPendingApprovalsResponse {
+  repeated PendingApproval approvals = 1;
+}
+
+message PendingApproval {
+  string approval_id = 1;
+  string workflow_id = 2;
+  string query = 3;
+  string proposed_action = 4;
+  string reason = 5;
+  google.protobuf.Timestamp requested_at = 6;
+  google.protobuf.Struct metadata = 7;
+}
+```
+
+---
+
+## StreamingService
+
+Real-time event streaming service.
+
+### Service Definition
+
+```protobuf
+service StreamingService {
+  rpc StreamTaskExecution(StreamRequest) returns (stream TaskUpdate);
+}
+```
+
+---
+
+### StreamTaskExecution
+
+Stream real-time events for a task (server-streaming RPC).
+
+**Request**:
+```protobuf
+message StreamRequest {
+  string workflow_id = 1;
+  repeated string types = 2;      // Optional event type filter
+  uint64 last_event_id = 3;       // Resume from this event (backward compat)
+  string last_stream_id = 4;      // Resume from Redis stream ID (preferred)
+}
+```
+
+**Response** (stream):
+```protobuf
+message TaskUpdate {
+  string workflow_id = 1;
+  string type = 2;                // Event type (see Event Types Catalog)
+  string agent_id = 3;
+  string message = 4;
+  google.protobuf.Timestamp timestamp = 5;
+  uint64 seq = 6;                 // Sequence number
+  string stream_id = 7;           // Redis stream ID for resumption
+}
+```
+
+**Example** (gRPC CLI):
+```bash
+grpcurl -plaintext -d '{
+  "workflow_id": "wf-550e8400-e29b-41d4-a716-446655440000"
+}' localhost:50052 shannon.orchestrator.StreamingService/StreamTaskExecution
+```
+
+**Response Stream**:
+```json
+{"workflow_id": "wf-...", "type": "WORKFLOW_STARTED", "message": "Task started", "seq": 1}
+{"workflow_id": "wf-...", "type": "AGENT_STARTED", "agent_id": "data-loader", "seq": 2}
+{"workflow_id": "wf-...", "type": "AGENT_THINKING", "message": "Loading data...", "seq": 3}
+{"workflow_id": "wf-...", "type": "TOOL_INVOKED", "message": "Invoking csv_loader", "seq": 4}
+{"workflow_id": "wf-...", "type": "TOOL_COMPLETED", "message": "Loaded 15,000 rows", "seq": 5}
+...
+{"workflow_id": "wf-...", "type": "WORKFLOW_COMPLETED", "message": "Task complete", "seq": 42}
+```
+
+**Event Type Filtering**:
+```bash
+# Only workflow lifecycle events
+grpcurl -plaintext -d '{
+  "workflow_id": "wf-...",
+  "types": ["WORKFLOW_STARTED", "WORKFLOW_COMPLETED", "WORKFLOW_FAILED"]
+}' localhost:50052 shannon.orchestrator.StreamingService/StreamTaskExecution
+```
+
+**Stream Resumption**:
+```bash
+# Resume from last seen event
+grpcurl -plaintext -d '{
+  "workflow_id": "wf-...",
+  "last_stream_id": "1698765432000-0"
+}' localhost:50052 shannon.orchestrator.StreamingService/StreamTaskExecution
+```
+
+See [Event Types Catalog](/api/event-types) for all event types.
+
+---
+
+## AgentService
+
+Agent execution and tool management service.
+
+### Service Definition
+
+```protobuf
+service AgentService {
+  rpc ExecuteTask(ExecuteTaskRequest) returns (ExecuteTaskResponse);
+  rpc StreamExecuteTask(ExecuteTaskRequest) returns (stream TaskUpdate);
+  rpc GetCapabilities(GetCapabilitiesRequest) returns (GetCapabilitiesResponse);
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+  rpc DiscoverTools(DiscoverToolsRequest) returns (DiscoverToolsResponse);
+  rpc GetToolCapability(GetToolCapabilityRequest) returns (GetToolCapabilityResponse);
+}
+```
+
+---
+
+### ExecuteTask
+
+Execute a task with a single agent (unary RPC).
+
+**Request**:
+```protobuf
+message ExecuteTaskRequest {
+  TaskMetadata metadata = 1;
+  string query = 2;
+  google.protobuf.Struct context = 3;
+  ExecutionMode mode = 4;
+  repeated string available_tools = 5;
+  AgentConfig config = 6;
+  SessionContext session_context = 7;
+}
+
+message AgentConfig {
+  int32 max_iterations = 1;
+  int32 timeout_seconds = 2;
+  bool enable_sandbox = 3;
+  int64 memory_limit_mb = 4;
+  bool enable_learning = 5;
+}
+```
+
+**Response**:
+```protobuf
+message ExecuteTaskResponse {
+  string task_id = 1;
+  StatusCode status = 2;
+  string result = 3;
+  repeated ToolCall tool_calls = 4;
+  repeated ToolResult tool_results = 5;
+  ExecutionMetrics metrics = 6;
+  string error_message = 7;
+  AgentState final_state = 8;
+}
+
+enum AgentState {
+  AGENT_STATE_UNSPECIFIED = 0;
+  AGENT_STATE_IDLE = 1;
+  AGENT_STATE_PLANNING = 2;
+  AGENT_STATE_EXECUTING = 3;
+  AGENT_STATE_WAITING = 4;
+  AGENT_STATE_COMPLETED = 5;
+  AGENT_STATE_FAILED = 6;
+}
+```
+
+---
+
+### StreamExecuteTask
+
+Execute task with streaming updates (server-streaming RPC).
+
+**Request**: Same as `ExecuteTask`
+
+**Response** (stream):
+```protobuf
+message TaskUpdate {
+  string task_id = 1;
+  AgentState state = 2;
+  string message = 3;
+  ToolCall tool_call = 4;
+  ToolResult tool_result = 5;
+  double progress = 6;
+}
+```
+
+---
+
+### GetCapabilities
+
+Get agent capabilities.
+
+**Request**:
+```protobuf
+message GetCapabilitiesRequest {}
+```
+
+**Response**:
+```protobuf
+message GetCapabilitiesResponse {
+  repeated string supported_tools = 1;
+  repeated ExecutionMode supported_modes = 2;
+  int64 max_memory_mb = 3;
+  int32 max_concurrent_tasks = 4;
+  string version = 5;
+}
+```
+
+---
+
+### HealthCheck
+
+Check agent service health.
+
+**Request**:
+```protobuf
+message HealthCheckRequest {}
+```
+
+**Response**:
+```protobuf
+message HealthCheckResponse {
+  bool healthy = 1;
+  string message = 2;
+  int64 uptime_seconds = 3;
+  int32 active_tasks = 4;
+  double memory_usage_percent = 5;
+}
+```
+
+---
+
+### DiscoverTools
+
+Discover available tools by query or category.
+
+**Request**:
+```protobuf
+message DiscoverToolsRequest {
+  string query = 1;
+  repeated string categories = 2;
+  repeated string tags = 3;
+  bool exclude_dangerous = 4;
+  int32 max_results = 5;
+}
+```
+
+**Response**:
+```protobuf
+message DiscoverToolsResponse {
+  repeated ToolCapability tools = 1;
+}
+
+message ToolCapability {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string category = 4;
+  google.protobuf.Struct input_schema = 5;
+  google.protobuf.Struct output_schema = 6;
+  repeated string required_permissions = 7;
+  int64 estimated_duration_ms = 8;
+  bool is_dangerous = 9;
+  string version = 10;
+  string author = 11;
+  repeated string tags = 12;
+  repeated ToolExample examples = 13;
+  RateLimit rate_limit = 14;
+  int64 cache_ttl_ms = 15;
+}
+```
+
+**Example**:
+```bash
+grpcurl -plaintext -d '{
+  "query": "data analysis",
+  "categories": ["data"],
+  "exclude_dangerous": true,
+  "max_results": 10
+}' localhost:50051 shannon.agent.AgentService/DiscoverTools
+```
+
+---
+
+### GetToolCapability
+
+Get detailed capability of a specific tool.
+
+**Request**:
+```protobuf
+message GetToolCapabilityRequest {
+  string tool_id = 1;
+}
+```
+
+**Response**:
+```protobuf
+message GetToolCapabilityResponse {
+  ToolCapability tool = 1;
+}
+```
+
+---
+
+## LLMService
+
+LLM provider gateway service.
+
+### Service Definition
+
+```protobuf
+service LLMService {
+  rpc GenerateCompletion(GenerateCompletionRequest) returns (GenerateCompletionResponse);
+  rpc StreamCompletion(GenerateCompletionRequest) returns (stream CompletionChunk);
+  rpc EmbedText(EmbedTextRequest) returns (EmbedTextResponse);
+  rpc AnalyzeComplexity(AnalyzeComplexityRequest) returns (AnalyzeComplexityResponse);
+  rpc ListModels(ListModelsRequest) returns (ListModelsResponse);
+}
+```
+
+---
+
+### GenerateCompletion
+
+Generate LLM completion (unary RPC).
+
+**Request**:
+```protobuf
+message GenerateCompletionRequest {
+  repeated Message messages = 1;
+  ModelTier tier = 2;
+  string specific_model = 3;
+  GenerationConfig config = 4;
+  TaskMetadata metadata = 5;
+  repeated ToolDefinition available_tools = 6;
+}
+
+message Message {
+  string role = 1;
+  string content = 2;
+  repeated ToolCall tool_calls = 3;
+  string name = 4;
+}
+
+message GenerationConfig {
+  double temperature = 1;
+  double top_p = 2;
+  int32 max_tokens = 3;
+  repeated string stop_sequences = 4;
+  double presence_penalty = 5;
+  double frequency_penalty = 6;
+  bool enable_caching = 7;
+  string cache_key = 8;
+}
+```
+
+**Response**:
+```protobuf
+message GenerateCompletionResponse {
+  string completion = 1;
+  repeated ToolCall tool_calls = 2;
+  TokenUsage usage = 3;
+  string model_used = 4;
+  Provider provider = 5;
+  bool cache_hit = 6;
+  string finish_reason = 7;
+}
+
+enum Provider {
+  PROVIDER_UNSPECIFIED = 0;
+  PROVIDER_OPENAI = 1;
+  PROVIDER_ANTHROPIC = 2;
+  PROVIDER_GOOGLE = 3;
+  PROVIDER_DEEPSEEK = 4;
+  PROVIDER_QWEN = 5;
+  PROVIDER_BEDROCK = 6;
+  PROVIDER_OLLAMA = 7;
+  PROVIDER_VLLM = 8;
+}
+```
+
+---
+
+### StreamCompletion
+
+Generate streaming LLM completion (server-streaming RPC).
+
+**Request**: Same as `GenerateCompletion`
+
+**Response** (stream):
+```protobuf
+message CompletionChunk {
+  string delta = 1;
+  ToolCall tool_call_delta = 2;
+  string finish_reason = 3;
+  TokenUsage usage = 4;
+}
+```
+
+---
+
+### EmbedText
+
+Generate text embeddings.
+
+**Request**:
+```protobuf
+message EmbedTextRequest {
+  repeated string texts = 1;
+  string model = 2;
+}
+```
+
+**Response**:
+```protobuf
+message EmbedTextResponse {
+  repeated Embedding embeddings = 1;
+  int32 dimensions = 2;
+  string model_used = 3;
+}
+
+message Embedding {
+  repeated float vector = 1;
+  string text = 2;
+}
+```
+
+---
+
+### AnalyzeComplexity
+
+Analyze query complexity and recommend execution mode.
+
+**Request**:
+```protobuf
+message AnalyzeComplexityRequest {
+  string query = 1;
+  google.protobuf.Struct context = 2;
+  repeated string available_tools = 3;
+}
+```
+
+**Response**:
+```protobuf
+message AnalyzeComplexityResponse {
+  ExecutionMode recommended_mode = 1;
+  double complexity_score = 2;
+  repeated string required_capabilities = 3;
+  int32 estimated_agents = 4;
+  int32 estimated_tokens = 5;
+  double estimated_cost_usd = 6;
+  string reasoning = 7;
+}
+```
+
+**Example**:
+```bash
+grpcurl -plaintext -d '{
+  "query": "Analyze Q4 sales data and create visualizations",
+  "available_tools": ["csv_loader", "pandas", "matplotlib"]
+}' localhost:8000 shannon.llm.LLMService/AnalyzeComplexity
+```
+
+**Response**:
+```json
+{
+  "recommended_mode": "EXECUTION_MODE_COMPLEX",
+  "complexity_score": 0.78,
+  "required_capabilities": ["data_loading", "analysis", "visualization"],
+  "estimated_agents": 3,
+  "estimated_tokens": 5000,
+  "estimated_cost_usd": 0.08,
+  "reasoning": "Task requires data loading, statistical analysis, and visualization generation"
+}
+```
+
+---
+
+### ListModels
+
+List available LLM models.
+
+**Request**:
+```protobuf
+message ListModelsRequest {
+  ModelTier tier = 1;
+  Provider provider = 2;
+}
+```
+
+**Response**:
+```protobuf
+message ListModelsResponse {
+  repeated ModelInfo models = 1;
+}
+
+message ModelInfo {
+  string id = 1;
+  string name = 2;
+  Provider provider = 3;
+  ModelTier tier = 4;
+  int32 context_window = 5;
+  double cost_per_1k_prompt_tokens = 6;
+  double cost_per_1k_completion_tokens = 7;
+  bool supports_tools = 8;
+  bool supports_streaming = 9;
+  bool available = 10;
+}
+```
+
+---
+
+## SessionService
+
+Multi-turn conversation management service.
+
+### Service Definition
+
+```protobuf
+service SessionService {
+  rpc CreateSession(CreateSessionRequest) returns (CreateSessionResponse);
+  rpc GetSession(GetSessionRequest) returns (GetSessionResponse);
+  rpc UpdateSession(UpdateSessionRequest) returns (UpdateSessionResponse);
+  rpc DeleteSession(DeleteSessionRequest) returns (DeleteSessionResponse);
+  rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse);
+  rpc AddMessage(AddMessageRequest) returns (AddMessageResponse);
+  rpc ClearHistory(ClearHistoryRequest) returns (ClearHistoryResponse);
+}
+```
+
+---
+
+### CreateSession
+
+Create a new conversation session.
+
+**Request**:
+```protobuf
+message CreateSessionRequest {
+  string user_id = 1;
+  google.protobuf.Struct initial_context = 2;
+  int32 max_history = 3;       // Max messages to keep
+  int32 ttl_seconds = 4;        // Session TTL
+}
+```
+
+**Response**:
+```protobuf
+message CreateSessionResponse {
+  string session_id = 1;
+  google.protobuf.Timestamp created_at = 2;
+  google.protobuf.Timestamp expires_at = 3;
+  StatusCode status = 4;
+  string message = 5;
+}
+```
+
+---
+
+### GetSession
+
+Retrieve session details.
+
+**Request**:
+```protobuf
+message GetSessionRequest {
+  string session_id = 1;
+  bool include_history = 2;
+}
+```
+
+**Response**:
+```protobuf
+message GetSessionResponse {
+  Session session = 1;
+  StatusCode status = 2;
+  string message = 3;
+}
+
+message Session {
+  string id = 1;
+  string user_id = 2;
+  google.protobuf.Struct context = 3;
+  repeated Message history = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp last_active = 6;
+  google.protobuf.Timestamp expires_at = 7;
+  SessionMetrics metrics = 8;
+}
+```
+
+---
+
+### UpdateSession
+
+Update session context or extend TTL.
+
+**Request**:
+```protobuf
+message UpdateSessionRequest {
+  string session_id = 1;
+  google.protobuf.Struct context_updates = 2;
+  int32 extend_ttl_seconds = 3;
+}
+```
+
+**Response**:
+```protobuf
+message UpdateSessionResponse {
+  bool success = 1;
+  google.protobuf.Timestamp new_expires_at = 2;
+  StatusCode status = 3;
+  string message = 4;
+}
+```
+
+---
+
+### DeleteSession
+
+Delete a session.
+
+**Request**:
+```protobuf
+message DeleteSessionRequest {
+  string session_id = 1;
+}
+```
+
+**Response**:
+```protobuf
+message DeleteSessionResponse {
+  bool success = 1;
+  StatusCode status = 2;
+  string message = 3;
+}
+```
+
+---
+
+### ListSessions
+
+List user sessions.
+
+**Request**:
+```protobuf
+message ListSessionsRequest {
+  string user_id = 1;
+  bool active_only = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+}
+```
+
+**Response**:
+```protobuf
+message ListSessionsResponse {
+  repeated SessionSummary sessions = 1;
+  int32 total_count = 2;
+  StatusCode status = 3;
+  string message = 4;
+}
+
+message SessionSummary {
+  string id = 1;
+  string user_id = 2;
+  google.protobuf.Timestamp created_at = 3;
+  google.protobuf.Timestamp last_active = 4;
+  int32 message_count = 5;
+  int32 total_tokens = 6;
+  bool is_active = 7;
+}
+```
+
+---
+
+### AddMessage
+
+Add message to session history.
+
+**Request**:
+```protobuf
+message AddMessageRequest {
+  string session_id = 1;
+  Message message = 2;
+}
+
+message Message {
+  string id = 1;
+  string role = 2;              // "user", "assistant", "system"
+  string content = 3;
+  google.protobuf.Timestamp timestamp = 4;
+  int32 tokens_used = 5;
+  google.protobuf.Struct metadata = 6;
+}
+```
+
+**Response**:
+```protobuf
+message AddMessageResponse {
+  bool success = 1;
+  int32 history_size = 2;
+  StatusCode status = 3;
+  string message = 4;
+}
+```
+
+---
+
+### ClearHistory
+
+Clear session message history.
+
+**Request**:
+```protobuf
+message ClearHistoryRequest {
+  string session_id = 1;
+  bool keep_context = 2;        // Keep persistent context
+}
+```
+
+**Response**:
+```protobuf
+message ClearHistoryResponse {
+  bool success = 1;
+  StatusCode status = 2;
+  string message = 3;
+}
+```
+
+---
+
+## Error Handling
+
+### Status Codes
+
+All responses include a `StatusCode`:
+- `STATUS_CODE_OK (1)` - Success
+- `STATUS_CODE_ERROR (2)` - Generic error
+- `STATUS_CODE_TIMEOUT (3)` - Operation timeout
+- `STATUS_CODE_RATE_LIMITED (4)` - Rate limit exceeded
+- `STATUS_CODE_BUDGET_EXCEEDED (5)` - Token/cost budget exceeded
+
+### gRPC Status Codes
+
+Standard gRPC status codes used:
+- `OK (0)` - Success
+- `CANCELLED (1)` - Request cancelled
+- `INVALID_ARGUMENT (3)` - Invalid request parameters
+- `DEADLINE_EXCEEDED (4)` - Timeout
+- `NOT_FOUND (5)` - Resource not found
+- `ALREADY_EXISTS (6)` - Resource already exists
+- `PERMISSION_DENIED (7)` - Insufficient permissions
+- `RESOURCE_EXHAUSTED (8)` - Rate limit/quota exceeded
+- `UNAUTHENTICATED (16)` - Missing/invalid credentials
+- `UNAVAILABLE (14)` - Service unavailable
+- `INTERNAL (13)` - Internal server error
+
+### Example Error Handling (Python)
+
+```python
+import grpc
+from shannon.orchestrator import orchestrator_pb2, orchestrator_pb2_grpc
+
+channel = grpc.insecure_channel('localhost:50052')
+stub = orchestrator_pb2_grpc.OrchestratorServiceStub(channel)
+
+try:
+    response = stub.SubmitTask(
+        orchestrator_pb2.SubmitTaskRequest(
+            query="Analyze data",
+            metadata=orchestrator_pb2.TaskMetadata(user_id="user-123")
+        )
+    )
+
+    if response.status == orchestrator_pb2.STATUS_CODE_OK:
+        print(f"Task submitted: {response.workflow_id}")
+    else:
+        print(f"Error: {response.message}")
+
+except grpc.RpcError as e:
+    if e.code() == grpc.StatusCode.UNAUTHENTICATED:
+        print("Authentication required")
+    elif e.code() == grpc.StatusCode.RESOURCE_EXHAUSTED:
+        print("Rate limit exceeded")
+    elif e.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
+        print("Request timeout")
+    else:
+        print(f"gRPC error: {e.code()} - {e.details()}")
+```
+
+---
+
+## Service Endpoints
+
+| Service | Default Port | Protocol | TLS |
+|---------|-------------|----------|-----|
+| OrchestratorService | 50052 | gRPC (HTTP/2) | Optional |
+| StreamingService | 50052 | gRPC (HTTP/2) | Optional |
+| AgentService | 50051 | gRPC (HTTP/2) | Optional |
+| LLMService | 8000 | gRPC (HTTP/2) | Optional |
+| SessionService | 50052 | gRPC (HTTP/2) | Optional |
+
+**Gateway REST API** also available on port 8080 (HTTP/REST wrapper around gRPC).
+
+See [REST API Reference](/api/rest/overview) for HTTP endpoints.
+
+---
+
+## Code Generation
+
+Generate client code from .proto files:
+
+### Python
+```bash
+python -m grpc_tools.protoc \
+  -I protos \
+  --python_out=. \
+  --grpc_python_out=. \
+  protos/**/*.proto
+```
+
+### Go
+```bash
+protoc -I protos \
+  --go_out=. \
+  --go-grpc_out=. \
+  protos/**/*.proto
+```
+
+### TypeScript
+```bash
+protoc -I protos \
+  --ts_out=. \
+  --grpc_out=. \
+  protos/**/*.proto
+```
+
+---
+
+## Related Topics
+
+<CardGroup cols={2}>
+  <Card title="REST API" icon="globe" href="/api/rest/overview">
+    HTTP REST endpoints
+  </Card>
+  <Card title="Event Types" icon="stream" href="/api/event-types">
+    Streaming event catalog
+  </Card>
+  <Card title="Python SDK" icon="python" href="/sdk/python/quickstart">
+    Python client library
+  </Card>
+  <Card title="Database Schema" icon="database" href="/architecture/database-schema">
+    Data persistence
+  </Card>
+</CardGroup>
+
+
+---
+
+## 参与翻译
+
+如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。

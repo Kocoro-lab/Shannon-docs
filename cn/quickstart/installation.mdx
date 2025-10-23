@@ -1,0 +1,225 @@
+---
+title: "安装"
+description: "使用 Docker Compose 在 10 分钟内运行 Shannon"
+---
+
+## 前置要求
+
+在安装 Shannon 之前，请确保您具备：
+
+- **Docker** (20.10+) 和 **Docker Compose** (v2.0+)
+- **Git** 用于克隆仓库
+- **LLM API 密钥**（OpenAI、Anthropic 或其他支持的提供商）
+- 至少 **4GB RAM** 可用于 Docker
+
+<Note>
+Shannon 可在 Linux、macOS 和 Windows（使用 WSL2）上运行。所有示例均假定类 Unix 环境。
+</Note>
+
+## 一键设置
+
+Shannon 提供简化的设置流程，让您在几分钟内运行：
+
+```bash
+# 克隆仓库
+git clone https://github.com/Kocoro-lab/Shannon.git
+cd Shannon
+
+# 初始化配置并生成 protocol buffers
+make setup
+
+# 添加您的 LLM API 密钥
+echo "OPENAI_API_KEY=sk-your-key-here" >> .env
+
+# 下载 Python WASI 解释器（沙箱执行所需）
+./scripts/setup_python_wasi.sh
+
+# 启动所有服务
+make dev
+```
+
+就是这样！Shannon 现在正在运行，包含所有必需的服务。
+
+## 安装的内容
+
+`make dev` 命令通过 Docker Compose 启动以下服务：
+
+| 服务 | 端口 | 描述 |
+|---------|------|-------------|
+| **Gateway** | 8080 | REST API 网关 |
+| **Orchestrator** | 50052 | gRPC 编排服务 |
+| **Agent Core** | 50051 | 基于 Rust 的智能体执行 |
+| **LLM Service** | 8000 | Python LLM 提供商网关 |
+| **Dashboard** | 2111 | 实时监控 UI |
+| **PostgreSQL** | 5432 | 持久化存储 |
+| **Redis** | 6379 | 缓存和发布/订阅 |
+| **Qdrant** | 6333 | 向量数据库 |
+| **Temporal** | 7233 | 工作流引擎 |
+| **Temporal UI** | 8088 | 工作流可视化 |
+
+## 验证安装
+
+检查所有服务是否正在运行：
+
+```bash
+# 查看服务状态
+docker compose ps
+
+# 所有服务应显示 "healthy" 或 "running"
+```
+
+测试 API：
+
+```bash
+# 提交一个简单的任务
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "2+2 等于多少？"
+  }'
+
+# 您应该收到包含 task_id 的响应
+```
+
+## 访问控制面板
+
+在浏览器中打开：
+
+- **Shannon Dashboard**: http://localhost:2111
+- **Temporal UI**: http://localhost:8088
+
+控制面板提供实时任务监控、事件流和系统指标。
+
+## 配置
+
+Shannon 已针对本地开发进行了预配置，但您可以自定义它：
+
+### 环境变量
+
+`.env` 文件（由 `make setup` 创建）包含关键配置：
+
+```bash
+# LLM 提供商密钥
+OPENAI_API_KEY=sk-your-key-here
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+
+# 服务配置
+GATEWAY_SKIP_AUTH=1  # 开发环境禁用身份验证
+LOG_LEVEL=info
+
+# 数据库
+POSTGRES_USER=shannon
+POSTGRES_PASSWORD=shannon_dev
+POSTGRES_DB=shannon
+
+# Redis
+REDIS_URL=redis://redis:6379
+```
+
+<Warning>
+在生产环境中，设置 `GATEWAY_SKIP_AUTH=0` 以启用 API 密钥身份验证。
+</Warning>
+
+### 配置文件
+
+高级配置可在 `config/` 目录中找到：
+
+- `shannon.yaml` - 主系统配置
+- `features.yaml` - 功能标志
+- `models.yaml` - LLM 提供商定价和路由
+
+## 常见问题
+
+<AccordionGroup>
+  <Accordion title="端口冲突">
+    如果您看到端口绑定错误，请检查端口 8080、50051、50052、8000 等是否未被使用：
+
+    ```bash
+    # macOS/Linux
+    lsof -i :8080
+
+    # 停止冲突的服务或在 docker-compose.yml 中更改端口
+    ```
+  </Accordion>
+
+  <Accordion title="Docker 内存问题">
+    Shannon 至少需要 4GB RAM。增加 Docker 的内存限制：
+
+    - **Docker Desktop**: 设置 → 资源 → 内存（设置为 6GB+）
+    - **Linux**: Docker 默认使用所有可用内存
+  </Accordion>
+
+  <Accordion title="Python WASI 下载失败">
+    如果 `setup_python_wasi.sh` 失败，手动下载：
+
+    ```bash
+    mkdir -p wasm-interpreters
+    cd wasm-interpreters
+    wget https://github.com/vmware-labs/webassembly-language-runtimes/releases/download/python%2F3.11.4%2B20230714-11be424/python-3.11.4.wasm
+    ```
+  </Accordion>
+
+  <Accordion title="服务无法启动">
+    检查 Docker 日志以查找错误：
+
+    ```bash
+    docker compose logs orchestrator
+    docker compose logs agent-core
+    docker compose logs llm-service
+    ```
+
+    常见原因：
+    - 缺少 `.env` 文件（运行 `make setup`）
+    - 无效的 API 密钥
+    - Docker 资源不足
+  </Accordion>
+</AccordionGroup>
+
+## 下一步
+
+现在 Shannon 已经运行：
+
+<CardGroup cols={2}>
+  <Card
+    title="提交您的第一个任务"
+    icon="rocket"
+    href="/quickstart/quickstart"
+  >
+    学习如何与 Shannon 交互
+  </Card>
+  <Card
+    title="核心概念"
+    icon="book"
+    href="/quickstart/concepts/agents"
+  >
+    理解智能体和工作流
+  </Card>
+</CardGroup>
+
+## 开发设置
+
+通过 Docker 运行核心依赖项，然后在本地运行服务以进行迭代：
+
+```bash
+# 终端 1: 仅启动依赖项（DB、缓存、向量、Temporal）
+docker compose -f deploy/compose/docker-compose.yml up -d postgres redis qdrant temporal
+
+# 终端 2: 本地运行 Orchestrator（gRPC 50052，管理端口 8081）
+cd go/orchestrator
+go run ./cmd/server
+
+# 终端 3: 本地运行 Agent Core（gRPC 50051）
+cd ../../rust/agent-core
+cargo run
+
+# 终端 4: 本地运行 LLM Service（HTTP 8000）
+cd ../../python/llm-service
+pip install -r requirements.txt
+python main.py
+
+# （可选）终端 5: 本地运行 Gateway（REST 8080）
+cd ../../go/orchestrator/cmd/gateway
+go run .
+```
+
+有关系统架构详细信息，请参阅[架构概述](/architecture/overview)。

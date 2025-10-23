@@ -1,0 +1,194 @@
+---
+title: "Cancel Task"
+description: "Cancel a running task via SDK/gRPC"
+---
+
+> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
+
+**原文件**: `api/endpoints/cancel-task.mdx`
+**英文版本**: [查看英文文档](/en/api/endpoints/cancel-task)
+
+---
+
+
+<Warning>
+Task cancellation is **only available via the Python SDK and gRPC**. The REST API does not currently support a `DELETE /api/v1/tasks/{id}` endpoint. Use the SDK methods below.
+</Warning>
+
+## Overview
+
+Cancel a running task to stop execution and free resources. Cancellation is graceful and may take a few seconds to complete.
+
+## SDK Method Signature
+
+### Python SDK (Sync)
+
+```python
+def cancel(
+    self,
+    task_id: str,
+    reason: Optional[str] = None,
+    timeout: Optional[float] = None
+) -> bool
+```
+
+### Python SDK (Async)
+
+```python
+async def cancel(
+    self,
+    task_id: str,
+    reason: Optional[str] = None,
+    timeout: Optional[float] = None
+) -> bool
+```
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `task_id` | string | Yes | Task identifier to cancel |
+| `reason` | string | No | Optional cancellation reason |
+| `timeout` | float | No | Request timeout in seconds |
+
+### Returns
+
+- **Type**: `bool`
+- **Value**: `True` if cancellation was successful, `False` otherwise
+
+## Examples
+
+### Basic Cancellation
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient()
+
+# Submit a task
+handle = client.submit_task(query="Long running analysis...")
+
+# Cancel the task
+success = client.cancel(handle.task_id)
+print("Task cancelled" if success else "Cancellation failed")
+```
+
+### Cancellation with Reason
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient()
+
+# Cancel with reason
+success = client.cancel(
+    task_id="task-dev-1730000000",
+    reason="User requested abort"
+)
+
+if success:
+    print("Task cancelled successfully")
+else:
+    print("Failed to cancel task")
+```
+
+### Async Cancellation
+
+```python
+from shannon import AsyncShannonClient
+import asyncio
+
+async def cancel_task():
+    async with AsyncShannonClient() as client:
+        # Submit task
+        handle = await client.submit_task(query="Process large dataset...")
+
+        # Cancel after some condition
+        success = await client.cancel(
+            task_id=handle.task_id,
+            reason="Timeout exceeded"
+        )
+
+        return success
+
+# Run async
+result = asyncio.run(cancel_task())
+print(f"Cancellation {'succeeded' if result else 'failed'}")
+```
+
+## Behavior and Considerations
+
+### Graceful Cancellation
+
+Cancellation is not instantaneous. When you call `cancel()`:
+
+1. The cancellation request is sent to the Temporal workflow
+2. The workflow receives the cancellation signal
+3. Running agents complete their current operation
+4. Resources are cleaned up and the task status updates to `TASK_STATUS_CANCELLED`
+
+This process typically takes 1-5 seconds.
+
+### Partial Results
+
+Tasks cancelled mid-execution may have partial results available. Check the task status after cancellation:
+
+```python
+# Cancel task
+client.cancel(task_id)
+
+# Wait a moment for cancellation to complete
+import time
+time.sleep(2)
+
+# Check final status
+status = client.get_status(task_id)
+if status.result:
+    print("Partial result:", status.result)
+```
+
+### Cost Implications
+
+- **Tokens consumed before cancellation are still charged**
+- Check `status.metrics.cost_usd` to see accumulated costs
+- Budget limits are enforced even on cancelled tasks
+
+### When Cancellation Fails
+
+The `cancel()` method returns `False` if:
+- Task ID not found
+- Task already completed/failed/cancelled
+- Network/connection error
+
+Handle failures appropriately:
+
+```python
+from shannon import errors
+
+try:
+    success = client.cancel(task_id, reason="User abort")
+    if not success:
+        print("Task may have already completed")
+except errors.TaskNotFoundError:
+    print("Task does not exist")
+except errors.ConnectionError as e:
+    print(f"Connection failed: {e}")
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Stream Events" icon="stream" href="/api/endpoints/stream-task">
+    Monitor task execution
+  </Card>
+  <Card title="List Tasks" icon="list" href="/api/endpoints/list-tasks">
+    View all tasks
+  </Card>
+</CardGroup>
+
+
+---
+
+## 参与翻译
+
+如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。
