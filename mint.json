@@ -1,6 +1,20 @@
 {
   "$schema": "https://mintlify.com/schema.json",
   "name": "Shannon",
+  "languages": [
+    {
+      "name": "English",
+      "code": "en"
+    },
+    {
+      "name": "简体中文",
+      "code": "zh"
+    },
+    {
+      "name": "日本語",
+      "code": "ja"
+    }
+  ],
   "logo": {
     "dark": "/logo/dark.svg",
     "light": "/logo/light.svg",
@@ -71,131 +85,131 @@
     {
       "group": "Getting Started",
       "pages": [
-        "quickstart/index",
-        "quickstart/installation",
-        "quickstart/quickstart"
+        "en/quickstart/index",
+        "en/quickstart/installation",
+        "en/quickstart/quickstart"
       ]
     },
     {
       "group": "Core Concepts",
       "pages": [
-        "quickstart/concepts/agents",
-        "quickstart/concepts/workflows",
-        "quickstart/concepts/cost-control",
-        "quickstart/concepts/streaming",
-        "quickstart/concepts/monitoring"
+        "en/quickstart/concepts/agents",
+        "en/quickstart/concepts/workflows",
+        "en/quickstart/concepts/cost-control",
+        "en/quickstart/concepts/streaming",
+        "en/quickstart/concepts/monitoring"
       ]
     },
     {
       "group": "Guides",
       "pages": [
-        "quickstart/configuration",
-        "quickstart/troubleshooting"
+        "en/quickstart/configuration",
+        "en/quickstart/troubleshooting"
       ]
     },
     {
       "group": "Overview",
       "pages": [
-        "api/overview",
-        "api/authentication",
-        "api/event-types"
+        "en/api/overview",
+        "en/api/authentication",
+        "en/api/event-types"
       ]
     },
     {
       "group": "REST API",
       "pages": [
-        "api/rest/overview",
-        "api/rest/submit-task",
-        "api/rest/list-tasks",
-        "api/rest/get-status",
-        "api/rest/streaming",
-        "api/rest/authentication"
+        "en/api/rest/overview",
+        "en/api/rest/submit-task",
+        "en/api/rest/list-tasks",
+        "en/api/rest/get-status",
+        "en/api/rest/streaming",
+        "en/api/rest/authentication"
       ]
     },
     {
       "group": "Legacy Endpoints",
       "pages": [
-        "api/endpoints/submit-task",
-        "api/endpoints/get-task-status",
-        "api/endpoints/list-tasks",
-        "api/endpoints/cancel-task",
-        "api/endpoints/stream-task",
-        "api/endpoints/sessions"
+        "en/api/endpoints/submit-task",
+        "en/api/endpoints/get-task-status",
+        "en/api/endpoints/list-tasks",
+        "en/api/endpoints/cancel-task",
+        "en/api/endpoints/stream-task",
+        "en/api/endpoints/sessions"
       ]
     },
     {
       "group": "Python SDK",
       "pages": [
-        "sdk/python/installation",
-        "sdk/python/quickstart",
-        "sdk/python/streaming",
-        "sdk/python/async-usage",
-        "sdk/python/examples",
-        "sdk/python/error-handling"
+        "en/sdk/python/installation",
+        "en/sdk/python/quickstart",
+        "en/sdk/python/streaming",
+        "en/sdk/python/async-usage",
+        "en/sdk/python/examples",
+        "en/sdk/python/error-handling"
       ]
     },
     {
       "group": "Overview",
       "pages": [
-        "tutorials/index"
+        "en/tutorials/index"
       ]
     },
     {
       "group": "Building Agents",
       "pages": [
-        "tutorials/research-assistant",
-        "tutorials/code-review-bot",
-        "tutorials/data-analysis"
+        "en/tutorials/research-assistant",
+        "en/tutorials/code-review-bot",
+        "en/tutorials/data-analysis"
       ]
     },
     {
       "group": "Advanced Patterns",
       "pages": [
-        "tutorials/custom-tools",
-        "tutorials/multi-agent-systems"
+        "en/tutorials/custom-tools",
+        "en/tutorials/multi-agent-systems"
       ]
     },
     {
       "group": "Getting Started",
       "pages": [
-        "deployment/index",
-        "deployment/docker-compose",
-        "deployment/kubernetes"
+        "en/deployment/index",
+        "en/deployment/docker-compose",
+        "en/deployment/kubernetes"
       ]
     },
     {
       "group": "Cloud Platforms",
       "pages": [
-        "deployment/aws",
-        "deployment/azure"
+        "en/deployment/aws",
+        "en/deployment/azure"
       ]
     },
     {
       "group": "Operations",
       "pages": [
-        "deployment/environment-variables",
-        "deployment/configuration-troubleshooting",
-        "deployment/monitoring",
-        "deployment/performance-tuning",
-        "deployment/security"
+        "en/deployment/environment-variables",
+        "en/deployment/configuration-troubleshooting",
+        "en/deployment/monitoring",
+        "en/deployment/performance-tuning",
+        "en/deployment/security"
       ]
     },
     {
       "group": "System Design",
       "pages": [
-        "architecture/overview",
-        "architecture/components",
-        "architecture/data-flow",
-        "architecture/grpc-api",
-        "architecture/database-schema"
+        "en/architecture/overview",
+        "en/architecture/components",
+        "en/architecture/data-flow",
+        "en/architecture/grpc-api",
+        "en/architecture/database-schema"
       ]
     },
     {
       "group": "Deep Dives",
       "pages": [
-        "architecture/temporal-workflows",
-        "architecture/vector-memory",
-        "architecture/tool-execution"
+        "en/architecture/temporal-workflows",
+        "en/architecture/vector-memory",
+        "en/architecture/tool-execution"
       ]
     }
   ],

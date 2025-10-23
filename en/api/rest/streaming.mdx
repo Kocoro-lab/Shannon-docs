@@ -106,48 +106,53 @@ Bidirectional streaming via WebSocket.
 
 #### Authentication
 
-Include API key in query parameter or header:
+The gateway authenticates WebSocket connections via headers only (`X-API-Key` or `Authorization`). Browsers cannot set custom headers during the WebSocket handshake. For browser usage:
 
-```
-ws://localhost:8080/api/v1/stream/ws?api_key=sk_test_123456
-```
+- Run locally with `GATEWAY_SKIP_AUTH=1`, or
+- Use a reverse proxy that injects the header before forwarding to the gateway.
 
-Or use header after connection:
-```javascript
-ws.send(JSON.stringify({
-  type: "auth",
-  api_key: "sk_test_123456"
-}));
-```
+Header-based examples for server environments:
 
-#### Connection
+Node (ws):
+```js
+import WebSocket from 'ws';
 
-```javascript
-const ws = new WebSocket('ws://localhost:8080/api/v1/stream/ws?api_key=sk_test_123456');
+const ws = new WebSocket('ws://localhost:8080/api/v1/stream/ws', {
+  headers: { 'X-API-Key': 'sk_test_123456' },
+});
 
-ws.onopen = () => {
-  console.log('Connected');
+ws.on('open', () => {
+  ws.send(JSON.stringify({ type: 'subscribe', workflow_id: 'task_abc123' }));
+});
 
-  // Subscribe to workflow
-  ws.send(JSON.stringify({
-    type: 'subscribe',
-    workflow_id: 'task_abc123'
-  }));
-};
-
-ws.onmessage = (event) => {
-  const data = JSON.parse(event.data);
+ws.on('message', (msg) => {
+  const data = JSON.parse(msg.toString());
   console.log('Event:', data.type, data.message);
-};
+});
 
-ws.onerror = (error) => {
-  console.error('WebSocket error:', error);
-};
-
-ws.onclose = () => {
-  console.log('Connection closed');
-};
+ws.on('error', (err) => console.error('WebSocket error:', err));
 ```
+
+Python (websockets):
+```python
+import asyncio, json, websockets
+
+async def main():
+    async with websockets.connect(
+        'ws://localhost:8080/api/v1/stream/ws',
+        extra_headers={'X-API-Key': 'sk_test_123456'},
+    ) as ws:
+        await ws.send(json.dumps({'type': 'subscribe', 'workflow_id': 'task_abc123'}))
+        async for message in ws:
+            data = json.loads(message)
+            print('Event:', data.get('type'), data.get('message'))
+
+asyncio.run(main())
+```
+
+<Note>
+Passing the API key in the query string or via an "auth" message after connect is not supported by the gateway.
+</Note>
 
 #### Message Types
 
@@ -324,27 +329,21 @@ const stream = streamTaskEvents('task_abc123', 'sk_test_123456');
 setTimeout(() => stream.close(), 60000);
 ```
 
-### JavaScript - WebSocket
+### JavaScript/Node.js - WebSocket (ws)
 
 ```javascript
-function connectWebSocket(apiKey) {
+import WebSocket from 'ws';
+
+function connectWebSocket(taskId, apiKey) {
   const ws = new WebSocket(
-    `ws://localhost:8080/api/v1/stream/ws?api_key=${apiKey}`
+    `ws://localhost:8080/api/v1/stream/ws?workflow_id=${taskId}`,
+    { headers: { 'X-API-Key': apiKey } }
   );
 
-  ws.onopen = () => {
-    console.log('✓ Connected');
+  ws.on('open', () => console.log('✓ Connected'));
 
-    // Subscribe to task
-    ws.send(JSON.stringify({
-      type: 'subscribe',
-      workflow_id: 'task_abc123'
-    }));
-  };
-
-  ws.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-
+  ws.on('message', (msg) => {
+    const data = JSON.parse(msg.toString());
     switch (data.type) {
       case 'AGENT_THINKING':
         console.log(`💭 ${data.message}`);
@@ -362,20 +361,15 @@ function connectWebSocket(apiKey) {
       default:
         console.log(`[${data.type}] ${data.message || ''}`);
     }
-  };
+  });
 
-  ws.onerror = (error) => {
-    console.error('❌ Error:', error);
-  };
-
-  ws.onclose = () => {
-    console.log('Connection closed');
-  };
+  ws.on('error', (err) => console.error('❌ Error:', err));
+  ws.on('close', () => console.log('Connection closed'));
 
   return ws;
 }
 
-const ws = connectWebSocket('sk_test_123456');
+const ws = connectWebSocket('task_abc123', 'sk_test_123456');
 ```
 
 ### Go (SSE)

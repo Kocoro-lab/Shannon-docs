@@ -109,7 +109,10 @@ import json
 async def stream_task():
     uri = f"ws://localhost:8080/api/v1/stream/ws?workflow_id={workflow_id}"
 
-    async with websockets.connect(uri) as websocket:
+    # Pass API key via headers (gateway requires header-based auth)
+    async with websockets.connect(
+        uri, extra_headers={'X-API-Key': 'sk_test_123456'}
+    ) as websocket:
         while True:
             message = await websocket.recv()
             event = json.loads(message)
