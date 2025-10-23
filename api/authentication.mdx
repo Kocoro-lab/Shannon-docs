@@ -51,13 +51,12 @@ Never commit API keys to version control or share them publicly.
 ### Via Command Line
 
 ```bash
-# Create a test API key
-cd go/orchestrator
+# Create a test API key (run from repo root)
 make seed-api-key
 
 # Output
-API Key created: sk_test_123456
-User ID: test-user
+✅ Test API key created. Use 'sk_test_123456' for testing.
+Note: Authentication is disabled by default (GATEWAY_SKIP_AUTH=1)
 ```
 
 ### Via API (Future)
@@ -105,15 +104,18 @@ handle = client.submit_task(query="Hello world")
 
 ## Rate Limiting
 
-Shannon enforces rate limits per API key using a token bucket algorithm:
+Shannon enforces rate limits per API key using a fixed-window counter:
 
 ### Default Limits
 
-| Limit Type | Default Value | Burst |
-|------------|---------------|-------|
-| Requests per minute | 60 | 100 |
-| Tokens per minute | 100,000 | 150,000 |
-| Concurrent tasks | 10 | 15 |
+| Limit Type | Default Value |
+|------------|---------------|
+| Requests per minute | 60 |
+| Burst allowance | 10 |
+
+<Note>
+Token budgets and concurrent task limits are enforced at the workflow level by the orchestrator, not at the gateway layer.
+</Note>
 
 ### Rate Limit Headers
 
@@ -190,7 +192,7 @@ curl -X POST http://localhost:8080/api/v1/tasks \
 
 Each tenant has:
 - Isolated session storage
-- Separate vector collections in Qdrant
+- Per-tenant isolation via payload filters (`tenant_id`) within shared Qdrant collections
 - Independent budget tracking
 - Dedicated metrics
 
