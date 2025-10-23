@@ -26,32 +26,6 @@
     "name": "GitHub",
     "url": "https://github.com/Kocoro-lab/Shannon"
   },
-  "tabs": [
-    {
-      "name": "Quick Start",
-      "url": "quickstart"
-    },
-    {
-      "name": "API Reference",
-      "url": "api"
-    },
-    {
-      "name": "SDKs",
-      "url": "sdk"
-    },
-    {
-      "name": "Tutorials",
-      "url": "tutorials"
-    },
-    {
-      "name": "Deployment",
-      "url": "deployment"
-    },
-    {
-      "name": "Architecture",
-      "url": "architecture"
-    }
-  ],
   "anchors": [
     {
       "name": "GitHub",
@@ -68,6 +42,32 @@
     "languages": [
       {
         "language": "en",
+        "tabs": [
+          {
+            "name": "Quick Start",
+            "url": "quickstart"
+          },
+          {
+            "name": "API Reference",
+            "url": "api"
+          },
+          {
+            "name": "SDKs",
+            "url": "sdk"
+          },
+          {
+            "name": "Tutorials",
+            "url": "tutorials"
+          },
+          {
+            "name": "Deployment",
+            "url": "deployment"
+          },
+          {
+            "name": "Architecture",
+            "url": "architecture"
+          }
+        ],
         "groups": [
           {
             "group": "Getting Started",
@@ -203,6 +203,32 @@
       },
       {
         "language": "zh-Hans",
+        "tabs": [
+          {
+            "name": "快速开始",
+            "url": "quickstart"
+          },
+          {
+            "name": "API 参考",
+            "url": "api"
+          },
+          {
+            "name": "SDK",
+            "url": "sdk"
+          },
+          {
+            "name": "教程",
+            "url": "tutorials"
+          },
+          {
+            "name": "部署",
+            "url": "deployment"
+          },
+          {
+            "name": "架构",
+            "url": "architecture"
+          }
+        ],
         "groups": [
           {
             "group": "入门指南",
@@ -338,6 +364,32 @@
       },
       {
         "language": "ja",
+        "tabs": [
+          {
+            "name": "クイックスタート",
+            "url": "quickstart"
+          },
+          {
+            "name": "APIリファレンス",
+            "url": "api"
+          },
+          {
+            "name": "SDK",
+            "url": "sdk"
+          },
+          {
+            "name": "チュートリアル",
+            "url": "tutorials"
+          },
+          {
+            "name": "デプロイメント",
+            "url": "deployment"
+          },
+          {
+            "name": "アーキテクチャ",
+            "url": "architecture"
+          }
+        ],
         "groups": [
           {
             "group": "はじめに",
