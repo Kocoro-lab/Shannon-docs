@@ -136,7 +136,7 @@
             ]
           },
           {
-            "group": "Tutorials",
+            "group": "Overview",
             "pages": [
               "en/tutorials/index"
             ]
@@ -157,7 +157,7 @@
             ]
           },
           {
-            "group": "Deployment",
+            "group": "Getting Started",
             "pages": [
               "en/deployment/index",
               "en/deployment/docker-compose",
@@ -271,7 +271,7 @@
             ]
           },
           {
-            "group": "教程",
+            "group": "概览",
             "pages": [
               "cn/tutorials/index"
             ]
@@ -292,7 +292,7 @@
             ]
           },
           {
-            "group": "部署",
+            "group": "入门指南",
             "pages": [
               "cn/deployment/index",
               "cn/deployment/docker-compose",
