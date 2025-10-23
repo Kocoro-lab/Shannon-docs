@@ -1,73 +1,65 @@
 ---
 title: "身份验证"
-description: "API key authentication and authorization in Shannon"
+description: "Shannon 中的 API 密钥认证和授权"
 ---
 
-> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
+## 概述
 
-**原文件**: `api/authentication.mdx`
-**英文版本**: [查看英文文档](/en/api/authentication)
+Shannon 支持 API 密钥认证以保护对编排平台的访问。为了方便本地开发,身份验证**默认禁用**,可在生产部署时启用。
 
----
+## 认证模式
 
-
-## Overview
-
-Shannon supports API key authentication to secure access to the orchestration platform. Authentication is **disabled by default** for easy local development and can be enabled for production deployments.
-
-## Authentication Modes
-
-### Development Mode (Default)
+### 开发模式(默认)
 
 ```bash
-# In .env file
+# 在 .env 文件中
 GATEWAY_SKIP_AUTH=1
 ```
 
-In development mode:
-- No API key required
-- All requests are accepted
-- Useful for local testing and development
+在开发模式下:
+- 不需要 API 密钥
+- 所有请求都被接受
+- 适用于本地测试和开发
 
-### Production Mode
+### 生产模式
 
 ```bash
-# In .env file
+# 在 .env 文件中
 GATEWAY_SKIP_AUTH=0
 ```
 
-In production mode:
-- API key required for all requests
-- Invalid keys return 401 Unauthorized
-- Rate limiting enforced per key
+在生产模式下:
+- 所有请求都需要 API 密钥
+- 无效的密钥返回 401 Unauthorized
+- 对每个密钥实施速率限制
 
-## API Key Format
+## API 密钥格式
 
-Shannon uses prefixed API keys:
+Shannon 使用带前缀的 API 密钥:
 
 ```
-sk_test_1234567890abcdef    # Test keys
-sk_live_1234567890abcdef    # Production keys
+sk_test_1234567890abcdef    # 测试密钥
+sk_live_1234567890abcdef    # 生产密钥
 ```
 
 <Warning>
-Never commit API keys to version control or share them publicly.
+切勿将 API 密钥提交到版本控制系统或公开分享。
 </Warning>
 
-## Creating API Keys
+## 创建 API 密钥
 
-### Via Command Line
+### 通过命令行
 
 ```bash
-# Create a test API key (run from repo root)
+# 创建测试 API 密钥(从仓库根目录运行)
 make seed-api-key
 
-# Output
+# 输出
 ✅ Test API key created. Use 'sk_test_123456' for testing.
 Note: Authentication is disabled by default (GATEWAY_SKIP_AUTH=1)
 ```
 
-### Via API (Future)
+### 通过 API(未来版本)
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/keys \
@@ -78,9 +70,9 @@ curl -X POST http://localhost:8080/api/v1/keys \
   }'
 ```
 
-## Using API Keys
+## 使用 API 密钥
 
-### HTTP Header (Recommended)
+### HTTP 标头(推荐)
 
 ```bash
 curl http://localhost:8080/api/v1/tasks \
@@ -110,24 +102,24 @@ client = ShannonClient(
 handle = client.submit_task(query="Hello world")
 ```
 
-## Rate Limiting
+## 速率限制
 
-Shannon enforces rate limits per API key using a fixed-window counter:
+Shannon 使用固定窗口计数器对每个 API 密钥实施速率限制:
 
-### Default Limits
+### 默认限制
 
-| Limit Type | Default Value |
-|------------|---------------|
-| Requests per minute | 60 |
-| Burst allowance | 10 |
+| 限制类型 | 默认值 |
+|----------|--------|
+| 每分钟请求数 | 60 |
+| 突发容许值 | 10 |
 
 <Note>
-Token budgets and concurrent task limits are enforced at the workflow level by the orchestrator, not at the gateway layer.
+Token 预算和并发任务限制由编排器在工作流层级实施,而非在网关层。
 </Note>
 
-### Rate Limit Headers
+### 速率限制标头
 
-Responses include current window limits. On 429, `Retry-After` is set:
+响应包含当前窗口限制。当返回 429 时,会设置 `Retry-After`:
 
 ```http
 X-RateLimit-Limit: 60
@@ -135,9 +127,9 @@ X-RateLimit-Remaining: 45
 X-RateLimit-Reset: 1730001234
 ```
 
-### Rate Limit Exceeded
+### 超过速率限制
 
-When you exceed the rate limit:
+当您超过速率限制时:
 
 ```bash
 HTTP/1.1 429 Too Many Requests
@@ -149,9 +141,9 @@ Retry-After: 30
 }
 ```
 
-### Handling Rate Limits
+### 处理速率限制
 
-Implement exponential backoff:
+实施指数退避:
 
 ```python
 import time
@@ -180,13 +172,13 @@ def submit_with_retry(query, max_retries=3):
     raise Exception("Max retries exceeded")
 ```
 
-## Multi-Tenancy
+## 多租户
 
-Shannon supports multi-tenant deployments with tenant isolation:
+Shannon 支持具有租户隔离的多租户部署:
 
-### Tenant ID
+### 租户 ID
 
-Include tenant ID in requests:
+在请求中包含租户 ID:
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/tasks \
@@ -196,19 +188,19 @@ curl -X POST http://localhost:8080/api/v1/tasks \
   -d '{"query": "Process data"}'
 ```
 
-### Tenant Isolation
+### 租户隔离
 
-Each tenant has:
-- Isolated session storage
-- Per-tenant isolation via payload filters (`tenant_id`) within shared Qdrant collections
-- Independent budget tracking
-- Dedicated metrics
+每个租户都有:
+- 隔离的会话存储
+- 通过共享 Qdrant 集合中的负载过滤器(`tenant_id`)实现的每租户隔离
+- 独立的预算跟踪
+- 专用指标
 
-## OPA Policy Enforcement
+## OPA 策略执行
 
-Shannon uses [Open Policy Agent](https://www.openpolicyagent.org/) for fine-grained access control:
+Shannon 使用 [Open Policy Agent](https://www.openpolicyagent.org/) 进行细粒度访问控制:
 
-### Policy Structure
+### 策略结构
 
 ```rego
 package shannon.auth
@@ -236,9 +228,9 @@ max_tokens[team] := 50000 if team == "data-science"
 max_tokens[team] := 10000 if team == "engineering"
 ```
 
-### Policy Modes
+### 策略模式
 
-Configure in `config/shannon.yaml`:
+在 `config/shannon.yaml` 中配置:
 
 ```yaml
 policy:
@@ -248,12 +240,12 @@ policy:
   fail_closed: false  # Allow on policy errors
 ```
 
-**Modes:**
-- `enforce`: Deny requests that violate policies
-- `dry-run`: Log violations but allow requests
-- `off`: Disable policy enforcement
+**模式:**
+- `enforce`: 拒绝违反策略的请求
+- `dry-run`: 记录违规但允许请求
+- `off`: 禁用策略执行
 
-### Example: Restricting Models
+### 示例: 限制模型
 
 ```rego
 package shannon.models
@@ -270,19 +262,19 @@ allowed_models[user.team] contains model if {
 }
 ```
 
-## Security Best Practices
+## 安全最佳实践
 
-### 1. Rotate Keys Regularly
+### 1. 定期轮换密钥
 
 ```bash
-# Create new key
+# 创建新密钥
 make seed-api-key
 
-# Update applications with new key
-# Revoke old key after migration
+# 用新密钥更新应用程序
+# 迁移后撤销旧密钥
 ```
 
-### 2. Use Environment Variables
+### 2. 使用环境变量
 
 ```python
 import os
@@ -293,7 +285,7 @@ client = ShannonClient(
 )
 ```
 
-### 3. Enable HTTPS in Production
+### 3. 在生产环境中启用 HTTPS
 
 ```yaml
 # config/shannon.yaml
@@ -304,9 +296,9 @@ gateway:
     key_file: "/path/to/key.pem"
 ```
 
-### 4. Monitor API Key Usage
+### 4. 监控 API 密钥使用情况
 
-Track usage in Prometheus metrics:
+在 Prometheus 指标中跟踪使用情况:
 
 ```promql
 # Requests per API key
@@ -316,7 +308,7 @@ sum by (api_key_id) (rate(shannon_gateway_requests_total[5m]))
 sum by (api_key_id) (rate(shannon_gateway_errors_total[5m]))
 ```
 
-### 5. Implement IP Whitelisting
+### 5. 实施 IP 白名单
 
 ```yaml
 # config/shannon.yaml
@@ -328,72 +320,65 @@ gateway:
       - "192.168.1.100"
 ```
 
-## Troubleshooting
+## 故障排除
 
 <AccordionGroup>
   <Accordion title="401 Unauthorized">
-    **Cause**: Missing or invalid API key
+    **原因**: 缺少或无效的 API 密钥
 
-    **Solution**:
+    **解决方案**:
     ```bash
-    # Verify auth is enabled
+    # 验证是否启用了身份验证
     grep GATEWAY_SKIP_AUTH .env
 
-    # If enabled, check your API key
+    # 如果已启用,检查您的 API 密钥
     curl -H "X-API-Key: sk_test_123456" \
       http://localhost:8080/api/v1/tasks
     ```
   </Accordion>
 
   <Accordion title="403 Forbidden">
-    **Cause**: Valid API key but insufficient permissions (OPA policy)
+    **原因**: API 密钥有效但权限不足(OPA 策略)
 
-    **Solution**: Check OPA policy logs:
+    **解决方案**: 检查 OPA 策略日志:
     ```bash
     docker compose logs orchestrator | grep "policy"
     ```
   </Accordion>
 
   <Accordion title="429 Rate Limited">
-    **Cause**: Exceeded rate limits
+    **原因**: 超过速率限制
 
-    **Solution**: Implement retry logic with exponential backoff:
+    **解决方案**: 实施带指数退避的重试逻辑:
     ```python
     retry_after = response.headers.get('Retry-After', 60)
     time.sleep(int(retry_after))
     ```
   </Accordion>
 
-  <Accordion title="API key not working">
-    **Cause**: Key may be expired or revoked
+  <Accordion title="API 密钥不起作用">
+    **原因**: 密钥可能已过期或被撤销
 
-    **Solution**: Create a new test key:
+    **解决方案**: 创建新的测试密钥:
     ```bash
     make seed-api-key
     ```
   </Accordion>
 </AccordionGroup>
 
-## Next Steps
+## 下一步
 
 <CardGroup cols={2}>
-  <Card title="Submit Tasks" icon="paper-plane" href="/cn/api/endpoints/submit-task">
-    Learn how to submit tasks with authentication
+  <Card title="提交任务" icon="paper-plane" href="/cn/api/endpoints/submit-task">
+    了解如何使用身份验证提交任务
   </Card>
-  <Card title="Rate Limiting" icon="gauge" href="/cn/api/overview#rate-limiting">
-    Understand rate limits and quotas
+  <Card title="速率限制" icon="gauge" href="/cn/api/overview#rate-limiting">
+    理解速率限制和配额
   </Card>
   <Card title="Python SDK" icon="python" href="/cn/sdk/python/quickstart">
-    Use SDK for automatic authentication
+    使用 SDK 进行自动身份验证
   </Card>
-  <Card title="Cost Control" icon="dollar" href="/cn/quickstart/concepts/cost-control">
-    Manage budgets and token limits
+  <Card title="成本控制" icon="dollar" href="/cn/quickstart/concepts/cost-control">
+    管理预算和 token 限制
   </Card>
 </CardGroup>
-
-
----
-
-## 参与翻译
-
-如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。

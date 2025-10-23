@@ -1,173 +1,165 @@
 ---
 title: "环境变量"
-description: "Complete environment variable reference for Shannon configuration"
+description: "Shannon 配置的完整环境变量参考"
 ---
 
-> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
+## 概述
 
-**原文件**: `deployment/environment-variables.mdx`
-**英文版本**: [查看英文文档](/en/deployment/environment-variables)
+Shannon 使用环境变量在所有服务中进行配置。本页面记录了所有 100+ 个配置选项,包括类型、默认值和影响。
 
----
+## 快速参考
 
-
-## Overview
-
-Shannon uses environment variables for configuration across all services. This page documents all 100+ configuration options with types, defaults, and impact.
-
-## Quick Reference
-
-| Category | Variables | Service |
+| 类别 | 变量数 | 服务 |
 |----------|-----------|---------|
-| [Core Runtime](#core-runtime) | 3 | All |
-| [LLM Provider Keys](#llm-provider-api-keys) | 11 | LLM Service |
-| [Web Search](#web-search-providers) | 6 | LLM Service |
-| [Data Stores](#data-stores) | 17 | All |
-| [Service Endpoints](#service-endpoints) | 8 | All |
-| [Model Routing](#model-routing-and-budgets) | 13 | Orchestrator, LLM Service |
-| [Cache & Rate Limiting](#cache-and-rate-limiting) | 8 | All |
-| [Tool Execution](#tool-execution-and-workflow) | 11 | Orchestrator, Agent Core |
-| [Security](#approvals-and-security) | 6 | Gateway, Orchestrator |
-| [Observability](#observability-and-telemetry) | 5 | All |
-| [WASI Sandbox](#python-wasi-sandbox) | 4 | Agent Core, LLM Service |
-| [Integrations](#openapi-and-mcp) | 13 | LLM Service |
-| [Advanced](#advanced-orchestrator-controls) | 20+ | Orchestrator |
+| [核心运行时](#核心运行时) | 3 | 所有 |
+| [LLM 提供商密钥](#llm-提供商-api-密钥) | 11 | LLM Service |
+| [网页搜索](#网页搜索提供商) | 6 | LLM Service |
+| [数据存储](#数据存储) | 17 | 所有 |
+| [服务端点](#服务端点) | 8 | 所有 |
+| [模型路由](#模型路由和预算) | 13 | Orchestrator, LLM Service |
+| [缓存和速率限制](#缓存和速率限制) | 8 | 所有 |
+| [工具执行](#工具执行和工作流) | 11 | Orchestrator, Agent Core |
+| [安全](#审批和安全) | 6 | Gateway, Orchestrator |
+| [可观测性](#可观测性和遥测) | 5 | 所有 |
+| [WASI 沙箱](#python-wasi-沙箱) | 4 | Agent Core, LLM Service |
+| [集成](#openapi-和-mcp) | 13 | LLM Service |
+| [高级](#高级-orchestrator-控制) | 20+ | Orchestrator |
 
-**Total**: 100+ configuration variables
+**总计**: 100+ 个配置变量
 
-## Configuration File
+## 配置文件
 
-Copy `.env.example` to `.env` and customize:
+将 `.env.example` 复制到 `.env` 并自定义:
 
 ```bash
 cp .env.example .env
 nano .env
 ```
 
-Restart services after changes:
+更改后重启服务:
 
 ```bash
 docker compose restart
 ```
 
-## Core Runtime
+## 核心运行时
 
 ### ENVIRONMENT
 
-**Type**: String
-**Default**: `dev`
-**Valid Values**: `dev`, `staging`, `prod`
-**Services**: All
-**Hot-Reload**: No (requires restart)
+**类型**: String
+**默认值**: `dev`
+**有效值**: `dev`, `staging`, `prod`
+**服务**: 所有
+**热重载**: 否 (需要重启)
 
-Controls logging verbosity and policy enforcement.
+控制日志详细程度和策略执行。
 
 ```bash
 ENVIRONMENT=prod
 ```
 
-**Impact**:
-- `dev`: Verbose logging, relaxed policies
-- `staging`: Moderate logging, standard policies
-- `prod`: Minimal logging, strict policies
+**影响**:
+- `dev`: 详细日志, 宽松策略
+- `staging`: 适度日志, 标准策略
+- `prod`: 最少日志, 严格策略
 
 ### DEBUG
 
-**Type**: Boolean
-**Default**: `false`
-**Valid Values**: `true`, `false`
-**Services**: All
-**Hot-Reload**: No
+**类型**: Boolean
+**默认值**: `false`
+**有效值**: `true`, `false`
+**服务**: 所有
+**热重载**: 否
 
-Enable debug logging across all services.
+在所有服务中启用调试日志。
 
 ```bash
 DEBUG=true
 ```
 
-**Impact**:
-- `true`: Debug-level logs, stack traces
-- `false`: Info-level logs only
+**影响**:
+- `true`: 调试级别日志, 堆栈跟踪
+- `false`: 仅信息级别日志
 
 ### SERVICE_NAME
 
-**Type**: String
-**Default**: `shannon-llm-service`
-**Services**: LLM Service
-**Hot-Reload**: No
+**类型**: String
+**默认值**: `shannon-llm-service`
+**服务**: LLM Service
+**热重载**: 否
 
-Service identifier for logging and telemetry.
+用于日志记录和遥测的服务标识符。
 
 ```bash
 SERVICE_NAME=shannon-llm-service
 ```
 
-## LLM Provider API Keys
+## LLM 提供商 API 密钥
 
 ### OPENAI_API_KEY
 
-**Type**: String
-**Required**: At least one provider key
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: String
+**必需**: 至少一个提供商密钥
+**服务**: LLM Service
+**热重载**: 是
 
-OpenAI API key for GPT models.
+用于 GPT 模型的 OpenAI API 密钥。
 
 ```bash
 OPENAI_API_KEY=sk-...
 ```
 
-**Models Enabled**: GPT-4, GPT-4o, GPT-4o-mini, GPT-3.5-turbo
+**启用的模型**: GPT-4, GPT-4o, GPT-4o-mini, GPT-3.5-turbo
 
 ### ANTHROPIC_API_KEY
 
-**Type**: String
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: String
+**服务**: LLM Service
+**热重载**: 是
 
-Anthropic API key for Claude models.
+用于 Claude 模型的 Anthropic API 密钥。
 
 ```bash
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-**Models Enabled**: Claude 3.5 Sonnet, Claude 3 Opus, Claude 3 Haiku
+**启用的模型**: Claude 3.5 Sonnet, Claude 3 Opus, Claude 3 Haiku
 
 ### GOOGLE_API_KEY
 
-**Type**: String
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: String
+**服务**: LLM Service
+**热重载**: 是
 
-Google AI API key for Gemini models.
+用于 Gemini 模型的 Google AI API 密钥。
 
 ```bash
 GOOGLE_API_KEY=...
 ```
 
-**Models Enabled**: Gemini Pro, Gemini Flash
+**启用的模型**: Gemini Pro, Gemini Flash
 
 ### GROQ_API_KEY
 
-**Type**: String
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: String
+**服务**: LLM Service
+**热重载**: 是
 
-Groq API key for fast inference.
+用于快速推理的 Groq API 密钥。
 
 ```bash
 GROQ_API_KEY=...
 ```
 
-**Models Enabled**: Llama 3, Mixtral
+**启用的模型**: Llama 3, Mixtral
 
 ### XAI_API_KEY
 
-**Type**: String
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: String
+**服务**: LLM Service
+**热重载**: 是
 
-xAI API key for Grok models.
+用于 Grok 模型的 xAI API 密钥。
 
 ```bash
 XAI_API_KEY=...
@@ -175,11 +167,11 @@ XAI_API_KEY=...
 
 ### DEEPSEEK_API_KEY
 
-**Type**: String
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: String
+**服务**: LLM Service
+**热重载**: 是
 
-DeepSeek API key.
+DeepSeek API 密钥。
 
 ```bash
 DEEPSEEK_API_KEY=...
@@ -187,11 +179,11 @@ DEEPSEEK_API_KEY=...
 
 ### QWEN_API_KEY
 
-**Type**: String
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: String
+**服务**: LLM Service
+**热重载**: 是
 
-Qwen API key for Alibaba Cloud models.
+用于阿里云模型的 Qwen API 密钥。
 
 ```bash
 QWEN_API_KEY=...
@@ -199,11 +191,11 @@ QWEN_API_KEY=...
 
 ### MISTRAL_API_KEY
 
-**Type**: String
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: String
+**服务**: LLM Service
+**热重载**: 是
 
-Mistral API key.
+Mistral API 密钥。
 
 ```bash
 MISTRAL_API_KEY=...
@@ -211,11 +203,11 @@ MISTRAL_API_KEY=...
 
 ### AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
 
-**Type**: String
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: String
+**服务**: LLM Service
+**热重载**: 是
 
-AWS credentials for Bedrock models.
+用于 Bedrock 模型的 AWS 凭据。
 
 ```bash
 AWS_ACCESS_KEY_ID=AKIA...
@@ -223,31 +215,31 @@ AWS_SECRET_ACCESS_KEY=...
 AWS_REGION=us-east-1
 ```
 
-**Models Enabled**: Claude (Bedrock), Llama (Bedrock), Titan
+**启用的模型**: Claude (Bedrock), Llama (Bedrock), Titan
 
 ### ZAI_API_KEY
 
-**Type**: String
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: String
+**服务**: LLM Service
+**热重载**: 是
 
-ZAI API key.
+ZAI API 密钥。
 
 ```bash
 ZAI_API_KEY=...
 ```
 
-## Web Search Providers
+## 网页搜索提供商
 
 ### WEB_SEARCH_PROVIDER
 
-**Type**: String
-**Default**: `google`
-**Valid Values**: `google`, `serper`, `bing`, `exa`, `firecrawl`
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: String
+**默认值**: `google`
+**有效值**: `google`, `serper`, `bing`, `exa`, `firecrawl`
+**服务**: LLM Service
+**热重载**: 是
 
-Active web search provider.
+活动的网页搜索提供商。
 
 ```bash
 WEB_SEARCH_PROVIDER=google
@@ -255,40 +247,40 @@ WEB_SEARCH_PROVIDER=google
 
 ### GOOGLE_SEARCH_API_KEY
 
-**Type**: String
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: String
+**服务**: LLM Service
+**热重载**: 是
 
-Google Custom Search API key.
+Google 自定义搜索 API 密钥。
 
 ```bash
 GOOGLE_SEARCH_API_KEY=...
 GOOGLE_SEARCH_ENGINE_ID=...
 ```
 
-Obtain from: https://console.cloud.google.com/apis/credentials
+获取地址: https://console.cloud.google.com/apis/credentials
 
 ### SERPER_API_KEY
 
-**Type**: String
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: String
+**服务**: LLM Service
+**热重载**: 是
 
-Serper.dev API key (Google Search API alternative).
+Serper.dev API 密钥 (Google 搜索 API 替代方案)。
 
 ```bash
 SERPER_API_KEY=...
 ```
 
-Obtain from: https://serper.dev
+获取地址: https://serper.dev
 
 ### BING_API_KEY
 
-**Type**: String
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: String
+**服务**: LLM Service
+**热重载**: 是
 
-Microsoft Bing Search API key.
+Microsoft Bing 搜索 API 密钥。
 
 ```bash
 BING_API_KEY=...
@@ -296,11 +288,11 @@ BING_API_KEY=...
 
 ### EXA_API_KEY
 
-**Type**: String
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: String
+**服务**: LLM Service
+**热重载**: 是
 
-Exa AI search API key.
+Exa AI 搜索 API 密钥。
 
 ```bash
 EXA_API_KEY=...
@@ -308,28 +300,28 @@ EXA_API_KEY=...
 
 ### FIRECRAWL_API_KEY
 
-**Type**: String
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: String
+**服务**: LLM Service
+**热重载**: 是
 
-Firecrawl API key for web scraping.
+用于网页抓取的 Firecrawl API 密钥。
 
 ```bash
 FIRECRAWL_API_KEY=...
 ```
 
-## Data Stores
+## 数据存储
 
 ### PostgreSQL
 
 #### POSTGRES_HOST
 
-**Type**: String
-**Default**: `postgres`
-**Services**: Gateway, Orchestrator
-**Hot-Reload**: No
+**类型**: String
+**默认值**: `postgres`
+**服务**: Gateway, Orchestrator
+**热重载**: 否
 
-PostgreSQL hostname.
+PostgreSQL 主机名。
 
 ```bash
 POSTGRES_HOST=postgres
@@ -337,13 +329,13 @@ POSTGRES_HOST=postgres
 
 #### POSTGRES_PORT
 
-**Type**: Integer
-**Default**: `5432`
-**Range**: 1-65535
-**Services**: Gateway, Orchestrator
-**Hot-Reload**: No
+**类型**: Integer
+**默认值**: `5432`
+**范围**: 1-65535
+**服务**: Gateway, Orchestrator
+**热重载**: 否
 
-PostgreSQL port.
+PostgreSQL 端口。
 
 ```bash
 POSTGRES_PORT=5432
@@ -351,12 +343,12 @@ POSTGRES_PORT=5432
 
 #### POSTGRES_DB
 
-**Type**: String
-**Default**: `shannon`
-**Services**: Gateway, Orchestrator
-**Hot-Reload**: No
+**类型**: String
+**默认值**: `shannon`
+**服务**: Gateway, Orchestrator
+**热重载**: 否
 
-PostgreSQL database name.
+PostgreSQL 数据库名称。
 
 ```bash
 POSTGRES_DB=shannon
@@ -364,12 +356,12 @@ POSTGRES_DB=shannon
 
 #### POSTGRES_USER
 
-**Type**: String
-**Default**: `shannon`
-**Services**: Gateway, Orchestrator
-**Hot-Reload**: No
+**类型**: String
+**默认值**: `shannon`
+**服务**: Gateway, Orchestrator
+**热重载**: 否
 
-PostgreSQL username.
+PostgreSQL 用户名。
 
 ```bash
 POSTGRES_USER=shannon
@@ -377,28 +369,28 @@ POSTGRES_USER=shannon
 
 #### POSTGRES_PASSWORD
 
-**Type**: String
-**Default**: `shannon`
-**Services**: Gateway, Orchestrator
-**Hot-Reload**: No
+**类型**: String
+**默认值**: `shannon`
+**服务**: Gateway, Orchestrator
+**热重载**: 否
 
-PostgreSQL password.
+PostgreSQL 密码。
 
 ```bash
 POSTGRES_PASSWORD=secure-password
 ```
 
-**Security**: Change in production!
+**安全**: 生产环境中必须更改!
 
 #### POSTGRES_SSLMODE
 
-**Type**: String
-**Default**: `disable`
-**Valid Values**: `disable`, `require`, `verify-ca`, `verify-full`
-**Services**: Gateway, Orchestrator
-**Hot-Reload**: No
+**类型**: String
+**默认值**: `disable`
+**有效值**: `disable`, `require`, `verify-ca`, `verify-full`
+**服务**: Gateway, Orchestrator
+**热重载**: 否
 
-SSL mode for PostgreSQL connections.
+PostgreSQL 连接的 SSL 模式。
 
 ```bash
 POSTGRES_SSLMODE=require
@@ -408,12 +400,12 @@ POSTGRES_SSLMODE=require
 
 #### REDIS_HOST
 
-**Type**: String
-**Default**: `redis`
-**Services**: All
-**Hot-Reload**: No
+**类型**: String
+**默认值**: `redis`
+**服务**: 所有
+**热重载**: 否
 
-Redis hostname.
+Redis 主机名。
 
 ```bash
 REDIS_HOST=redis
@@ -421,12 +413,12 @@ REDIS_HOST=redis
 
 #### REDIS_PORT
 
-**Type**: Integer
-**Default**: `6379`
-**Services**: All
-**Hot-Reload**: No
+**类型**: Integer
+**默认值**: `6379`
+**服务**: 所有
+**热重载**: 否
 
-Redis port.
+Redis 端口。
 
 ```bash
 REDIS_PORT=6379
@@ -434,12 +426,12 @@ REDIS_PORT=6379
 
 #### REDIS_PASSWORD
 
-**Type**: String
-**Default**: Empty
-**Services**: All
-**Hot-Reload**: No
+**类型**: String
+**默认值**: 空
+**服务**: 所有
+**热重载**: 否
 
-Redis password (if authentication enabled).
+Redis 密码 (如果启用了身份验证)。
 
 ```bash
 REDIS_PASSWORD=secure-password
@@ -447,60 +439,60 @@ REDIS_PASSWORD=secure-password
 
 #### REDIS_TTL_SECONDS
 
-**Type**: Integer
-**Default**: `3600`
-**Range**: 0-∞ (0 = no expiration)
-**Services**: All
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `3600`
+**范围**: 0-∞ (0 = 不过期)
+**服务**: 所有
+**热重载**: 是
 
-Default TTL for Redis keys.
+Redis 键的默认 TTL。
 
 ```bash
 REDIS_TTL_SECONDS=3600
 ```
 
-**Impact**: Cache duration for sessions, events, responses
+**影响**: 会话、事件、响应的缓存持续时间
 
 #### REDIS_URL
 
-**Type**: String
-**Default**: `redis://redis:6379`
-**Services**: All
-**Hot-Reload**: No
+**类型**: String
+**默认值**: `redis://redis:6379`
+**服务**: 所有
+**热重载**: 否
 
-Full Redis connection URL.
+完整的 Redis 连接 URL。
 
 ```bash
 REDIS_URL=redis://redis:6379
-# With auth:
+# 带认证:
 REDIS_URL=redis://:password@redis:6379
 ```
 
 #### LLM_REDIS_URL
 
-**Type**: String
-**Default**: Empty (uses REDIS_URL)
-**Services**: LLM Service
-**Hot-Reload**: No
+**类型**: String
+**默认值**: 空 (使用 REDIS_URL)
+**服务**: LLM Service
+**热重载**: 否
 
-Dedicated Redis instance for LLM response caching.
+用于 LLM 响应缓存的专用 Redis 实例。
 
 ```bash
 LLM_REDIS_URL=redis://llm-redis:6379
 ```
 
-**Use Case**: Separate LLM cache from session data for scaling
+**用例**: 将 LLM 缓存与会话数据分离以便扩展
 
-### Qdrant (Vector Store)
+### Qdrant (向量存储)
 
 #### QDRANT_URL
 
-**Type**: String
-**Default**: `http://qdrant:6333`
-**Services**: Orchestrator, LLM Service
-**Hot-Reload**: No
+**类型**: String
+**默认值**: `http://qdrant:6333`
+**服务**: Orchestrator, LLM Service
+**热重载**: 否
 
-Qdrant connection URL.
+Qdrant 连接 URL。
 
 ```bash
 QDRANT_URL=http://qdrant:6333
@@ -508,28 +500,28 @@ QDRANT_URL=http://qdrant:6333
 
 #### QDRANT_HOST / QDRANT_PORT
 
-**Type**: String / Integer
-**Default**: `qdrant` / `6333`
-**Services**: Orchestrator, LLM Service
-**Hot-Reload**: No
+**类型**: String / Integer
+**默认值**: `qdrant` / `6333`
+**服务**: Orchestrator, LLM Service
+**热重载**: 否
 
-Alternative to QDRANT_URL (host/port separately).
+QDRANT_URL 的替代方案 (分别指定主机/端口)。
 
 ```bash
 QDRANT_HOST=qdrant
 QDRANT_PORT=6333
 ```
 
-## Service Endpoints
+## 服务端点
 
 ### TEMPORAL_HOST
 
-**Type**: String
-**Default**: `temporal:7233`
-**Services**: Orchestrator
-**Hot-Reload**: No
+**类型**: String
+**默认值**: `temporal:7233`
+**服务**: Orchestrator
+**热重载**: 否
 
-Temporal server address.
+Temporal 服务器地址。
 
 ```bash
 TEMPORAL_HOST=temporal:7233
@@ -537,12 +529,12 @@ TEMPORAL_HOST=temporal:7233
 
 ### LLM_SERVICE_URL
 
-**Type**: String
-**Default**: `http://llm-service:8000`
-**Services**: Orchestrator, Agent Core
-**Hot-Reload**: No
+**类型**: String
+**默认值**: `http://llm-service:8000`
+**服务**: Orchestrator, Agent Core
+**热重载**: 否
 
-LLM Service endpoint.
+LLM Service 端点。
 
 ```bash
 LLM_SERVICE_URL=http://llm-service:8000
@@ -550,12 +542,12 @@ LLM_SERVICE_URL=http://llm-service:8000
 
 ### AGENT_CORE_ADDR
 
-**Type**: String
-**Default**: `agent-core:50051`
-**Services**: Orchestrator
-**Hot-Reload**: No
+**类型**: String
+**默认值**: `agent-core:50051`
+**服务**: Orchestrator
+**热重载**: 否
 
-Agent Core gRPC address.
+Agent Core gRPC 地址。
 
 ```bash
 AGENT_CORE_ADDR=agent-core:50051
@@ -563,12 +555,12 @@ AGENT_CORE_ADDR=agent-core:50051
 
 ### ORCHESTRATOR_GRPC
 
-**Type**: String
-**Default**: `orchestrator:50052`
-**Services**: Gateway
-**Hot-Reload**: No
+**类型**: String
+**默认值**: `orchestrator:50052`
+**服务**: Gateway
+**热重载**: 否
 
-Orchestrator gRPC endpoint.
+Orchestrator gRPC 端点。
 
 ```bash
 ORCHESTRATOR_GRPC=orchestrator:50052
@@ -576,12 +568,12 @@ ORCHESTRATOR_GRPC=orchestrator:50052
 
 ### ADMIN_SERVER
 
-**Type**: String
-**Default**: `http://orchestrator:8081`
-**Services**: Gateway
-**Hot-Reload**: No
+**类型**: String
+**默认值**: `http://orchestrator:8081`
+**服务**: Gateway
+**热重载**: 否
 
-Admin/SSE server for streaming events.
+用于流式事件的 Admin/SSE 服务器。
 
 ```bash
 ADMIN_SERVER=http://orchestrator:8081
@@ -589,12 +581,12 @@ ADMIN_SERVER=http://orchestrator:8081
 
 ### CONFIG_PATH
 
-**Type**: String
-**Default**: `./config/features.yaml`
-**Services**: Orchestrator, Agent Core
-**Hot-Reload**: Yes (with file watcher)
+**类型**: String
+**默认值**: `./config/features.yaml`
+**服务**: Orchestrator, Agent Core
+**热重载**: 是 (带文件监视器)
 
-Path to feature flags configuration.
+功能标志配置的路径。
 
 ```bash
 CONFIG_PATH=./config/features.yaml
@@ -602,12 +594,12 @@ CONFIG_PATH=./config/features.yaml
 
 ### MODELS_CONFIG_PATH
 
-**Type**: String
-**Default**: `./config/models.yaml`
-**Services**: LLM Service, Orchestrator
-**Hot-Reload**: Yes (with file watcher)
+**类型**: String
+**默认值**: `./config/models.yaml`
+**服务**: LLM Service, Orchestrator
+**热重载**: 是 (带文件监视器)
 
-Path to model and pricing configuration.
+模型和定价配置的路径。
 
 ```bash
 MODELS_CONFIG_PATH=./config/models.yaml
@@ -615,46 +607,46 @@ MODELS_CONFIG_PATH=./config/models.yaml
 
 ### EVENTS_INGEST_URL
 
-**Type**: String
-**Default**: `http://orchestrator:8081/events`
-**Services**: Agent Core
-**Hot-Reload**: No
+**类型**: String
+**默认值**: `http://orchestrator:8081/events`
+**服务**: Agent Core
+**热重载**: 否
 
-Event ingestion endpoint.
+事件摄取端点。
 
 ```bash
 EVENTS_INGEST_URL=http://orchestrator:8081/events
 ```
 
-## Model Routing and Budgets
+## 模型路由和预算
 
 ### DEFAULT_MODEL_TIER
 
-**Type**: String
-**Default**: `small`
-**Valid Values**: `small`, `medium`, `large`
-**Services**: Orchestrator
-**Hot-Reload**: Yes
+**类型**: String
+**默认值**: `small`
+**有效值**: `small`, `medium`, `large`
+**服务**: Orchestrator
+**热重载**: 是
 
-Default model tier for tasks.
+任务的默认模型层级。
 
 ```bash
 DEFAULT_MODEL_TIER=small
 ```
 
-**Tiers**:
+**层级**:
 - `small`: GPT-4o-mini, Claude Haiku (~$0.15/1M tokens)
 - `medium`: GPT-4o, Claude Sonnet (~$3-15/1M tokens)
 - `large`: GPT-4, Claude Opus (~$15-75/1M tokens)
 
 ### COMPLEXITY_MODEL_ID
 
-**Type**: String
-**Default**: `gpt-4o`
-**Services**: Orchestrator
-**Hot-Reload**: Yes
+**类型**: String
+**默认值**: `gpt-4o`
+**服务**: Orchestrator
+**热重载**: 是
 
-Model used for complexity analysis.
+用于复杂度分析的模型。
 
 ```bash
 COMPLEXITY_MODEL_ID=gpt-4o
@@ -662,12 +654,12 @@ COMPLEXITY_MODEL_ID=gpt-4o
 
 ### DECOMPOSITION_MODEL_ID
 
-**Type**: String
-**Default**: `claude-sonnet-4-20250514`
-**Services**: Orchestrator
-**Hot-Reload**: Yes
+**类型**: String
+**默认值**: `claude-sonnet-4-20250514`
+**服务**: Orchestrator
+**热重载**: 是
 
-Model used for task decomposition.
+用于任务分解的模型。
 
 ```bash
 DECOMPOSITION_MODEL_ID=claude-sonnet-4-20250514
@@ -675,13 +667,13 @@ DECOMPOSITION_MODEL_ID=claude-sonnet-4-20250514
 
 ### MAX_TOKENS
 
-**Type**: Integer
-**Default**: `2000`
-**Range**: 1-∞
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `2000`
+**范围**: 1-∞
+**服务**: LLM Service
+**热重载**: 是
 
-Default max output tokens per LLM call.
+每次 LLM 调用的默认最大输出令牌数。
 
 ```bash
 MAX_TOKENS=2000
@@ -689,82 +681,82 @@ MAX_TOKENS=2000
 
 ### TEMPERATURE
 
-**Type**: Float
-**Default**: `0.7`
-**Range**: 0.0-2.0
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: Float
+**默认值**: `0.7`
+**范围**: 0.0-2.0
+**服务**: LLM Service
+**热重载**: 是
 
-Default temperature for LLM sampling.
+LLM 采样的默认温度。
 
 ```bash
 TEMPERATURE=0.7
 ```
 
-**Impact**:
-- `0.0`: Deterministic, focused
-- `0.7`: Balanced creativity
-- `1.0+`: More random, creative
+**影响**:
+- `0.0`: 确定性, 专注
+- `0.7`: 平衡创造力
+- `1.0+`: 更随机, 更有创意
 
 ### MAX_TOKENS_PER_REQUEST
 
-**Type**: Integer
-**Default**: `10000`
-**Range**: 1-∞
-**Services**: Orchestrator
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `10000`
+**范围**: 1-∞
+**服务**: Orchestrator
+**热重载**: 是
 
-Maximum total tokens per task request.
+每个任务请求的最大总令牌数。
 
 ```bash
 MAX_TOKENS_PER_REQUEST=10000
 ```
 
-**Impact**: Hard budget limit, task fails when exceeded
+**影响**: 硬预算限制，超出时任务失败
 
 ### MAX_COST_PER_REQUEST
 
-**Type**: Float
-**Default**: `0.50`
-**Range**: 0.0-∞
-**Services**: Orchestrator
-**Hot-Reload**: Yes
+**类型**: Float
+**默认值**: `0.50`
+**范围**: 0.0-∞
+**服务**: Orchestrator
+**热重载**: 是
 
-Maximum cost (USD) per task request.
+每个任务请求的最大成本 (USD)。
 
 ```bash
 MAX_COST_PER_REQUEST=0.50
 ```
 
-**Impact**: Task fails when cost exceeds this limit
+**影响**: 成本超出此限制时任务失败
 
 ### LLM_DISABLE_BUDGETS
 
-**Type**: Integer
-**Default**: `1`
-**Valid Values**: `0`, `1`
-**Services**: Orchestrator, LLM Service
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `1`
+**有效值**: `0`, `1`
+**服务**: Orchestrator, LLM Service
+**热重载**: 是
 
-Budget enforcement location.
+预算执行位置。
 
 ```bash
 LLM_DISABLE_BUDGETS=1
 ```
 
-**Values**:
-- `1`: Orchestrator manages budgets (recommended)
-- `0`: LLM service enforces budgets
+**值**:
+- `1`: Orchestrator 管理预算 (推荐)
+- `0`: LLM service 执行预算
 
 ### HISTORY_WINDOW_MESSAGES
 
-**Type**: Integer
-**Default**: `50`
-**Range**: 1-∞
-**Services**: Orchestrator
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `50`
+**范围**: 1-∞
+**服务**: Orchestrator
+**热重载**: 是
 
-Number of messages to include in conversation history.
+对话历史中包含的消息数量。
 
 ```bash
 HISTORY_WINDOW_MESSAGES=50
@@ -772,12 +764,12 @@ HISTORY_WINDOW_MESSAGES=50
 
 ### HISTORY_WINDOW_DEBUG_MESSAGES
 
-**Type**: Integer
-**Default**: `75`
-**Services**: Orchestrator
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `75`
+**服务**: Orchestrator
+**热重载**: 是
 
-History window size for debug mode.
+调试模式的历史窗口大小。
 
 ```bash
 HISTORY_WINDOW_DEBUG_MESSAGES=75
@@ -785,29 +777,29 @@ HISTORY_WINDOW_DEBUG_MESSAGES=75
 
 ### WORKFLOW_SYNTH_BYPASS_SINGLE
 
-**Type**: Boolean
-**Default**: `true`
-**Services**: Orchestrator
-**Hot-Reload**: Yes
+**类型**: Boolean
+**默认值**: `true`
+**服务**: Orchestrator
+**热重载**: 是
 
-Skip synthesis for single-result workflows.
+跳过单结果工作流的综合。
 
 ```bash
 WORKFLOW_SYNTH_BYPASS_SINGLE=true
 ```
 
-**Impact**:
-- `true`: Faster for simple tasks (skips synthesis step)
-- `false`: Always synthesize results
+**影响**:
+- `true`: 简单任务更快 (跳过综合步骤)
+- `false`: 始终综合结果
 
 ### TOKEN_BUDGET_PER_AGENT
 
-**Type**: Integer
-**Default**: Empty (unlimited)
-**Services**: Orchestrator
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: 空 (无限制)
+**服务**: Orchestrator
+**热重载**: 是
 
-Token budget per agent execution.
+每次代理执行的令牌预算。
 
 ```bash
 TOKEN_BUDGET_PER_AGENT=5000
@@ -815,63 +807,63 @@ TOKEN_BUDGET_PER_AGENT=5000
 
 ### TOKEN_BUDGET_PER_TASK
 
-**Type**: Integer
-**Default**: Empty (unlimited)
-**Services**: Orchestrator
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: 空 (无限制)
+**服务**: Orchestrator
+**热重载**: 是
 
-Token budget per entire task.
+整个任务的令牌预算。
 
 ```bash
 TOKEN_BUDGET_PER_TASK=20000
 ```
 
-## Cache and Rate Limiting
+## 缓存和速率限制
 
 ### ENABLE_CACHE
 
-**Type**: Boolean
-**Default**: `true`
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: Boolean
+**默认值**: `true`
+**服务**: LLM Service
+**热重载**: 是
 
-Enable LLM response caching.
+启用 LLM 响应缓存。
 
 ```bash
 ENABLE_CACHE=true
 ```
 
-**Impact**:
-- `true`: Cache responses in Redis, faster & cheaper
-- `false`: Always hit LLM API
+**影响**:
+- `true`: 在 Redis 中缓存响应, 更快且更便宜
+- `false`: 始终调用 LLM API
 
 ### CACHE_SIMILARITY_THRESHOLD
 
-**Type**: Float
-**Default**: `0.95`
-**Range**: 0.0-1.0
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: Float
+**默认值**: `0.95`
+**范围**: 0.0-1.0
+**服务**: LLM Service
+**热重载**: 是
 
-Semantic similarity threshold for cache hits.
+缓存命中的语义相似度阈值。
 
 ```bash
 CACHE_SIMILARITY_THRESHOLD=0.95
 ```
 
-**Impact**:
-- `1.0`: Exact matches only
-- `0.95`: Very similar queries
-- `0.8`: Looser matching (more cache hits, less accuracy)
+**影响**:
+- `1.0`: 仅精确匹配
+- `0.95`: 非常相似的查询
+- `0.8`: 更宽松的匹配 (更多缓存命中, 准确性降低)
 
 ### RATE_LIMIT_REQUESTS
 
-**Type**: Integer
-**Default**: `100`
-**Services**: Gateway
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `100`
+**服务**: Gateway
+**热重载**: 是
 
-Requests per window per API key.
+每个 API 密钥在每个窗口期内的请求数。
 
 ```bash
 RATE_LIMIT_REQUESTS=100
@@ -879,33 +871,33 @@ RATE_LIMIT_REQUESTS=100
 
 ### RATE_LIMIT_WINDOW
 
-**Type**: Integer
-**Default**: `60`
-**Range**: 1-∞ (seconds)
-**Services**: Gateway
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `60`
+**范围**: 1-∞ (秒)
+**服务**: Gateway
+**热重载**: 是
 
-Rate limit window duration.
+速率限制窗口持续时间。
 
 ```bash
 RATE_LIMIT_WINDOW=60
 ```
 
-**Combined**:
+**组合**:
 ```bash
 RATE_LIMIT_REQUESTS=100
 RATE_LIMIT_WINDOW=60
-# = 100 requests per 60 seconds
+# = 每 60 秒 100 个请求
 ```
 
 ### WEB_SEARCH_RATE_LIMIT
 
-**Type**: Integer
-**Default**: `120`
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `120`
+**服务**: LLM Service
+**热重载**: 是
 
-Web search requests per minute.
+每分钟网页搜索请求数。
 
 ```bash
 WEB_SEARCH_RATE_LIMIT=120
@@ -913,12 +905,12 @@ WEB_SEARCH_RATE_LIMIT=120
 
 ### CALCULATOR_RATE_LIMIT
 
-**Type**: Integer
-**Default**: `2000`
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `2000`
+**服务**: LLM Service
+**热重载**: 是
 
-Calculator tool requests per minute.
+每分钟计算器工具请求数。
 
 ```bash
 CALCULATOR_RATE_LIMIT=2000
@@ -926,12 +918,12 @@ CALCULATOR_RATE_LIMIT=2000
 
 ### PYTHON_EXECUTOR_RATE_LIMIT
 
-**Type**: Integer
-**Default**: `60`
-**Services**: Agent Core
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `60`
+**服务**: Agent Core
+**热重载**: 是
 
-Python code execution requests per minute.
+每分钟 Python 代码执行请求数。
 
 ```bash
 PYTHON_EXECUTOR_RATE_LIMIT=60
@@ -939,65 +931,65 @@ PYTHON_EXECUTOR_RATE_LIMIT=60
 
 ### PARTIAL_CHUNK_CHARS
 
-**Type**: Integer
-**Default**: `512`
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `512`
+**服务**: LLM Service
+**热重载**: 是
 
-Characters per streaming chunk.
+每个流式块的字符数。
 
 ```bash
 PARTIAL_CHUNK_CHARS=512
 ```
 
-## Tool Execution and Workflow
+## 工具执行和工作流
 
 ### TOOL_PARALLELISM
 
-**Type**: Integer
-**Default**: `5`
-**Range**: 1-∞ (1 = sequential)
-**Services**: Orchestrator, Agent Core
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `5`
+**范围**: 1-∞ (1 = 顺序执行)
+**服务**: Orchestrator, Agent Core
+**热重载**: 是
 
-Concurrent tool executions.
+并发工具执行数。
 
 ```bash
 TOOL_PARALLELISM=5
 ```
 
-**Impact**:
-- `1`: Sequential execution (slower, safer)
-- `5`: 5 tools in parallel (faster, more resources)
-- `10+`: High parallelism (fastest, highest resource usage)
+**影响**:
+- `1`: 顺序执行 (更慢, 更安全)
+- `5`: 5 个工具并行 (更快, 更多资源)
+- `10+`: 高并行度 (最快, 资源使用最高)
 
 ### ENABLE_TOOL_SELECTION
 
-**Type**: Integer
-**Default**: `1`
-**Valid Values**: `0`, `1`
-**Services**: Orchestrator
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `1`
+**有效值**: `0`, `1`
+**服务**: Orchestrator
+**热重载**: 是
 
-Automatic tool selection by planner.
+规划器自动选择工具。
 
 ```bash
 ENABLE_TOOL_SELECTION=1
 ```
 
-**Values**:
-- `1`: Planner auto-selects tools (recommended)
-- `0`: Manual tool specification only
+**值**:
+- `1`: 规划器自动选择工具 (推荐)
+- `0`: 仅手动指定工具
 
 ### PRIORITY_QUEUES
 
-**Type**: String
-**Default**: `off`
-**Valid Values**: `on`, `off`
-**Services**: Orchestrator
-**Hot-Reload**: Yes
+**类型**: String
+**默认值**: `off`
+**有效值**: `on`, `off`
+**服务**: Orchestrator
+**热重载**: 是
 
-Enable priority-based task queuing.
+启用基于优先级的任务队列。
 
 ```bash
 PRIORITY_QUEUES=on
@@ -1005,12 +997,12 @@ PRIORITY_QUEUES=on
 
 ### STREAMING_RING_CAPACITY
 
-**Type**: Integer
-**Default**: `1000`
-**Services**: Orchestrator
-**Hot-Reload**: No
+**类型**: Integer
+**默认值**: `1000`
+**服务**: Orchestrator
+**热重载**: 否
 
-Ring buffer capacity for streaming events.
+流式事件的环形缓冲区容量。
 
 ```bash
 STREAMING_RING_CAPACITY=1000
@@ -1018,29 +1010,29 @@ STREAMING_RING_CAPACITY=1000
 
 ### COMPRESSION_TRIGGER_RATIO
 
-**Type**: Float
-**Default**: `0.75`
-**Range**: 0.0-1.0
-**Services**: Orchestrator
-**Hot-Reload**: Yes
+**类型**: Float
+**默认值**: `0.75`
+**范围**: 0.0-1.0
+**服务**: Orchestrator
+**热重载**: 是
 
-Context compression trigger threshold.
+上下文压缩触发阈值。
 
 ```bash
 COMPRESSION_TRIGGER_RATIO=0.75
 ```
 
-**Impact**: Compress context when 75% of token budget used
+**影响**: 当使用了 75% 的令牌预算时压缩上下文
 
 ### COMPRESSION_TARGET_RATIO
 
-**Type**: Float
-**Default**: `0.375`
-**Range**: 0.0-1.0
-**Services**: Orchestrator
-**Hot-Reload**: Yes
+**类型**: Float
+**默认值**: `0.375`
+**范围**: 0.0-1.0
+**服务**: Orchestrator
+**热重载**: 是
 
-Target size after compression.
+压缩后的目标大小。
 
 ```bash
 COMPRESSION_TARGET_RATIO=0.375
@@ -1048,12 +1040,12 @@ COMPRESSION_TARGET_RATIO=0.375
 
 ### ENFORCE_TIMEOUT_SECONDS
 
-**Type**: Integer
-**Default**: `90`
-**Services**: Agent Core
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `90`
+**服务**: Agent Core
+**热重载**: 是
 
-Tool execution timeout.
+工具执行超时时间。
 
 ```bash
 ENFORCE_TIMEOUT_SECONDS=90
@@ -1061,12 +1053,12 @@ ENFORCE_TIMEOUT_SECONDS=90
 
 ### ENFORCE_MAX_TOKENS
 
-**Type**: Integer
-**Default**: `32768`
-**Services**: Agent Core
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `32768`
+**服务**: Agent Core
+**热重载**: 是
 
-Maximum tokens per agent execution.
+每次代理执行的最大令牌数。
 
 ```bash
 ENFORCE_MAX_TOKENS=32768
@@ -1074,12 +1066,12 @@ ENFORCE_MAX_TOKENS=32768
 
 ### ENFORCE_RATE_RPS
 
-**Type**: Integer
-**Default**: `20`
-**Services**: Agent Core
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `20`
+**服务**: Agent Core
+**热重载**: 是
 
-Rate limit (requests per second) for agent operations.
+代理操作的速率限制 (每秒请求数)。
 
 ```bash
 ENFORCE_RATE_RPS=20
@@ -1087,28 +1079,28 @@ ENFORCE_RATE_RPS=20
 
 ### ENFORCE_CB_ERROR_THRESHOLD
 
-**Type**: Float
-**Default**: `0.5`
-**Range**: 0.0-1.0
-**Services**: Agent Core
-**Hot-Reload**: Yes
+**类型**: Float
+**默认值**: `0.5`
+**范围**: 0.0-1.0
+**服务**: Agent Core
+**热重载**: 是
 
-Circuit breaker error rate threshold.
+断路器错误率阈值。
 
 ```bash
 ENFORCE_CB_ERROR_THRESHOLD=0.5
 ```
 
-**Impact**: Circuit opens when 50% of requests fail
+**影响**: 当 50% 的请求失败时断路器打开
 
 ### ENFORCE_CB_WINDOW_SECONDS
 
-**Type**: Integer
-**Default**: `30`
-**Services**: Agent Core
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `30`
+**服务**: Agent Core
+**热重载**: 是
 
-Circuit breaker measurement window.
+断路器测量窗口。
 
 ```bash
 ENFORCE_CB_WINDOW_SECONDS=30
@@ -1116,27 +1108,27 @@ ENFORCE_CB_WINDOW_SECONDS=30
 
 ### ENFORCE_CB_MIN_REQUESTS
 
-**Type**: Integer
-**Default**: `20`
-**Services**: Agent Core
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `20`
+**服务**: Agent Core
+**热重载**: 是
 
-Minimum requests before circuit breaker activates.
+断路器激活前的最小请求数。
 
 ```bash
 ENFORCE_CB_MIN_REQUESTS=20
 ```
 
-## Approvals and Security
+## 审批和安全
 
 ### APPROVAL_ENABLED
 
-**Type**: Boolean
-**Default**: `false`
-**Services**: Orchestrator
-**Hot-Reload**: Yes
+**类型**: Boolean
+**默认值**: `false`
+**服务**: Orchestrator
+**热重载**: 是
 
-Enable human-in-the-loop approvals.
+启用人在回路审批。
 
 ```bash
 APPROVAL_ENABLED=true
@@ -1144,13 +1136,13 @@ APPROVAL_ENABLED=true
 
 ### APPROVAL_COMPLEXITY_THRESHOLD
 
-**Type**: Float
-**Default**: `0.5`
-**Range**: 0.0-1.0
-**Services**: Orchestrator
-**Hot-Reload**: Yes
+**类型**: Float
+**默认值**: `0.5`
+**范围**: 0.0-1.0
+**服务**: Orchestrator
+**热重载**: 是
 
-Complexity threshold requiring approval.
+需要审批的复杂度阈值。
 
 ```bash
 APPROVAL_COMPLEXITY_THRESHOLD=0.5
@@ -1158,12 +1150,12 @@ APPROVAL_COMPLEXITY_THRESHOLD=0.5
 
 ### APPROVAL_DANGEROUS_TOOLS
 
-**Type**: String (comma-separated)
-**Default**: `file_system,code_execution`
-**Services**: Orchestrator
-**Hot-Reload**: Yes
+**类型**: String (逗号分隔)
+**默认值**: `file_system,code_execution`
+**服务**: Orchestrator
+**热重载**: 是
 
-Tools requiring approval.
+需要审批的工具。
 
 ```bash
 APPROVAL_DANGEROUS_TOOLS=file_system,code_execution,database_query
@@ -1171,12 +1163,12 @@ APPROVAL_DANGEROUS_TOOLS=file_system,code_execution,database_query
 
 ### APPROVAL_TIMEOUT_SECONDS
 
-**Type**: Integer
-**Default**: `7200`
-**Services**: Orchestrator
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `7200`
+**服务**: Orchestrator
+**热重载**: 是
 
-Approval request timeout (2 hours).
+审批请求超时时间 (2 小时)。
 
 ```bash
 APPROVAL_TIMEOUT_SECONDS=7200
@@ -1184,60 +1176,60 @@ APPROVAL_TIMEOUT_SECONDS=7200
 
 ### JWT_SECRET
 
-**Type**: String
-**Default**: `development-only-secret-change-in-production`
-**Services**: Gateway
-**Hot-Reload**: No
+**类型**: String
+**默认值**: `development-only-secret-change-in-production`
+**服务**: Gateway
+**热重载**: 否
 
-JWT signing secret.
+JWT 签名密钥。
 
 ```bash
 JWT_SECRET=secure-random-256-bit-key
 ```
 
-**Security**: **Must change in production!**
+**安全**: **生产环境中必须更改!**
 
 ### GATEWAY_SKIP_AUTH
 
-**Type**: Integer
-**Default**: `1`
-**Valid Values**: `0`, `1`
-**Services**: Gateway
-**Hot-Reload**: Yes (restart recommended)
+**类型**: Integer
+**默认值**: `1`
+**有效值**: `0`, `1`
+**服务**: Gateway
+**热重载**: 是 (建议重启)
 
-Skip authentication (development only).
+跳过身份验证 (仅限开发环境)。
 
 ```bash
-GATEWAY_SKIP_AUTH=0  # Enable auth
+GATEWAY_SKIP_AUTH=0  # 启用身份验证
 ```
 
-**Security**: **Must set to `0` in production!**
+**安全**: **生产环境中必须设置为 `0`!**
 
-## Templates
+## 模板
 
 ### TEMPLATE_FALLBACK_ENABLED
 
-**Type**: Boolean
-**Default**: `false`
-**Services**: Orchestrator
-**Hot-Reload**: Yes
+**类型**: Boolean
+**默认值**: `false`
+**服务**: Orchestrator
+**热重载**: 是
 
-Fallback to AI when template fails.
+模板失败时回退到 AI。
 
 ```bash
 TEMPLATE_FALLBACK_ENABLED=true
 ```
 
-## Observability and Telemetry
+## 可观测性和遥测
 
 ### OTEL_SERVICE_NAME
 
-**Type**: String
-**Default**: `shannon-llm-service`
-**Services**: All
-**Hot-Reload**: No
+**类型**: String
+**默认值**: `shannon-llm-service`
+**服务**: 所有
+**热重载**: 否
 
-Service name for OpenTelemetry.
+OpenTelemetry 的服务名称。
 
 ```bash
 OTEL_SERVICE_NAME=shannon-llm-service
@@ -1245,12 +1237,12 @@ OTEL_SERVICE_NAME=shannon-llm-service
 
 ### OTEL_EXPORTER_OTLP_ENDPOINT
 
-**Type**: String
-**Default**: `localhost:4317`
-**Services**: All
-**Hot-Reload**: No
+**类型**: String
+**默认值**: `localhost:4317`
+**服务**: 所有
+**热重载**: 否
 
-OTLP exporter endpoint.
+OTLP 导出器端点。
 
 ```bash
 OTEL_EXPORTER_OTLP_ENDPOINT=localhost:4317
@@ -1258,12 +1250,12 @@ OTEL_EXPORTER_OTLP_ENDPOINT=localhost:4317
 
 ### OTEL_ENABLED
 
-**Type**: Boolean
-**Default**: `false`
-**Services**: All
-**Hot-Reload**: No
+**类型**: Boolean
+**默认值**: `false`
+**服务**: 所有
+**热重载**: 否
 
-Enable OpenTelemetry tracing.
+启用 OpenTelemetry 追踪。
 
 ```bash
 OTEL_ENABLED=true
@@ -1271,13 +1263,13 @@ OTEL_ENABLED=true
 
 ### LOG_FORMAT
 
-**Type**: String
-**Default**: `plain`
-**Valid Values**: `plain`, `json`
-**Services**: Agent Core (Rust)
-**Hot-Reload**: No
+**类型**: String
+**默认值**: `plain`
+**有效值**: `plain`, `json`
+**服务**: Agent Core (Rust)
+**热重载**: 否
 
-Log output format.
+日志输出格式。
 
 ```bash
 LOG_FORMAT=json
@@ -1285,27 +1277,27 @@ LOG_FORMAT=json
 
 ### METRICS_PORT
 
-**Type**: Integer
-**Default**: `2112`
-**Services**: All
-**Hot-Reload**: No
+**类型**: Integer
+**默认值**: `2112`
+**服务**: 所有
+**热重载**: 否
 
-Prometheus metrics port.
+Prometheus 指标端口。
 
 ```bash
 METRICS_PORT=2112
 ```
 
-## Python WASI Sandbox
+## Python WASI 沙箱
 
 ### PYTHON_WASI_WASM_PATH
 
-**Type**: String
-**Default**: `./wasm-interpreters/python-3.11.4.wasm`
-**Services**: Agent Core, LLM Service
-**Hot-Reload**: No
+**类型**: String
+**默认值**: `./wasm-interpreters/python-3.11.4.wasm`
+**服务**: Agent Core, LLM Service
+**热重载**: 否
 
-Path to Python WASI interpreter.
+Python WASI 解释器的路径。
 
 ```bash
 PYTHON_WASI_WASM_PATH=./wasm-interpreters/python-3.11.4.wasm
@@ -1313,12 +1305,12 @@ PYTHON_WASI_WASM_PATH=./wasm-interpreters/python-3.11.4.wasm
 
 ### PYTHON_WASI_SESSION_TIMEOUT
 
-**Type**: Integer
-**Default**: `3600`
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `3600`
+**服务**: LLM Service
+**热重载**: 是
 
-Python session timeout (seconds).
+Python 会话超时时间 (秒)。
 
 ```bash
 PYTHON_WASI_SESSION_TIMEOUT=3600
@@ -1326,12 +1318,12 @@ PYTHON_WASI_SESSION_TIMEOUT=3600
 
 ### WASI_MEMORY_LIMIT_MB
 
-**Type**: Integer
-**Default**: `512`
-**Services**: Agent Core
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `512`
+**服务**: Agent Core
+**热重载**: 是
 
-WASI sandbox memory limit (MB).
+WASI 沙箱内存限制 (MB)。
 
 ```bash
 WASI_MEMORY_LIMIT_MB=512
@@ -1339,44 +1331,44 @@ WASI_MEMORY_LIMIT_MB=512
 
 ### WASI_TIMEOUT_SECONDS
 
-**Type**: Integer
-**Default**: `60`
-**Services**: Agent Core
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `60`
+**服务**: Agent Core
+**热重载**: 是
 
-WASI execution timeout.
+WASI 执行超时时间。
 
 ```bash
 WASI_TIMEOUT_SECONDS=60
 ```
 
-## OpenAPI and MCP
+## OpenAPI 和 MCP
 
-### OpenAPI Integration
+### OpenAPI 集成
 
 #### OPENAPI_ALLOWED_DOMAINS
 
-**Type**: String
-**Default**: `*`
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: String
+**默认值**: `*`
+**服务**: LLM Service
+**热重载**: 是
 
-Allowed domains for OpenAPI spec fetching.
+允许获取 OpenAPI 规范的域名。
 
 ```bash
 OPENAPI_ALLOWED_DOMAINS=*
-# Or specific domains:
+# 或指定域名:
 OPENAPI_ALLOWED_DOMAINS=api.example.com,api2.example.com
 ```
 
 #### OPENAPI_MAX_SPEC_SIZE
 
-**Type**: Integer
-**Default**: `5242880` (5 MB)
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `5242880` (5 MB)
+**服务**: LLM Service
+**热重载**: 是
 
-Maximum OpenAPI spec file size.
+OpenAPI 规范文件的最大大小。
 
 ```bash
 OPENAPI_MAX_SPEC_SIZE=5242880
@@ -1384,12 +1376,12 @@ OPENAPI_MAX_SPEC_SIZE=5242880
 
 #### OPENAPI_FETCH_TIMEOUT
 
-**Type**: Integer
-**Default**: `30`
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `30`
+**服务**: LLM Service
+**热重载**: 是
 
-Timeout for fetching OpenAPI specs.
+获取 OpenAPI 规范的超时时间。
 
 ```bash
 OPENAPI_FETCH_TIMEOUT=30
@@ -1397,27 +1389,27 @@ OPENAPI_FETCH_TIMEOUT=30
 
 #### OPENAPI_RETRIES
 
-**Type**: Integer
-**Default**: `3`
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `3`
+**服务**: LLM Service
+**热重载**: 是
 
-Retry attempts for spec fetching.
+规范获取的重试次数。
 
 ```bash
 OPENAPI_RETRIES=3
 ```
 
-### MCP Integration
+### MCP 集成
 
 #### MCP_ALLOWED_DOMAINS
 
-**Type**: String
-**Default**: `*`
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: String
+**默认值**: `*`
+**服务**: LLM Service
+**热重载**: 是
 
-Allowed domains for MCP servers.
+MCP 服务器允许的域名。
 
 ```bash
 MCP_ALLOWED_DOMAINS=*
@@ -1425,12 +1417,12 @@ MCP_ALLOWED_DOMAINS=*
 
 #### MCP_MAX_RESPONSE_BYTES
 
-**Type**: Integer
-**Default**: `10485760` (10 MB)
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `10485760` (10 MB)
+**服务**: LLM Service
+**热重载**: 是
 
-Maximum MCP response size.
+MCP 响应的最大大小。
 
 ```bash
 MCP_MAX_RESPONSE_BYTES=10485760
@@ -1438,12 +1430,12 @@ MCP_MAX_RESPONSE_BYTES=10485760
 
 #### MCP_RETRIES
 
-**Type**: Integer
-**Default**: `3`
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `3`
+**服务**: LLM Service
+**热重载**: 是
 
-MCP request retry attempts.
+MCP 请求重试次数。
 
 ```bash
 MCP_RETRIES=3
@@ -1451,12 +1443,12 @@ MCP_RETRIES=3
 
 #### MCP_TIMEOUT_SECONDS
 
-**Type**: Integer
-**Default**: `10`
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `10`
+**服务**: LLM Service
+**热重载**: 是
 
-MCP request timeout.
+MCP 请求超时时间。
 
 ```bash
 MCP_TIMEOUT_SECONDS=10
@@ -1464,12 +1456,12 @@ MCP_TIMEOUT_SECONDS=10
 
 #### MCP_REGISTER_TOKEN
 
-**Type**: String
-**Default**: Empty
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: String
+**默认值**: 空
+**服务**: LLM Service
+**热重载**: 是
 
-Authentication token for MCP server registration.
+MCP 服务器注册的身份验证令牌。
 
 ```bash
 MCP_REGISTER_TOKEN=secret-token
@@ -1477,12 +1469,12 @@ MCP_REGISTER_TOKEN=secret-token
 
 #### MCP_RATE_LIMIT_DEFAULT
 
-**Type**: Integer
-**Default**: `60`
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `60`
+**服务**: LLM Service
+**热重载**: 是
 
-Default rate limit for MCP tools (requests/minute).
+MCP 工具的默认速率限制 (请求数/分钟)。
 
 ```bash
 MCP_RATE_LIMIT_DEFAULT=60
@@ -1490,12 +1482,12 @@ MCP_RATE_LIMIT_DEFAULT=60
 
 #### MCP_CB_FAILURES
 
-**Type**: Integer
-**Default**: `5`
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `5`
+**服务**: LLM Service
+**热重载**: 是
 
-Circuit breaker failure threshold for MCP.
+MCP 的断路器失败阈值。
 
 ```bash
 MCP_CB_FAILURES=5
@@ -1503,12 +1495,12 @@ MCP_CB_FAILURES=5
 
 #### MCP_CB_RECOVERY_SECONDS
 
-**Type**: Integer
-**Default**: `60`
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `60`
+**服务**: LLM Service
+**热重载**: 是
 
-Circuit breaker recovery time.
+断路器恢复时间。
 
 ```bash
 MCP_CB_RECOVERY_SECONDS=60
@@ -1516,27 +1508,27 @@ MCP_CB_RECOVERY_SECONDS=60
 
 #### MCP_COST_TO_TOKENS
 
-**Type**: Integer
-**Default**: `0`
-**Services**: LLM Service
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `0`
+**服务**: LLM Service
+**热重载**: 是
 
-Token cost multiplier for MCP tools.
+MCP 工具的令牌成本乘数。
 
 ```bash
 MCP_COST_TO_TOKENS=100
 ```
 
-## Advanced Orchestrator Controls
+## 高级 Orchestrator 控制
 
 ### EVENTLOG_BATCH_SIZE
 
-**Type**: Integer
-**Default**: `100`
-**Services**: Orchestrator
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `100`
+**服务**: Orchestrator
+**热重载**: 是
 
-Events per batch for database writes.
+数据库写入的每批事件数。
 
 ```bash
 EVENTLOG_BATCH_SIZE=100
@@ -1544,12 +1536,12 @@ EVENTLOG_BATCH_SIZE=100
 
 ### EVENTLOG_BATCH_INTERVAL_MS
 
-**Type**: Integer
-**Default**: `100`
-**Services**: Orchestrator
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `100`
+**服务**: Orchestrator
+**热重载**: 是
 
-Batch interval (milliseconds).
+批处理间隔 (毫秒)。
 
 ```bash
 EVENTLOG_BATCH_INTERVAL_MS=100
@@ -1557,70 +1549,70 @@ EVENTLOG_BATCH_INTERVAL_MS=100
 
 ### RATE_LIMIT_INTERVAL_MS
 
-**Type**: Integer
-**Default**: `60000`
-**Services**: Orchestrator
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `60000`
+**服务**: Orchestrator
+**热重载**: 是
 
-Rate limit window (milliseconds).
+速率限制窗口 (毫秒)。
 
 ```bash
 RATE_LIMIT_INTERVAL_MS=60000
 ```
 
-### Worker Concurrency
+### Worker 并发
 
-Configure Temporal worker concurrency per priority queue:
+配置每个优先级队列的 Temporal worker 并发数:
 
 ```bash
-# Default workers (all priorities)
+# 默认 workers (所有优先级)
 WORKER_ACT=10
 WORKER_WF=5
 
-# Critical priority
+# 关键优先级
 WORKER_ACT_CRITICAL=20
 WORKER_WF_CRITICAL=10
 
-# High priority
+# 高优先级
 WORKER_ACT_HIGH=15
 WORKER_WF_HIGH=8
 
-# Normal priority
+# 普通优先级
 WORKER_ACT_NORMAL=10
 WORKER_WF_NORMAL=5
 
-# Low priority
+# 低优先级
 WORKER_ACT_LOW=5
 WORKER_WF_LOW=3
 ```
 
-**Impact**:
-- Higher values = more concurrency, more resource usage
-- Lower values = less concurrency, lower resource usage
+**影响**:
+- 更高的值 = 更高的并发, 更多的资源使用
+- 更低的值 = 更低的并发, 更少的资源使用
 
 ### LLM_TIMEOUT_SECONDS
 
-**Type**: Integer
-**Default**: `120`
-**Services**: Orchestrator
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `120`
+**服务**: Orchestrator
+**热重载**: 是
 
-Timeout for LLM API calls.
+LLM API 调用的超时时间。
 
 ```bash
 LLM_TIMEOUT_SECONDS=120
 ```
 
-## Miscellaneous
+## 杂项
 
 ### SHANNON_WORKSPACE
 
-**Type**: String
-**Default**: `./workspace`
-**Services**: Agent Core
-**Hot-Reload**: No
+**类型**: String
+**默认值**: `./workspace`
+**服务**: Agent Core
+**热重载**: 否
 
-Workspace directory for file operations.
+文件操作的工作区目录。
 
 ```bash
 SHANNON_WORKSPACE=./workspace
@@ -1628,12 +1620,12 @@ SHANNON_WORKSPACE=./workspace
 
 ### SEED_DATA
 
-**Type**: Boolean
-**Default**: `false`
-**Services**: All
-**Hot-Reload**: No
+**类型**: Boolean
+**默认值**: `false`
+**服务**: 所有
+**热重载**: 否
 
-Seed Qdrant with sample data on startup.
+启动时在 Qdrant 中填充示例数据。
 
 ```bash
 SEED_DATA=true
@@ -1641,20 +1633,20 @@ SEED_DATA=true
 
 ### AGENT_TIMEOUT_SECONDS
 
-**Type**: Integer
-**Default**: `600`
-**Services**: Agent Core
-**Hot-Reload**: Yes
+**类型**: Integer
+**默认值**: `600`
+**服务**: Agent Core
+**热重载**: 是
 
-Maximum runtime per agent execution.
+每次代理执行的最大运行时间。
 
 ```bash
 AGENT_TIMEOUT_SECONDS=600
 ```
 
-## Configuration Examples
+## 配置示例
 
-### Development
+### 开发环境
 
 ```bash
 ENVIRONMENT=dev
@@ -1666,7 +1658,7 @@ MAX_COST_PER_REQUEST=0.10
 TOOL_PARALLELISM=3
 ```
 
-### Production
+### 生产环境
 
 ```bash
 ENVIRONMENT=prod
@@ -1683,7 +1675,7 @@ OTEL_ENABLED=true
 LOG_FORMAT=json
 ```
 
-### High Performance
+### 高性能
 
 ```bash
 TOOL_PARALLELISM=10
@@ -1694,7 +1686,7 @@ CACHE_SIMILARITY_THRESHOLD=0.90
 STREAMING_RING_CAPACITY=2000
 ```
 
-### Cost Optimized
+### 成本优化
 
 ```bash
 DEFAULT_MODEL_TIER=small
@@ -1705,30 +1697,23 @@ CACHE_SIMILARITY_THRESHOLD=0.95
 WORKFLOW_SYNTH_BYPASS_SINGLE=true
 ```
 
-## Troubleshooting
+## 故障排除
 
-See [Configuration Troubleshooting](/cn/deployment/configuration-troubleshooting) for common issues.
+有关常见问题，请参阅 [配置故障排除](/cn/deployment/configuration-troubleshooting)。
 
-## Related Documentation
+## 相关文档
 
 <CardGroup cols={2}>
   <Card title="Docker Compose" icon="docker" href="/cn/deployment/docker-compose">
-    Docker deployment guide
+    Docker 部署指南
   </Card>
   <Card title="Kubernetes" icon="cubes" href="/cn/deployment/kubernetes">
-    Kubernetes deployment
+    Kubernetes 部署
   </Card>
-  <Card title="Performance Tuning" icon="gauge" href="/cn/deployment/performance-tuning">
-    Optimize performance
+  <Card title="性能调优" icon="gauge" href="/cn/deployment/performance-tuning">
+    优化性能
   </Card>
-  <Card title="Security" icon="shield" href="/cn/deployment/security">
-    Security hardening
+  <Card title="安全" icon="shield" href="/cn/deployment/security">
+    安全加固
   </Card>
 </CardGroup>
-
-
----
-
-## 参与翻译
-
-如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。

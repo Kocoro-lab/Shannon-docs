@@ -1,19 +1,11 @@
 ---
-title: "Architecture Overview"
-description: "High-level overview of Shannon"
+title: "架构概览"
+description: "Shannon架构和组件的高层次概述"
 ---
 
-> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
+## 系统架构
 
-**原文件**: `architecture/overview.mdx`
-**英文版本**: [查看英文文档](/en/architecture/overview)
-
----
-
-
-## System Architecture
-
-Shannon is built as a distributed microservices system designed for production AI agent orchestration:
+Shannon 是一个为生产环境AI代理编排而设计的分布式微服务系统：
 
 ```mermaid
 graph TB
@@ -47,237 +39,230 @@ graph TB
     style LLM fill:#4ECDC4
 ```
 
-## Core Components
+## 核心组件
 
-### Gateway (Port 8080)
+### Gateway（端口 8080）
 
-**Technology**: Go
-**Purpose**: REST API layer for external clients
+**技术栈**: Go
+**用途**: 面向外部客户端的REST API层
 
-The Gateway provides:
-- HTTP/JSON API interface
-- Authentication and authorization (API keys)
-- Rate limiting per user
-- Idempotency support
-- SSE and WebSocket streaming
-- OpenAPI specification
+Gateway 提供：
+- HTTP/JSON API 接口
+- 身份验证和授权（API密钥）
+- 按用户限流
+- 幂等性支持
+- SSE 和 WebSocket 流式传输
+- OpenAPI 规范
 
-<Card title="Key Feature" icon="shield">
-  Authentication is **disabled by default** for easy adoption. Enable it in production with `GATEWAY_SKIP_AUTH=0`.
+<Card title="关键特性" icon="shield">
+  身份验证**默认禁用**以便于采用。生产环境中使用 `GATEWAY_SKIP_AUTH=0` 启用。
 </Card>
 
-### Orchestrator (Port 50052)
+### Orchestrator（端口 50052）
 
-**Technology**: Go + Temporal
-**Purpose**: Central workflow coordination
+**技术栈**: Go + Temporal
+**用途**: 中央工作流协调
 
-The Orchestrator handles:
-- Task routing and decomposition
-- Cognitive pattern selection (CoT, ToT, ReAct)
-- Budget and token usage enforcement
-- Session management
-- OPA policy evaluation
-- Multi-agent coordination
+Orchestrator 处理：
+- 任务路由和分解
+- 认知模式选择（CoT、ToT、ReAct）
+- 预算和token使用限制
+- 会话管理
+- OPA 策略评估
+- 多代理协调
 
-**Key Technology**: [Temporal](https://temporal.io) - Provides durable, deterministic workflows that can be replayed for debugging.
+**关键技术**: [Temporal](https://temporal.io) - 提供持久化、确定性的工作流，可重放以便调试。
 
-### Agent Core (Port 50051)
+### Agent Core（端口 50051）
 
-**Technology**: Rust
-**Purpose**: Secure execution layer
+**技术栈**: Rust
+**用途**: 安全执行层
 
-The Agent Core provides:
-- WASI (WebAssembly System Interface) sandboxing
-- Secure Python code execution (CPython 3.11 in WASI)
-- Tool registry and execution
-- Result caching (LRU with TTL)
-- Circuit breakers and rate limiting
+Agent Core 提供：
+- WASI（WebAssembly 系统接口）沙箱
+- 安全的 Python 代码执行（WASI 中的 CPython 3.11）
+- 工具注册和执行
+- 结果缓存（带TTL的LRU）
+- 熔断器和限流
 
-<Card title="Security First" icon="lock">
-  All code execution happens in a WASI sandbox with **no network access** and **read-only filesystem**.
+<Card title="安全优先" icon="lock">
+  所有代码执行都在 WASI 沙箱中进行，**无网络访问**和**只读文件系统**。
 </Card>
 
-### LLM Service (Port 8000)
+### LLM Service（端口 8000）
 
-**Technology**: Python + FastAPI
-**Purpose**: Multi-provider LLM gateway
+**技术栈**: Python + FastAPI
+**用途**: 多提供商 LLM 网关
 
-The LLM Service handles:
-- Multi-provider abstraction (OpenAI, Anthropic, Google, etc.)
-- Intelligent caching with SHA256-based deduplication
-- MCP (Model Context Protocol) tool integration
-- Web search integration (Exa, Perplexity, etc.)
-- Embeddings and document chunking
+LLM Service 处理：
+- 多提供商抽象（OpenAI、Anthropic、Google 等）
+- 基于 SHA256 的智能缓存去重
+- MCP（模型上下文协议）工具集成
+- 网络搜索集成（Exa、Perplexity 等）
+- 嵌入和文档分块
 
-## Data Flow
+## 数据流
 
-Here's how a task flows through Shannon:
+以下是任务在 Shannon 中的流转过程：
 
 <Steps>
-  <Step title="Task Submission">
-    Client submits task via REST API to Gateway
+  <Step title="任务提交">
+    客户端通过 REST API 向 Gateway 提交任务
   </Step>
-  <Step title="Workflow Creation">
-    Gateway forwards to Orchestrator, which creates a Temporal workflow
+  <Step title="工作流创建">
+    Gateway 转发到 Orchestrator，后者创建 Temporal 工作流
   </Step>
-  <Step title="Pattern Selection">
-    Orchestrator analyzes task complexity and selects cognitive pattern
+  <Step title="模式选择">
+    Orchestrator 分析任务复杂度并选择认知模式
   </Step>
-  <Step title="Task Decomposition">
-    For complex tasks, breaks into subtasks and creates DAG (Directed Acyclic Graph)
+  <Step title="任务分解">
+    对于复杂任务，分解为子任务并创建 DAG（有向无环图）
   </Step>
-  <Step title="Agent Execution">
-    Orchestrator invokes Agent Core for each subtask
+  <Step title="代理执行">
+    Orchestrator 为每个子任务调用 Agent Core
   </Step>
-  <Step title="LLM Calls">
-    Agent Core calls LLM Service, which routes to appropriate provider
+  <Step title="LLM 调用">
+    Agent Core 调用 LLM Service，后者路由到相应提供商
   </Step>
-  <Step title="Tool Execution">
-    If needed, executes tools in WASI sandbox or calls external APIs
+  <Step title="工具执行">
+    如需要，在 WASI 沙箱中执行工具或调用外部 API
   </Step>
-  <Step title="Result Synthesis">
-    Orchestrator combines results from all agents
+  <Step title="结果综合">
+    Orchestrator 合并所有代理的结果
   </Step>
-  <Step title="Response">
-    Final result returned to client via Gateway
+  <Step title="响应">
+    最终结果通过 Gateway 返回给客户端
   </Step>
 </Steps>
 
-## Persistence Layer
+## 持久化层
 
 ### PostgreSQL
 
-Stores:
-- Task metadata and execution history
-- Session state and context
-- User and API key data
-- Workflow history
+存储：
+- 任务元数据和执行历史
+- 会话状态和上下文
+- 用户和 API 密钥数据
+- 工作流历史
 
-**Schema**: Includes pgvector extension for vector operations
+**模式**: 包含用于向量操作的 pgvector 扩展
 
 ### Redis
 
-Provides:
-- Session caching (TTL: 3600s)
-- LLM response caching
-- Rate limiter state
-- Pub/sub for events
+提供：
+- 会话缓存（TTL: 3600秒）
+- LLM 响应缓存
+- 限流器状态
+- 事件发布/订阅
 
 ### Qdrant
 
-Vector database for:
-- Semantic memory retrieval
-- Session-scoped vector collections
-- MMR (Maximal Marginal Relevance) for diversity
+向量数据库用于：
+- 语义记忆检索
+- 会话作用域的向量集合
+- MMR（最大边际相关性）以实现多样性
 
-## Observability
+## 可观测性
 
-Shannon includes comprehensive observability:
+Shannon 包含全面的可观测性：
 
-### Metrics (Prometheus)
+### 指标（Prometheus）
 
-Each service exposes metrics:
+每个服务都暴露指标：
 - **Orchestrator**: `:2112/metrics`
 - **Agent Core**: `:2113/metrics`
 - **LLM Service**: `:8000/metrics`
 
-Metrics include:
-- Request rates and latency
-- Token usage and costs
-- Cache hit/miss rates
-- Error rates by type
-- Circuit breaker status
+指标包括：
+- 请求速率和延迟
+- Token 使用量和成本
+- 缓存命中/未命中率
+- 按类型分类的错误率
+- 熔断器状态
 
-### Tracing (OpenTelemetry)
+### 追踪（OpenTelemetry）
 
-Distributed tracing across all services with context propagation via `traceparent` headers.
+通过 `traceparent` 头进行上下文传播的跨所有服务的分布式追踪。
 
-### Dashboard (Port 2111)
+### Dashboard（端口 2111）
 
-Real-time React/Next.js dashboard showing:
-- Active tasks and workflows
-- Event streams
-- System metrics
-- Token usage graphs
+实时 React/Next.js 仪表板显示：
+- 活动任务和工作流
+- 事件流
+- 系统指标
+- Token 使用图表
 
-### Temporal UI (Port 8088)
+### Temporal UI（端口 8088）
 
-Native Temporal interface for:
-- Workflow visualization
-- Execution history
-- Replay debugging
-- Worker status
+原生 Temporal 界面用于：
+- 工作流可视化
+- 执行历史
+- 重放调试
+- Worker 状态
 
-## Design Principles
+## 设计原则
 
-### 1. Reliability
+### 1. 可靠性
 
-- **Temporal workflows** ensure durability - workflows survive service restarts
-- **Circuit breakers** prevent cascading failures
-- **Graceful degradation** when services are unavailable
+- **Temporal 工作流**确保持久性 - 工作流可在服务重启后继续
+- **熔断器**防止级联故障
+- 服务不可用时**优雅降级**
 
-### 2. Security
+### 2. 安全性
 
-- **WASI sandboxing** isolates untrusted code execution
-- **OPA policies** enforce fine-grained access control
-- **Multi-tenancy** with tenant isolation
+- **WASI 沙箱**隔离不受信任的代码执行
+- **OPA 策略**实施细粒度访问控制
+- **多租户**与租户隔离
 
-### 3. Cost Control
+### 3. 成本控制
 
-- **Token budgets** prevent runaway costs
-- **Intelligent routing** to cheaper models when appropriate
-- **Learning router** improves cost efficiency over time (85-95% savings)
+- **Token 预算**防止成本失控
+- 在适当时**智能路由**到更便宜的模型
+- **学习路由器**随时间提高成本效率（节省85-95%）
 
-### 4. Observability
+### 4. 可观测性
 
-- **Prometheus metrics** for monitoring
-- **OpenTelemetry tracing** for debugging
-- **Deterministic replay** via Temporal
+- **Prometheus 指标**用于监控
+- **OpenTelemetry 追踪**用于调试
+- 通过 Temporal 实现**确定性重放**
 
-## Scalability
+## 可扩展性
 
-Shannon scales horizontally:
+Shannon 可水平扩展：
 
-- **Stateless services**: Gateway, Orchestrator, Agent Core can scale independently
-- **Temporal workers**: Add more workers to increase throughput
-- **Database**: PostgreSQL with read replicas, Redis cluster, Qdrant distributed mode
+- **无状态服务**: Gateway、Orchestrator、Agent Core 可独立扩展
+- **Temporal workers**: 添加更多 worker 以增加吞吐量
+- **数据库**: PostgreSQL 读副本、Redis 集群、Qdrant 分布式模式
 
-## Next Steps
+## 下一步
 
 <CardGroup cols={2}>
   <Card
-    title="Core Concepts"
+    title="核心概念"
     icon="book"
     href="/cn/quickstart/concepts/agents"
   >
-    Deep dive into agents and workflows
+    深入了解代理和工作流
   </Card>
   <Card
-    title="API Reference"
+    title="API 参考"
     icon="terminal"
     href="/cn/api/overview"
   >
-    Explore the complete API
+    探索完整的 API
   </Card>
   <Card
-    title="Cost Control"
+    title="成本控制"
     icon="dollar"
     href="/cn/quickstart/concepts/cost-control"
   >
-    Manage and optimize costs
+    管理和优化成本
   </Card>
   <Card
     title="Python SDK"
     icon="code"
     href="/cn/sdk/python/quickstart"
   >
-    Get started with the SDK
+    开始使用 SDK
   </Card>
 </CardGroup>
-
-
----
-
-## 参与翻译
-
-如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。

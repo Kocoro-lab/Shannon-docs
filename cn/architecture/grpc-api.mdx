@@ -1,32 +1,24 @@
 ---
-title: "gRPC API Reference"
-description: "Complete Protocol Buffer definitions for Shannon"
+title: "gRPC API 参考"
+description: "Shannon 内部 gRPC 服务的完整 Protocol Buffer 定义"
 ---
 
-> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
+## 概述
 
-**原文件**: `architecture/grpc-api.mdx`
-**英文版本**: [查看英文文档](/en/architecture/grpc-api)
+Shannon 的内部架构使用 **gRPC**（HTTP/2 + Protocol Buffers）实现高性能服务间通信。本文档提供了所有 5 个服务和 27 个 RPC 方法的完整 Protocol Buffer 定义。
 
----
+**服务**：
+- **OrchestratorService**（8 个 RPC）- 任务编排和工作流管理
+- **StreamingService**（1 个 RPC）- 实时事件流
+- **AgentService**（6 个 RPC）- Agent 执行和工具管理
+- **LLMService**（5 个 RPC）- LLM 提供商网关
+- **SessionService**（7 个 RPC）- 多轮对话管理
 
+**总计**：27 个 RPC 方法
 
-## Overview
+## 通用类型
 
-Shannon's internal architecture uses **gRPC** (HTTP/2 + Protocol Buffers) for high-performance inter-service communication. This document provides complete Protocol Buffer definitions for all 5 services and 27 RPC methods.
-
-**Services**:
-- **OrchestratorService** (8 RPCs) - Task orchestration and workflow management
-- **StreamingService** (1 RPC) - Real-time event streaming
-- **AgentService** (6 RPCs) - Agent execution and tool management
-- **LLMService** (5 RPCs) - LLM provider gateway
-- **SessionService** (7 RPCs) - Multi-turn conversation management
-
-**Total**: 27 RPC methods
-
-## Common Types
-
-Shared types used across all services.
+所有服务共享的类型。
 
 ### ExecutionMode
 
@@ -39,10 +31,10 @@ enum ExecutionMode {
 }
 ```
 
-**Usage**: Determines task execution strategy
-- `SIMPLE`: Direct tool invocation or cache lookup (fastest)
-- `STANDARD`: Single-agent LLM-powered execution (balanced)
-- `COMPLEX`: Multi-agent DAG with parallel execution (most capable)
+**用途**：确定任务执行策略
+- `SIMPLE`：直接工具调用或缓存查找（最快）
+- `STANDARD`：单 Agent LLM 驱动执行（平衡）
+- `COMPLEX`：多 Agent DAG 并行执行（功能最强）
 
 ---
 
@@ -57,10 +49,10 @@ enum ModelTier {
 }
 ```
 
-**Cost Optimization**: Shannon automatically selects models within tier to optimize cost
-- Small: $0.001-0.002 per 1K tokens
-- Medium: $0.01-0.03 per 1K tokens
-- Large: $0.03-0.075 per 1K tokens
+**成本优化**：Shannon 在层级内自动选择模型以优化成本
+- Small：每 1K token $0.001-0.002
+- Medium：每 1K token $0.01-0.03
+- Large：每 1K token $0.03-0.075
 
 ---
 
@@ -94,7 +86,7 @@ message TaskMetadata {
 }
 ```
 
-**Example**:
+**示例**：
 ```json
 {
   "task_id": "task-123",
@@ -144,9 +136,9 @@ message ExecutionMetrics {
 
 ## OrchestratorService
 
-Task orchestration and workflow management service.
+任务编排和工作流管理服务。
 
-### Service Definition
+### 服务定义
 
 ```protobuf
 service OrchestratorService {
@@ -165,9 +157,9 @@ service OrchestratorService {
 
 ### SubmitTask
 
-Submit a new task for execution.
+提交新任务执行。
 
-**Request**:
+**请求**：
 ```protobuf
 message SubmitTaskRequest {
   TaskMetadata metadata = 1;
@@ -180,7 +172,7 @@ message SubmitTaskRequest {
 }
 ```
 
-**Response**:
+**响应**：
 ```protobuf
 message SubmitTaskResponse {
   string workflow_id = 1;
@@ -191,7 +183,7 @@ message SubmitTaskResponse {
 }
 ```
 
-**Example** (gRPC CLI):
+**示例**（gRPC CLI）：
 ```bash
 grpcurl -plaintext -d '{
   "metadata": {
@@ -204,7 +196,7 @@ grpcurl -plaintext -d '{
 }' localhost:50052 shannon.orchestrator.OrchestratorService/SubmitTask
 ```
 
-**Response**:
+**响应**：
 ```json
 {
   "workflow_id": "wf-550e8400-e29b-41d4-a716-446655440000",
@@ -243,9 +235,9 @@ grpcurl -plaintext -d '{
 
 ### GetTaskStatus
 
-Retrieve current status and result of a task.
+检索任务的当前状态和结果。
 
-**Request**:
+**请求**：
 ```protobuf
 message GetTaskStatusRequest {
   string task_id = 1;
@@ -253,7 +245,7 @@ message GetTaskStatusRequest {
 }
 ```
 
-**Response**:
+**响应**：
 ```protobuf
 message GetTaskStatusResponse {
   string task_id = 1;
@@ -276,7 +268,7 @@ enum TaskStatus {
 }
 ```
 
-**Example**:
+**示例**：
 ```bash
 grpcurl -plaintext -d '{
   "task_id": "task-789",
@@ -284,7 +276,7 @@ grpcurl -plaintext -d '{
 }' localhost:50052 shannon.orchestrator.OrchestratorService/GetTaskStatus
 ```
 
-**Response**:
+**响应**：
 ```json
 {
   "task_id": "task-789",
@@ -319,9 +311,9 @@ grpcurl -plaintext -d '{
 
 ### CancelTask
 
-Cancel a running task.
+取消正在运行的任务。
 
-**Request**:
+**请求**：
 ```protobuf
 message CancelTaskRequest {
   string task_id = 1;
@@ -329,7 +321,7 @@ message CancelTaskRequest {
 }
 ```
 
-**Response**:
+**响应**：
 ```protobuf
 message CancelTaskResponse {
   bool success = 1;
@@ -341,9 +333,9 @@ message CancelTaskResponse {
 
 ### ListTasks
 
-List tasks with optional filtering.
+列出任务，支持可选过滤。
 
-**Request**:
+**请求**：
 ```protobuf
 message ListTasksRequest {
   string user_id = 1;
@@ -354,7 +346,7 @@ message ListTasksRequest {
 }
 ```
 
-**Response**:
+**响应**：
 ```protobuf
 message ListTasksResponse {
   repeated TaskSummary tasks = 1;
@@ -376,16 +368,16 @@ message TaskSummary {
 
 ### GetSessionContext
 
-Retrieve session context and history.
+检索会话上下文和历史记录。
 
-**Request**:
+**请求**：
 ```protobuf
 message GetSessionContextRequest {
   string session_id = 1;
 }
 ```
 
-**Response**:
+**响应**：
 ```protobuf
 message GetSessionContextResponse {
   string session_id = 1;
@@ -399,14 +391,14 @@ message GetSessionContextResponse {
 
 ### ListTemplates
 
-List available task templates.
+列出可用的任务模板。
 
-**Request**:
+**请求**：
 ```protobuf
 message ListTemplatesRequest {}
 ```
 
-**Response**:
+**响应**：
 ```protobuf
 message ListTemplatesResponse {
   repeated TemplateSummary templates = 1;
@@ -424,9 +416,9 @@ message TemplateSummary {
 
 ### ApproveTask
 
-Approve or deny a task requiring human approval.
+批准或拒绝需要人工审批的任务。
 
-**Request**:
+**请求**：
 ```protobuf
 message ApproveTaskRequest {
   string approval_id = 1;
@@ -439,7 +431,7 @@ message ApproveTaskRequest {
 }
 ```
 
-**Response**:
+**响应**：
 ```protobuf
 message ApproveTaskResponse {
   bool success = 1;
@@ -451,9 +443,9 @@ message ApproveTaskResponse {
 
 ### GetPendingApprovals
 
-List pending approval requests.
+列出待审批请求。
 
-**Request**:
+**请求**：
 ```protobuf
 message GetPendingApprovalsRequest {
   string user_id = 1;
@@ -461,7 +453,7 @@ message GetPendingApprovalsRequest {
 }
 ```
 
-**Response**:
+**响应**：
 ```protobuf
 message GetPendingApprovalsResponse {
   repeated PendingApproval approvals = 1;
@@ -482,9 +474,9 @@ message PendingApproval {
 
 ## StreamingService
 
-Real-time event streaming service.
+实时事件流服务。
 
-### Service Definition
+### 服务定义
 
 ```protobuf
 service StreamingService {
@@ -496,9 +488,9 @@ service StreamingService {
 
 ### StreamTaskExecution
 
-Stream real-time events for a task (server-streaming RPC).
+流式传输任务的实时事件（服务器流式 RPC）。
 
-**Request**:
+**请求**：
 ```protobuf
 message StreamRequest {
   string workflow_id = 1;
@@ -508,7 +500,7 @@ message StreamRequest {
 }
 ```
 
-**Response** (stream):
+**响应**（流）：
 ```protobuf
 message TaskUpdate {
   string workflow_id = 1;
@@ -521,14 +513,14 @@ message TaskUpdate {
 }
 ```
 
-**Example** (gRPC CLI):
+**示例**（gRPC CLI）：
 ```bash
 grpcurl -plaintext -d '{
   "workflow_id": "wf-550e8400-e29b-41d4-a716-446655440000"
 }' localhost:50052 shannon.orchestrator.StreamingService/StreamTaskExecution
 ```
 
-**Response Stream**:
+**响应流**：
 ```json
 {"workflow_id": "wf-...", "type": "WORKFLOW_STARTED", "message": "Task started", "seq": 1}
 {"workflow_id": "wf-...", "type": "AGENT_STARTED", "agent_id": "data-loader", "seq": 2}
@@ -539,33 +531,33 @@ grpcurl -plaintext -d '{
 {"workflow_id": "wf-...", "type": "WORKFLOW_COMPLETED", "message": "Task complete", "seq": 42}
 ```
 
-**Event Type Filtering**:
+**事件类型过滤**：
 ```bash
-# Only workflow lifecycle events
+# 仅工作流生命周期事件
 grpcurl -plaintext -d '{
   "workflow_id": "wf-...",
   "types": ["WORKFLOW_STARTED", "WORKFLOW_COMPLETED", "WORKFLOW_FAILED"]
 }' localhost:50052 shannon.orchestrator.StreamingService/StreamTaskExecution
 ```
 
-**Stream Resumption**:
+**流恢复**：
 ```bash
-# Resume from last seen event
+# 从上次看到的事件恢复
 grpcurl -plaintext -d '{
   "workflow_id": "wf-...",
   "last_stream_id": "1698765432000-0"
 }' localhost:50052 shannon.orchestrator.StreamingService/StreamTaskExecution
 ```
 
-See [Event Types Catalog](/cn/api/event-types) for all event types.
+参见[事件类型目录](/cn/api/event-types)了解所有事件类型。
 
 ---
 
 ## AgentService
 
-Agent execution and tool management service.
+Agent 执行和工具管理服务。
 
-### Service Definition
+### 服务定义
 
 ```protobuf
 service AgentService {
@@ -582,9 +574,9 @@ service AgentService {
 
 ### ExecuteTask
 
-Execute a task with a single agent (unary RPC).
+使用单个 Agent 执行任务（一元 RPC）。
 
-**Request**:
+**请求**：
 ```protobuf
 message ExecuteTaskRequest {
   TaskMetadata metadata = 1;
@@ -605,7 +597,7 @@ message AgentConfig {
 }
 ```
 
-**Response**:
+**响应**：
 ```protobuf
 message ExecuteTaskResponse {
   string task_id = 1;
@@ -633,11 +625,11 @@ enum AgentState {
 
 ### StreamExecuteTask
 
-Execute task with streaming updates (server-streaming RPC).
+执行任务并流式返回更新（服务器流式 RPC）。
 
-**Request**: Same as `ExecuteTask`
+**请求**：与 `ExecuteTask` 相同
 
-**Response** (stream):
+**响应**（流）：
 ```protobuf
 message TaskUpdate {
   string task_id = 1;
@@ -653,14 +645,14 @@ message TaskUpdate {
 
 ### GetCapabilities
 
-Get agent capabilities.
+获取 Agent 能力。
 
-**Request**:
+**请求**：
 ```protobuf
 message GetCapabilitiesRequest {}
 ```
 
-**Response**:
+**响应**：
 ```protobuf
 message GetCapabilitiesResponse {
   repeated string supported_tools = 1;
@@ -675,14 +667,14 @@ message GetCapabilitiesResponse {
 
 ### HealthCheck
 
-Check agent service health.
+检查 Agent 服务健康状态。
 
-**Request**:
+**请求**：
 ```protobuf
 message HealthCheckRequest {}
 ```
 
-**Response**:
+**响应**：
 ```protobuf
 message HealthCheckResponse {
   bool healthy = 1;
@@ -697,9 +689,9 @@ message HealthCheckResponse {
 
 ### DiscoverTools
 
-Discover available tools by query or category.
+通过查询或类别发现可用工具。
 
-**Request**:
+**请求**：
 ```protobuf
 message DiscoverToolsRequest {
   string query = 1;
@@ -710,7 +702,7 @@ message DiscoverToolsRequest {
 }
 ```
 
-**Response**:
+**响应**：
 ```protobuf
 message DiscoverToolsResponse {
   repeated ToolCapability tools = 1;
@@ -735,7 +727,7 @@ message ToolCapability {
 }
 ```
 
-**Example**:
+**示例**：
 ```bash
 grpcurl -plaintext -d '{
   "query": "data analysis",
@@ -749,16 +741,16 @@ grpcurl -plaintext -d '{
 
 ### GetToolCapability
 
-Get detailed capability of a specific tool.
+获取特定工具的详细能力。
 
-**Request**:
+**请求**：
 ```protobuf
 message GetToolCapabilityRequest {
   string tool_id = 1;
 }
 ```
 
-**Response**:
+**响应**：
 ```protobuf
 message GetToolCapabilityResponse {
   ToolCapability tool = 1;
@@ -769,9 +761,9 @@ message GetToolCapabilityResponse {
 
 ## LLMService
 
-LLM provider gateway service.
+LLM 提供商网关服务。
 
-### Service Definition
+### 服务定义
 
 ```protobuf
 service LLMService {
@@ -787,9 +779,9 @@ service LLMService {
 
 ### GenerateCompletion
 
-Generate LLM completion (unary RPC).
+生成 LLM 补全（一元 RPC）。
 
-**Request**:
+**请求**：
 ```protobuf
 message GenerateCompletionRequest {
   repeated Message messages = 1;
@@ -819,7 +811,7 @@ message GenerationConfig {
 }
 ```
 
-**Response**:
+**响应**：
 ```protobuf
 message GenerateCompletionResponse {
   string completion = 1;
@@ -848,11 +840,11 @@ enum Provider {
 
 ### StreamCompletion
 
-Generate streaming LLM completion (server-streaming RPC).
+生成流式 LLM 补全（服务器流式 RPC）。
 
-**Request**: Same as `GenerateCompletion`
+**请求**：与 `GenerateCompletion` 相同
 
-**Response** (stream):
+**响应**（流）：
 ```protobuf
 message CompletionChunk {
   string delta = 1;
@@ -866,9 +858,9 @@ message CompletionChunk {
 
 ### EmbedText
 
-Generate text embeddings.
+生成文本嵌入向量。
 
-**Request**:
+**请求**：
 ```protobuf
 message EmbedTextRequest {
   repeated string texts = 1;
@@ -876,7 +868,7 @@ message EmbedTextRequest {
 }
 ```
 
-**Response**:
+**响应**：
 ```protobuf
 message EmbedTextResponse {
   repeated Embedding embeddings = 1;
@@ -894,9 +886,9 @@ message Embedding {
 
 ### AnalyzeComplexity
 
-Analyze query complexity and recommend execution mode.
+分析查询复杂度并推荐执行模式。
 
-**Request**:
+**请求**：
 ```protobuf
 message AnalyzeComplexityRequest {
   string query = 1;
@@ -905,7 +897,7 @@ message AnalyzeComplexityRequest {
 }
 ```
 
-**Response**:
+**响应**：
 ```protobuf
 message AnalyzeComplexityResponse {
   ExecutionMode recommended_mode = 1;
@@ -918,7 +910,7 @@ message AnalyzeComplexityResponse {
 }
 ```
 
-**Example**:
+**示例**：
 ```bash
 grpcurl -plaintext -d '{
   "query": "Analyze Q4 sales data and create visualizations",
@@ -926,7 +918,7 @@ grpcurl -plaintext -d '{
 }' localhost:8000 shannon.llm.LLMService/AnalyzeComplexity
 ```
 
-**Response**:
+**响应**：
 ```json
 {
   "recommended_mode": "EXECUTION_MODE_COMPLEX",
@@ -943,9 +935,9 @@ grpcurl -plaintext -d '{
 
 ### ListModels
 
-List available LLM models.
+列出可用的 LLM 模型。
 
-**Request**:
+**请求**：
 ```protobuf
 message ListModelsRequest {
   ModelTier tier = 1;
@@ -953,7 +945,7 @@ message ListModelsRequest {
 }
 ```
 
-**Response**:
+**响应**：
 ```protobuf
 message ListModelsResponse {
   repeated ModelInfo models = 1;
@@ -977,9 +969,9 @@ message ModelInfo {
 
 ## SessionService
 
-Multi-turn conversation management service.
+多轮对话管理服务。
 
-### Service Definition
+### 服务定义
 
 ```protobuf
 service SessionService {
@@ -997,9 +989,9 @@ service SessionService {
 
 ### CreateSession
 
-Create a new conversation session.
+创建新的对话会话。
 
-**Request**:
+**请求**：
 ```protobuf
 message CreateSessionRequest {
   string user_id = 1;
@@ -1009,7 +1001,7 @@ message CreateSessionRequest {
 }
 ```
 
-**Response**:
+**响应**：
 ```protobuf
 message CreateSessionResponse {
   string session_id = 1;
@@ -1024,9 +1016,9 @@ message CreateSessionResponse {
 
 ### GetSession
 
-Retrieve session details.
+检索会话详细信息。
 
-**Request**:
+**请求**：
 ```protobuf
 message GetSessionRequest {
   string session_id = 1;
@@ -1034,7 +1026,7 @@ message GetSessionRequest {
 }
 ```
 
-**Response**:
+**响应**：
 ```protobuf
 message GetSessionResponse {
   Session session = 1;
@@ -1058,9 +1050,9 @@ message Session {
 
 ### UpdateSession
 
-Update session context or extend TTL.
+更新会话上下文或延长 TTL。
 
-**Request**:
+**请求**：
 ```protobuf
 message UpdateSessionRequest {
   string session_id = 1;
@@ -1069,7 +1061,7 @@ message UpdateSessionRequest {
 }
 ```
 
-**Response**:
+**响应**：
 ```protobuf
 message UpdateSessionResponse {
   bool success = 1;
@@ -1083,16 +1075,16 @@ message UpdateSessionResponse {
 
 ### DeleteSession
 
-Delete a session.
+删除会话。
 
-**Request**:
+**请求**：
 ```protobuf
 message DeleteSessionRequest {
   string session_id = 1;
 }
 ```
 
-**Response**:
+**响应**：
 ```protobuf
 message DeleteSessionResponse {
   bool success = 1;
@@ -1105,9 +1097,9 @@ message DeleteSessionResponse {
 
 ### ListSessions
 
-List user sessions.
+列出用户会话。
 
-**Request**:
+**请求**：
 ```protobuf
 message ListSessionsRequest {
   string user_id = 1;
@@ -1117,7 +1109,7 @@ message ListSessionsRequest {
 }
 ```
 
-**Response**:
+**响应**：
 ```protobuf
 message ListSessionsResponse {
   repeated SessionSummary sessions = 1;
@@ -1141,9 +1133,9 @@ message SessionSummary {
 
 ### AddMessage
 
-Add message to session history.
+向会话历史记录添加消息。
 
-**Request**:
+**请求**：
 ```protobuf
 message AddMessageRequest {
   string session_id = 1;
@@ -1160,7 +1152,7 @@ message Message {
 }
 ```
 
-**Response**:
+**响应**：
 ```protobuf
 message AddMessageResponse {
   bool success = 1;
@@ -1174,9 +1166,9 @@ message AddMessageResponse {
 
 ### ClearHistory
 
-Clear session message history.
+清除会话消息历史记录。
 
-**Request**:
+**请求**：
 ```protobuf
 message ClearHistoryRequest {
   string session_id = 1;
@@ -1184,7 +1176,7 @@ message ClearHistoryRequest {
 }
 ```
 
-**Response**:
+**响应**：
 ```protobuf
 message ClearHistoryResponse {
   bool success = 1;
@@ -1195,33 +1187,33 @@ message ClearHistoryResponse {
 
 ---
 
-## Error Handling
+## 错误处理
 
-### Status Codes
+### 状态码
 
-All responses include a `StatusCode`:
-- `STATUS_CODE_OK (1)` - Success
-- `STATUS_CODE_ERROR (2)` - Generic error
-- `STATUS_CODE_TIMEOUT (3)` - Operation timeout
-- `STATUS_CODE_RATE_LIMITED (4)` - Rate limit exceeded
-- `STATUS_CODE_BUDGET_EXCEEDED (5)` - Token/cost budget exceeded
+所有响应都包含 `StatusCode`：
+- `STATUS_CODE_OK (1)` - 成功
+- `STATUS_CODE_ERROR (2)` - 通用错误
+- `STATUS_CODE_TIMEOUT (3)` - 操作超时
+- `STATUS_CODE_RATE_LIMITED (4)` - 超出速率限制
+- `STATUS_CODE_BUDGET_EXCEEDED (5)` - 超出 token/成本预算
 
-### gRPC Status Codes
+### gRPC 状态码
 
-Standard gRPC status codes used:
-- `OK (0)` - Success
-- `CANCELLED (1)` - Request cancelled
-- `INVALID_ARGUMENT (3)` - Invalid request parameters
-- `DEADLINE_EXCEEDED (4)` - Timeout
-- `NOT_FOUND (5)` - Resource not found
-- `ALREADY_EXISTS (6)` - Resource already exists
-- `PERMISSION_DENIED (7)` - Insufficient permissions
-- `RESOURCE_EXHAUSTED (8)` - Rate limit/quota exceeded
-- `UNAUTHENTICATED (16)` - Missing/invalid credentials
-- `UNAVAILABLE (14)` - Service unavailable
-- `INTERNAL (13)` - Internal server error
+使用的标准 gRPC 状态码：
+- `OK (0)` - 成功
+- `CANCELLED (1)` - 请求已取消
+- `INVALID_ARGUMENT (3)` - 无效的请求参数
+- `DEADLINE_EXCEEDED (4)` - 超时
+- `NOT_FOUND (5)` - 资源未找到
+- `ALREADY_EXISTS (6)` - 资源已存在
+- `PERMISSION_DENIED (7)` - 权限不足
+- `RESOURCE_EXHAUSTED (8)` - 超出速率限制/配额
+- `UNAUTHENTICATED (16)` - 缺少/无效凭据
+- `UNAVAILABLE (14)` - 服务不可用
+- `INTERNAL (13)` - 内部服务器错误
 
-### Example Error Handling (Python)
+### 错误处理示例（Python）
 
 ```python
 import grpc
@@ -1256,25 +1248,25 @@ except grpc.RpcError as e:
 
 ---
 
-## Service Endpoints
+## 服务端点
 
-| Service | Default Port | Protocol | TLS |
+| 服务 | 默认端口 | 协议 | TLS |
 |---------|-------------|----------|-----|
-| OrchestratorService | 50052 | gRPC (HTTP/2) | Optional |
-| StreamingService | 50052 | gRPC (HTTP/2) | Optional |
-| AgentService | 50051 | gRPC (HTTP/2) | Optional |
-| LLMService | 8000 | gRPC (HTTP/2) | Optional |
-| SessionService | 50052 | gRPC (HTTP/2) | Optional |
+| OrchestratorService | 50052 | gRPC (HTTP/2) | 可选 |
+| StreamingService | 50052 | gRPC (HTTP/2) | 可选 |
+| AgentService | 50051 | gRPC (HTTP/2) | 可选 |
+| LLMService | 8000 | gRPC (HTTP/2) | 可选 |
+| SessionService | 50052 | gRPC (HTTP/2) | 可选 |
 
-**Gateway REST API** also available on port 8080 (HTTP/REST wrapper around gRPC).
+**Gateway REST API** 也可在端口 8080 上使用（gRPC 的 HTTP/REST 包装器）。
 
-See [REST API Reference](/cn/api/rest/overview) for HTTP endpoints.
+参见 [REST API 参考](/cn/api/rest/overview)了解 HTTP 端点。
 
 ---
 
-## Code Generation
+## 代码生成
 
-Generate client code from .proto files:
+从 .proto 文件生成客户端代码：
 
 ### Python
 ```bash
@@ -1303,26 +1295,19 @@ protoc -I protos \
 
 ---
 
-## Related Topics
+## 相关主题
 
 <CardGroup cols={2}>
   <Card title="REST API" icon="globe" href="/cn/api/rest/overview">
-    HTTP REST endpoints
+    HTTP REST 端点
   </Card>
-  <Card title="Event Types" icon="stream" href="/cn/api/event-types">
-    Streaming event catalog
+  <Card title="事件类型" icon="stream" href="/cn/api/event-types">
+    流事件目录
   </Card>
   <Card title="Python SDK" icon="python" href="/cn/sdk/python/quickstart">
-    Python client library
+    Python 客户端库
   </Card>
-  <Card title="Database Schema" icon="database" href="/cn/architecture/database-schema">
-    Data persistence
+  <Card title="数据库架构" icon="database" href="/cn/architecture/database-schema">
+    数据持久化
   </Card>
 </CardGroup>
-
-
----
-
-## 参与翻译
-
-如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。

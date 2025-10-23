@@ -1,382 +1,374 @@
 ---
-title: "Configuration Troubleshooting"
-description: "Common configuration issues and solutions"
+title: "配置故障排除"
+description: "常见配置问题和解决方案"
 ---
 
-> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
+## 概述
 
-**原文件**: `deployment/configuration-troubleshooting.mdx`
-**英文版本**: [查看英文文档](/en/deployment/configuration-troubleshooting)
+本指南涵盖常见配置问题、如何诊断以及行之有效的解决方案。
 
----
+## 快速诊断
 
-
-## Overview
-
-This guide covers common configuration issues, how to diagnose them, and proven solutions.
-
-## Quick Diagnostics
-
-### Check Environment Variables
+### 检查环境变量
 
 ```bash
-# View all environment variables for a service
+# 查看服务的所有环境变量
 docker compose exec orchestrator env | sort
 
-# Check specific variable
+# 检查特定变量
 docker compose exec orchestrator env | grep MAX_COST_PER_REQUEST
 
-# Check if variable is set
+# 检查变量是否已设置
 docker compose exec orchestrator printenv MAX_COST_PER_REQUEST
 ```
 
-### Verify Configuration Files
+### 验证配置文件
 
 ```bash
-# Check if config file exists
+# 检查配置文件是否存在
 docker compose exec orchestrator ls -la ./config/
 
-# View config file contents
+# 查看配置文件内容
 docker compose exec orchestrator cat ./config/features.yaml
 
-# Check for syntax errors
+# 检查语法错误
 docker compose exec orchestrator cat ./config/models.yaml | yq .
 ```
 
-### Check Service Health
+### 检查服务健康状态
 
 ```bash
-# Gateway health
+# Gateway 健康检查
 curl http://localhost:8080/health
 
-# Orchestrator metrics
+# Orchestrator 指标
 curl http://localhost:2112/metrics
 
-# Agent Core health
+# Agent Core 健康检查
 grpcurl -plaintext localhost:50051 list
 ```
 
-## Common Issues
+## 常见问题
 
-### 1. Services Won't Start
+### 1. 服务无法启动
 
-#### Missing Environment Variables
+#### 缺少环境变量
 
-**Symptoms**:
-- Service crashes immediately
-- Logs show "variable not set" errors
-- Container exits with code 1
+**症状**:
+- 服务立即崩溃
+- 日志显示 "variable not set" 错误
+- 容器以代码 1 退出
 
-**Diagnosis**:
+**诊断**:
 ```bash
 docker compose logs orchestrator | grep -i "not set\|missing\|required"
 ```
 
-**Solution**:
+**解决方案**:
 ```bash
-# Check .env file exists
+# 检查 .env 文件是否存在
 ls -la .env
 
-# Verify required variables are set
+# 验证必需的变量已设置
 grep -E "OPENAI_API_KEY|POSTGRES" .env
 
-# Copy from example if missing
+# 如果缺失则从示例复制
 cp .env.example .env
-nano .env  # Fill in required values
+nano .env  # 填入必需的值
 
-# Restart services
+# 重启服务
 docker compose restart
 ```
 
-**Required Variables**:
-- At least one LLM provider key (OPENAI_API_KEY, ANTHROPIC_API_KEY, etc.)
-- Database credentials (POSTGRES_*)
-- Redis connection (REDIS_*)
+**必需变量**:
+- 至少一个 LLM 提供商密钥 (OPENAI_API_KEY, ANTHROPIC_API_KEY 等)
+- 数据库凭据 (POSTGRES_*)
+- Redis 连接 (REDIS_*)
 
-#### Invalid Configuration Syntax
+#### 无效的配置语法
 
-**Symptoms**:
-- "Failed to parse config" errors
-- YAML syntax errors
-- Service fails to start
+**症状**:
+- "Failed to parse config" 错误
+- YAML 语法错误
+- 服务启动失败
 
-**Diagnosis**:
+**诊断**:
 ```bash
-# Check YAML syntax
+# 检查 YAML 语法
 docker compose exec orchestrator cat ./config/features.yaml | yq .
 ```
 
-**Solution**:
+**解决方案**:
 ```bash
-# Validate YAML locally
+# 本地验证 YAML
 yq eval ./config/features.yaml
 
-# Check for common issues
+# 检查常见问题
 cat ./config/features.yaml | grep -E "^\s+- |^\w+:"
 
-# Reset to defaults
+# 重置为默认值
 cp ./config/features.yaml.example ./config/features.yaml
 ```
 
-### 2. Authentication Failures
+### 2. 身份认证失败
 
-#### Gateway Returns 401 Unauthorized
+#### Gateway 返回 401 未授权
 
-**Symptoms**:
-- All requests return 401
-- "Unauthorized" error
-- API key rejected
+**症状**:
+- 所有请求返回 401
+- "Unauthorized" 错误
+- API 密钥被拒绝
 
-**Diagnosis**:
+**诊断**:
 ```bash
-# Check if auth is enabled
+# 检查是否启用了身份认证
 docker compose exec gateway env | grep GATEWAY_SKIP_AUTH
 
-# Test with curl
+# 使用 curl 测试
 curl -v http://localhost:8080/api/v1/tasks \
   -H "X-API-Key: sk_test_123456" 2>&1 | grep "401"
 ```
 
-**Solution 1**: Disable auth for development
+**解决方案 1**: 为开发环境禁用身份认证
 ```bash
-# Add to .env
+# 添加到 .env
 GATEWAY_SKIP_AUTH=1
 
-# Restart gateway
+# 重启 gateway
 docker compose restart gateway
 
-# Test
+# 测试
 curl http://localhost:8080/api/v1/tasks
 ```
 
-**Solution 2**: Use valid API key
+**解决方案 2**: 使用有效的 API 密钥
 ```bash
-# Insert API key in database
+# 在数据库中插入 API 密钥
 docker compose exec postgres psql -U shannon -d shannon -c "
 INSERT INTO auth.api_keys (key, user_id, tenant_id, name, enabled)
 VALUES ('sk_test_123456', gen_random_uuid(), gen_random_uuid(), 'Test Key', true);
 "
 
-# Test with key
+# 使用密钥测试
 curl -H "X-API-Key: sk_test_123456" \
   http://localhost:8080/api/v1/tasks
 ```
 
-#### JWT Secret Not Set
+#### JWT 密钥未设置
 
-**Symptoms**:
-- "JWT secret not configured" error
-- Authentication middleware fails
+**症状**:
+- "JWT secret not configured" 错误
+- 身份认证中间件失败
 
-**Solution**:
+**解决方案**:
 ```bash
-# Generate secure secret
+# 生成安全密钥
 JWT_SECRET=$(openssl rand -base64 32)
 
-# Add to .env
+# 添加到 .env
 echo "JWT_SECRET=$JWT_SECRET" >> .env
 
-# Restart gateway
+# 重启 gateway
 docker compose restart gateway
 ```
 
-### 3. Database Connection Issues
+### 3. 数据库连接问题
 
-#### Cannot Connect to PostgreSQL
+#### 无法连接到 PostgreSQL
 
-**Symptoms**:
-- "connection refused" errors
+**症状**:
+- "connection refused" 错误
 - "dial tcp: connect: connection refused"
-- Services crash on startup
+- 服务启动时崩溃
 
-**Diagnosis**:
+**诊断**:
 ```bash
-# Check if PostgreSQL is running
+# 检查 PostgreSQL 是否运行
 docker compose ps postgres
 
-# Check PostgreSQL logs
+# 检查 PostgreSQL 日志
 docker compose logs postgres --tail=50
 
-# Test connection
+# 测试连接
 docker compose exec postgres pg_isready -U shannon
 ```
 
-**Solution 1**: PostgreSQL not started
+**解决方案 1**: PostgreSQL 未启动
 ```bash
-# Start PostgreSQL
+# 启动 PostgreSQL
 docker compose up -d postgres
 
-# Wait for ready
+# 等待就绪
 docker compose exec postgres pg_isready -U shannon
 
-# Restart dependent services
+# 重启依赖服务
 docker compose restart gateway orchestrator
 ```
 
-**Solution 2**: Wrong credentials
+**解决方案 2**: 凭据错误
 ```bash
-# Verify .env settings
+# 验证 .env 设置
 grep POSTGRES .env
 
-# Should match docker-compose.yml
+# 应与 docker-compose.yml 匹配
 docker compose exec postgres psql -U shannon -d shannon -c "SELECT 1;"
 
-# If password wrong, update .env and restart
+# 如果密码错误,更新 .env 并重启
 docker compose down
 docker compose up -d
 ```
 
-**Solution 3**: Port conflict
+**解决方案 3**: 端口冲突
 ```bash
-# Check if port 5432 is in use
+# 检查端口 5432 是否被占用
 lsof -i :5432
 
-# If conflict, change port in .env
+# 如果冲突,在 .env 中更改端口
 POSTGRES_PORT=5433
 
-# Update docker-compose.yml
-# Restart
+# 更新 docker-compose.yml
+# 重启
 docker compose down
 docker compose up -d
 ```
 
-#### Database Schema Not Initialized
+#### 数据库架构未初始化
 
-**Symptoms**:
-- "table does not exist" errors
-- "column not found" errors
-- SQL errors in logs
+**症状**:
+- "table does not exist" 错误
+- "column not found" 错误
+- 日志中的 SQL 错误
 
-**Solution**:
+**解决方案**:
 ```bash
-# Run migrations
+# 运行迁移
 docker compose exec orchestrator make migrate
 
-# Or reset database (⚠️ DESTRUCTIVE)
+# 或重置数据库 (⚠️ 破坏性操作)
 docker compose down -v
 docker compose up -d
 ```
 
-### 4. Redis Connection Issues
+### 4. Redis 连接问题
 
-#### Cannot Connect to Redis
+#### 无法连接到 Redis
 
-**Symptoms**:
-- "connection refused" to Redis
-- Session state not persisting
-- Cache misses
+**症状**:
+- Redis "connection refused"
+- 会话状态不持久
+- 缓存未命中
 
-**Diagnosis**:
+**诊断**:
 ```bash
-# Check Redis status
+# 检查 Redis 状态
 docker compose ps redis
 
-# Test connection
+# 测试连接
 docker compose exec redis redis-cli ping
 
-# Check logs
+# 检查日志
 docker compose logs redis --tail=20
 ```
 
-**Solution**:
+**解决方案**:
 ```bash
-# Start Redis
+# 启动 Redis
 docker compose up -d redis
 
-# Test connection
+# 测试连接
 docker compose exec redis redis-cli ping
-# Should return: PONG
+# 应返回: PONG
 
-# Restart dependent services
+# 重启依赖服务
 docker compose restart gateway orchestrator llm-service
 ```
 
-#### Redis Authentication Failed
+#### Redis 认证失败
 
-**Symptoms**:
+**症状**:
 - "NOAUTH Authentication required"
-- Connection works but commands fail
+- 连接正常但命令失败
 
-**Solution**:
+**解决方案**:
 ```bash
-# Check if password is set
+# 检查是否设置了密码
 docker compose exec redis redis-cli CONFIG GET requirepass
 
-# If password required, add to .env
+# 如果需要密码,添加到 .env
 REDIS_PASSWORD=your-password
 
-# Or disable auth (development only)
+# 或禁用认证 (仅开发环境)
 docker compose exec redis redis-cli CONFIG SET requirepass ""
 
-# Restart services
+# 重启服务
 docker compose restart
 ```
 
-### 5. LLM Provider Issues
+### 5. LLM 提供商问题
 
-#### API Key Invalid or Expired
+#### API 密钥无效或过期
 
-**Symptoms**:
-- "Invalid API key" errors
-- 401 from LLM provider
-- Tasks fail immediately
+**症状**:
+- "Invalid API key" 错误
+- LLM 提供商返回 401
+- 任务立即失败
 
-**Diagnosis**:
+**诊断**:
 ```bash
-# Check which provider is configured
+# 检查配置了哪个提供商
 docker compose exec llm-service env | grep API_KEY
 
-# Test OpenAI key
+# 测试 OpenAI 密钥
 curl https://api.openai.com/v1/models \
   -H "Authorization: Bearer $OPENAI_API_KEY"
 
-# Test Anthropic key
+# 测试 Anthropic 密钥
 curl https://api.anthropic.com/v1/messages \
   -H "X-API-Key: $ANTHROPIC_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"model":"claude-3-haiku-20240307","max_tokens":10,"messages":[{"role":"user","content":"Hi"}]}'
 ```
 
-**Solution**:
+**解决方案**:
 ```bash
-# Update key in .env
+# 在 .env 中更新密钥
 OPENAI_API_KEY=sk-...new-key...
 
-# Restart LLM service
+# 重启 LLM 服务
 docker compose restart llm-service
 
-# Verify
+# 验证
 docker compose logs llm-service | grep "API key"
 ```
 
-#### Rate Limit Exceeded
+#### 超出速率限制
 
-**Symptoms**:
-- 429 errors from LLM provider
-- "Rate limit exceeded" in logs
-- Tasks timeout or fail
+**症状**:
+- LLM 提供商返回 429 错误
+- 日志中显示 "Rate limit exceeded"
+- 任务超时或失败
 
-**Solution 1**: Wait for rate limit reset
+**解决方案 1**: 等待速率限制重置
 ```bash
-# Check rate limit headers
+# 检查速率限制标头
 docker compose logs llm-service | grep "rate"
 
-# Typical reset: 60 seconds for most providers
+# 典型重置时间: 大多数提供商为 60 秒
 ```
 
-**Solution 2**: Configure rate limiting
+**解决方案 2**: 配置速率限制
 ```bash
-# Add to .env
-RATE_LIMIT_REQUESTS=50  # Lower than provider limit
+# 添加到 .env
+RATE_LIMIT_REQUESTS=50  # 低于提供商限制
 RATE_LIMIT_WINDOW=60
 
-# Restart
+# 重启
 docker compose restart llm-service
 ```
 
-**Solution 3**: Use multiple providers
+**解决方案 3**: 使用多个提供商
 ```bash
-# Configure fallback providers in models.yaml
+# 在 models.yaml 中配置备用提供商
 providers:
   - id: openai
     primary: true
@@ -384,301 +376,301 @@ providers:
     fallback: true
 ```
 
-#### Quota Exceeded
+#### 超出配额
 
-**Symptoms**:
-- "insufficient_quota" errors
+**症状**:
+- "insufficient_quota" 错误
 - "You exceeded your current quota"
-- All LLM calls fail
+- 所有 LLM 调用失败
 
-**Solution**:
+**解决方案**:
 ```bash
-# Check quota
+# 检查配额
 # OpenAI: https://platform.openai.com/account/usage
 # Anthropic: https://console.anthropic.com/settings/limits
 
-# Add credits or upgrade plan
-# Or use different provider
+# 添加额度或升级计划
+# 或使用不同的提供商
 OPENAI_API_KEY=
 ANTHROPIC_API_KEY=sk-ant-...
 
-# Restart
+# 重启
 docker compose restart llm-service
 ```
 
-### 6. Model Configuration Issues
+### 6. 模型配置问题
 
-#### Model Not Found
+#### 模型未找到
 
-**Symptoms**:
-- "model not found" errors
-- "invalid model" errors
-- Tasks fail with model errors
+**症状**:
+- "model not found" 错误
+- "invalid model" 错误
+- 任务因模型错误而失败
 
-**Diagnosis**:
+**诊断**:
 ```bash
-# Check configured models
+# 检查配置的模型
 docker compose exec llm-service cat ./config/models.yaml | grep "id:"
 
-# Check environment variables
+# 检查环境变量
 docker compose exec orchestrator env | grep MODEL
 ```
 
-**Solution**:
+**解决方案**:
 ```bash
-# Use valid model IDs in .env
+# 在 .env 中使用有效的模型 ID
 DEFAULT_MODEL_TIER=small
-COMPLEXITY_MODEL_ID=gpt-4o  # Verify this exists
+COMPLEXITY_MODEL_ID=gpt-4o  # 验证此模型存在
 DECOMPOSITION_MODEL_ID=claude-sonnet-4-20250514
 
-# Or configure in models.yaml
+# 或在 models.yaml 中配置
 docker compose exec orchestrator cat ./config/models.yaml
 
-# Restart
+# 重启
 docker compose restart orchestrator llm-service
 ```
 
-### 7. Budget and Cost Issues
+### 7. 预算和成本问题
 
-#### Tasks Exceed Budget
+#### 任务超出预算
 
-**Symptoms**:
-- "Budget exceeded" errors
-- Tasks fail with cost errors
-- `MAX_COST_PER_REQUEST` exceeded
+**症状**:
+- "Budget exceeded" 错误
+- 任务因成本错误而失败
+- 超出 `MAX_COST_PER_REQUEST`
 
-**Solution**:
+**解决方案**:
 ```bash
-# Increase budget limits
-# In .env:
-MAX_COST_PER_REQUEST=1.00  # Increase from 0.50
-MAX_TOKENS_PER_REQUEST=20000  # Increase from 10000
+# 提高预算限制
+# 在 .env 中:
+MAX_COST_PER_REQUEST=1.00  # 从 0.50 提高
+MAX_TOKENS_PER_REQUEST=20000  # 从 10000 提高
 
-# Restart
+# 重启
 docker compose restart orchestrator
 
-# Or use cheaper models
-DEFAULT_MODEL_TIER=small  # Use GPT-4o-mini instead of GPT-4
+# 或使用更便宜的模型
+DEFAULT_MODEL_TIER=small  # 使用 GPT-4o-mini 代替 GPT-4
 ```
 
-#### Budget Enforcement Not Working
+#### 预算执行未生效
 
-**Symptoms**:
-- Costs exceed limits
-- No budget errors
+**症状**:
+- 成本超出限制
+- 没有预算错误
 
-**Diagnosis**:
+**诊断**:
 ```bash
-# Check budget enforcement
+# 检查预算执行
 docker compose exec orchestrator env | grep LLM_DISABLE_BUDGETS
 ```
 
-**Solution**:
+**解决方案**:
 ```bash
-# Enable budget enforcement
-LLM_DISABLE_BUDGETS=1  # Orchestrator enforces budgets
+# 启用预算执行
+LLM_DISABLE_BUDGETS=1  # Orchestrator 执行预算
 
-# Set limits
+# 设置限制
 MAX_COST_PER_REQUEST=0.50
 MAX_TOKENS_PER_REQUEST=10000
 
-# Restart
+# 重启
 docker compose restart orchestrator
 ```
 
-### 8. Performance Issues
+### 8. 性能问题
 
-#### Slow Task Execution
+#### 任务执行缓慢
 
-**Symptoms**:
-- Tasks take 2-3x expected time
-- High latency
-- Timeouts
+**症状**:
+- 任务耗时是预期的 2-3 倍
+- 高延迟
+- 超时
 
-**Diagnosis**:
+**诊断**:
 ```bash
-# Check resource usage
+# 检查资源使用情况
 docker stats
 
-# Check worker concurrency
+# 检查 worker 并发
 docker compose exec orchestrator env | grep WORKER
 
-# Check tool parallelism
+# 检查工具并行度
 docker compose exec orchestrator env | grep TOOL_PARALLELISM
 ```
 
-**Solution 1**: Increase parallelism
+**解决方案 1**: 提高并行度
 ```bash
-# In .env:
-TOOL_PARALLELISM=10  # Increase from 5
-WORKER_ACT_CRITICAL=20  # Increase from 10
+# 在 .env 中:
+TOOL_PARALLELISM=10  # 从 5 提高
+WORKER_ACT_CRITICAL=20  # 从 10 提高
 
-# Restart
+# 重启
 docker compose restart orchestrator
 ```
 
-**Solution 2**: Enable caching
+**解决方案 2**: 启用缓存
 ```bash
-# In .env:
+# 在 .env 中:
 ENABLE_CACHE=true
 CACHE_SIMILARITY_THRESHOLD=0.95
 
-# Restart
+# 重启
 docker compose restart llm-service
 ```
 
-**Solution 3**: Optimize model selection
+**解决方案 3**: 优化模型选择
 ```bash
-# Use faster models
-DEFAULT_MODEL_TIER=small  # GPT-4o-mini is 10x faster than GPT-4
+# 使用更快的模型
+DEFAULT_MODEL_TIER=small  # GPT-4o-mini 比 GPT-4 快 10 倍
 ```
 
-#### High Memory Usage
+#### 高内存使用
 
-**Symptoms**:
-- OOM errors
-- Container restarts
-- High swap usage
+**症状**:
+- OOM 错误
+- 容器重启
+- 高交换区使用
 
-**Diagnosis**:
+**诊断**:
 ```bash
 docker stats
 ```
 
-**Solution**:
+**解决方案**:
 ```bash
-# Reduce cache sizes
-HISTORY_WINDOW_MESSAGES=25  # Reduce from 50
-STREAMING_RING_CAPACITY=500  # Reduce from 1000
+# 减少缓存大小
+HISTORY_WINDOW_MESSAGES=25  # 从 50 减少
+STREAMING_RING_CAPACITY=500  # 从 1000 减少
 
-# Limit tool parallelism
-TOOL_PARALLELISM=3  # Reduce from 5
+# 限制工具并行度
+TOOL_PARALLELISM=3  # 从 5 减少
 
-# Restart
+# 重启
 docker compose restart
 ```
 
-### 9. Streaming Issues
+### 9. 流式传输问题
 
-#### SSE Connection Drops
+#### SSE 连接断开
 
-**Symptoms**:
-- SSE stream disconnects
-- Events stop mid-task
-- "Connection closed" errors
+**症状**:
+- SSE 流断开连接
+- 事件在任务执行中途停止
+- "Connection closed" 错误
 
-**Solution 1**: Increase timeouts
+**解决方案 1**: 增加超时时间
 ```bash
-# In nginx/proxy config:
+# 在 nginx/proxy 配置中:
 proxy_read_timeout 600s;
 proxy_connect_timeout 600s;
 
-# In docker-compose.yml for gateway:
+# 在 gateway 的 docker-compose.yml 中:
 GATEWAY_READ_TIMEOUT=600
 ```
 
-**Solution 2**: Handle reconnection
+**解决方案 2**: 处理重连
 ```python
-# Client-side reconnection
+# 客户端重连
 while True:
     try:
         for event in stream_events(task_id):
             process(event)
-        break  # Task completed
+        break  # 任务完成
     except ConnectionError:
-        time.sleep(2)  # Wait and retry
+        time.sleep(2)  # 等待并重试
 ```
 
-#### Events Not Received
+#### 未收到事件
 
-**Symptoms**:
-- No events in stream
-- Empty SSE response
-- Stream connects but no data
+**症状**:
+- 流中没有事件
+- 空的 SSE 响应
+- 流连接但没有数据
 
-**Diagnosis**:
+**诊断**:
 ```bash
-# Check if events are being created
+# 检查是否正在创建事件
 docker compose exec postgres psql -U shannon -d shannon -c "
 SELECT COUNT(*) FROM event_logs WHERE workflow_id = 'task_abc123';
 "
 
-# Check Redis streams
+# 检查 Redis 流
 docker compose exec redis redis-cli XLEN "stream:task_abc123"
 ```
 
-**Solution**:
+**解决方案**:
 ```bash
-# Verify admin server is running
+# 验证管理服务器正在运行
 docker compose ps orchestrator
 
-# Check admin server endpoint
+# 检查管理服务器端点
 curl http://localhost:8081/health
 
-# Restart orchestrator
+# 重启 orchestrator
 docker compose restart orchestrator
 ```
 
-### 10. Tool Execution Issues
+### 10. 工具执行问题
 
-#### Python Code Execution Fails
+#### Python 代码执行失败
 
-**Symptoms**:
+**症状**:
 - "WASI interpreter not found"
-- Python code tools fail
-- Sandbox errors
+- Python 代码工具失败
+- 沙箱错误
 
-**Solution**:
+**解决方案**:
 ```bash
-# Download Python WASI interpreter
+# 下载 Python WASI 解释器
 ./scripts/setup_python_wasi.sh
 
-# Or manual download
+# 或手动下载
 wget https://github.com/vmware-labs/webassembly-language-runtimes/releases/download/python%2F3.11.4%2B20230908-ba7c2cf/python-3.11.4.wasm
 mkdir -p ./wasm-interpreters
 mv python-3.11.4.wasm ./wasm-interpreters/
 
-# Verify path in .env
+# 在 .env 中验证路径
 PYTHON_WASI_WASM_PATH=./wasm-interpreters/python-3.11.4.wasm
 
-# Restart
+# 重启
 docker compose restart agent-core llm-service
 ```
 
-#### Tool Timeout
+#### 工具超时
 
-**Symptoms**:
-- "Tool execution timeout" errors
-- Tools hang indefinitely
-- WASI timeout errors
+**症状**:
+- "Tool execution timeout" 错误
+- 工具无限期挂起
+- WASI 超时错误
 
-**Solution**:
+**解决方案**:
 ```bash
-# Increase timeouts
-WASI_TIMEOUT_SECONDS=120  # Increase from 60
-ENFORCE_TIMEOUT_SECONDS=180  # Increase from 90
+# 增加超时时间
+WASI_TIMEOUT_SECONDS=120  # 从 60 提高
+ENFORCE_TIMEOUT_SECONDS=180  # 从 90 提高
 
-# Restart
+# 重启
 docker compose restart agent-core
 ```
 
-## Configuration Validation
+## 配置验证
 
-### Validate All Settings
+### 验证所有设置
 
 ```bash
 #!/bin/bash
 
-echo "=== Shannon Configuration Validation ==="
+echo "=== Shannon 配置验证 ==="
 
-# Check .env file
+# 检查 .env 文件
 if [ ! -f .env ]; then
-  echo "❌ .env file not found"
+  echo "❌ .env 文件未找到"
   exit 1
 fi
-echo "✓ .env file exists"
+echo "✓ .env 文件存在"
 
-# Check required variables
+# 检查必需的变量
 required_vars=(
   "POSTGRES_HOST"
   "REDIS_HOST"
@@ -687,65 +679,65 @@ required_vars=(
 
 for var in "${required_vars[@]}"; do
   if grep -q "^${var}=" .env; then
-    echo "✓ $var is set"
+    echo "✓ $var 已设置"
   else
-    echo "❌ $var is missing"
+    echo "❌ $var 缺失"
   fi
 done
 
-# Check at least one LLM provider
+# 检查至少一个 LLM 提供商
 if grep -qE "^(OPENAI|ANTHROPIC|GOOGLE)_API_KEY=.+" .env; then
-  echo "✓ LLM provider configured"
+  echo "✓ LLM 提供商已配置"
 else
-  echo "❌ No LLM provider API key set"
+  echo "❌ 未设置 LLM 提供商 API 密钥"
 fi
 
-# Check services are running
+# 检查服务是否运行
 echo ""
-echo "=== Service Health ==="
+echo "=== 服务健康状态 ==="
 services=("postgres" "redis" "temporal" "qdrant" "orchestrator" "agent-core" "llm-service" "gateway")
 
 for service in "${services[@]}"; do
   if docker compose ps | grep -q "$service.*running"; then
-    echo "✓ $service is running"
+    echo "✓ $service 正在运行"
   else
-    echo "❌ $service is not running"
+    echo "❌ $service 未运行"
   fi
 done
 
 echo ""
-echo "=== Endpoint Tests ==="
+echo "=== 端点测试 ==="
 
-# Test Gateway
+# 测试 Gateway
 if curl -f -s http://localhost:8080/health > /dev/null; then
-  echo "✓ Gateway health check passed"
+  echo "✓ Gateway 健康检查通过"
 else
-  echo "❌ Gateway health check failed"
+  echo "❌ Gateway 健康检查失败"
 fi
 
-# Test Orchestrator metrics
+# 测试 Orchestrator 指标
 if curl -f -s http://localhost:2112/metrics > /dev/null; then
-  echo "✓ Orchestrator metrics available"
+  echo "✓ Orchestrator 指标可用"
 else
-  echo "❌ Orchestrator metrics failed"
+  echo "❌ Orchestrator 指标失败"
 fi
 
 echo ""
-echo "=== Configuration Validation Complete ==="
+echo "=== 配置验证完成 ==="
 ```
 
-## Best Practices
+## 最佳实践
 
-### 1. Use Environment-Specific Configs
+### 1. 使用特定环境的配置
 
 ```bash
-# Development
+# 开发环境
 .env.development
 ENVIRONMENT=dev
 DEBUG=true
 GATEWAY_SKIP_AUTH=1
 
-# Production
+# 生产环境
 .env.production
 ENVIRONMENT=prod
 DEBUG=false
@@ -753,95 +745,88 @@ GATEWAY_SKIP_AUTH=0
 JWT_SECRET=<secure-secret>
 ```
 
-### 2. Document Custom Settings
+### 2. 记录自定义设置
 
 ```bash
-# In .env, add comments
-# Custom rate limit for high-volume API
-RATE_LIMIT_REQUESTS=500  # Increased for enterprise tier
+# 在 .env 中添加注释
+# 用于高流量 API 的自定义速率限制
+RATE_LIMIT_REQUESTS=500  # 为企业级增加
 ```
 
-### 3. Version Control
+### 3. 版本控制
 
 ```bash
 # .gitignore
 .env
 .env.local
 
-# Commit templates
+# 提交模板
 .env.example
 .env.template
 ```
 
-### 4. Regular Validation
+### 4. 定期验证
 
 ```bash
-# Add to CI/CD
+# 添加到 CI/CD
 ./scripts/validate-config.sh
 ```
 
-### 5. Monitor Configuration
+### 5. 监控配置
 
 ```bash
-# Track configuration changes
+# 跟踪配置更改
 git diff .env.example
 
-# Alert on critical changes
-# Monitor environment variables in production
+# 关键更改时发出警报
+# 在生产环境中监控环境变量
 ```
 
-## Quick Fixes Checklist
+## 快速修复检查清单
 
-When things go wrong, try these in order:
+当出现问题时,按顺序尝试以下方法:
 
-- [ ] Restart all services: `docker compose restart`
-- [ ] Check logs: `docker compose logs --tail=50`
-- [ ] Verify .env file exists and has required variables
-- [ ] Test database connection: `docker compose exec postgres pg_isready`
-- [ ] Test Redis: `docker compose exec redis redis-cli ping`
-- [ ] Verify at least one LLM API key is set
-- [ ] Check disk space: `df -h`
-- [ ] Check memory: `docker stats`
-- [ ] Full reset (last resort): `docker compose down -v && docker compose up -d`
+- [ ] 重启所有服务: `docker compose restart`
+- [ ] 检查日志: `docker compose logs --tail=50`
+- [ ] 验证 .env 文件存在且包含必需变量
+- [ ] 测试数据库连接: `docker compose exec postgres pg_isready`
+- [ ] 测试 Redis: `docker compose exec redis redis-cli ping`
+- [ ] 验证至少设置了一个 LLM API 密钥
+- [ ] 检查磁盘空间: `df -h`
+- [ ] 检查内存: `docker stats`
+- [ ] 完全重置 (最后手段): `docker compose down -v && docker compose up -d`
 
-## Getting Help
+## 获取帮助
 
-If issues persist:
+如果问题持续存在:
 
-1. **Collect logs**:
+1. **收集日志**:
    ```bash
    docker compose logs > shannon-logs.txt
    ```
 
-2. **Export configuration**:
+2. **导出配置**:
    ```bash
    docker compose exec orchestrator env | grep -v API_KEY > config.txt
    ```
 
-3. **Check GitHub issues**: https://github.com/Kocoro-lab/Shannon/issues
+3. **查看 GitHub issues**: https://github.com/Kocoro-lab/Shannon/issues
 
-4. **Join Discord**: https://discord.gg/NB7C2fMcQR
+4. **加入 Discord**: https://discord.gg/NB7C2fMcQR
 
-## Related Documentation
+## 相关文档
 
 <CardGroup cols={2}>
-  <Card title="Environment Variables" icon="gear" href="/cn/deployment/environment-variables">
-    Complete variable reference
+  <Card title="环境变量" icon="gear" href="/cn/deployment/environment-variables">
+    完整变量参考
   </Card>
   <Card title="Docker Compose" icon="docker" href="/cn/deployment/docker-compose">
-    Docker deployment guide
+    Docker 部署指南
   </Card>
-  <Card title="Troubleshooting" icon="wrench" href="/cn/quickstart/troubleshooting">
-    General troubleshooting
+  <Card title="故障排除" icon="wrench" href="/cn/quickstart/troubleshooting">
+    通用故障排除
   </Card>
-  <Card title="Performance Tuning" icon="gauge" href="/cn/deployment/performance-tuning">
-    Performance optimization
+  <Card title="性能调优" icon="gauge" href="/cn/deployment/performance-tuning">
+    性能优化
   </Card>
 </CardGroup>
-
-
----
-
-## 参与翻译
-
-如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。
