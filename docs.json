@@ -39,6 +39,20 @@
     }
   ],
   "navigation": {
+    "global": {
+      "anchors": [
+        {
+          "anchor": "GitHub",
+          "icon": "github",
+          "href": "https://github.com/Kocoro-lab/Shannon"
+        },
+        {
+          "anchor": "Community",
+          "icon": "discord",
+          "href": "https://discord.gg/NB7C2fMcQR"
+        }
+      ]
+    },
     "languages": [
       {
         "language": "en",
