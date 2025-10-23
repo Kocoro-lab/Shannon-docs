@@ -207,7 +207,131 @@
           {
             "group": "入门指南",
             "pages": [
-              "cn/quickstart/index"
+              "cn/quickstart/index",
+              "cn/quickstart/installation",
+              "cn/quickstart/quickstart"
+            ]
+          },
+          {
+            "group": "核心概念",
+            "pages": [
+              "cn/quickstart/concepts/agents",
+              "cn/quickstart/concepts/workflows",
+              "cn/quickstart/concepts/cost-control",
+              "cn/quickstart/concepts/streaming",
+              "cn/quickstart/concepts/monitoring"
+            ]
+          },
+          {
+            "group": "指南",
+            "pages": [
+              "cn/quickstart/configuration",
+              "cn/quickstart/troubleshooting"
+            ]
+          },
+          {
+            "group": "概览",
+            "pages": [
+              "cn/api/overview",
+              "cn/api/authentication",
+              "cn/api/event-types"
+            ]
+          },
+          {
+            "group": "REST API",
+            "pages": [
+              "cn/api/rest/overview",
+              "cn/api/rest/submit-task",
+              "cn/api/rest/list-tasks",
+              "cn/api/rest/get-status",
+              "cn/api/rest/streaming",
+              "cn/api/rest/authentication"
+            ]
+          },
+          {
+            "group": "遗留端点",
+            "pages": [
+              "cn/api/endpoints/submit-task",
+              "cn/api/endpoints/get-task-status",
+              "cn/api/endpoints/list-tasks",
+              "cn/api/endpoints/cancel-task",
+              "cn/api/endpoints/stream-task",
+              "cn/api/endpoints/sessions"
+            ]
+          },
+          {
+            "group": "Python SDK",
+            "pages": [
+              "cn/sdk/python/installation",
+              "cn/sdk/python/quickstart",
+              "cn/sdk/python/streaming",
+              "cn/sdk/python/async-usage",
+              "cn/sdk/python/examples",
+              "cn/sdk/python/error-handling"
+            ]
+          },
+          {
+            "group": "教程",
+            "pages": [
+              "cn/tutorials/index"
+            ]
+          },
+          {
+            "group": "构建智能体",
+            "pages": [
+              "cn/tutorials/research-assistant",
+              "cn/tutorials/code-review-bot",
+              "cn/tutorials/data-analysis"
+            ]
+          },
+          {
+            "group": "高级模式",
+            "pages": [
+              "cn/tutorials/custom-tools",
+              "cn/tutorials/multi-agent-systems"
+            ]
+          },
+          {
+            "group": "部署",
+            "pages": [
+              "cn/deployment/index",
+              "cn/deployment/docker-compose",
+              "cn/deployment/kubernetes"
+            ]
+          },
+          {
+            "group": "云平台",
+            "pages": [
+              "cn/deployment/aws",
+              "cn/deployment/azure"
+            ]
+          },
+          {
+            "group": "运维",
+            "pages": [
+              "cn/deployment/environment-variables",
+              "cn/deployment/configuration-troubleshooting",
+              "cn/deployment/monitoring",
+              "cn/deployment/performance-tuning",
+              "cn/deployment/security"
+            ]
+          },
+          {
+            "group": "系统设计",
+            "pages": [
+              "cn/architecture/overview",
+              "cn/architecture/components",
+              "cn/architecture/data-flow",
+              "cn/architecture/grpc-api",
+              "cn/architecture/database-schema"
+            ]
+          },
+          {
+            "group": "深度探讨",
+            "pages": [
+              "cn/architecture/temporal-workflows",
+              "cn/architecture/vector-memory",
+              "cn/architecture/tool-execution"
             ]
           }
         ]
