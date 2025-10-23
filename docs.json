@@ -64,305 +64,291 @@
       "url": "https://discord.gg/NB7C2fMcQR"
     }
   ],
-  "navigation": [
-    {
-      "language": "en",
-      "group": "Getting Started",
-      "pages": [
-        "en/quickstart/index",
-        "en/quickstart/installation",
-        "en/quickstart/quickstart"
-      ]
-    },
-    {
-      "language": "en",
-      "group": "Core Concepts",
-      "pages": [
-        "en/quickstart/concepts/agents",
-        "en/quickstart/concepts/workflows",
-        "en/quickstart/concepts/cost-control",
-        "en/quickstart/concepts/streaming",
-        "en/quickstart/concepts/monitoring"
-      ]
-    },
-    {
-      "language": "en",
-      "group": "Guides",
-      "pages": [
-        "en/quickstart/configuration",
-        "en/quickstart/troubleshooting"
-      ]
-    },
-    {
-      "language": "en",
-      "group": "Overview",
-      "pages": [
-        "en/api/overview",
-        "en/api/authentication",
-        "en/api/event-types"
-      ]
-    },
-    {
-      "language": "en",
-      "group": "REST API",
-      "pages": [
-        "en/api/rest/overview",
-        "en/api/rest/submit-task",
-        "en/api/rest/list-tasks",
-        "en/api/rest/get-status",
-        "en/api/rest/streaming",
-        "en/api/rest/authentication"
-      ]
-    },
-    {
-      "language": "en",
-      "group": "Legacy Endpoints",
-      "pages": [
-        "en/api/endpoints/submit-task",
-        "en/api/endpoints/get-task-status",
-        "en/api/endpoints/list-tasks",
-        "en/api/endpoints/cancel-task",
-        "en/api/endpoints/stream-task",
-        "en/api/endpoints/sessions"
-      ]
-    },
-    {
-      "language": "en",
-      "group": "Python SDK",
-      "pages": [
-        "en/sdk/python/installation",
-        "en/sdk/python/quickstart",
-        "en/sdk/python/streaming",
-        "en/sdk/python/async-usage",
-        "en/sdk/python/examples",
-        "en/sdk/python/error-handling"
-      ]
-    },
-    {
-      "language": "en",
-      "group": "Tutorials",
-      "pages": [
-        "en/tutorials/index"
-      ]
-    },
-    {
-      "language": "en",
-      "group": "Building Agents",
-      "pages": [
-        "en/tutorials/research-assistant",
-        "en/tutorials/code-review-bot",
-        "en/tutorials/data-analysis"
-      ]
-    },
-    {
-      "language": "en",
-      "group": "Advanced Patterns",
-      "pages": [
-        "en/tutorials/custom-tools",
-        "en/tutorials/multi-agent-systems"
-      ]
-    },
-    {
-      "language": "en",
-      "group": "Deployment",
-      "pages": [
-        "en/deployment/index",
-        "en/deployment/docker-compose",
-        "en/deployment/kubernetes"
-      ]
-    },
-    {
-      "language": "en",
-      "group": "Cloud Platforms",
-      "pages": [
-        "en/deployment/aws",
-        "en/deployment/azure"
-      ]
-    },
-    {
-      "language": "en",
-      "group": "Operations",
-      "pages": [
-        "en/deployment/environment-variables",
-        "en/deployment/configuration-troubleshooting",
-        "en/deployment/monitoring",
-        "en/deployment/performance-tuning",
-        "en/deployment/security"
-      ]
-    },
-    {
-      "language": "en",
-      "group": "System Design",
-      "pages": [
-        "en/architecture/overview",
-        "en/architecture/components",
-        "en/architecture/data-flow",
-        "en/architecture/grpc-api",
-        "en/architecture/database-schema"
-      ]
-    },
-    {
-      "language": "en",
-      "group": "Deep Dives",
-      "pages": [
-        "en/architecture/temporal-workflows",
-        "en/architecture/vector-memory",
-        "en/architecture/tool-execution"
-      ]
-    },
-    {
-      "language": "zh-Hans",
-      "group": "入门指南",
-      "pages": [
-        "cn/quickstart/index",
-        "cn/quickstart/installation",
-        "cn/quickstart/quickstart"
-      ]
-    },
-    {
-      "language": "zh-Hans",
-      "group": "核心概念",
-      "pages": [
-        "cn/quickstart/concepts/agents",
-        "cn/quickstart/concepts/workflows",
-        "cn/quickstart/concepts/cost-control",
-        "cn/quickstart/concepts/streaming",
-        "cn/quickstart/concepts/monitoring"
-      ]
-    },
-    {
-      "language": "zh-Hans",
-      "group": "指南",
-      "pages": [
-        "cn/quickstart/configuration",
-        "cn/quickstart/troubleshooting"
-      ]
-    },
-    {
-      "language": "zh-Hans",
-      "group": "概览",
-      "pages": [
-        "cn/api/overview",
-        "cn/api/authentication",
-        "cn/api/event-types"
-      ]
-    },
-    {
-      "language": "zh-Hans",
-      "group": "REST API",
-      "pages": [
-        "cn/api/rest/overview",
-        "cn/api/rest/submit-task",
-        "cn/api/rest/list-tasks",
-        "cn/api/rest/get-status",
-        "cn/api/rest/streaming",
-        "cn/api/rest/authentication"
-      ]
-    },
-    {
-      "language": "zh-Hans",
-      "group": "遗留端点",
-      "pages": [
-        "cn/api/endpoints/submit-task",
-        "cn/api/endpoints/get-task-status",
-        "cn/api/endpoints/list-tasks",
-        "cn/api/endpoints/cancel-task",
-        "cn/api/endpoints/stream-task",
-        "cn/api/endpoints/sessions"
-      ]
-    },
-    {
-      "language": "zh-Hans",
-      "group": "Python SDK",
-      "pages": [
-        "cn/sdk/python/installation",
-        "cn/sdk/python/quickstart",
-        "cn/sdk/python/streaming",
-        "cn/sdk/python/async-usage",
-        "cn/sdk/python/examples",
-        "cn/sdk/python/error-handling"
-      ]
-    },
-    {
-      "language": "zh-Hans",
-      "group": "教程",
-      "pages": [
-        "cn/tutorials/index"
-      ]
-    },
-    {
-      "language": "zh-Hans",
-      "group": "构建智能体",
-      "pages": [
-        "cn/tutorials/research-assistant",
-        "cn/tutorials/code-review-bot",
-        "cn/tutorials/data-analysis"
-      ]
-    },
-    {
-      "language": "zh-Hans",
-      "group": "高级模式",
-      "pages": [
-        "cn/tutorials/custom-tools",
-        "cn/tutorials/multi-agent-systems"
-      ]
-    },
-    {
-      "language": "zh-Hans",
-      "group": "部署",
-      "pages": [
-        "cn/deployment/index",
-        "cn/deployment/docker-compose",
-        "cn/deployment/kubernetes"
-      ]
-    },
-    {
-      "language": "zh-Hans",
-      "group": "云平台",
-      "pages": [
-        "cn/deployment/aws",
-        "cn/deployment/azure"
-      ]
-    },
-    {
-      "language": "zh-Hans",
-      "group": "运维",
-      "pages": [
-        "cn/deployment/environment-variables",
-        "cn/deployment/configuration-troubleshooting",
-        "cn/deployment/monitoring",
-        "cn/deployment/performance-tuning",
-        "cn/deployment/security"
-      ]
-    },
-    {
-      "language": "zh-Hans",
-      "group": "系统设计",
-      "pages": [
-        "cn/architecture/overview",
-        "cn/architecture/components",
-        "cn/architecture/data-flow",
-        "cn/architecture/grpc-api",
-        "cn/architecture/database-schema"
-      ]
-    },
-    {
-      "language": "zh-Hans",
-      "group": "深度探讨",
-      "pages": [
-        "cn/architecture/temporal-workflows",
-        "cn/architecture/vector-memory",
-        "cn/architecture/tool-execution"
-      ]
-    },
-    {
-      "language": "ja",
-      "group": "はじめに",
-      "pages": [
-        "ja/quickstart/index"
-      ]
-    }
-  ],
+  "navigation": {
+    "languages": [
+      {
+        "language": "en",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "en/quickstart/index",
+              "en/quickstart/installation",
+              "en/quickstart/quickstart"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "en/quickstart/concepts/agents",
+              "en/quickstart/concepts/workflows",
+              "en/quickstart/concepts/cost-control",
+              "en/quickstart/concepts/streaming",
+              "en/quickstart/concepts/monitoring"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "en/quickstart/configuration",
+              "en/quickstart/troubleshooting"
+            ]
+          },
+          {
+            "group": "Overview",
+            "pages": [
+              "en/api/overview",
+              "en/api/authentication",
+              "en/api/event-types"
+            ]
+          },
+          {
+            "group": "REST API",
+            "pages": [
+              "en/api/rest/overview",
+              "en/api/rest/submit-task",
+              "en/api/rest/list-tasks",
+              "en/api/rest/get-status",
+              "en/api/rest/streaming",
+              "en/api/rest/authentication"
+            ]
+          },
+          {
+            "group": "Legacy Endpoints",
+            "pages": [
+              "en/api/endpoints/submit-task",
+              "en/api/endpoints/get-task-status",
+              "en/api/endpoints/list-tasks",
+              "en/api/endpoints/cancel-task",
+              "en/api/endpoints/stream-task",
+              "en/api/endpoints/sessions"
+            ]
+          },
+          {
+            "group": "Python SDK",
+            "pages": [
+              "en/sdk/python/installation",
+              "en/sdk/python/quickstart",
+              "en/sdk/python/streaming",
+              "en/sdk/python/async-usage",
+              "en/sdk/python/examples",
+              "en/sdk/python/error-handling"
+            ]
+          },
+          {
+            "group": "Tutorials",
+            "pages": [
+              "en/tutorials/index"
+            ]
+          },
+          {
+            "group": "Building Agents",
+            "pages": [
+              "en/tutorials/research-assistant",
+              "en/tutorials/code-review-bot",
+              "en/tutorials/data-analysis"
+            ]
+          },
+          {
+            "group": "Advanced Patterns",
+            "pages": [
+              "en/tutorials/custom-tools",
+              "en/tutorials/multi-agent-systems"
+            ]
+          },
+          {
+            "group": "Deployment",
+            "pages": [
+              "en/deployment/index",
+              "en/deployment/docker-compose",
+              "en/deployment/kubernetes"
+            ]
+          },
+          {
+            "group": "Cloud Platforms",
+            "pages": [
+              "en/deployment/aws",
+              "en/deployment/azure"
+            ]
+          },
+          {
+            "group": "Operations",
+            "pages": [
+              "en/deployment/environment-variables",
+              "en/deployment/configuration-troubleshooting",
+              "en/deployment/monitoring",
+              "en/deployment/performance-tuning",
+              "en/deployment/security"
+            ]
+          },
+          {
+            "group": "System Design",
+            "pages": [
+              "en/architecture/overview",
+              "en/architecture/components",
+              "en/architecture/data-flow",
+              "en/architecture/grpc-api",
+              "en/architecture/database-schema"
+            ]
+          },
+          {
+            "group": "Deep Dives",
+            "pages": [
+              "en/architecture/temporal-workflows",
+              "en/architecture/vector-memory",
+              "en/architecture/tool-execution"
+            ]
+          }
+        ]
+      },
+      {
+        "language": "zh-Hans",
+        "groups": [
+          {
+            "group": "入门指南",
+            "pages": [
+              "cn/quickstart/index",
+              "cn/quickstart/installation",
+              "cn/quickstart/quickstart"
+            ]
+          },
+          {
+            "group": "核心概念",
+            "pages": [
+              "cn/quickstart/concepts/agents",
+              "cn/quickstart/concepts/workflows",
+              "cn/quickstart/concepts/cost-control",
+              "cn/quickstart/concepts/streaming",
+              "cn/quickstart/concepts/monitoring"
+            ]
+          },
+          {
+            "group": "指南",
+            "pages": [
+              "cn/quickstart/configuration",
+              "cn/quickstart/troubleshooting"
+            ]
+          },
+          {
+            "group": "概览",
+            "pages": [
+              "cn/api/overview",
+              "cn/api/authentication",
+              "cn/api/event-types"
+            ]
+          },
+          {
+            "group": "REST API",
+            "pages": [
+              "cn/api/rest/overview",
+              "cn/api/rest/submit-task",
+              "cn/api/rest/list-tasks",
+              "cn/api/rest/get-status",
+              "cn/api/rest/streaming",
+              "cn/api/rest/authentication"
+            ]
+          },
+          {
+            "group": "遗留端点",
+            "pages": [
+              "cn/api/endpoints/submit-task",
+              "cn/api/endpoints/get-task-status",
+              "cn/api/endpoints/list-tasks",
+              "cn/api/endpoints/cancel-task",
+              "cn/api/endpoints/stream-task",
+              "cn/api/endpoints/sessions"
+            ]
+          },
+          {
+            "group": "Python SDK",
+            "pages": [
+              "cn/sdk/python/installation",
+              "cn/sdk/python/quickstart",
+              "cn/sdk/python/streaming",
+              "cn/sdk/python/async-usage",
+              "cn/sdk/python/examples",
+              "cn/sdk/python/error-handling"
+            ]
+          },
+          {
+            "group": "教程",
+            "pages": [
+              "cn/tutorials/index"
+            ]
+          },
+          {
+            "group": "构建智能体",
+            "pages": [
+              "cn/tutorials/research-assistant",
+              "cn/tutorials/code-review-bot",
+              "cn/tutorials/data-analysis"
+            ]
+          },
+          {
+            "group": "高级模式",
+            "pages": [
+              "cn/tutorials/custom-tools",
+              "cn/tutorials/multi-agent-systems"
+            ]
+          },
+          {
+            "group": "部署",
+            "pages": [
+              "cn/deployment/index",
+              "cn/deployment/docker-compose",
+              "cn/deployment/kubernetes"
+            ]
+          },
+          {
+            "group": "云平台",
+            "pages": [
+              "cn/deployment/aws",
+              "cn/deployment/azure"
+            ]
+          },
+          {
+            "group": "运维",
+            "pages": [
+              "cn/deployment/environment-variables",
+              "cn/deployment/configuration-troubleshooting",
+              "cn/deployment/monitoring",
+              "cn/deployment/performance-tuning",
+              "cn/deployment/security"
+            ]
+          },
+          {
+            "group": "系统设计",
+            "pages": [
+              "cn/architecture/overview",
+              "cn/architecture/components",
+              "cn/architecture/data-flow",
+              "cn/architecture/grpc-api",
+              "cn/architecture/database-schema"
+            ]
+          },
+          {
+            "group": "深度探讨",
+            "pages": [
+              "cn/architecture/temporal-workflows",
+              "cn/architecture/vector-memory",
+              "cn/architecture/tool-execution"
+            ]
+          }
+        ]
+      },
+      {
+        "language": "ja",
+        "groups": [
+          {
+            "group": "はじめに",
+            "pages": [
+              "ja/quickstart/index"
+            ]
+          }
+        ]
+      }
+    ]
+  },
   "footerSocials": {
     "github": "https://github.com/Kocoro-lab/Shannon",
     "twitter": "https://x.com/shannon_agents"
