@@ -11,16 +11,16 @@ description: "Complete PostgreSQL database schema reference for Shannon"
 ---
 
 
-## Overview
+## 概述
 
-Shannon uses PostgreSQL with pgvector extension for persistent storage. The database is organized into two schemas:
-- **`public`**: Core application tables (tasks, sessions, users, events)
-- **`auth`**: Authentication and multi-tenancy tables
+Shannon 使用带 pgvector 扩展的 PostgreSQL 进行持久化存储。数据库组织为两个模式：
+- **`public`**: 核心应用表（任务、会话、用户、事件）
+- **`auth`**: 身份验证和多租户表
 
-**Total Tables**: 18 tables
-**Extensions**: uuid-ossp, pg_trgm, btree_gin, pgcrypto
+**总表数**: 18 张表
+**扩展**: uuid-ossp, pg_trgm, btree_gin, pgcrypto
 
-## Entity Relationship Diagram
+## 实体关系图
 
 ```
 ┌─────────────────┐
@@ -68,37 +68,37 @@ Shannon uses PostgreSQL with pgvector extension for persistent storage. The data
 └──────────────────────────┘        └───────────────────┘
 ```
 
-## Schema: `auth` (Authentication & Multi-Tenancy)
+## 模式: `auth`（身份验证和多租户）
 
 ### auth.tenants
 
-**Purpose**: Multi-tenant organization management
+**用途**: 多租户组织管理
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
-| id | UUID | PK, DEFAULT gen_random_uuid() | Tenant identifier |
-| name | VARCHAR(255) | NOT NULL | Organization name |
-| slug | VARCHAR(100) | UNIQUE, NOT NULL | URL-safe identifier |
-| plan | VARCHAR(50) | DEFAULT 'free' | Subscription plan (free, pro, enterprise) |
-| token_limit | INTEGER | DEFAULT 10000 | Monthly token allowance |
-| monthly_token_usage | INTEGER | DEFAULT 0 | Current month usage |
-| rate_limit_per_hour | INTEGER | DEFAULT 1000 | API rate limit |
-| is_active | BOOLEAN | DEFAULT true | Tenant status |
-| created_at | TIMESTAMP | DEFAULT NOW() | Creation time |
-| updated_at | TIMESTAMP | DEFAULT NOW() | Last update time |
-| metadata | JSONB | DEFAULT '{}' | Additional tenant data |
+| id | UUID | PK, DEFAULT gen_random_uuid() | 租户标识符 |
+| name | VARCHAR(255) | NOT NULL | 组织名称 |
+| slug | VARCHAR(100) | UNIQUE, NOT NULL | URL 安全标识符 |
+| plan | VARCHAR(50) | DEFAULT 'free' | 订阅计划（free, pro, enterprise） |
+| token_limit | INTEGER | DEFAULT 10000 | 每月 token 配额 |
+| monthly_token_usage | INTEGER | DEFAULT 0 | 当前月使用量 |
+| rate_limit_per_hour | INTEGER | DEFAULT 1000 | API 速率限制 |
+| is_active | BOOLEAN | DEFAULT true | 租户状态 |
+| created_at | TIMESTAMP | DEFAULT NOW() | 创建时间 |
+| updated_at | TIMESTAMP | DEFAULT NOW() | 最后更新时间 |
+| metadata | JSONB | DEFAULT '{}' | 附加租户数据 |
 
-**Indexes**:
-- None (small table, PK sufficient)
+**索引**:
+- 无（小表，主键足够）
 
-**Example**:
+**示例**:
 ```sql
--- Get all active tenants
+-- 获取所有活动租户
 SELECT id, name, plan, token_limit
 FROM auth.tenants
 WHERE is_active = true;
 
--- Check token usage
+-- 检查 token 使用情况
 SELECT name, monthly_token_usage, token_limit,
        (monthly_token_usage::FLOAT / token_limit * 100) as usage_percentage
 FROM auth.tenants
@@ -107,39 +107,39 @@ WHERE monthly_token_usage > token_limit * 0.8;
 
 ### auth.users
 
-**Purpose**: User authentication and profile management
+**用途**: 用户身份验证和配置文件管理
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
-| id | UUID | PK, DEFAULT gen_random_uuid() | User identifier |
-| email | VARCHAR(255) | UNIQUE, NOT NULL | User email |
-| username | VARCHAR(100) | UNIQUE, NOT NULL | Username |
-| password_hash | VARCHAR(255) | NOT NULL | Bcrypt password hash |
-| full_name | VARCHAR(255) | | Full name |
-| tenant_id | UUID | FK → auth.tenants, NOT NULL | Organization |
-| role | VARCHAR(50) | DEFAULT 'user' | Role (user, admin, owner) |
-| is_active | BOOLEAN | DEFAULT true | Account status |
-| is_verified | BOOLEAN | DEFAULT false | Email verification |
-| email_verified_at | TIMESTAMP | | Verification timestamp |
-| created_at | TIMESTAMP | DEFAULT NOW() | Account creation |
-| updated_at | TIMESTAMP | DEFAULT NOW() | Last update |
-| last_login | TIMESTAMP | | Last login time |
-| metadata | JSONB | DEFAULT '{}' | Additional user data |
+| id | UUID | PK, DEFAULT gen_random_uuid() | 用户标识符 |
+| email | VARCHAR(255) | UNIQUE, NOT NULL | 用户邮箱 |
+| username | VARCHAR(100) | UNIQUE, NOT NULL | 用户名 |
+| password_hash | VARCHAR(255) | NOT NULL | Bcrypt 密码哈希 |
+| full_name | VARCHAR(255) | | 全名 |
+| tenant_id | UUID | FK → auth.tenants, NOT NULL | 组织 |
+| role | VARCHAR(50) | DEFAULT 'user' | 角色（user, admin, owner） |
+| is_active | BOOLEAN | DEFAULT true | 账户状态 |
+| is_verified | BOOLEAN | DEFAULT false | 邮箱验证 |
+| email_verified_at | TIMESTAMP | | 验证时间戳 |
+| created_at | TIMESTAMP | DEFAULT NOW() | 账户创建 |
+| updated_at | TIMESTAMP | DEFAULT NOW() | 最后更新 |
+| last_login | TIMESTAMP | | 最后登录时间 |
+| metadata | JSONB | DEFAULT '{}' | 附加用户数据 |
 
-**Indexes**:
+**索引**:
 - `idx_users_tenant_id` ON (tenant_id)
 - `idx_users_email` ON (email)
 
-**Example**:
+**示例**:
 ```sql
--- Get all users in a tenant
+-- 获取租户中的所有用户
 SELECT u.email, u.username, u.role, u.last_login
 FROM auth.users u
 WHERE u.tenant_id = '...'
   AND u.is_active = true
 ORDER BY u.last_login DESC NULLS LAST;
 
--- Find inactive users
+-- 查找非活动用户
 SELECT email, created_at, last_login
 FROM auth.users
 WHERE last_login < NOW() - INTERVAL '90 days'
@@ -148,50 +148,50 @@ WHERE last_login < NOW() - INTERVAL '90 days'
 
 ### auth.api_keys
 
-**Purpose**: API key management for programmatic access
+**用途**: 用于程序化访问的 API 密钥管理
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
-| id | UUID | PK, DEFAULT gen_random_uuid() | Key identifier |
-| key_hash | VARCHAR(255) | UNIQUE, NOT NULL | SHA256 hash of key |
-| key_prefix | VARCHAR(20) | NOT NULL | First 8 chars (for display) |
-| user_id | UUID | FK → auth.users | Key owner |
-| tenant_id | UUID | FK → auth.tenants, NOT NULL | Organization |
-| name | VARCHAR(100) | NOT NULL | Key name/description |
-| description | TEXT | | Detailed description |
-| scopes | TEXT[] | DEFAULT [...] | Permissions array |
-| rate_limit_per_hour | INTEGER | DEFAULT 1000 | Key-specific rate limit |
-| last_used | TIMESTAMP | | Last usage timestamp |
-| expires_at | TIMESTAMP | | Expiration time |
-| is_active | BOOLEAN | DEFAULT true | Key status |
-| created_at | TIMESTAMP | DEFAULT NOW() | Creation time |
-| metadata | JSONB | DEFAULT '{}' | Additional key data |
+| id | UUID | PK, DEFAULT gen_random_uuid() | 密钥标识符 |
+| key_hash | VARCHAR(255) | UNIQUE, NOT NULL | 密钥的 SHA256 哈希 |
+| key_prefix | VARCHAR(20) | NOT NULL | 前 8 个字符（用于显示） |
+| user_id | UUID | FK → auth.users | 密钥所有者 |
+| tenant_id | UUID | FK → auth.tenants, NOT NULL | 组织 |
+| name | VARCHAR(100) | NOT NULL | 密钥名称/描述 |
+| description | TEXT | | 详细描述 |
+| scopes | TEXT[] | DEFAULT [...] | 权限数组 |
+| rate_limit_per_hour | INTEGER | DEFAULT 1000 | 密钥特定速率限制 |
+| last_used | TIMESTAMP | | 最后使用时间戳 |
+| expires_at | TIMESTAMP | | 过期时间 |
+| is_active | BOOLEAN | DEFAULT true | 密钥状态 |
+| created_at | TIMESTAMP | DEFAULT NOW() | 创建时间 |
+| metadata | JSONB | DEFAULT '{}' | 附加密钥数据 |
 
-**Indexes**:
+**索引**:
 - `idx_api_keys_tenant_id` ON (tenant_id)
 - `idx_api_keys_key_prefix` ON (key_prefix)
 
-**Default Scopes**:
-- `workflows:read` - Read task/workflow data
-- `workflows:write` - Create/modify workflows
-- `agents:execute` - Execute agent tasks
+**默认作用域**:
+- `workflows:read` - 读取任务/工作流数据
+- `workflows:write` - 创建/修改工作流
+- `agents:execute` - 执行智能体任务
 
-**Example**:
+**示例**:
 ```sql
--- List active API keys
+-- 列出活动 API 密钥
 SELECT key_prefix, name, last_used, expires_at
 FROM auth.api_keys
 WHERE is_active = true
   AND (expires_at IS NULL OR expires_at > NOW())
 ORDER BY last_used DESC NULLS LAST;
 
--- Find unused keys
+-- 查找未使用的密钥
 SELECT key_prefix, name, created_at, last_used
 FROM auth.api_keys
 WHERE last_used IS NULL
   AND created_at < NOW() - INTERVAL '30 days';
 
--- Check expiring keys
+-- 检查即将过期的密钥
 SELECT key_prefix, name, expires_at
 FROM auth.api_keys
 WHERE expires_at BETWEEN NOW() AND NOW() + INTERVAL '7 days'
@@ -200,75 +200,75 @@ WHERE expires_at BETWEEN NOW() AND NOW() + INTERVAL '7 days'
 
 ### auth.refresh_tokens
 
-**Purpose**: JWT refresh token storage and revocation
+**用途**: JWT 刷新令牌存储和撤销
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
-| id | UUID | PK, DEFAULT gen_random_uuid() | Token identifier |
-| token_hash | VARCHAR(255) | UNIQUE, NOT NULL | SHA256 hash |
-| user_id | UUID | FK → auth.users | Token owner |
-| tenant_id | UUID | FK → auth.tenants, NOT NULL | Organization |
-| expires_at | TIMESTAMP | NOT NULL | Expiration time |
-| revoked | BOOLEAN | DEFAULT false | Revocation status |
-| revoked_at | TIMESTAMP | | Revocation time |
-| ip_address | INET | | Client IP |
-| user_agent | TEXT | | Client user agent |
-| created_at | TIMESTAMP | DEFAULT NOW() | Creation time |
+| id | UUID | PK, DEFAULT gen_random_uuid() | 令牌标识符 |
+| token_hash | VARCHAR(255) | UNIQUE, NOT NULL | SHA256 哈希 |
+| user_id | UUID | FK → auth.users | 令牌所有者 |
+| tenant_id | UUID | FK → auth.tenants, NOT NULL | 组织 |
+| expires_at | TIMESTAMP | NOT NULL | 过期时间 |
+| revoked | BOOLEAN | DEFAULT false | 撤销状态 |
+| revoked_at | TIMESTAMP | | 撤销时间 |
+| ip_address | INET | | 客户端 IP |
+| user_agent | TEXT | | 客户端用户代理 |
+| created_at | TIMESTAMP | DEFAULT NOW() | 创建时间 |
 
-**Indexes**:
+**索引**:
 - `idx_refresh_tokens_user_id` ON (user_id)
 - `idx_refresh_tokens_token_hash` ON (token_hash)
 
-**Example**:
+**示例**:
 ```sql
--- Revoke all tokens for a user
+-- 撤销用户的所有令牌
 UPDATE auth.refresh_tokens
 SET revoked = true, revoked_at = NOW()
 WHERE user_id = '...'
   AND revoked = false;
 
--- Clean up expired tokens
+-- 清理过期令牌
 DELETE FROM auth.refresh_tokens
 WHERE expires_at < NOW() - INTERVAL '7 days';
 ```
 
 ### auth.audit_logs
 
-**Purpose**: Security event audit trail
+**用途**: 安全事件审计跟踪
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
-| id | UUID | PK, DEFAULT gen_random_uuid() | Log entry ID |
-| event_type | VARCHAR(100) | NOT NULL | Event type |
-| user_id | UUID | FK → auth.users | User (nullable) |
-| tenant_id | UUID | FK → auth.tenants | Tenant (nullable) |
-| ip_address | INET | | Client IP |
-| user_agent | TEXT | | Client user agent |
-| details | JSONB | DEFAULT '{}' | Event details |
-| created_at | TIMESTAMP | DEFAULT NOW() | Event time |
+| id | UUID | PK, DEFAULT gen_random_uuid() | 日志条目 ID |
+| event_type | VARCHAR(100) | NOT NULL | 事件类型 |
+| user_id | UUID | FK → auth.users | 用户（可为空） |
+| tenant_id | UUID | FK → auth.tenants | 租户（可为空） |
+| ip_address | INET | | 客户端 IP |
+| user_agent | TEXT | | 客户端用户代理 |
+| details | JSONB | DEFAULT '{}' | 事件详情 |
+| created_at | TIMESTAMP | DEFAULT NOW() | 事件时间 |
 
-**Indexes**:
+**索引**:
 - `idx_audit_logs_user_id` ON (user_id)
 - `idx_audit_logs_tenant_id` ON (tenant_id)
 - `idx_audit_logs_event_type` ON (event_type)
 - `idx_audit_logs_created_at` ON (created_at)
 
-**Event Types**:
+**事件类型**:
 - `login`, `logout`, `login_failed`
 - `api_key_created`, `api_key_revoked`
 - `permission_changed`, `role_changed`
 - `password_changed`, `email_verified`
 
-**Example**:
+**示例**:
 ```sql
--- Recent security events
+-- 最近的安全事件
 SELECT event_type, user_id, ip_address, created_at
 FROM auth.audit_logs
 WHERE created_at > NOW() - INTERVAL '24 hours'
 ORDER BY created_at DESC
 LIMIT 100;
 
--- Failed login attempts
+-- 失败的登录尝试
 SELECT user_id, ip_address, COUNT(*) as attempts
 FROM auth.audit_logs
 WHERE event_type = 'login_failed'
@@ -277,59 +277,59 @@ GROUP BY user_id, ip_address
 HAVING COUNT(*) > 5;
 ```
 
-## Schema: `public` (Core Application)
+## 模式: `public`（核心应用）
 
 ### users
 
-**Purpose**: Application user profiles (legacy, linked to auth.users)
+**用途**: 应用用户配置文件（旧版，链接到 auth.users）
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
-| id | UUID | PK, DEFAULT uuid_generate_v4() | User identifier |
-| external_id | VARCHAR(255) | UNIQUE, NOT NULL | External system ID |
-| email | VARCHAR(255) | | Email address |
-| tenant_id | UUID | | Tenant reference |
-| metadata | JSONB | DEFAULT '{}' | User metadata |
-| created_at | TIMESTAMPTZ | DEFAULT NOW() | Creation time |
-| updated_at | TIMESTAMPTZ | DEFAULT NOW() | Last update |
+| id | UUID | PK, DEFAULT uuid_generate_v4() | 用户标识符 |
+| external_id | VARCHAR(255) | UNIQUE, NOT NULL | 外部系统 ID |
+| email | VARCHAR(255) | | 邮箱地址 |
+| tenant_id | UUID | | 租户引用 |
+| metadata | JSONB | DEFAULT '{}' | 用户元数据 |
+| created_at | TIMESTAMPTZ | DEFAULT NOW() | 创建时间 |
+| updated_at | TIMESTAMPTZ | DEFAULT NOW() | 最后更新 |
 
-**Indexes**:
+**索引**:
 - `idx_users_tenant_id` ON (tenant_id)
 - `idx_users_external_id` ON (external_id)
 
-**Note**: This table exists for backward compatibility. New code should use `auth.users`.
+**注意**: 此表存在是为了向后兼容。新代码应使用 `auth.users`。
 
 ### sessions
 
-**Purpose**: User session management and context
+**用途**: 用户会话管理和上下文
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
-| id | UUID | PK, DEFAULT uuid_generate_v4() | Session identifier |
-| user_id | UUID | FK → users | Session owner |
-| tenant_id | UUID | | Tenant reference |
-| context | JSONB | DEFAULT '{}' | Session context data |
-| token_budget | INTEGER | DEFAULT 10000 | Token allocation |
-| tokens_used | INTEGER | DEFAULT 0 | Tokens consumed |
-| created_at | TIMESTAMPTZ | DEFAULT NOW() | Session start |
-| updated_at | TIMESTAMPTZ | DEFAULT NOW() | Last activity |
-| expires_at | TIMESTAMPTZ | | Expiration time |
+| id | UUID | PK, DEFAULT uuid_generate_v4() | 会话标识符 |
+| user_id | UUID | FK → users | 会话所有者 |
+| tenant_id | UUID | | 租户引用 |
+| context | JSONB | DEFAULT '{}' | 会话上下文数据 |
+| token_budget | INTEGER | DEFAULT 10000 | Token 分配 |
+| tokens_used | INTEGER | DEFAULT 0 | 已消费的 tokens |
+| created_at | TIMESTAMPTZ | DEFAULT NOW() | 会话开始 |
+| updated_at | TIMESTAMPTZ | DEFAULT NOW() | 最后活动 |
+| expires_at | TIMESTAMPTZ | | 过期时间 |
 
-**Indexes**:
+**索引**:
 - `idx_sessions_user_id` ON (user_id)
 - `idx_sessions_tenant_id` ON (tenant_id)
 - `idx_sessions_expires_at` ON (expires_at)
 
-**Example**:
+**示例**:
 ```sql
--- Active sessions
+-- 活动会话
 SELECT id, user_id, tokens_used, token_budget, created_at
 FROM sessions
 WHERE expires_at > NOW()
   OR expires_at IS NULL
 ORDER BY created_at DESC;
 
--- Session token usage
+-- 会话 token 使用情况
 SELECT
     COUNT(*) as session_count,
     AVG(tokens_used) as avg_tokens,
@@ -340,36 +340,36 @@ WHERE created_at > NOW() - INTERVAL '24 hours';
 
 ### task_executions
 
-**Purpose**: Task/workflow execution history and metrics
+**用途**: 任务/工作流执行历史和指标
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
-| id | UUID | PK, DEFAULT uuid_generate_v4() | Task identifier |
-| workflow_id | VARCHAR(255) | UNIQUE, NOT NULL | Temporal workflow ID |
-| user_id | UUID | FK → users | Task creator |
-| tenant_id | UUID | | Tenant reference |
-| session_id | VARCHAR(255) | | Session identifier |
-| query | TEXT | NOT NULL | Task query/prompt |
-| mode | VARCHAR(50) | | Execution mode (SIMPLE, STANDARD, COMPLEX) |
-| status | VARCHAR(50) | NOT NULL | Task status |
-| started_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Start time |
-| completed_at | TIMESTAMPTZ | | Completion time |
-| result | TEXT | | Final result |
-| response | JSONB | DEFAULT '{}' | Structured response |
-| error_message | TEXT | | Error details |
-| total_tokens | INTEGER | DEFAULT 0 | Total tokens used |
-| prompt_tokens | INTEGER | DEFAULT 0 | Input tokens |
-| completion_tokens | INTEGER | DEFAULT 0 | Output tokens |
-| total_cost_usd | DECIMAL(10,6) | DEFAULT 0 | Total cost |
-| duration_ms | INTEGER | | Execution time (ms) |
-| agents_used | INTEGER | DEFAULT 0 | Number of agents |
-| tools_invoked | INTEGER | DEFAULT 0 | Number of tool calls |
-| cache_hits | INTEGER | DEFAULT 0 | Cache hit count |
-| complexity_score | DECIMAL(3,2) | | Complexity (0.0-1.0) |
-| metadata | JSONB | | Additional metadata |
-| created_at | TIMESTAMPTZ | DEFAULT NOW() | Record creation |
+| id | UUID | PK, DEFAULT uuid_generate_v4() | 任务标识符 |
+| workflow_id | VARCHAR(255) | UNIQUE, NOT NULL | Temporal 工作流 ID |
+| user_id | UUID | FK → users | 任务创建者 |
+| tenant_id | UUID | | 租户引用 |
+| session_id | VARCHAR(255) | | 会话标识符 |
+| query | TEXT | NOT NULL | 任务查询/提示 |
+| mode | VARCHAR(50) | | 执行模式（SIMPLE, STANDARD, COMPLEX） |
+| status | VARCHAR(50) | NOT NULL | 任务状态 |
+| started_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | 开始时间 |
+| completed_at | TIMESTAMPTZ | | 完成时间 |
+| result | TEXT | | 最终结果 |
+| response | JSONB | DEFAULT '{}' | 结构化响应 |
+| error_message | TEXT | | 错误详情 |
+| total_tokens | INTEGER | DEFAULT 0 | 使用的总 tokens |
+| prompt_tokens | INTEGER | DEFAULT 0 | 输入 tokens |
+| completion_tokens | INTEGER | DEFAULT 0 | 输出 tokens |
+| total_cost_usd | DECIMAL(10,6) | DEFAULT 0 | 总成本 |
+| duration_ms | INTEGER | | 执行时间（毫秒） |
+| agents_used | INTEGER | DEFAULT 0 | 智能体数量 |
+| tools_invoked | INTEGER | DEFAULT 0 | 工具调用数量 |
+| cache_hits | INTEGER | DEFAULT 0 | 缓存命中数 |
+| complexity_score | DECIMAL(3,2) | | 复杂度（0.0-1.0） |
+| metadata | JSONB | | 附加元数据 |
+| created_at | TIMESTAMPTZ | DEFAULT NOW() | 记录创建 |
 
-**Indexes**:
+**索引**:
 - `idx_task_user_session` ON (user_id, session_id)
 - `idx_task_created_at` ON (created_at DESC)
 - `idx_task_status` ON (status)
@@ -377,22 +377,22 @@ WHERE created_at > NOW() - INTERVAL '24 hours';
 - `idx_task_executions_tenant_id` ON (tenant_id)
 - `idx_task_executions_response` GIN (response)
 
-**Status Values**:
-- `RUNNING` - Task executing
-- `COMPLETED` - Successfully completed
-- `FAILED` - Failed with error
-- `CANCELLED` - Cancelled by user
+**状态值**:
+- `RUNNING` - 任务执行中
+- `COMPLETED` - 成功完成
+- `FAILED` - 失败并报错
+- `CANCELLED` - 用户取消
 
-**Example**:
+**示例**:
 ```sql
--- Recent tasks for user
+-- 用户最近的任务
 SELECT workflow_id, query, status, duration_ms, total_cost_usd
 FROM task_executions
 WHERE user_id = '...'
 ORDER BY started_at DESC
 LIMIT 20;
 
--- Failed tasks analysis
+-- 失败任务分析
 SELECT
     DATE(started_at) as date,
     COUNT(*) as failed_count,
@@ -403,7 +403,7 @@ WHERE status = 'FAILED'
 GROUP BY DATE(started_at)
 ORDER BY date DESC;
 
--- Cost analysis
+-- 成本分析
 SELECT
     user_id,
     COUNT(*) as task_count,
@@ -418,51 +418,51 @@ ORDER BY total_cost DESC;
 
 ### agent_executions
 
-**Purpose**: Individual agent execution details within tasks
+**用途**: 任务中单个智能体执行的详细信息
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
-| id | UUID | PK, DEFAULT uuid_generate_v4() | Execution ID |
-| task_execution_id | UUID | FK → task_executions | Parent task |
-| agent_id | VARCHAR(255) | NOT NULL | Agent identifier |
-| execution_order | INTEGER | NOT NULL | Execution sequence |
-| input | TEXT | NOT NULL | Agent input |
-| output | TEXT | | Agent output |
-| mode | VARCHAR(50) | | Execution mode |
-| state | VARCHAR(50) | | FSM state |
-| tokens_used | INTEGER | DEFAULT 0 | Tokens consumed |
-| cost_usd | DECIMAL(10,6) | DEFAULT 0 | Execution cost |
-| model_used | VARCHAR(100) | | LLM model |
-| duration_ms | INTEGER | | Execution time |
-| memory_used_mb | INTEGER | | Memory usage |
-| created_at | TIMESTAMPTZ | DEFAULT NOW() | Start time |
-| completed_at | TIMESTAMPTZ | | Completion time |
+| id | UUID | PK, DEFAULT uuid_generate_v4() | 执行 ID |
+| task_execution_id | UUID | FK → task_executions | 父任务 |
+| agent_id | VARCHAR(255) | NOT NULL | 智能体标识符 |
+| execution_order | INTEGER | NOT NULL | 执行顺序 |
+| input | TEXT | NOT NULL | 智能体输入 |
+| output | TEXT | | 智能体输出 |
+| mode | VARCHAR(50) | | 执行模式 |
+| state | VARCHAR(50) | | FSM 状态 |
+| tokens_used | INTEGER | DEFAULT 0 | 消费的 tokens |
+| cost_usd | DECIMAL(10,6) | DEFAULT 0 | 执行成本 |
+| model_used | VARCHAR(100) | | LLM 模型 |
+| duration_ms | INTEGER | | 执行时间 |
+| memory_used_mb | INTEGER | | 内存使用 |
+| created_at | TIMESTAMPTZ | DEFAULT NOW() | 开始时间 |
+| completed_at | TIMESTAMPTZ | | 完成时间 |
 
-**Indexes**:
+**索引**:
 - `idx_agent_task_execution` ON (task_execution_id)
 - `idx_agent_created_at` ON (created_at DESC)
 - `idx_agent_state` ON (state)
 
-**State Values**:
-- `IDLE` - Ready to execute
-- `ANALYZING` - Analyzing input
-- `PLANNING` - Creating execution plan
-- `RETRIEVING` - Retrieving context
-- `EXECUTING` - Running tools
-- `VALIDATING` - Validating output
-- `SYNTHESIZING` - Synthesizing results
-- `COMPLETED` - Successfully completed
-- `FAILED` - Failed with error
+**状态值**:
+- `IDLE` - 准备执行
+- `ANALYZING` - 分析输入
+- `PLANNING` - 创建执行计划
+- `RETRIEVING` - 检索上下文
+- `EXECUTING` - 运行工具
+- `VALIDATING` - 验证输出
+- `SYNTHESIZING` - 综合结果
+- `COMPLETED` - 成功完成
+- `FAILED` - 失败并报错
 
-**Example**:
+**示例**:
 ```sql
--- Agent execution chain for a task
+-- 任务的智能体执行链
 SELECT agent_id, execution_order, state, duration_ms, tokens_used
 FROM agent_executions
 WHERE task_execution_id = '...'
 ORDER BY execution_order;
 
--- Agent performance metrics
+-- 智能体性能指标
 SELECT
     agent_id,
     COUNT(*) as execution_count,
@@ -477,42 +477,42 @@ ORDER BY execution_count DESC;
 
 ### tool_executions
 
-**Purpose**: Tool invocation history and performance
+**用途**: 工具调用历史和性能
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
-| id | UUID | PK, DEFAULT uuid_generate_v4() | Execution ID |
-| agent_execution_id | UUID | FK → agent_executions | Parent agent |
-| task_execution_id | UUID | FK → task_executions | Parent task |
-| tool_name | VARCHAR(255) | NOT NULL | Tool identifier |
-| tool_version | VARCHAR(50) | | Tool version |
-| category | VARCHAR(100) | | Tool category |
-| input_params | JSONB | | Input parameters |
-| output | JSONB | | Tool output |
-| success | BOOLEAN | DEFAULT true | Success status |
-| error_message | TEXT | | Error details |
-| duration_ms | INTEGER | | Execution time |
-| tokens_consumed | INTEGER | DEFAULT 0 | Tokens used |
-| sandboxed | BOOLEAN | DEFAULT true | WASI sandbox used |
-| memory_used_mb | INTEGER | | Memory usage |
-| executed_at | TIMESTAMPTZ | DEFAULT NOW() | Execution time |
+| id | UUID | PK, DEFAULT uuid_generate_v4() | 执行 ID |
+| agent_execution_id | UUID | FK → agent_executions | 父智能体 |
+| task_execution_id | UUID | FK → task_executions | 父任务 |
+| tool_name | VARCHAR(255) | NOT NULL | 工具标识符 |
+| tool_version | VARCHAR(50) | | 工具版本 |
+| category | VARCHAR(100) | | 工具类别 |
+| input_params | JSONB | | 输入参数 |
+| output | JSONB | | 工具输出 |
+| success | BOOLEAN | DEFAULT true | 成功状态 |
+| error_message | TEXT | | 错误详情 |
+| duration_ms | INTEGER | | 执行时间 |
+| tokens_consumed | INTEGER | DEFAULT 0 | 使用的 tokens |
+| sandboxed | BOOLEAN | DEFAULT true | 使用 WASI 沙箱 |
+| memory_used_mb | INTEGER | | 内存使用 |
+| executed_at | TIMESTAMPTZ | DEFAULT NOW() | 执行时间 |
 
-**Indexes**:
+**索引**:
 - `idx_tool_name` ON (tool_name)
 - `idx_tool_executed_at` ON (executed_at DESC)
 - `idx_tool_task_execution` ON (task_execution_id)
 - `idx_tool_success` ON (success)
 
-**Tool Categories**:
-- `search` - Web search tools
-- `calculation` - Math/computation
-- `file` - File operations
-- `database` - Database queries
-- `api` - External API calls
+**工具类别**:
+- `search` - 网络搜索工具
+- `calculation` - 数学/计算
+- `file` - 文件操作
+- `database` - 数据库查询
+- `api` - 外部 API 调用
 
-**Example**:
+**示例**:
 ```sql
--- Tool usage statistics
+-- 工具使用统计
 SELECT
     tool_name,
     COUNT(*) as invocation_count,
@@ -523,14 +523,14 @@ WHERE executed_at > NOW() - INTERVAL '7 days'
 GROUP BY tool_name
 ORDER BY invocation_count DESC;
 
--- Failed tool executions
+-- 失败的工具执行
 SELECT tool_name, error_message, executed_at
 FROM tool_executions
 WHERE success = false
   AND executed_at > NOW() - INTERVAL '24 hours'
 ORDER BY executed_at DESC;
 
--- Tool performance
+-- 工具性能
 SELECT
     tool_name,
     AVG(duration_ms) as avg_ms,
@@ -544,23 +544,23 @@ ORDER BY avg_ms DESC;
 
 ### event_logs
 
-**Purpose**: Streaming event storage for audit and replay
+**用途**: 用于审计和重播的流式事件存储
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
-| id | UUID | PK, DEFAULT uuid_generate_v4() | Event ID |
-| workflow_id | VARCHAR(255) | NOT NULL | Workflow identifier |
-| task_id | UUID | | Task reference (nullable) |
-| type | VARCHAR(100) | NOT NULL | Event type |
-| agent_id | VARCHAR(255) | | Agent identifier |
-| message | TEXT | | Event message |
-| payload | JSONB | DEFAULT '{}' | Event payload |
-| timestamp | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Event time |
-| seq | BIGINT | | Sequence number |
-| stream_id | VARCHAR(64) | | Redis stream ID |
-| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Record creation |
+| id | UUID | PK, DEFAULT uuid_generate_v4() | 事件 ID |
+| workflow_id | VARCHAR(255) | NOT NULL | 工作流标识符 |
+| task_id | UUID | | 任务引用（可为空） |
+| type | VARCHAR(100) | NOT NULL | 事件类型 |
+| agent_id | VARCHAR(255) | | 智能体标识符 |
+| message | TEXT | | 事件消息 |
+| payload | JSONB | DEFAULT '{}' | 事件负载 |
+| timestamp | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | 事件时间 |
+| seq | BIGINT | | 序列号 |
+| stream_id | VARCHAR(64) | | Redis 流 ID |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | 记录创建 |
 
-**Indexes**:
+**索引**:
 - `idx_event_logs_workflow_id` ON (workflow_id)
 - `idx_event_logs_task_id` ON (task_id)
 - `idx_event_logs_type` ON (type)
@@ -569,21 +569,21 @@ ORDER BY avg_ms DESC;
 - `idx_event_logs_workflow_ts` ON (workflow_id, timestamp DESC)
 - `uq_event_logs_wf_type_seq` UNIQUE (workflow_id, type, seq) WHERE seq IS NOT NULL
 
-**Event Types**:
+**事件类型**:
 - `TASK_STARTED`, `TASK_COMPLETED`, `TASK_FAILED`
 - `AGENT_ASSIGNED`, `AGENT_THINKING`, `AGENT_COMPLETED`
 - `TOOL_INVOKED`, `TOOL_RESULT`, `TOOL_ERROR`
 - `WORKFLOW_STARTED`, `WORKFLOW_COMPLETED`
 
-**Example**:
+**示例**:
 ```sql
--- Get all events for a task
+-- 获取任务的所有事件
 SELECT type, agent_id, message, timestamp
 FROM event_logs
 WHERE workflow_id = '...'
 ORDER BY timestamp;
 
--- Event frequency analysis
+-- 事件频率分析
 SELECT
     type,
     COUNT(*) as event_count,
@@ -596,30 +596,30 @@ ORDER BY hour DESC, event_count DESC;
 
 ### token_usage
 
-**Purpose**: Detailed token usage tracking per task
+**用途**: 每任务的详细 token 使用跟踪
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
-| id | UUID | PK, DEFAULT uuid_generate_v4() | Record ID |
-| user_id | UUID | FK → users | User |
-| task_id | UUID | FK → task_executions | Task |
-| provider | VARCHAR(50) | NOT NULL | LLM provider |
-| model | VARCHAR(255) | NOT NULL | Model name |
-| prompt_tokens | INTEGER | NOT NULL | Input tokens |
-| completion_tokens | INTEGER | NOT NULL | Output tokens |
-| total_tokens | INTEGER | NOT NULL | Total tokens |
-| cost_usd | DECIMAL(10,6) | NOT NULL | Cost in USD |
-| created_at | TIMESTAMPTZ | DEFAULT NOW() | Record time |
+| id | UUID | PK, DEFAULT uuid_generate_v4() | 记录 ID |
+| user_id | UUID | FK → users | 用户 |
+| task_id | UUID | FK → task_executions | 任务 |
+| provider | VARCHAR(50) | NOT NULL | LLM 提供商 |
+| model | VARCHAR(255) | NOT NULL | 模型名称 |
+| prompt_tokens | INTEGER | NOT NULL | 输入 tokens |
+| completion_tokens | INTEGER | NOT NULL | 输出 tokens |
+| total_tokens | INTEGER | NOT NULL | 总 tokens |
+| cost_usd | DECIMAL(10,6) | NOT NULL | 成本（美元） |
+| created_at | TIMESTAMPTZ | DEFAULT NOW() | 记录时间 |
 
-**Indexes**:
+**索引**:
 - `idx_token_usage_user_id` ON (user_id)
 - `idx_token_usage_task_id` ON (task_id)
 - `idx_token_usage_created_at` ON (created_at DESC)
 - `idx_token_usage_provider_model` ON (provider, model)
 
-**Example**:
+**示例**:
 ```sql
--- Token usage by provider
+-- 按提供商统计 token 使用
 SELECT
     provider,
     model,
@@ -631,7 +631,7 @@ WHERE created_at > NOW() - INTERVAL '30 days'
 GROUP BY provider, model
 ORDER BY total_cost DESC;
 
--- Daily token trend
+-- 每日 token 趋势
 SELECT
     DATE(created_at) as date,
     SUM(total_tokens) as tokens,
@@ -644,41 +644,41 @@ ORDER BY date;
 
 ### usage_daily_aggregates
 
-**Purpose**: Pre-computed daily usage statistics
+**用途**: 预计算的每日使用统计
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
-| id | UUID | PK, DEFAULT uuid_generate_v4() | Record ID |
-| user_id | UUID | FK → users | User |
-| date | DATE | NOT NULL | Aggregation date |
-| total_tasks | INTEGER | DEFAULT 0 | Total task count |
-| successful_tasks | INTEGER | DEFAULT 0 | Successful count |
-| failed_tasks | INTEGER | DEFAULT 0 | Failed count |
-| total_tokens | INTEGER | DEFAULT 0 | Total tokens |
-| total_cost_usd | DECIMAL(10,6) | DEFAULT 0 | Total cost |
-| model_usage | JSONB | | Model distribution |
-| tools_invoked | INTEGER | DEFAULT 0 | Tool invocation count |
-| tool_distribution | JSONB | | Tool usage distribution |
-| avg_duration_ms | INTEGER | | Average task duration |
-| cache_hit_rate | DECIMAL(3,2) | | Cache hit percentage |
-| created_at | TIMESTAMPTZ | DEFAULT NOW() | Record time |
+| id | UUID | PK, DEFAULT uuid_generate_v4() | 记录 ID |
+| user_id | UUID | FK → users | 用户 |
+| date | DATE | NOT NULL | 聚合日期 |
+| total_tasks | INTEGER | DEFAULT 0 | 总任务数 |
+| successful_tasks | INTEGER | DEFAULT 0 | 成功数 |
+| failed_tasks | INTEGER | DEFAULT 0 | 失败数 |
+| total_tokens | INTEGER | DEFAULT 0 | 总 tokens |
+| total_cost_usd | DECIMAL(10,6) | DEFAULT 0 | 总成本 |
+| model_usage | JSONB | | 模型分布 |
+| tools_invoked | INTEGER | DEFAULT 0 | 工具调用次数 |
+| tool_distribution | JSONB | | 工具使用分布 |
+| avg_duration_ms | INTEGER | | 平均任务持续时间 |
+| cache_hit_rate | DECIMAL(3,2) | | 缓存命中率 |
+| created_at | TIMESTAMPTZ | DEFAULT NOW() | 记录时间 |
 
-**Indexes**:
+**索引**:
 - `idx_usage_daily_user_date` ON (user_id, date)
 - `idx_usage_daily_date` ON (date DESC)
 
-**Unique Constraint**: (user_id, date)
+**唯一约束**: (user_id, date)
 
-**Example**:
+**示例**:
 ```sql
--- User usage summary
+-- 用户使用摘要
 SELECT date, total_tasks, successful_tasks, total_cost_usd
 FROM usage_daily_aggregates
 WHERE user_id = '...'
   AND date > CURRENT_DATE - INTERVAL '30 days'
 ORDER BY date DESC;
 
--- Aggregate metrics
+-- 聚合指标
 SELECT
     SUM(total_tasks) as total_tasks,
     SUM(total_cost_usd) as total_cost,
@@ -687,35 +687,35 @@ FROM usage_daily_aggregates
 WHERE date > CURRENT_DATE - INTERVAL '7 days';
 ```
 
-## Additional Tables
+## 其他表
 
 ### tool_calls
 
-**Purpose**: Legacy tool call tracking (use tool_executions instead)
+**用途**: 旧版工具调用跟踪（请使用 tool_executions）
 
 ### prompts
 
-**Purpose**: Prompt versioning and A/B testing
+**用途**: 提示版本控制和 A/B 测试
 
 ### learning_cases
 
-**Purpose**: Reinforcement learning case storage
+**用途**: 强化学习案例存储
 
 ### session_archives
 
-**Purpose**: Long-term session snapshots from Redis
+**用途**: 来自 Redis 的长期会话快照
 
 ### audit_logs (public)
 
-**Purpose**: Application audit trail (separate from auth.audit_logs)
+**用途**: 应用审计跟踪（与 auth.audit_logs 分开）
 
-## Database Functions
+## 数据库函数
 
 ### update_updated_at_column()
 
-**Purpose**: Automatically update `updated_at` on row changes
+**用途**: 在行更改时自动更新 `updated_at`
 
-**Usage**: Attached as trigger to `users` and `sessions` tables
+**用法**: 作为触发器附加到 `users` 和 `sessions` 表
 
 ```sql
 CREATE TRIGGER update_users_updated_at
@@ -726,12 +726,12 @@ EXECUTE FUNCTION update_updated_at_column();
 
 ### update_daily_aggregate(user_id, date)
 
-**Purpose**: Update or create daily usage aggregate for a user
+**用途**: 更新或创建用户的每日使用聚合
 
-**Usage**: Called automatically via trigger on task completion
+**用法**: 在任务完成时通过触发器自动调用
 
 ```sql
--- Manual call
+-- 手动调用
 SELECT update_daily_aggregate(
     '00000000-0000-0000-0000-000000000002',
     '2025-10-22'
@@ -740,16 +740,16 @@ SELECT update_daily_aggregate(
 
 ### trigger_update_daily_aggregate()
 
-**Purpose**: Trigger function to update aggregates on task status changes
+**用途**: 在任务状态更改时更新聚合的触发器函数
 
-**Usage**: Automatically fires on task_executions INSERT/UPDATE
+**用法**: 在 task_executions INSERT/UPDATE 时自动触发
 
-## Sample Queries
+## 示例查询
 
-### Task Analytics
+### 任务分析
 
 ```sql
--- Task success rate by mode
+-- 按模式统计任务成功率
 SELECT
     mode,
     COUNT(*) as total,
@@ -759,7 +759,7 @@ FROM task_executions
 WHERE started_at > NOW() - INTERVAL '7 days'
 GROUP BY mode;
 
--- Average execution time by complexity
+-- 按复杂度统计平均执行时间
 SELECT
     CASE
         WHEN complexity_score < 0.3 THEN 'Low'
@@ -774,10 +774,10 @@ WHERE complexity_score IS NOT NULL
 GROUP BY complexity;
 ```
 
-### Cost Analysis
+### 成本分析
 
 ```sql
--- Top cost users
+-- 成本最高的用户
 SELECT
     u.email,
     COUNT(t.id) as task_count,
@@ -790,7 +790,7 @@ GROUP BY u.email
 ORDER BY total_cost DESC
 LIMIT 10;
 
--- Cost breakdown by model
+-- 按模型统计成本明细
 SELECT
     tu.provider,
     tu.model,
@@ -804,10 +804,10 @@ GROUP BY tu.provider, tu.model
 ORDER BY total_cost DESC;
 ```
 
-### Performance Monitoring
+### 性能监控
 
 ```sql
--- Slow queries (tasks > 60 seconds)
+-- 慢查询（任务超过 60 秒）
 SELECT
     workflow_id,
     query,
@@ -819,7 +819,7 @@ WHERE duration_ms > 60000
   AND started_at > NOW() - INTERVAL '24 hours'
 ORDER BY duration_ms DESC;
 
--- Tool execution success rate
+-- 工具执行成功率
 SELECT
     tool_name,
     COUNT(*) as total,
@@ -831,43 +831,43 @@ GROUP BY tool_name
 ORDER BY total DESC;
 ```
 
-## Best Practices
+## 最佳实践
 
-### 1. Indexing
+### 1. 索引
 
-**Always use indexes for**:
-- Foreign key columns
-- Timestamp columns (for time-range queries)
-- Status/enum columns (for filtering)
-- Frequently searched columns
+**始终为以下项使用索引**:
+- 外键列
+- 时间戳列（用于时间范围查询）
+- 状态/枚举列（用于过滤）
+- 频繁搜索的列
 
-**Current index coverage**: Excellent (all foreign keys and common queries indexed)
+**当前索引覆盖**: 优秀（所有外键和常见查询都已索引）
 
-### 2. Partitioning
+### 2. 分区
 
-For high-volume tables, consider partitioning:
+对于高容量表，考虑分区：
 
 ```sql
--- Monthly partitioning for task_executions
+-- 为 task_executions 进行按月分区
 CREATE TABLE task_executions_2025_10 PARTITION OF task_executions
     FOR VALUES FROM ('2025-10-01') TO ('2025-11-01');
 ```
 
-### 3. Data Retention
+### 3. 数据保留
 
-**Recommended policies**:
-- `event_logs`: 90 days (high volume)
-- `task_executions`: 1 year
-- `audit_logs`: 7 years (compliance)
-- `session_archives`: 90 days
+**推荐策略**:
+- `event_logs`: 90 天（高容量）
+- `task_executions`: 1 年
+- `audit_logs`: 7 年（合规）
+- `session_archives`: 90 天
 
-**Cleanup script**:
+**清理脚本**:
 ```sql
--- Delete old events (run monthly)
+-- 删除旧事件（每月运行）
 DELETE FROM event_logs
 WHERE created_at < NOW() - INTERVAL '90 days';
 
--- Archive old tasks (run annually)
+-- 归档旧任务（每年运行）
 INSERT INTO task_executions_archive
 SELECT * FROM task_executions
 WHERE started_at < NOW() - INTERVAL '1 year';
@@ -876,9 +876,9 @@ DELETE FROM task_executions
 WHERE started_at < NOW() - INTERVAL '1 year';
 ```
 
-### 4. Query Optimization
+### 4. 查询优化
 
-**Use EXPLAIN ANALYZE**:
+**使用 EXPLAIN ANALYZE**:
 ```sql
 EXPLAIN ANALYZE
 SELECT * FROM task_executions
@@ -886,41 +886,41 @@ WHERE user_id = '...'
   AND started_at > NOW() - INTERVAL '7 days';
 ```
 
-**Optimize with covering indexes**:
+**使用覆盖索引优化**:
 ```sql
 CREATE INDEX idx_task_user_date_status
 ON task_executions(user_id, started_at, status)
 INCLUDE (total_cost_usd, duration_ms);
 ```
 
-### 5. Connection Pooling
+### 5. 连接池
 
-**Configuration** (already configured in Shannon):
+**配置**（已在 Shannon 中配置）:
 ```bash
 DB_MAX_OPEN_CONNS=50
 DB_MAX_IDLE_CONNS=10
 ```
 
-## Maintenance
+## 维护
 
-### Vacuum and Analyze
+### 清理和分析
 
 ```sql
--- Manual vacuum (run weekly)
+-- 手动清理（每周运行）
 VACUUM ANALYZE task_executions;
 VACUUM ANALYZE event_logs;
 
--- Configure autovacuum
+-- 配置自动清理
 ALTER TABLE task_executions SET (autovacuum_vacuum_threshold = 1000);
 ```
 
-### Statistics
+### 统计
 
 ```sql
--- Update statistics
+-- 更新统计信息
 ANALYZE task_executions;
 
--- Check table bloat
+-- 检查表膨胀
 SELECT
     schemaname,
     tablename,
@@ -930,20 +930,20 @@ WHERE schemaname = 'public'
 ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
 ```
 
-## Related Documentation
+## 相关文档
 
 <CardGroup cols={2}>
-  <Card title="Data Flow" icon="diagram-project" href="/cn/architecture/data-flow">
-    Data flow architecture
+  <Card title="数据流" icon="diagram-project" href="/cn/architecture/data-flow">
+    数据流架构
   </Card>
-  <Card title="Environment Variables" icon="gear" href="/cn/deployment/environment-variables">
-    Database configuration
+  <Card title="环境变量" icon="gear" href="/cn/deployment/environment-variables">
+    数据库配置
   </Card>
-  <Card title="Performance Tuning" icon="gauge" href="/cn/deployment/performance-tuning">
-    Query optimization
+  <Card title="性能调优" icon="gauge" href="/cn/deployment/performance-tuning">
+    查询优化
   </Card>
-  <Card title="Monitoring" icon="chart-line" href="/cn/deployment/monitoring">
-    Database monitoring
+  <Card title="监控" icon="chart-line" href="/cn/deployment/monitoring">
+    数据库监控
   </Card>
 </CardGroup>
 

@@ -11,13 +11,13 @@ description: "Submit your first task to Shannon in 5 minutes"
 ---
 
 
-## Your First Task
+## 您的第一个任务
 
-Let's submit a simple task to Shannon and see it in action. This guide assumes you've completed the [installation](/cn/quickstart/installation).
+让我们向 Shannon 提交一个简单任务并看看它的运行。本指南假设您已完成[安装](/cn/quickstart/installation)。
 
-## Using the REST API
+## 使用 REST API
 
-The simplest way to interact with Shannon is through its REST API:
+与 Shannon 交互的最简单方式是通过其 REST API：
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/tasks \
@@ -27,7 +27,7 @@ curl -X POST http://localhost:8080/api/v1/tasks \
   }'
 ```
 
-You'll receive a response like:
+您将收到如下响应：
 
 ```json
 {
@@ -38,15 +38,15 @@ You'll receive a response like:
 }
 ```
 
-## Check Task Status
+## 检查任务状态
 
-Use the `task_id` to check the status:
+使用 `task_id` 检查状态：
 
 ```bash
 curl http://localhost:8080/api/v1/tasks/task-dev-1730000000
 ```
 
-Response:
+响应：
 
 ```json
 {
@@ -62,15 +62,15 @@ Response:
 }
 ```
 
-## Stream Events in Real-Time
+## 实时流式传输事件
 
-Shannon supports Server-Sent Events (SSE) for real-time updates:
+Shannon 支持 Server-Sent Events (SSE) 用于实时更新：
 
 ```bash
 curl -N http://localhost:8080/api/v1/tasks/task-dev-1730000000/stream
 ```
 
-You'll see events as they happen:
+您将看到事件实时发生：
 
 ```
 event: AGENT_THINKING
@@ -80,17 +80,17 @@ event: TASK_COMPLETED
 data: {"result":"The sentiment is positive..."}
 ```
 
-## Using the Python SDK
+## 使用 Python SDK
 
-For a better developer experience, use the Python SDK:
+为了获得更好的开发体验，请使用 Python SDK：
 
-### Installation
+### 安装
 
 ```bash
 pip install shannon-sdk
 ```
 
-### Submit and Monitor Tasks
+### 提交和监控任务
 
 ```python
 from shannon import ShannonClient
@@ -108,7 +108,7 @@ final = client.wait(handle.task_id, timeout=60)
 print("Result:", final.result)
 ```
 
-### Stream Events
+### 流式传输事件
 
 ```python
 # Stream events in real-time
@@ -116,17 +116,17 @@ for event in client.stream(handle.workflow_id):
     print(f"{event.type}: {event.message}")
 ```
 
-## Execution Modes
+## 执行模式
 
-Shannon auto-selects execution modes internally based on task complexity. The REST API does not accept a `mode` parameter at this time.
+Shannon 根据任务复杂度内部自动选择执行模式。REST API 目前不接受 `mode` 参数。
 
-## Cost Control
+## 成本控制
 
-Budget controls are managed by Shannon. Explicit per‑request budget settings are not yet available via REST.
+预算控制由 Shannon 管理。通过 REST 显式设置每个请求的预算配置尚未可用。
 
-## Multi-Turn Conversations
+## 多轮对话
 
-Shannon supports session-based conversations:
+Shannon 支持基于会话的对话：
 
 ```python
 session_id = "my-conversation-123"
@@ -143,35 +143,35 @@ handle2 = client.submit_task(
     session_id=session_id
 )
 
-# Shannon knows you're asking about Paris's population
+# Shannon 知道您问的是巴黎的人口
 ```
 
-## Using the Dashboard
+## 使用控制面板
 
-Open http://localhost:2111 to access the interactive dashboard:
+打开 http://localhost:2111 访问交互式控制面板：
 
 <Steps>
-  <Step title="Submit Tasks">
-    Use the task submission form to create tasks with custom configurations
+  <Step title="提交任务">
+    使用任务提交表单创建具有自定义配置的任务
   </Step>
-  <Step title="Monitor Execution">
-    Watch real-time event streams showing agent thinking, tool invocations, and progress
+  <Step title="监控执行">
+    观察实时事件流，显示智能体思考、工具调用和进度
   </Step>
-  <Step title="View Metrics">
-    Track token usage, costs, latency, and success rates across all tasks
+  <Step title="查看指标">
+    跟踪所有任务的 token 使用、成本、延迟和成功率
   </Step>
-  <Step title="Debug Workflows">
-    Click on tasks to view detailed execution traces and Temporal workflow history
+  <Step title="调试工作流">
+    点击任务查看详细的执行跟踪和 Temporal 工作流历史
   </Step>
 </Steps>
 
-## Example Use Cases
+## 示例用例
 
 <Note>
-Shannon automatically selects the appropriate execution mode and cognitive strategy based on query complexity. You don't need to specify these parameters.
+Shannon 根据查询复杂度自动选择适当的执行模式和认知策略。您无需指定这些参数。
 </Note>
 
-### Sentiment Analysis
+### 情感分析
 
 ```python
 client.submit_task(
@@ -179,7 +179,7 @@ client.submit_task(
 )
 ```
 
-### Research & Summarization
+### 研究和摘要
 
 ```python
 client.submit_task(
@@ -187,7 +187,7 @@ client.submit_task(
 )
 ```
 
-### Code Generation
+### 代码生成
 
 ```python
 client.submit_task(
@@ -195,7 +195,7 @@ client.submit_task(
 )
 ```
 
-### Complex Analysis with Context
+### 复杂分析（带上下文）
 
 ```python
 client.submit_task(
@@ -208,58 +208,58 @@ client.submit_task(
 )
 ```
 
-## What's Next?
+## 下一步是什么？
 
 <CardGroup cols={2}>
   <Card
-    title="Core Concepts"
+    title="核心概念"
     icon="book"
     href="/cn/quickstart/concepts/agents"
   >
-    Learn about agents, workflows, and cognitive patterns
+    了解智能体、工作流和认知模式
   </Card>
   <Card
-    title="API Reference"
+    title="API 参考"
     icon="code"
     href="/cn/api/overview"
   >
-    Explore all API endpoints and parameters
+    探索所有 API 端点和参数
   </Card>
   <Card
-    title="Python SDK Guide"
+    title="Python SDK 指南"
     icon="python"
     href="/cn/sdk/python/quickstart"
   >
-    Deep dive into SDK features and async usage
+    深入了解 SDK 功能和异步用法
   </Card>
   <Card
-    title="Configuration"
+    title="配置"
     icon="gear"
     href="/cn/quickstart/configuration"
   >
-    Customize Shannon for your needs
+    根据您的需求自定义 Shannon
   </Card>
 </CardGroup>
 
-## Troubleshooting
+## 故障排除
 
 <AccordionGroup>
-  <Accordion title="Task stays in 'running' state">
-    Check the logs for errors:
+  <Accordion title="任务停留在 'running' 状态">
+    检查日志中的错误：
 
     ```bash
     docker compose logs orchestrator
     docker compose logs agent-core
     ```
 
-    Common causes:
-    - Invalid LLM API key
-    - LLM provider rate limiting
-    - Network connectivity issues
+    常见原因：
+    - 无效的 LLM API 密钥
+    - LLM 提供商速率限制
+    - 网络连接问题
   </Accordion>
 
-  <Accordion title="Authentication errors">
-    Shannon runs with authentication disabled by default (`GATEWAY_SKIP_AUTH=1`). If you've enabled auth, include an API key:
+  <Accordion title="身份验证错误">
+    Shannon 默认禁用身份验证运行（`GATEWAY_SKIP_AUTH=1`）。如果您已启用身份验证，请包含 API 密钥：
 
     ```bash
     curl -H "X-API-Key: sk_test_123456" \
@@ -267,19 +267,19 @@ client.submit_task(
     ```
   </Accordion>
 
-  <Accordion title="High costs / token usage">
-    Budget limits are configured at the platform level via environment variables:
+  <Accordion title="高成本 / token 使用">
+    预算限制通过环境变量在平台级别配置：
 
     ```bash
-    # In .env file
+    # 在 .env 文件中
     MAX_TOKENS_PER_REQUEST=10000
     MAX_COST_PER_REQUEST=0.50
 
-    # Restart services for changes to take effect
+    # 重启服务以使更改生效
     docker compose restart
     ```
 
-    For per-task monitoring, check costs via the status endpoint or streaming events.
+    对于每任务监控，通过状态端点或流式事件检查成本。
   </Accordion>
 </AccordionGroup>
 
