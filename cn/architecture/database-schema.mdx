@@ -1,21 +1,13 @@
 ---
-title: "数据库架构"
-description: "Complete PostgreSQL database schema reference for Shannon"
+title: "数据库模式"
+description: "Shannon 的完整 PostgreSQL 数据库模式参考"
 ---
 
-> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
+## 概览
 
-**原文件**: `architecture/database-schema.mdx`
-**英文版本**: [查看英文文档](/en/architecture/database-schema)
-
----
-
-
-## 概述
-
-Shannon 使用带 pgvector 扩展的 PostgreSQL 进行持久化存储。数据库组织为两个模式：
-- **`public`**: 核心应用表（任务、会话、用户、事件）
-- **`auth`**: 身份验证和多租户表
+Shannon 使用 PostgreSQL 及 pgvector 扩展进行持久化存储。数据库组织为两个模式:
+- **`public`**: 核心应用表(任务、会话、用户、事件)
+- **`auth`**: 认证和多租户表
 
 **总表数**: 18 张表
 **扩展**: uuid-ossp, pg_trgm, btree_gin, pgcrypto
@@ -68,32 +60,32 @@ Shannon 使用带 pgvector 扩展的 PostgreSQL 进行持久化存储。数据�
 └──────────────────────────┘        └───────────────────┘
 ```
 
-## 模式: `auth`（身份验证和多租户）
+## 模式: `auth` (认证与多租户)
 
 ### auth.tenants
 
 **用途**: 多租户组织管理
 
-| Column | Type | Constraints | Description |
+| 列名 | 类型 | 约束 | 描述 |
 |--------|------|-------------|-------------|
 | id | UUID | PK, DEFAULT gen_random_uuid() | 租户标识符 |
 | name | VARCHAR(255) | NOT NULL | 组织名称 |
 | slug | VARCHAR(100) | UNIQUE, NOT NULL | URL 安全标识符 |
-| plan | VARCHAR(50) | DEFAULT 'free' | 订阅计划（free, pro, enterprise） |
+| plan | VARCHAR(50) | DEFAULT 'free' | 订阅计划 (free, pro, enterprise) |
 | token_limit | INTEGER | DEFAULT 10000 | 每月 token 配额 |
 | monthly_token_usage | INTEGER | DEFAULT 0 | 当前月使用量 |
 | rate_limit_per_hour | INTEGER | DEFAULT 1000 | API 速率限制 |
 | is_active | BOOLEAN | DEFAULT true | 租户状态 |
 | created_at | TIMESTAMP | DEFAULT NOW() | 创建时间 |
 | updated_at | TIMESTAMP | DEFAULT NOW() | 最后更新时间 |
-| metadata | JSONB | DEFAULT '{}' | 附加租户数据 |
+| metadata | JSONB | DEFAULT '{}' | 额外租户数据 |
 
 **索引**:
-- 无（小表，主键足够）
+- 无(小表,主键足够)
 
 **示例**:
 ```sql
--- 获取所有活动租户
+-- 获取所有活跃租户
 SELECT id, name, plan, token_limit
 FROM auth.tenants
 WHERE is_active = true;
@@ -107,24 +99,24 @@ WHERE monthly_token_usage > token_limit * 0.8;
 
 ### auth.users
 
-**用途**: 用户身份验证和配置文件管理
+**用途**: 用户认证和个人资料管理
 
-| Column | Type | Constraints | Description |
+| 列名 | 类型 | 约束 | 描述 |
 |--------|------|-------------|-------------|
 | id | UUID | PK, DEFAULT gen_random_uuid() | 用户标识符 |
 | email | VARCHAR(255) | UNIQUE, NOT NULL | 用户邮箱 |
 | username | VARCHAR(100) | UNIQUE, NOT NULL | 用户名 |
 | password_hash | VARCHAR(255) | NOT NULL | Bcrypt 密码哈希 |
 | full_name | VARCHAR(255) | | 全名 |
-| tenant_id | UUID | FK → auth.tenants, NOT NULL | 组织 |
-| role | VARCHAR(50) | DEFAULT 'user' | 角色（user, admin, owner） |
+| tenant_id | UUID | FK → auth.tenants, NOT NULL | 所属组织 |
+| role | VARCHAR(50) | DEFAULT 'user' | 角色 (user, admin, owner) |
 | is_active | BOOLEAN | DEFAULT true | 账户状态 |
-| is_verified | BOOLEAN | DEFAULT false | 邮箱验证 |
+| is_verified | BOOLEAN | DEFAULT false | 邮箱验证状态 |
 | email_verified_at | TIMESTAMP | | 验证时间戳 |
-| created_at | TIMESTAMP | DEFAULT NOW() | 账户创建 |
-| updated_at | TIMESTAMP | DEFAULT NOW() | 最后更新 |
+| created_at | TIMESTAMP | DEFAULT NOW() | 账户创建时间 |
+| updated_at | TIMESTAMP | DEFAULT NOW() | 最后更新时间 |
 | last_login | TIMESTAMP | | 最后登录时间 |
-| metadata | JSONB | DEFAULT '{}' | 附加用户数据 |
+| metadata | JSONB | DEFAULT '{}' | 额外用户数据 |
 
 **索引**:
 - `idx_users_tenant_id` ON (tenant_id)
@@ -139,7 +131,7 @@ WHERE u.tenant_id = '...'
   AND u.is_active = true
 ORDER BY u.last_login DESC NULLS LAST;
 
--- 查找非活动用户
+-- 查找不活跃用户
 SELECT email, created_at, last_login
 FROM auth.users
 WHERE last_login < NOW() - INTERVAL '90 days'
@@ -148,15 +140,15 @@ WHERE last_login < NOW() - INTERVAL '90 days'
 
 ### auth.api_keys
 
-**用途**: 用于程序化访问的 API 密钥管理
+**用途**: 编程访问的 API 密钥管理
 
-| Column | Type | Constraints | Description |
+| 列名 | 类型 | 约束 | 描述 |
 |--------|------|-------------|-------------|
 | id | UUID | PK, DEFAULT gen_random_uuid() | 密钥标识符 |
 | key_hash | VARCHAR(255) | UNIQUE, NOT NULL | 密钥的 SHA256 哈希 |
-| key_prefix | VARCHAR(20) | NOT NULL | 前 8 个字符（用于显示） |
+| key_prefix | VARCHAR(20) | NOT NULL | 前 8 个字符(用于显示) |
 | user_id | UUID | FK → auth.users | 密钥所有者 |
-| tenant_id | UUID | FK → auth.tenants, NOT NULL | 组织 |
+| tenant_id | UUID | FK → auth.tenants, NOT NULL | 所属组织 |
 | name | VARCHAR(100) | NOT NULL | 密钥名称/描述 |
 | description | TEXT | | 详细描述 |
 | scopes | TEXT[] | DEFAULT [...] | 权限数组 |
@@ -165,7 +157,7 @@ WHERE last_login < NOW() - INTERVAL '90 days'
 | expires_at | TIMESTAMP | | 过期时间 |
 | is_active | BOOLEAN | DEFAULT true | 密钥状态 |
 | created_at | TIMESTAMP | DEFAULT NOW() | 创建时间 |
-| metadata | JSONB | DEFAULT '{}' | 附加密钥数据 |
+| metadata | JSONB | DEFAULT '{}' | 额外密钥数据 |
 
 **索引**:
 - `idx_api_keys_tenant_id` ON (tenant_id)
@@ -174,11 +166,11 @@ WHERE last_login < NOW() - INTERVAL '90 days'
 **默认作用域**:
 - `workflows:read` - 读取任务/工作流数据
 - `workflows:write` - 创建/修改工作流
-- `agents:execute` - 执行智能体任务
+- `agents:execute` - 执行代理任务
 
 **示例**:
 ```sql
--- 列出活动 API 密钥
+-- 列出活跃的 API 密钥
 SELECT key_prefix, name, last_used, expires_at
 FROM auth.api_keys
 WHERE is_active = true
@@ -202,17 +194,17 @@ WHERE expires_at BETWEEN NOW() AND NOW() + INTERVAL '7 days'
 
 **用途**: JWT 刷新令牌存储和撤销
 
-| Column | Type | Constraints | Description |
+| 列名 | 类型 | 约束 | 描述 |
 |--------|------|-------------|-------------|
 | id | UUID | PK, DEFAULT gen_random_uuid() | 令牌标识符 |
 | token_hash | VARCHAR(255) | UNIQUE, NOT NULL | SHA256 哈希 |
 | user_id | UUID | FK → auth.users | 令牌所有者 |
-| tenant_id | UUID | FK → auth.tenants, NOT NULL | 组织 |
+| tenant_id | UUID | FK → auth.tenants, NOT NULL | 所属组织 |
 | expires_at | TIMESTAMP | NOT NULL | 过期时间 |
 | revoked | BOOLEAN | DEFAULT false | 撤销状态 |
 | revoked_at | TIMESTAMP | | 撤销时间 |
 | ip_address | INET | | 客户端 IP |
-| user_agent | TEXT | | 客户端用户代理 |
+| user_agent | TEXT | | 客户端 user agent |
 | created_at | TIMESTAMP | DEFAULT NOW() | 创建时间 |
 
 **索引**:
@@ -236,14 +228,14 @@ WHERE expires_at < NOW() - INTERVAL '7 days';
 
 **用途**: 安全事件审计跟踪
 
-| Column | Type | Constraints | Description |
+| 列名 | 类型 | 约束 | 描述 |
 |--------|------|-------------|-------------|
 | id | UUID | PK, DEFAULT gen_random_uuid() | 日志条目 ID |
 | event_type | VARCHAR(100) | NOT NULL | 事件类型 |
-| user_id | UUID | FK → auth.users | 用户（可为空） |
-| tenant_id | UUID | FK → auth.tenants | 租户（可为空） |
+| user_id | UUID | FK → auth.users | 用户(可为空) |
+| tenant_id | UUID | FK → auth.tenants | 租户(可为空) |
 | ip_address | INET | | 客户端 IP |
-| user_agent | TEXT | | 客户端用户代理 |
+| user_agent | TEXT | | 客户端 user agent |
 | details | JSONB | DEFAULT '{}' | 事件详情 |
 | created_at | TIMESTAMP | DEFAULT NOW() | 事件时间 |
 
@@ -277,13 +269,13 @@ GROUP BY user_id, ip_address
 HAVING COUNT(*) > 5;
 ```
 
-## 模式: `public`（核心应用）
+## 模式: `public` (核心应用)
 
 ### users
 
-**用途**: 应用用户配置文件（旧版，链接到 auth.users）
+**用途**: 应用用户配置文件(旧版,关联到 auth.users)
 
-| Column | Type | Constraints | Description |
+| 列名 | 类型 | 约束 | 描述 |
 |--------|------|-------------|-------------|
 | id | UUID | PK, DEFAULT uuid_generate_v4() | 用户标识符 |
 | external_id | VARCHAR(255) | UNIQUE, NOT NULL | 外部系统 ID |
@@ -291,28 +283,28 @@ HAVING COUNT(*) > 5;
 | tenant_id | UUID | | 租户引用 |
 | metadata | JSONB | DEFAULT '{}' | 用户元数据 |
 | created_at | TIMESTAMPTZ | DEFAULT NOW() | 创建时间 |
-| updated_at | TIMESTAMPTZ | DEFAULT NOW() | 最后更新 |
+| updated_at | TIMESTAMPTZ | DEFAULT NOW() | 最后更新时间 |
 
 **索引**:
 - `idx_users_tenant_id` ON (tenant_id)
 - `idx_users_external_id` ON (external_id)
 
-**注意**: 此表存在是为了向后兼容。新代码应使用 `auth.users`。
+**注意**: 此表用于向后兼容。新代码应使用 `auth.users`。
 
 ### sessions
 
 **用途**: 用户会话管理和上下文
 
-| Column | Type | Constraints | Description |
+| 列名 | 类型 | 约束 | 描述 |
 |--------|------|-------------|-------------|
 | id | UUID | PK, DEFAULT uuid_generate_v4() | 会话标识符 |
 | user_id | UUID | FK → users | 会话所有者 |
 | tenant_id | UUID | | 租户引用 |
 | context | JSONB | DEFAULT '{}' | 会话上下文数据 |
-| token_budget | INTEGER | DEFAULT 10000 | Token 分配 |
-| tokens_used | INTEGER | DEFAULT 0 | 已消费的 tokens |
-| created_at | TIMESTAMPTZ | DEFAULT NOW() | 会话开始 |
-| updated_at | TIMESTAMPTZ | DEFAULT NOW() | 最后活动 |
+| token_budget | INTEGER | DEFAULT 10000 | Token 配额 |
+| tokens_used | INTEGER | DEFAULT 0 | 已消耗的 token |
+| created_at | TIMESTAMPTZ | DEFAULT NOW() | 会话开始时间 |
+| updated_at | TIMESTAMPTZ | DEFAULT NOW() | 最后活动时间 |
 | expires_at | TIMESTAMPTZ | | 过期时间 |
 
 **索引**:
@@ -322,7 +314,7 @@ HAVING COUNT(*) > 5;
 
 **示例**:
 ```sql
--- 活动会话
+-- 活跃会话
 SELECT id, user_id, tokens_used, token_budget, created_at
 FROM sessions
 WHERE expires_at > NOW()
@@ -342,7 +334,7 @@ WHERE created_at > NOW() - INTERVAL '24 hours';
 
 **用途**: 任务/工作流执行历史和指标
 
-| Column | Type | Constraints | Description |
+| 列名 | 类型 | 约束 | 描述 |
 |--------|------|-------------|-------------|
 | id | UUID | PK, DEFAULT uuid_generate_v4() | 任务标识符 |
 | workflow_id | VARCHAR(255) | UNIQUE, NOT NULL | Temporal 工作流 ID |
@@ -350,24 +342,24 @@ WHERE created_at > NOW() - INTERVAL '24 hours';
 | tenant_id | UUID | | 租户引用 |
 | session_id | VARCHAR(255) | | 会话标识符 |
 | query | TEXT | NOT NULL | 任务查询/提示 |
-| mode | VARCHAR(50) | | 执行模式（SIMPLE, STANDARD, COMPLEX） |
+| mode | VARCHAR(50) | | 执行模式 (SIMPLE, STANDARD, COMPLEX) |
 | status | VARCHAR(50) | NOT NULL | 任务状态 |
 | started_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | 开始时间 |
 | completed_at | TIMESTAMPTZ | | 完成时间 |
 | result | TEXT | | 最终结果 |
 | response | JSONB | DEFAULT '{}' | 结构化响应 |
 | error_message | TEXT | | 错误详情 |
-| total_tokens | INTEGER | DEFAULT 0 | 使用的总 tokens |
-| prompt_tokens | INTEGER | DEFAULT 0 | 输入 tokens |
-| completion_tokens | INTEGER | DEFAULT 0 | 输出 tokens |
+| total_tokens | INTEGER | DEFAULT 0 | 使用的总 token 数 |
+| prompt_tokens | INTEGER | DEFAULT 0 | 输入 token 数 |
+| completion_tokens | INTEGER | DEFAULT 0 | 输出 token 数 |
 | total_cost_usd | DECIMAL(10,6) | DEFAULT 0 | 总成本 |
-| duration_ms | INTEGER | | 执行时间（毫秒） |
-| agents_used | INTEGER | DEFAULT 0 | 智能体数量 |
-| tools_invoked | INTEGER | DEFAULT 0 | 工具调用数量 |
-| cache_hits | INTEGER | DEFAULT 0 | 缓存命中数 |
-| complexity_score | DECIMAL(3,2) | | 复杂度（0.0-1.0） |
-| metadata | JSONB | | 附加元数据 |
-| created_at | TIMESTAMPTZ | DEFAULT NOW() | 记录创建 |
+| duration_ms | INTEGER | | 执行时间(毫秒) |
+| agents_used | INTEGER | DEFAULT 0 | 使用的代理数量 |
+| tools_invoked | INTEGER | DEFAULT 0 | 工具调用次数 |
+| cache_hits | INTEGER | DEFAULT 0 | 缓存命中次数 |
+| complexity_score | DECIMAL(3,2) | | 复杂度 (0.0-1.0) |
+| metadata | JSONB | | 额外元数据 |
+| created_at | TIMESTAMPTZ | DEFAULT NOW() | 记录创建时间 |
 
 **索引**:
 - `idx_task_user_session` ON (user_id, session_id)
@@ -380,12 +372,12 @@ WHERE created_at > NOW() - INTERVAL '24 hours';
 **状态值**:
 - `RUNNING` - 任务执行中
 - `COMPLETED` - 成功完成
-- `FAILED` - 失败并报错
+- `FAILED` - 失败并出错
 - `CANCELLED` - 用户取消
 
 **示例**:
 ```sql
--- 用户最近的任务
+-- 用户的最近任务
 SELECT workflow_id, query, status, duration_ms, total_cost_usd
 FROM task_executions
 WHERE user_id = '...'
@@ -418,23 +410,23 @@ ORDER BY total_cost DESC;
 
 ### agent_executions
 
-**用途**: 任务中单个智能体执行的详细信息
+**用途**: 任务中的单个代理执行详情
 
-| Column | Type | Constraints | Description |
+| 列名 | 类型 | 约束 | 描述 |
 |--------|------|-------------|-------------|
 | id | UUID | PK, DEFAULT uuid_generate_v4() | 执行 ID |
 | task_execution_id | UUID | FK → task_executions | 父任务 |
-| agent_id | VARCHAR(255) | NOT NULL | 智能体标识符 |
+| agent_id | VARCHAR(255) | NOT NULL | 代理标识符 |
 | execution_order | INTEGER | NOT NULL | 执行顺序 |
-| input | TEXT | NOT NULL | 智能体输入 |
-| output | TEXT | | 智能体输出 |
+| input | TEXT | NOT NULL | 代理输入 |
+| output | TEXT | | 代理输出 |
 | mode | VARCHAR(50) | | 执行模式 |
 | state | VARCHAR(50) | | FSM 状态 |
-| tokens_used | INTEGER | DEFAULT 0 | 消费的 tokens |
+| tokens_used | INTEGER | DEFAULT 0 | 消耗的 token |
 | cost_usd | DECIMAL(10,6) | DEFAULT 0 | 执行成本 |
-| model_used | VARCHAR(100) | | LLM 模型 |
+| model_used | VARCHAR(100) | | 使用的 LLM 模型 |
 | duration_ms | INTEGER | | 执行时间 |
-| memory_used_mb | INTEGER | | 内存使用 |
+| memory_used_mb | INTEGER | | 内存使用量 |
 | created_at | TIMESTAMPTZ | DEFAULT NOW() | 开始时间 |
 | completed_at | TIMESTAMPTZ | | 完成时间 |
 
@@ -450,19 +442,19 @@ ORDER BY total_cost DESC;
 - `RETRIEVING` - 检索上下文
 - `EXECUTING` - 运行工具
 - `VALIDATING` - 验证输出
-- `SYNTHESIZING` - 综合结果
+- `SYNTHESIZING` - 合成结果
 - `COMPLETED` - 成功完成
-- `FAILED` - 失败并报错
+- `FAILED` - 失败并出错
 
 **示例**:
 ```sql
--- 任务的智能体执行链
+-- 任务的代理执行链
 SELECT agent_id, execution_order, state, duration_ms, tokens_used
 FROM agent_executions
 WHERE task_execution_id = '...'
 ORDER BY execution_order;
 
--- 智能体性能指标
+-- 代理性能指标
 SELECT
     agent_id,
     COUNT(*) as execution_count,
@@ -479,10 +471,10 @@ ORDER BY execution_count DESC;
 
 **用途**: 工具调用历史和性能
 
-| Column | Type | Constraints | Description |
+| 列名 | 类型 | 约束 | 描述 |
 |--------|------|-------------|-------------|
 | id | UUID | PK, DEFAULT uuid_generate_v4() | 执行 ID |
-| agent_execution_id | UUID | FK → agent_executions | 父智能体 |
+| agent_execution_id | UUID | FK → agent_executions | 父代理 |
 | task_execution_id | UUID | FK → task_executions | 父任务 |
 | tool_name | VARCHAR(255) | NOT NULL | 工具标识符 |
 | tool_version | VARCHAR(50) | | 工具版本 |
@@ -492,9 +484,9 @@ ORDER BY execution_count DESC;
 | success | BOOLEAN | DEFAULT true | 成功状态 |
 | error_message | TEXT | | 错误详情 |
 | duration_ms | INTEGER | | 执行时间 |
-| tokens_consumed | INTEGER | DEFAULT 0 | 使用的 tokens |
-| sandboxed | BOOLEAN | DEFAULT true | 使用 WASI 沙箱 |
-| memory_used_mb | INTEGER | | 内存使用 |
+| tokens_consumed | INTEGER | DEFAULT 0 | 使用的 token |
+| sandboxed | BOOLEAN | DEFAULT true | 是否使用 WASI 沙箱 |
+| memory_used_mb | INTEGER | | 内存使用量 |
 | executed_at | TIMESTAMPTZ | DEFAULT NOW() | 执行时间 |
 
 **索引**:
@@ -504,7 +496,7 @@ ORDER BY execution_count DESC;
 - `idx_tool_success` ON (success)
 
 **工具类别**:
-- `search` - 网络搜索工具
+- `search` - Web 搜索工具
 - `calculation` - 数学/计算
 - `file` - 文件操作
 - `database` - 数据库查询
@@ -544,21 +536,21 @@ ORDER BY avg_ms DESC;
 
 ### event_logs
 
-**用途**: 用于审计和重播的流式事件存储
+**用途**: 流式事件存储,用于审计和重放
 
-| Column | Type | Constraints | Description |
+| 列名 | 类型 | 约束 | 描述 |
 |--------|------|-------------|-------------|
 | id | UUID | PK, DEFAULT uuid_generate_v4() | 事件 ID |
 | workflow_id | VARCHAR(255) | NOT NULL | 工作流标识符 |
-| task_id | UUID | | 任务引用（可为空） |
+| task_id | UUID | | 任务引用(可为空) |
 | type | VARCHAR(100) | NOT NULL | 事件类型 |
-| agent_id | VARCHAR(255) | | 智能体标识符 |
+| agent_id | VARCHAR(255) | | 代理标识符 |
 | message | TEXT | | 事件消息 |
-| payload | JSONB | DEFAULT '{}' | 事件负载 |
+| payload | JSONB | DEFAULT '{}' | 事件有效载荷 |
 | timestamp | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | 事件时间 |
 | seq | BIGINT | | 序列号 |
 | stream_id | VARCHAR(64) | | Redis 流 ID |
-| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | 记录创建 |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | 记录创建时间 |
 
 **索引**:
 - `idx_event_logs_workflow_id` ON (workflow_id)
@@ -596,19 +588,19 @@ ORDER BY hour DESC, event_count DESC;
 
 ### token_usage
 
-**用途**: 每任务的详细 token 使用跟踪
+**用途**: 每个任务的详细 token 使用跟踪
 
-| Column | Type | Constraints | Description |
+| 列名 | 类型 | 约束 | 描述 |
 |--------|------|-------------|-------------|
 | id | UUID | PK, DEFAULT uuid_generate_v4() | 记录 ID |
 | user_id | UUID | FK → users | 用户 |
 | task_id | UUID | FK → task_executions | 任务 |
 | provider | VARCHAR(50) | NOT NULL | LLM 提供商 |
 | model | VARCHAR(255) | NOT NULL | 模型名称 |
-| prompt_tokens | INTEGER | NOT NULL | 输入 tokens |
-| completion_tokens | INTEGER | NOT NULL | 输出 tokens |
-| total_tokens | INTEGER | NOT NULL | 总 tokens |
-| cost_usd | DECIMAL(10,6) | NOT NULL | 成本（美元） |
+| prompt_tokens | INTEGER | NOT NULL | 输入 token |
+| completion_tokens | INTEGER | NOT NULL | 输出 token |
+| total_tokens | INTEGER | NOT NULL | 总 token |
+| cost_usd | DECIMAL(10,6) | NOT NULL | 美元成本 |
 | created_at | TIMESTAMPTZ | DEFAULT NOW() | 记录时间 |
 
 **索引**:
@@ -646,21 +638,21 @@ ORDER BY date;
 
 **用途**: 预计算的每日使用统计
 
-| Column | Type | Constraints | Description |
+| 列名 | 类型 | 约束 | 描述 |
 |--------|------|-------------|-------------|
 | id | UUID | PK, DEFAULT uuid_generate_v4() | 记录 ID |
 | user_id | UUID | FK → users | 用户 |
 | date | DATE | NOT NULL | 聚合日期 |
 | total_tasks | INTEGER | DEFAULT 0 | 总任务数 |
-| successful_tasks | INTEGER | DEFAULT 0 | 成功数 |
-| failed_tasks | INTEGER | DEFAULT 0 | 失败数 |
-| total_tokens | INTEGER | DEFAULT 0 | 总 tokens |
+| successful_tasks | INTEGER | DEFAULT 0 | 成功任务数 |
+| failed_tasks | INTEGER | DEFAULT 0 | 失败任务数 |
+| total_tokens | INTEGER | DEFAULT 0 | 总 token 数 |
 | total_cost_usd | DECIMAL(10,6) | DEFAULT 0 | 总成本 |
 | model_usage | JSONB | | 模型分布 |
 | tools_invoked | INTEGER | DEFAULT 0 | 工具调用次数 |
 | tool_distribution | JSONB | | 工具使用分布 |
 | avg_duration_ms | INTEGER | | 平均任务持续时间 |
-| cache_hit_rate | DECIMAL(3,2) | | 缓存命中率 |
+| cache_hit_rate | DECIMAL(3,2) | | 缓存命中百分比 |
 | created_at | TIMESTAMPTZ | DEFAULT NOW() | 记录时间 |
 
 **索引**:
@@ -691,11 +683,11 @@ WHERE date > CURRENT_DATE - INTERVAL '7 days';
 
 ### tool_calls
 
-**用途**: 旧版工具调用跟踪（请使用 tool_executions）
+**用途**: 旧版工具调用跟踪(请改用 tool_executions)
 
 ### prompts
 
-**用途**: 提示版本控制和 A/B 测试
+**用途**: 提示词版本控制和 A/B 测试
 
 ### learning_cases
 
@@ -707,15 +699,15 @@ WHERE date > CURRENT_DATE - INTERVAL '7 days';
 
 ### audit_logs (public)
 
-**用途**: 应用审计跟踪（与 auth.audit_logs 分开）
+**用途**: 应用审计跟踪(与 auth.audit_logs 分开)
 
 ## 数据库函数
 
 ### update_updated_at_column()
 
-**用途**: 在行更改时自动更新 `updated_at`
+**用途**: 行更改时自动更新 `updated_at`
 
-**用法**: 作为触发器附加到 `users` 和 `sessions` 表
+**使用**: 作为触发器附加到 `users` 和 `sessions` 表
 
 ```sql
 CREATE TRIGGER update_users_updated_at
@@ -728,7 +720,7 @@ EXECUTE FUNCTION update_updated_at_column();
 
 **用途**: 更新或创建用户的每日使用聚合
 
-**用法**: 在任务完成时通过触发器自动调用
+**使用**: 任务完成时通过触发器自动调用
 
 ```sql
 -- 手动调用
@@ -742,7 +734,7 @@ SELECT update_daily_aggregate(
 
 **用途**: 在任务状态更改时更新聚合的触发器函数
 
-**用法**: 在 task_executions INSERT/UPDATE 时自动触发
+**使用**: 在 task_executions INSERT/UPDATE 时自动触发
 
 ## 示例查询
 
@@ -790,7 +782,7 @@ GROUP BY u.email
 ORDER BY total_cost DESC
 LIMIT 10;
 
--- 按模型统计成本明细
+-- 按模型细分成本
 SELECT
     tu.provider,
     tu.model,
@@ -807,7 +799,7 @@ ORDER BY total_cost DESC;
 ### 性能监控
 
 ```sql
--- 慢查询（任务超过 60 秒）
+-- 慢查询(任务 > 60 秒)
 SELECT
     workflow_id,
     query,
@@ -835,20 +827,20 @@ ORDER BY total DESC;
 
 ### 1. 索引
 
-**始终为以下项使用索引**:
+**始终为以下内容使用索引**:
 - 外键列
-- 时间戳列（用于时间范围查询）
-- 状态/枚举列（用于过滤）
-- 频繁搜索的列
+- 时间戳列(用于时间范围查询)
+- 状态/枚举列(用于过滤)
+- 经常搜索的列
 
-**当前索引覆盖**: 优秀（所有外键和常见查询都已索引）
+**当前索引覆盖率**: 优秀(所有外键和常见查询都已建立索引)
 
 ### 2. 分区
 
-对于高容量表，考虑分区：
+对于高容量表,考虑分区:
 
 ```sql
--- 为 task_executions 进行按月分区
+-- task_executions 的月度分区
 CREATE TABLE task_executions_2025_10 PARTITION OF task_executions
     FOR VALUES FROM ('2025-10-01') TO ('2025-11-01');
 ```
@@ -856,18 +848,18 @@ CREATE TABLE task_executions_2025_10 PARTITION OF task_executions
 ### 3. 数据保留
 
 **推荐策略**:
-- `event_logs`: 90 天（高容量）
+- `event_logs`: 90 天(高容量)
 - `task_executions`: 1 年
-- `audit_logs`: 7 年（合规）
+- `audit_logs`: 7 年(合规)
 - `session_archives`: 90 天
 
 **清理脚本**:
 ```sql
--- 删除旧事件（每月运行）
+-- 删除旧事件(每月运行)
 DELETE FROM event_logs
 WHERE created_at < NOW() - INTERVAL '90 days';
 
--- 归档旧任务（每年运行）
+-- 归档旧任务(每年运行)
 INSERT INTO task_executions_archive
 SELECT * FROM task_executions
 WHERE started_at < NOW() - INTERVAL '1 year';
@@ -895,7 +887,7 @@ INCLUDE (total_cost_usd, duration_ms);
 
 ### 5. 连接池
 
-**配置**（已在 Shannon 中配置）:
+**配置**(Shannon 中已配置):
 ```bash
 DB_MAX_OPEN_CONNS=50
 DB_MAX_IDLE_CONNS=10
@@ -903,18 +895,18 @@ DB_MAX_IDLE_CONNS=10
 
 ## 维护
 
-### 清理和分析
+### Vacuum 和 Analyze
 
 ```sql
--- 手动清理（每周运行）
+-- 手动 vacuum(每周运行)
 VACUUM ANALYZE task_executions;
 VACUUM ANALYZE event_logs;
 
--- 配置自动清理
+-- 配置 autovacuum
 ALTER TABLE task_executions SET (autovacuum_vacuum_threshold = 1000);
 ```
 
-### 统计
+### 统计信息
 
 ```sql
 -- 更新统计信息
@@ -946,10 +938,3 @@ ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
     数据库监控
   </Card>
 </CardGroup>
-
-
----
-
-## 参与翻译
-
-如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。

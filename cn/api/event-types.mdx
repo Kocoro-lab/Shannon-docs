@@ -1,30 +1,22 @@
 ---
-title: "Event Types Catalog"
-description: "Complete reference for Shannon streaming event types"
+title: "事件类型目录"
+description: "Shannon 流式事件类型的完整参考"
 ---
 
-> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
+## 概述
 
-**原文件**: `api/event-types.mdx`
-**英文版本**: [查看英文文档](/en/api/event-types)
+Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件**,以提供任务执行的可见性。本文档记录了**所有 35+ 种事件类型**、它们的结构以及发生时机。
 
----
+事件提供:
+- **实时进度** - 实时跟踪任务执行
+- **调试洞察** - LLM 提示词、工具调用、智能体推理
+- **成本监控** - 实时跟踪 token 使用量和成本
+- **多智能体协调** - 观察团队组建和协作
+- **错误恢复** - 监控错误处理和恢复尝试
 
+## 事件结构
 
-## Overview
-
-Shannon emits **real-time events** via Server-Sent Events (SSE) to provide visibility into task execution. This document catalogs **all 35+ event types**, their structure, and when they occur.
-
-Events provide:
-- **Real-time progress** - Track task execution as it happens
-- **Debugging insights** - LLM prompts, tool invocations, agent reasoning
-- **Cost monitoring** - Track token usage and costs in real-time
-- **Multi-agent coordination** - Observe team formation and collaboration
-- **Error recovery** - Monitor error handling and recovery attempts
-
-## Event Structure
-
-All events follow this base structure:
+所有事件遵循以下基础结构:
 
 ```json
 {
@@ -39,91 +31,91 @@ All events follow this base structure:
 }
 ```
 
-### Base Fields
+### 基础字段
 
-| Field | Type | Description |
+| 字段 | 类型 | 描述 |
 |-------|------|-------------|
-| `workflow_id` | string | Unique task/workflow identifier |
-| `type` | string | Event type (see catalog below) |
-| `agent_id` | string | Agent that emitted the event |
-| `message` | string | Human-readable event description |
-| `timestamp` | ISO 8601 | When the event occurred |
-| `seq` | integer | Sequence number for ordering |
-| `stream_id` | string | Stream identifier for reconnection |
-| `data` | object | Event-specific payload (optional) |
+| `workflow_id` | string | 唯一的任务/工作流标识符 |
+| `type` | string | 事件类型(参见下面的目录) |
+| `agent_id` | string | 发出事件的智能体 |
+| `message` | string | 人类可读的事件描述 |
+| `timestamp` | ISO 8601 | 事件发生时间 |
+| `seq` | integer | 用于排序的序列号 |
+| `stream_id` | string | 用于重连的流标识符 |
+| `data` | object | 事件特定的载荷(可选) |
 
 ---
 
-## Event Categories
+## 事件分类
 
-Events are organized into logical categories:
+事件被组织为逻辑分类:
 
-1. **Workflow Events** - Task lifecycle
-2. **Agent Events** - Agent execution
-3. **Tool Events** - Tool invocations
-4. **Pattern Events** - Cognitive pattern execution
-5. **Team Events** - Multi-agent coordination
-6. **LLM Events** - Language model interactions
-7. **Progress Events** - Task progress and status
-8. **System Events** - Errors and system state
+1. **工作流事件** - 任务生命周期
+2. **智能体事件** - 智能体执行
+3. **工具事件** - 工具调用
+4. **模式事件** - 认知模式执行
+5. **团队事件** - 多智能体协调
+6. **LLM 事件** - 语言模型交互
+7. **进度事件** - 任务进度和状态
+8. **系统事件** - 错误和系统状态
 
 ---
 
-## Event Type Quick Reference
+## 事件类型快速参考
 
-Complete list of all event types by category:
+按分类列出的所有事件类型完整列表:
 
-| Event Type | Category | Description |
+| 事件类型 | 分类 | 描述 |
 |------------|----------|-------------|
-| `WORKFLOW_STARTED` | Workflow | Task begins execution |
-| `WORKFLOW_COMPLETED` | Workflow | Task completes successfully |
-| `WORKFLOW_FAILED` | Workflow | Task fails with error |
-| `AGENT_STARTED` | Agent | Agent begins processing |
-| `AGENT_THINKING` | Agent | Agent reasoning/planning |
-| `AGENT_COMPLETED` | Agent | Agent finishes successfully |
-| `AGENT_FAILED` | Agent | Agent encounters error |
-| `TOOL_INVOKED` | Tool | Tool is called |
-| `TOOL_COMPLETED` | Tool | Tool execution finishes |
-| `TOOL_FAILED` | Tool | Tool execution fails |
-| `TOOL_OBSERVATION` | Tool | Agent observes tool result |
-| `PATTERN_SELECTED` | Pattern | Cognitive pattern chosen |
-| `TASK_DECOMPOSED` | Pattern | Task broken into subtasks |
-| `SUBTASK_STARTED` | Pattern | Individual subtask begins |
-| `SUBTASK_COMPLETED` | Pattern | Subtask finishes |
-| `TEAM_RECRUITED` | Team | Multi-agent team assembled |
-| `TEAM_RETIRED` | Team | Team disbanded |
-| `TEAM_STATUS` | Team | Team coordination update |
-| `DEPENDENCY_SATISFIED` | Team | Dependencies resolved |
-| `MESSAGE_SENT` | Message | Agent sends message |
-| `MESSAGE_RECEIVED` | Message | Agent receives message |
-| `LLM_PROMPT` | LLM | Prompt sent to LLM |
-| `LLM_PARTIAL` | LLM | Incremental LLM output |
-| `LLM_OUTPUT` | LLM | Final LLM output |
-| `PROGRESS` | Progress | General progress update |
-| `DATA_PROCESSING` | Progress | Processing/analyzing data |
-| `WAITING` | Progress | Waiting for resources |
-| `ERROR_OCCURRED` | System | System error |
-| `ERROR_RECOVERY` | System | Error recovery attempt |
-| `BUDGET_UPDATE` | System | Cost/token update |
-| `APPROVAL_REQUESTED` | System | Human approval needed |
-| `APPROVAL_DECISION` | System | Approval decision made |
-| `WORKSPACE_UPDATED` | System | Memory/context updated |
-| `ROLE_ASSIGNED` | System | Agent role assigned |
-| `DELEGATION` | System | Task delegated |
+| `WORKFLOW_STARTED` | 工作流 | 任务开始执行 |
+| `WORKFLOW_COMPLETED` | 工作流 | 任务成功完成 |
+| `WORKFLOW_FAILED` | 工作流 | 任务失败并出错 |
+| `AGENT_STARTED` | 智能体 | 智能体开始处理 |
+| `AGENT_THINKING` | 智能体 | 智能体推理/规划 |
+| `AGENT_COMPLETED` | 智能体 | 智能体成功完成 |
+| `AGENT_FAILED` | 智能体 | 智能体遇到错误 |
+| `TOOL_INVOKED` | 工具 | 调用工具 |
+| `TOOL_COMPLETED` | 工具 | 工具执行完成 |
+| `TOOL_FAILED` | 工具 | 工具执行失败 |
+| `TOOL_OBSERVATION` | 工具 | 智能体观察工具结果 |
+| `PATTERN_SELECTED` | 模式 | 选择认知模式 |
+| `TASK_DECOMPOSED` | 模式 | 任务分解为子任务 |
+| `SUBTASK_STARTED` | 模式 | 单个子任务开始 |
+| `SUBTASK_COMPLETED` | 模式 | 子任务完成 |
+| `TEAM_RECRUITED` | 团队 | 组建多智能体团队 |
+| `TEAM_RETIRED` | 团队 | 解散团队 |
+| `TEAM_STATUS` | 团队 | 团队协调更新 |
+| `DEPENDENCY_SATISFIED` | 团队 | 依赖关系已解决 |
+| `MESSAGE_SENT` | 消息 | 智能体发送消息 |
+| `MESSAGE_RECEIVED` | 消息 | 智能体接收消息 |
+| `LLM_PROMPT` | LLM | 提示词发送到 LLM |
+| `LLM_PARTIAL` | LLM | 增量 LLM 输出 |
+| `LLM_OUTPUT` | LLM | 最终 LLM 输出 |
+| `PROGRESS` | 进度 | 通用进度更新 |
+| `DATA_PROCESSING` | 进度 | 处理/分析数据 |
+| `WAITING` | 进度 | 等待资源 |
+| `ERROR_OCCURRED` | 系统 | 系统错误 |
+| `ERROR_RECOVERY` | 系统 | 错误恢复尝试 |
+| `BUDGET_UPDATE` | 系统 | 成本/token 更新 |
+| `APPROVAL_REQUESTED` | 系统 | 需要人工批准 |
+| `APPROVAL_DECISION` | 系统 | 批准决策已做出 |
+| `WORKSPACE_UPDATED` | 系统 | 内存/上下文已更新 |
+| `ROLE_ASSIGNED` | 系统 | 智能体角色已分配 |
+| `DELEGATION` | 系统 | 任务已委托 |
 
-**Total**: 35 event types
+**总计**: 35 种事件类型
 
 ---
 
-## Workflow Events
+## 工作流事件
 
-Events related to the overall task workflow.
+与整体任务工作流相关的事件。
 
 ### WORKFLOW_STARTED
 
-**Emitted**: When a task begins execution
+**发出时机**: 任务开始执行时
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "WORKFLOW_STARTED",
@@ -137,19 +129,19 @@ Events related to the overall task workflow.
 }
 ```
 
-**Fields**:
-- `query`: Original task query
-- `mode`: Execution mode (SIMPLE, STANDARD, COMPLEX)
-- `session_id`: Session identifier
-- `estimated_complexity`: Complexity score (0.0-1.0)
+**字段**:
+- `query`: 原始任务查询
+- `mode`: 执行模式(SIMPLE、STANDARD、COMPLEX)
+- `session_id`: 会话标识符
+- `estimated_complexity`: 复杂度分数(0.0-1.0)
 
 ---
 
 ### WORKFLOW_COMPLETED
 
-**Emitted**: When a task completes successfully
+**发出时机**: 任务成功完成时
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "WORKFLOW_COMPLETED",
@@ -165,21 +157,21 @@ Events related to the overall task workflow.
 }
 ```
 
-**Fields**:
-- `result`: Final task result
-- `duration_ms`: Total execution time
-- `total_tokens`: Cumulative token usage
-- `total_cost_usd`: Total cost
-- `agents_used`: Number of agents invoked
-- `tools_invoked`: Number of tool calls
+**字段**:
+- `result`: 最终任务结果
+- `duration_ms`: 总执行时间
+- `total_tokens`: 累计 token 使用量
+- `total_cost_usd`: 总成本
+- `agents_used`: 调用的智能体数量
+- `tools_invoked`: 工具调用次数
 
 ---
 
 ### WORKFLOW_FAILED
 
-**Emitted**: When a task fails
+**发出时机**: 任务失败时
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "WORKFLOW_FAILED",
@@ -194,24 +186,24 @@ Events related to the overall task workflow.
 }
 ```
 
-**Common Error Types**:
-- `BUDGET_EXCEEDED` - Cost/token limit reached
-- `TIMEOUT` - Execution timeout
-- `TOOL_EXECUTION_FAILED` - Tool error
-- `LLM_ERROR` - LLM provider error
-- `INVALID_INPUT` - Malformed request
+**常见错误类型**:
+- `BUDGET_EXCEEDED` - 达到成本/token 限制
+- `TIMEOUT` - 执行超时
+- `TOOL_EXECUTION_FAILED` - 工具错误
+- `LLM_ERROR` - LLM 提供商错误
+- `INVALID_INPUT` - 格式错误的请求
 
 ---
 
-## Agent Events
+## 智能体事件
 
-Events related to individual agent execution.
+与单个智能体执行相关的事件。
 
 ### AGENT_STARTED
 
-**Emitted**: When an agent begins processing
+**发出时机**: 智能体开始处理时
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "AGENT_STARTED",
@@ -229,9 +221,9 @@ Events related to individual agent execution.
 
 ### AGENT_THINKING
 
-**Emitted**: Agent is reasoning/processing (most frequent event)
+**发出时机**: 智能体正在推理/处理(最频繁的事件)
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "AGENT_THINKING",
@@ -245,15 +237,15 @@ Events related to individual agent execution.
 }
 ```
 
-**Usage**: Display as progress indicator to user
+**用途**: 作为进度指示器显示给用户
 
 ---
 
 ### AGENT_COMPLETED
 
-**Emitted**: Agent finished its subtask
+**发出时机**: 智能体完成其子任务时
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "AGENT_COMPLETED",
@@ -272,9 +264,9 @@ Events related to individual agent execution.
 
 ### AGENT_FAILED
 
-**Emitted**: Agent encountered an error
+**发出时机**: 智能体遇到错误时
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "AGENT_FAILED",
@@ -290,15 +282,15 @@ Events related to individual agent execution.
 
 ---
 
-## Tool Events
+## 工具事件
 
-Events related to tool invocations.
+与工具调用相关的事件。
 
 ### TOOL_INVOKED
 
-**Emitted**: When a tool is called
+**发出时机**: 调用工具时
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "TOOL_INVOKED",
@@ -317,9 +309,9 @@ Events related to tool invocations.
 
 ### TOOL_COMPLETED
 
-**Emitted**: Tool execution finished
+**发出时机**: 工具执行完成时
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "TOOL_COMPLETED",
@@ -341,9 +333,9 @@ Events related to tool invocations.
 
 ### TOOL_FAILED
 
-**Emitted**: Tool execution failed
+**发出时机**: 工具执行失败时
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "TOOL_FAILED",
@@ -359,15 +351,15 @@ Events related to tool invocations.
 
 ---
 
-## Pattern Events
+## 模式事件
 
-Events specific to cognitive pattern execution.
+特定于认知模式执行的事件。
 
 ### PATTERN_SELECTED
 
-**Emitted**: When a cognitive pattern is chosen
+**发出时机**: 选择认知模式时
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "PATTERN_SELECTED",
@@ -381,20 +373,20 @@ Events specific to cognitive pattern execution.
 }
 ```
 
-**Available Patterns**:
-- `CHAIN_OF_THOUGHT` - Sequential reasoning
-- `TREE_OF_THOUGHTS` - Branching exploration
-- `REACT` - Reasoning + Acting cycle
-- `DEBATE` - Multi-perspective analysis
-- `REFLECTION` - Self-improvement loop
+**可用模式**:
+- `CHAIN_OF_THOUGHT` - 顺序推理
+- `TREE_OF_THOUGHTS` - 分支探索
+- `REACT` - 推理 + 行动循环
+- `DEBATE` - 多视角分析
+- `REFLECTION` - 自我改进循环
 
 ---
 
 ### TASK_DECOMPOSED
 
-**Emitted**: Task broken into subtasks
+**发出时机**: 任务分解为子任务时
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "TASK_DECOMPOSED",
@@ -431,9 +423,9 @@ Events specific to cognitive pattern execution.
 
 ### SUBTASK_STARTED
 
-**Emitted**: Individual subtask begins
+**发出时机**: 单个子任务开始时
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "SUBTASK_STARTED",
@@ -450,9 +442,9 @@ Events specific to cognitive pattern execution.
 
 ### SUBTASK_COMPLETED
 
-**Emitted**: Subtask finishes
+**发出时机**: 子任务完成时
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "SUBTASK_COMPLETED",
@@ -468,15 +460,15 @@ Events specific to cognitive pattern execution.
 
 ---
 
-## Team Events
+## 团队事件
 
-Multi-agent team coordination and management.
+多智能体团队协调和管理。
 
 ### TEAM_RECRUITED
 
-**Emitted**: When a team of agents is assembled for execution
+**发出时机**: 组建智能体团队进行执行时
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "TEAM_RECRUITED",
@@ -508,9 +500,9 @@ Multi-agent team coordination and management.
 
 ### TEAM_RETIRED
 
-**Emitted**: When a team is disbanded after task completion
+**发出时机**: 任务完成后解散团队时
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "TEAM_RETIRED",
@@ -528,9 +520,9 @@ Multi-agent team coordination and management.
 
 ### TEAM_STATUS
 
-**Emitted**: Periodic updates on multi-agent team coordination
+**发出时机**: 多智能体团队协调的定期更新
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "TEAM_STATUS",
@@ -549,9 +541,9 @@ Multi-agent team coordination and management.
 
 ### DEPENDENCY_SATISFIED
 
-**Emitted**: When task dependencies are resolved and execution can proceed
+**发出时机**: 任务依赖关系已解决且可以继续执行时
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "DEPENDENCY_SATISFIED",
@@ -566,15 +558,15 @@ Multi-agent team coordination and management.
 
 ---
 
-## Message Events
+## 消息事件
 
-Agent-to-agent communication.
+智能体之间的通信。
 
 ### MESSAGE_SENT
 
-**Emitted**: Agent sends message to another agent
+**发出时机**: 智能体向另一个智能体发送消息时
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "MESSAGE_SENT",
@@ -592,9 +584,9 @@ Agent-to-agent communication.
 
 ### MESSAGE_RECEIVED
 
-**Emitted**: Agent receives message
+**发出时机**: 智能体接收消息时
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "MESSAGE_RECEIVED",
@@ -610,15 +602,15 @@ Agent-to-agent communication.
 
 ---
 
-## LLM Events
+## LLM 事件
 
-Language model interaction events for debugging and monitoring.
+用于调试和监控的语言模型交互事件。
 
 ### LLM_PROMPT
 
-**Emitted**: When a prompt is sent to the LLM (sanitized for privacy)
+**发出时机**: 提示词发送到 LLM 时(为保护隐私已脱敏)
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "LLM_PROMPT",
@@ -637,9 +629,9 @@ Language model interaction events for debugging and monitoring.
 
 ### LLM_PARTIAL
 
-**Emitted**: Incremental LLM output chunk during streaming
+**发出时机**: 流式传输期间的增量 LLM 输出块
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "LLM_PARTIAL",
@@ -656,9 +648,9 @@ Language model interaction events for debugging and monitoring.
 
 ### LLM_OUTPUT
 
-**Emitted**: Final LLM output for a step
+**发出时机**: 某个步骤的最终 LLM 输出
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "LLM_OUTPUT",
@@ -677,9 +669,9 @@ Language model interaction events for debugging and monitoring.
 
 ### TOOL_OBSERVATION
 
-**Emitted**: Tool result observation by agent
+**发出时机**: 智能体观察工具结果时
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "TOOL_OBSERVATION",
@@ -694,15 +686,15 @@ Language model interaction events for debugging and monitoring.
 
 ---
 
-## Progress Events
+## 进度事件
 
-Task progress and status updates for user feedback.
+用于用户反馈的任务进度和状态更新。
 
 ### PROGRESS
 
-**Emitted**: General progress update during execution
+**发出时机**: 执行期间的通用进度更新
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "PROGRESS",
@@ -720,9 +712,9 @@ Task progress and status updates for user feedback.
 
 ### DATA_PROCESSING
 
-**Emitted**: Agent is processing or analyzing data
+**发出时机**: 智能体正在处理或分析数据时
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "DATA_PROCESSING",
@@ -740,9 +732,9 @@ Task progress and status updates for user feedback.
 
 ### WAITING
 
-**Emitted**: Agent is waiting for resources or responses
+**发出时机**: 智能体正在等待资源或响应时
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "WAITING",
@@ -757,15 +749,15 @@ Task progress and status updates for user feedback.
 
 ---
 
-## System Events
+## 系统事件
 
-System-level events and errors.
+系统级事件和错误。
 
 ### ERROR_OCCURRED
 
-**Emitted**: System error during execution
+**发出时机**: 执行期间发生系统错误时
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "ERROR_OCCURRED",
@@ -784,9 +776,9 @@ System-level events and errors.
 
 ### BUDGET_UPDATE
 
-**Emitted**: Periodically during execution to track costs
+**发出时机**: 执行期间定期更新以跟踪成本
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "BUDGET_UPDATE",
@@ -805,9 +797,9 @@ System-level events and errors.
 
 ### ERROR_RECOVERY
 
-**Emitted**: System is recovering from an error
+**发出时机**: 系统正在从错误中恢复时
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "ERROR_RECOVERY",
@@ -826,9 +818,9 @@ System-level events and errors.
 
 ### APPROVAL_REQUESTED
 
-**Emitted**: Human approval needed to proceed
+**发出时机**: 需要人工批准才能继续时
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "APPROVAL_REQUESTED",
@@ -851,9 +843,9 @@ System-level events and errors.
 
 ### APPROVAL_DECISION
 
-**Emitted**: Human has made an approval decision
+**发出时机**: 人工做出批准决策时
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "APPROVAL_DECISION",
@@ -868,18 +860,18 @@ System-level events and errors.
 }
 ```
 
-**Decision Values**:
-- `approved` - Action allowed to proceed
-- `denied` - Action blocked
-- `timeout` - No decision within timeout period
+**决策值**:
+- `approved` - 允许操作继续
+- `denied` - 阻止操作
+- `timeout` - 超时期间内未做决策
 
 ---
 
 ### WORKSPACE_UPDATED
 
-**Emitted**: Working memory/context updated
+**发出时机**: 工作内存/上下文更新时
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "WORKSPACE_UPDATED",
@@ -896,9 +888,9 @@ System-level events and errors.
 
 ### ROLE_ASSIGNED
 
-**Emitted**: Agent role assigned during execution
+**发出时机**: 执行期间分配智能体角色时
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "ROLE_ASSIGNED",
@@ -916,9 +908,9 @@ System-level events and errors.
 
 ### DELEGATION
 
-**Emitted**: Task delegated to another agent
+**发出时机**: 任务委托给另一个智能体时
 
-**Data**:
+**数据**:
 ```json
 {
   "type": "DELEGATION",
@@ -934,9 +926,9 @@ System-level events and errors.
 
 ---
 
-## Event Ordering
+## 事件排序
 
-Events are **strictly ordered** by sequence number (`seq`):
+事件按序列号(`seq`)**严格排序**:
 
 ```json
 {"seq": 1, "type": "WORKFLOW_STARTED"}
@@ -950,79 +942,79 @@ Events are **strictly ordered** by sequence number (`seq`):
 {"seq": 42, "type": "WORKFLOW_COMPLETED"}
 ```
 
-**Properties**:
-- Sequence numbers are monotonically increasing
-- No gaps in sequence (every number from 1 to N)
-- Events from same workflow always ordered correctly
+**特性**:
+- 序列号单调递增
+- 序列中无间隙(从 1 到 N 的每个数字)
+- 来自同一工作流的事件始终正确排序
 
 ---
 
-## Typical Event Flow
+## 典型事件流程
 
-### Simple Task (SIMPLE mode)
+### 简单任务(SIMPLE 模式)
 
 ```
 1. WORKFLOW_STARTED
 2. AGENT_STARTED
 3. AGENT_THINKING
-4. TOOL_INVOKED (if needed)
+4. TOOL_INVOKED (如果需要)
 5. TOOL_COMPLETED
 6. AGENT_COMPLETED
 7. WORKFLOW_COMPLETED
 ```
 
-### Standard Task (STANDARD mode)
+### 标准任务(STANDARD 模式)
 
 ```
 1. WORKFLOW_STARTED
 2. PATTERN_SELECTED
 3. TASK_DECOMPOSED
-4. SUBTASK_STARTED (subtask 1)
+4. SUBTASK_STARTED (子任务 1)
 5. AGENT_STARTED
 6. AGENT_THINKING
 7. TOOL_INVOKED
 8. TOOL_COMPLETED
 9. AGENT_COMPLETED
-10. SUBTASK_COMPLETED (subtask 1)
-11. SUBTASK_STARTED (subtask 2)
-12. ... (repeat for each subtask)
+10. SUBTASK_COMPLETED (子任务 1)
+11. SUBTASK_STARTED (子任务 2)
+12. ... (对每个子任务重复)
 N. WORKFLOW_COMPLETED
 ```
 
-### Complex Task (COMPLEX mode)
+### 复杂任务(COMPLEX 模式)
 
 ```
 1. WORKFLOW_STARTED
 2. PATTERN_SELECTED (Tree-of-Thoughts)
 3. TASK_DECOMPOSED
-4. TEAM_RECRUITED (multi-agent team)
-5. Multiple parallel SUBTASK_STARTED
-6. AGENT_THINKING (exploration phase)
-7. Multiple AGENT_STARTED (parallel agents)
-8. ROLE_ASSIGNED (agents get specialized roles)
-9. DATA_PROCESSING (agents working)
-10. WAITING (for dependencies)
-11. DEPENDENCY_SATISFIED (unblock execution)
-12. LLM_PROMPT / LLM_OUTPUT (LLM interactions)
+4. TEAM_RECRUITED (多智能体团队)
+5. 多个并行的 SUBTASK_STARTED
+6. AGENT_THINKING (探索阶段)
+7. 多个 AGENT_STARTED (并行智能体)
+8. ROLE_ASSIGNED (智能体获得专门角色)
+9. DATA_PROCESSING (智能体工作中)
+10. WAITING (等待依赖)
+11. DEPENDENCY_SATISFIED (解除执行阻塞)
+12. LLM_PROMPT / LLM_OUTPUT (LLM 交互)
 13. TOOL_INVOKED / TOOL_COMPLETED
-14. TOOL_OBSERVATION (agents process results)
-15. MESSAGE_SENT / MESSAGE_RECEIVED (agent coordination)
-16. DELEGATION (task hand-offs)
-17. TEAM_STATUS (progress updates)
-18. PROGRESS (overall progress)
-19. Subtasks complete in parallel
-20. TEAM_RETIRED (team disbanded)
+14. TOOL_OBSERVATION (智能体处理结果)
+15. MESSAGE_SENT / MESSAGE_RECEIVED (智能体协调)
+16. DELEGATION (任务交接)
+17. TEAM_STATUS (进度更新)
+18. PROGRESS (整体进度)
+19. 子任务并行完成
+20. TEAM_RETIRED (团队解散)
 21. WORKFLOW_COMPLETED
 ```
 
 ---
 
-## Streaming Best Practices
+## 流式传输最佳实践
 
-### Progress Indicators
+### 进度指示器
 
 ```python
-# Track progress
+# 跟踪进度
 total_subtasks = 0
 completed_subtasks = 0
 
@@ -1040,10 +1032,10 @@ for event in client.stream_events(workflow_id):
         break
 ```
 
-### Cost Monitoring
+### 成本监控
 
 ```python
-# Monitor costs in real-time
+# 实时监控成本
 for event in client.stream_events(workflow_id):
     if event.type == 'BUDGET_UPDATE':
         cost = event.data['cost_usd']
@@ -1057,10 +1049,10 @@ for event in client.stream_events(workflow_id):
             print("Task cancelled: Budget exceeded")
 ```
 
-### Error Handling
+### 错误处理
 
 ```python
-# Handle errors gracefully
+# 优雅地处理错误
 for event in client.stream_events(workflow_id):
     if event.type == 'ERROR_OCCURRED':
         error = event.data
@@ -1079,12 +1071,12 @@ for event in client.stream_events(workflow_id):
 
 ---
 
-## Filtering Events
+## 过滤事件
 
-Filter events by type for specific use cases:
+按类型过滤事件以用于特定用例:
 
 ```python
-# Only show user-facing events
+# 仅显示面向用户的事件
 USER_EVENTS = {
     'WORKFLOW_STARTED',
     'WORKFLOW_COMPLETED',
@@ -1101,7 +1093,7 @@ for event in client.stream_events(workflow_id):
 ```
 
 ```python
-# Debug mode: show everything
+# 调试模式: 显示所有内容
 for event in client.stream_events(workflow_id):
     print(f"[{event.seq}] {event.type}: {event.message}")
     if event.data:
@@ -1110,107 +1102,101 @@ for event in client.stream_events(workflow_id):
 
 ---
 
-## Event Persistence
+## 事件持久化
 
-Events are stored in:
-- **PostgreSQL**: Permanent event log
-- **Redis**: Recent events (hot cache)
-- **Real-time**: SSE stream
+事件存储在:
+- **PostgreSQL**: 永久事件日志
+- **Redis**: 最近的事件(热缓存)
+- **实时**: SSE 流
 
-**Retrieving Historical Events**:
+**检索历史事件**:
 ```bash
-# Get all events for a task
+# 获取任务的所有事件
 GET /api/v1/tasks/{task_id}/events?limit=1000
 ```
 
 ---
 
-## Event Reliability and Guarantees
+## 事件可靠性和保证
 
-### Ordering Guarantees
+### 排序保证
 
-Shannon provides **strict ordering** within a single workflow:
-- Events are numbered sequentially (`seq` field)
-- No gaps in sequence numbers (1, 2, 3, ...)
-- Events from the same workflow always arrive in order
-- Events from different workflows may be interleaved
+Shannon 在单个工作流内提供**严格排序**:
+- 事件按顺序编号(`seq` 字段)
+- 序列号无间隙(1、2、3、...)
+- 来自同一工作流的事件始终按顺序到达
+- 来自不同工作流的事件可能会交错
 
-### Delivery Guarantees
+### 交付保证
 
-- **At-least-once delivery**: Events may be delivered multiple times (use `seq` for deduplication)
-- **Event persistence**: All events stored in PostgreSQL `event_logs` table
-- **Hot cache**: Recent events cached in Redis for fast retrieval
-- **Historical access**: Query past events via REST API
+- **至少一次交付**: 事件可能会被多次交付(使用 `seq` 进行去重)
+- **事件持久化**: 所有事件存储在 PostgreSQL `event_logs` 表中
+- **热缓存**: 最近的事件缓存在 Redis 中以便快速检索
+- **历史访问**: 通过 REST API 查询过去的事件
 
-### Stream Reconnection
+### 流重连
 
-If SSE connection drops:
+如果 SSE 连接断开:
 ```python
-# Reconnect and resume from last sequence number
-last_seq = 42  # Last received event
+# 重连并从最后一个序列号恢复
+last_seq = 42  # 最后接收的事件
 for event in client.stream_events(workflow_id, from_seq=last_seq + 1):
     process_event(event)
 ```
 
-### Event Retention
+### 事件保留期
 
-| Storage | Retention Period | Purpose |
+| 存储 | 保留期 | 用途 |
 |---------|-----------------|---------|
-| Redis | 1 hour | Real-time streaming |
-| PostgreSQL | 90 days (default) | Historical queries |
-| Archival | 1+ years (optional) | Long-term audit |
+| Redis | 1 小时 | 实时流式传输 |
+| PostgreSQL | 90 天(默认) | 历史查询 |
+| 归档 | 1 年以上(可选) | 长期审计 |
 
-See [Database Schema](/cn/architecture/database-schema#event-logs-table) for event storage details.
-
----
-
-## Complete Event Type Reference
-
-All 35 event types are production-ready and actively emitted by Shannon. The following events are emitted most frequently:
-
-**High Frequency** (multiple per task):
-- `AGENT_THINKING` - Agent reasoning steps
-- `LLM_PARTIAL` - Streaming LLM output
-- `DATA_PROCESSING` - Data processing updates
-- `PROGRESS` - Progress updates
-
-**Medium Frequency** (few per task):
-- `TOOL_INVOKED` / `TOOL_COMPLETED` - Tool calls
-- `AGENT_STARTED` / `AGENT_COMPLETED` - Agent lifecycle
-- `SUBTASK_STARTED` / `SUBTASK_COMPLETED` - Subtask execution
-
-**Low Frequency** (once per task):
-- `WORKFLOW_STARTED` / `WORKFLOW_COMPLETED` - Workflow lifecycle
-- `PATTERN_SELECTED` - Pattern selection
-- `TASK_DECOMPOSED` - Task decomposition
-- `TEAM_RECRUITED` / `TEAM_RETIRED` - Team management
-
-**Rare** (only when needed):
-- `ERROR_OCCURRED` / `ERROR_RECOVERY` - Error handling
-- `APPROVAL_REQUESTED` / `APPROVAL_DECISION` - Human approval
-- `WORKFLOW_FAILED` / `AGENT_FAILED` / `TOOL_FAILED` - Failures
+有关事件存储详情,请参见[数据库模式](/cn/architecture/database-schema#event-logs-table)。
 
 ---
 
-## Related Topics
+## 完整事件类型参考
+
+所有 35 种事件类型都已投入生产并由 Shannon 主动发出。以下事件发出最频繁:
+
+**高频**(每个任务多次):
+- `AGENT_THINKING` - 智能体推理步骤
+- `LLM_PARTIAL` - 流式 LLM 输出
+- `DATA_PROCESSING` - 数据处理更新
+- `PROGRESS` - 进度更新
+
+**中频**(每个任务少量):
+- `TOOL_INVOKED` / `TOOL_COMPLETED` - 工具调用
+- `AGENT_STARTED` / `AGENT_COMPLETED` - 智能体生命周期
+- `SUBTASK_STARTED` / `SUBTASK_COMPLETED` - 子任务执行
+
+**低频**(每个任务一次):
+- `WORKFLOW_STARTED` / `WORKFLOW_COMPLETED` - 工作流生命周期
+- `PATTERN_SELECTED` - 模式选择
+- `TASK_DECOMPOSED` - 任务分解
+- `TEAM_RECRUITED` / `TEAM_RETIRED` - 团队管理
+
+**罕见**(仅在需要时):
+- `ERROR_OCCURRED` / `ERROR_RECOVERY` - 错误处理
+- `APPROVAL_REQUESTED` / `APPROVAL_DECISION` - 人工批准
+- `WORKFLOW_FAILED` / `AGENT_FAILED` / `TOOL_FAILED` - 失败
+
+---
+
+## 相关主题
 
 <CardGroup cols={2}>
-  <Card title="Stream Task Events" icon="stream" href="/cn/api/endpoints/stream-task">
-    Streaming API endpoint
+  <Card title="流式任务事件" icon="stream" href="/cn/api/endpoints/stream-task">
+    流式传输 API 端点
   </Card>
-  <Card title="Python SDK Streaming" icon="python" href="/cn/sdk/python/streaming">
-    SDK streaming guide
+  <Card title="Python SDK 流式传输" icon="python" href="/cn/sdk/python/streaming">
+    SDK 流式传输指南
   </Card>
-  <Card title="List Tasks" icon="list" href="/cn/api/endpoints/list-tasks">
-    View task history
+  <Card title="列出任务" icon="list" href="/cn/api/endpoints/list-tasks">
+    查看任务历史
   </Card>
-  <Card title="Troubleshooting" icon="wrench" href="/cn/quickstart/troubleshooting">
-    Debug streaming issues
+  <Card title="故障排除" icon="wrench" href="/cn/quickstart/troubleshooting">
+    调试流式传输问题
   </Card>
 </CardGroup>
-
----
-
-## 参与翻译
-
-如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。

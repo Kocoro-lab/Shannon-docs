@@ -1,19 +1,11 @@
 ---
-title: "快速入门"
-description: "Submit your first task to Shannon in 5 minutes"
+title: "快速开始"
+description: "5 分钟内向 Shannon 提交您的第一个任务"
 ---
-
-> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
-
-**原文件**: `quickstart/quickstart.mdx`
-**英文版本**: [查看英文文档](/en/quickstart/quickstart)
-
----
-
 
 ## 您的第一个任务
 
-让我们向 Shannon 提交一个简单任务并看看它的运行。本指南假设您已完成[安装](/cn/quickstart/installation)。
+让我们向 Shannon 提交一个简单的任务并看看它的运行情况。本指南假设您已完成[安装](/cn/quickstart/installation)。
 
 ## 使用 REST API
 
@@ -64,13 +56,13 @@ curl http://localhost:8080/api/v1/tasks/task-dev-1730000000
 
 ## 实时流式传输事件
 
-Shannon 支持 Server-Sent Events (SSE) 用于实时更新：
+Shannon 支持服务器发送事件 (SSE) 进行实时更新：
 
 ```bash
 curl -N http://localhost:8080/api/v1/tasks/task-dev-1730000000/stream
 ```
 
-您将看到事件实时发生：
+您将看到事件的实时发生：
 
 ```
 event: AGENT_THINKING
@@ -95,7 +87,7 @@ pip install shannon-sdk
 ```python
 from shannon import ShannonClient
 
-# gRPC for submission; SSE uses admin 8081 by default
+# gRPC 用于提交；SSE 默认使用管理端口 8081
 client = ShannonClient()
 
 handle = client.submit_task(
@@ -103,7 +95,7 @@ handle = client.submit_task(
 )
 print("Task submitted:", handle.task_id)
 
-# Wait for completion
+# 等待完成
 final = client.wait(handle.task_id, timeout=60)
 print("Result:", final.result)
 ```
@@ -111,18 +103,18 @@ print("Result:", final.result)
 ### 流式传输事件
 
 ```python
-# Stream events in real-time
+# 实时流式传输事件
 for event in client.stream(handle.workflow_id):
     print(f"{event.type}: {event.message}")
 ```
 
 ## 执行模式
 
-Shannon 根据任务复杂度内部自动选择执行模式。REST API 目前不接受 `mode` 参数。
+Shannon 根据任务复杂度自动在内部选择执行模式。REST API 目前不接受 `mode` 参数。
 
 ## 成本控制
 
-预算控制由 Shannon 管理。通过 REST 显式设置每个请求的预算配置尚未可用。
+预算控制由 Shannon 管理。目前还不能通过 REST 设置每个请求的明确预算。
 
 ## 多轮对话
 
@@ -131,37 +123,37 @@ Shannon 支持基于会话的对话：
 ```python
 session_id = "my-conversation-123"
 
-# First message
+# 第一条消息
 handle1 = client.submit_task(
     query="What is the capital of France?",
     session_id=session_id
 )
 
-# Follow-up message (Shannon remembers context)
+# 后续消息（Shannon 记住上下文）
 handle2 = client.submit_task(
     query="What's the population?",
     session_id=session_id
 )
 
-# Shannon 知道您问的是巴黎的人口
+# Shannon 知道您在询问巴黎的人口
 ```
 
-## 使用控制面板
+## 使用仪表板
 
-打开 http://localhost:2111 访问交互式控制面板：
+打开 http://localhost:2111 访问交互式仪表板：
 
 <Steps>
   <Step title="提交任务">
     使用任务提交表单创建具有自定义配置的任务
   </Step>
   <Step title="监控执行">
-    观察实时事件流，显示智能体思考、工具调用和进度
+    观看显示代理思考、工具调用和进度的实时事件流
   </Step>
   <Step title="查看指标">
-    跟踪所有任务的 token 使用、成本、延迟和成功率
+    跟踪所有任务的令牌使用、成本、延迟和成功率
   </Step>
   <Step title="调试工作流">
-    点击任务查看详细的执行跟踪和 Temporal 工作流历史
+    点击任务查看详细的执行跟踪和 Temporal 工作流历史记录
   </Step>
 </Steps>
 
@@ -179,7 +171,7 @@ client.submit_task(
 )
 ```
 
-### 研究和摘要
+### 研究与摘要
 
 ```python
 client.submit_task(
@@ -195,7 +187,7 @@ client.submit_task(
 )
 ```
 
-### 复杂分析（带上下文）
+### 带上下文的复杂分析
 
 ```python
 client.submit_task(
@@ -216,7 +208,7 @@ client.submit_task(
     icon="book"
     href="/cn/quickstart/concepts/agents"
   >
-    了解智能体、工作流和认知模式
+    了解代理、工作流和认知模式
   </Card>
   <Card
     title="API 参考"
@@ -230,7 +222,7 @@ client.submit_task(
     icon="python"
     href="/cn/sdk/python/quickstart"
   >
-    深入了解 SDK 功能和异步用法
+    深入了解 SDK 功能和异步使用
   </Card>
   <Card
     title="配置"
@@ -244,7 +236,7 @@ client.submit_task(
 ## 故障排除
 
 <AccordionGroup>
-  <Accordion title="任务停留在 'running' 状态">
+  <Accordion title="任务保持在 'running' 状态">
     检查日志中的错误：
 
     ```bash
@@ -258,8 +250,8 @@ client.submit_task(
     - 网络连接问题
   </Accordion>
 
-  <Accordion title="身份验证错误">
-    Shannon 默认禁用身份验证运行（`GATEWAY_SKIP_AUTH=1`）。如果您已启用身份验证，请包含 API 密钥：
+  <Accordion title="认证错误">
+    Shannon 默认禁用认证（`GATEWAY_SKIP_AUTH=1`）。如果您启用了认证，请包含 API 密钥：
 
     ```bash
     curl -H "X-API-Key: sk_test_123456" \
@@ -267,7 +259,7 @@ client.submit_task(
     ```
   </Accordion>
 
-  <Accordion title="高成本 / token 使用">
+  <Accordion title="高成本/令牌使用">
     预算限制通过环境变量在平台级别配置：
 
     ```bash
@@ -279,13 +271,6 @@ client.submit_task(
     docker compose restart
     ```
 
-    对于每任务监控，通过状态端点或流式事件检查成本。
+    对于每个任务的监控，通过状态端点或流式事件检查成本。
   </Accordion>
 </AccordionGroup>
-
-
----
-
-## 参与翻译
-
-如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。

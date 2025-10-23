@@ -1,56 +1,48 @@
 ---
-title: "Configuration Reference"
-description: "Complete environment variables and configuration options for Shannon"
+title: "配置参考"
+description: "Shannon 的完整环境变量和配置选项"
 ---
 
-> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
+## 概述
 
-**原文件**: `quickstart/configuration.mdx`
-**英文版本**: [查看英文文档](/en/quickstart/configuration)
+Shannon 通过**环境变量**和 **YAML 配置文件**进行配置。本指南记录了所有可用的配置选项。
 
----
+## 配置文件
 
+Shannon 使用多种配置方式：
 
-## Overview
+1. **`.env` 文件**：环境变量（本文档）
+2. **`config/features.yaml`**：功能标志和开关
+3. **`config/models.yaml`**：LLM 模型定义和定价
+4. **Docker Compose**：服务编排和网络配置
 
-Shannon is configured through **environment variables** and **YAML configuration files**. This guide documents all available configuration options.
-
-## Configuration Files
-
-Shannon uses multiple configuration approaches:
-
-1. **`.env` file**: Environment variables (this document)
-2. **`config/features.yaml`**: Feature flags and toggles
-3. **`config/models.yaml`**: LLM model definitions and pricing
-4. **Docker Compose**: Service orchestration and networking
-
-### Setup
+### 设置
 
 ```bash
-# Create .env from template
+# 从模板创建 .env 文件
 cp .env.example .env
 
-# Edit with your values
+# 编辑您的配置值
 nano .env
 
-# Apply changes
+# 应用更改
 docker compose down
 docker compose up -d
 ```
 
 ---
 
-## Core Runtime
+## 核心运行时
 
-Essential variables for all deployments.
+所有部署的基本变量。
 
-| Variable | Type | Default | Description |
+| 变量 | 类型 | 默认值 | 描述 |
 |----------|------|---------|-------------|
-| `ENVIRONMENT` | string | `dev` | Runtime environment: `dev`, `staging`, `prod` |
-| `DEBUG` | boolean | `false` | Enable debug logging |
-| `SERVICE_NAME` | string | `shannon-llm-service` | Service identifier for logs and metrics |
+| `ENVIRONMENT` | string | `dev` | 运行时环境：`dev`、`staging`、`prod` |
+| `DEBUG` | boolean | `false` | 启用调试日志 |
+| `SERVICE_NAME` | string | `shannon-llm-service` | 日志和指标的服务标识符 |
 
-**Example**:
+**示例**：
 ```bash
 ENVIRONMENT=prod
 DEBUG=false
@@ -59,43 +51,43 @@ SERVICE_NAME=shannon-production
 
 ---
 
-## LLM Provider API Keys
+## LLM 提供商 API 密钥
 
-**At least one provider must be configured.**
+**至少必须配置一个提供商。**
 
-| Variable | Provider | Required | Format |
+| 变量 | 提供商 | 必需 | 格式 |
 |----------|----------|----------|--------|
-| `OPENAI_API_KEY` | OpenAI | Conditional | `sk-...` |
-| `ANTHROPIC_API_KEY` | Anthropic (Claude) | Conditional | `sk-ant-...` |
-| `GOOGLE_API_KEY` | Google (Gemini) | Conditional | `AIza...` |
-| `GROQ_API_KEY` | Groq | No | `gsk_...` |
-| `XAI_API_KEY` | xAI (Grok) | No | Custom |
-| `DEEPSEEK_API_KEY` | DeepSeek | No | Custom |
-| `QWEN_API_KEY` | Qwen | No | Custom |
-| `MISTRAL_API_KEY` | Mistral | No | Custom |
-| `ZAI_API_KEY` | ZAI | No | Custom |
+| `OPENAI_API_KEY` | OpenAI | 条件性 | `sk-...` |
+| `ANTHROPIC_API_KEY` | Anthropic (Claude) | 条件性 | `sk-ant-...` |
+| `GOOGLE_API_KEY` | Google (Gemini) | 条件性 | `AIza...` |
+| `GROQ_API_KEY` | Groq | 否 | `gsk_...` |
+| `XAI_API_KEY` | xAI (Grok) | 否 | Custom |
+| `DEEPSEEK_API_KEY` | DeepSeek | 否 | Custom |
+| `QWEN_API_KEY` | Qwen | 否 | Custom |
+| `MISTRAL_API_KEY` | Mistral | 否 | Custom |
+| `ZAI_API_KEY` | ZAI | 否 | Custom |
 
-**AWS Bedrock Configuration**:
-| Variable | Default | Description |
+**AWS Bedrock 配置**：
+| 变量 | 默认值 | 描述 |
 |----------|---------|-------------|
-| `AWS_ACCESS_KEY_ID` | - | AWS access key for Bedrock |
-| `AWS_SECRET_ACCESS_KEY` | - | AWS secret key |
-| `AWS_REGION` | `us-east-1` | AWS region |
+| `AWS_ACCESS_KEY_ID` | - | Bedrock 的 AWS 访问密钥 |
+| `AWS_SECRET_ACCESS_KEY` | - | AWS 密钥 |
+| `AWS_REGION` | `us-east-1` | AWS 区域 |
 
-**Example**:
+**示例**：
 ```bash
 OPENAI_API_KEY=sk-proj-abc123...
 ANTHROPIC_API_KEY=sk-ant-xyz789...
 AWS_REGION=us-west-2
 ```
 
-**Testing API Keys**:
+**测试 API 密钥**：
 ```bash
-# Test OpenAI
+# 测试 OpenAI
 curl https://api.openai.com/v1/models \
   -H "Authorization: Bearer $OPENAI_API_KEY"
 
-# Test Anthropic
+# 测试 Anthropic
 curl https://api.anthropic.com/v1/messages \
   -H "x-api-key: $ANTHROPIC_API_KEY" \
   -H "anthropic-version: 2023-06-01" \
@@ -105,16 +97,16 @@ curl https://api.anthropic.com/v1/messages \
 
 ---
 
-## Web Search Providers
+## 网络搜索提供商
 
-Optional but **highly recommended** for research and data gathering tasks.
+可选但**强烈推荐**用于研究和数据收集任务。
 
-| Variable | Type | Default | Options |
+| 变量 | 类型 | 默认值 | 选项 |
 |----------|------|---------|---------|
-| `WEB_SEARCH_PROVIDER` | string | `google` | `google`, `serper`, `bing`, `exa`, `firecrawl` |
+| `WEB_SEARCH_PROVIDER` | string | `google` | `google`、`serper`、`bing`、`exa`、`firecrawl` |
 
-**Provider-Specific Keys**:
-| Variable | Provider | Get Key From |
+**提供商特定密钥**：
+| 变量 | 提供商 | 获取密钥地址 |
 |----------|----------|--------------|
 | `GOOGLE_SEARCH_API_KEY` | Google | [Google Cloud Console](https://console.cloud.google.com/) |
 | `GOOGLE_SEARCH_ENGINE_ID` | Google | [Programmable Search Engine](https://programmablesearchengine.google.com/) |
@@ -123,7 +115,7 @@ Optional but **highly recommended** for research and data gathering tasks.
 | `EXA_API_KEY` | Exa | [exa.ai](https://exa.ai) |
 | `FIRECRAWL_API_KEY` | Firecrawl | [firecrawl.dev](https://firecrawl.dev) |
 
-**Example**:
+**示例**：
 ```bash
 WEB_SEARCH_PROVIDER=google
 GOOGLE_SEARCH_API_KEY=AIzaSyAbc123...
@@ -132,54 +124,54 @@ GOOGLE_SEARCH_ENGINE_ID=0123456789abcdef
 
 ---
 
-## Data Stores
+## 数据存储
 
-Configuration for PostgreSQL, Redis, and Qdrant.
+PostgreSQL、Redis 和 Qdrant 的配置。
 
 ### PostgreSQL
 
-| Variable | Type | Default | Description |
+| 变量 | 类型 | 默认值 | 描述 |
 |----------|------|---------|-------------|
-| `POSTGRES_HOST` | string | `postgres` | Database hostname |
-| `POSTGRES_PORT` | integer | `5432` | Database port |
-| `POSTGRES_DB` | string | `shannon` | Database name |
-| `POSTGRES_USER` | string | `shannon` | Database username |
-| `POSTGRES_PASSWORD` | string | `shannon` | Database password |
-| `POSTGRES_SSLMODE` | string | `disable` | SSL mode: `disable`, `require`, `verify-full` |
-| `DB_MAX_OPEN_CONNS` | integer | `25` | Maximum open connections |
-| `DB_MAX_IDLE_CONNS` | integer | `5` | Maximum idle connections |
+| `POSTGRES_HOST` | string | `postgres` | 数据库主机名 |
+| `POSTGRES_PORT` | integer | `5432` | 数据库端口 |
+| `POSTGRES_DB` | string | `shannon` | 数据库名称 |
+| `POSTGRES_USER` | string | `shannon` | 数据库用户名 |
+| `POSTGRES_PASSWORD` | string | `shannon` | 数据库密码 |
+| `POSTGRES_SSLMODE` | string | `disable` | SSL 模式：`disable`、`require`、`verify-full` |
+| `DB_MAX_OPEN_CONNS` | integer | `25` | 最大打开连接数 |
+| `DB_MAX_IDLE_CONNS` | integer | `5` | 最大空闲连接数 |
 
 ### Redis
 
-| Variable | Type | Default | Description |
+| 变量 | 类型 | 默认值 | 描述 |
 |----------|------|---------|-------------|
-| `REDIS_HOST` | string | `redis` | Redis hostname |
-| `REDIS_PORT` | integer | `6379` | Redis port |
-| `REDIS_PASSWORD` | string | ` ` | Redis password (empty = no auth) |
-| `REDIS_TTL_SECONDS` | integer | `3600` | Default TTL for cached items (1 hour) |
-| `REDIS_ADDR` | string | `redis:6379` | Redis address (host:port) |
-| `REDIS_URL` | string | `redis://redis:6379` | Redis connection URL |
-| `LLM_REDIS_URL` | string | - | Dedicated Redis for LLM caching (optional) |
+| `REDIS_HOST` | string | `redis` | Redis 主机名 |
+| `REDIS_PORT` | integer | `6379` | Redis 端口 |
+| `REDIS_PASSWORD` | string | ` ` | Redis 密码（空 = 无认证） |
+| `REDIS_TTL_SECONDS` | integer | `3600` | 缓存项的默认 TTL（1 小时） |
+| `REDIS_ADDR` | string | `redis:6379` | Redis 地址（host:port） |
+| `REDIS_URL` | string | `redis://redis:6379` | Redis 连接 URL |
+| `LLM_REDIS_URL` | string | - | LLM 缓存专用 Redis（可选） |
 
-### Qdrant (Vector Database)
+### Qdrant（向量数据库）
 
-| Variable | Type | Default | Description |
+| 变量 | 类型 | 默认值 | 描述 |
 |----------|------|---------|-------------|
-| `QDRANT_URL` | string | `http://qdrant:6333` | Qdrant HTTP endpoint |
-| `QDRANT_HOST` | string | `qdrant` | Qdrant hostname |
-| `QDRANT_PORT` | integer | `6333` | Qdrant port |
+| `QDRANT_URL` | string | `http://qdrant:6333` | Qdrant HTTP 端点 |
+| `QDRANT_HOST` | string | `qdrant` | Qdrant 主机名 |
+| `QDRANT_PORT` | integer | `6333` | Qdrant 端口 |
 
-**Example**:
+**示例**：
 ```bash
 # PostgreSQL
 POSTGRES_HOST=db.example.com
 POSTGRES_PORT=5432
 POSTGRES_PASSWORD=secure_password_here
 
-# Redis (with auth)
+# Redis（带认证）
 REDIS_HOST=redis.example.com
 REDIS_PASSWORD=redis_password_here
-REDIS_TTL_SECONDS=7200  # 2 hours
+REDIS_TTL_SECONDS=7200  # 2 小时
 
 # Qdrant
 QDRANT_URL=http://vector-db.example.com:6333
@@ -187,50 +179,50 @@ QDRANT_URL=http://vector-db.example.com:6333
 
 ---
 
-## Service Endpoints
+## 服务端点
 
-Internal service URLs for communication.
+内部服务通信的 URL。
 
-| Variable | Default | Description |
+| 变量 | 默认值 | 描述 |
 |----------|---------|-------------|
-| `TEMPORAL_HOST` | `temporal:7233` | Temporal workflow engine |
-| `LLM_SERVICE_URL` | `http://llm-service:8000` | Python LLM service HTTP endpoint |
-| `AGENT_CORE_ADDR` | `agent-core:50051` | Rust agent core gRPC endpoint |
-| `ADMIN_SERVER` | `http://orchestrator:8081` | Orchestrator admin API |
-| `ORCHESTRATOR_GRPC` | `orchestrator:50052` | Orchestrator gRPC endpoint |
-| `EVENTS_INGEST_URL` | `http://orchestrator:8081/events` | Event ingestion endpoint |
-| `EVENTS_AUTH_TOKEN` | - | Auth token for event ingestion |
-| `APPROVALS_AUTH_TOKEN` | - | Auth token for approval webhooks |
+| `TEMPORAL_HOST` | `temporal:7233` | Temporal 工作流引擎 |
+| `LLM_SERVICE_URL` | `http://llm-service:8000` | Python LLM 服务 HTTP 端点 |
+| `AGENT_CORE_ADDR` | `agent-core:50051` | Rust 代理核心 gRPC 端点 |
+| `ADMIN_SERVER` | `http://orchestrator:8081` | 编排器管理 API |
+| `ORCHESTRATOR_GRPC` | `orchestrator:50052` | 编排器 gRPC 端点 |
+| `EVENTS_INGEST_URL` | `http://orchestrator:8081/events` | 事件摄取端点 |
+| `EVENTS_AUTH_TOKEN` | - | 事件摄取认证令牌 |
+| `APPROVALS_AUTH_TOKEN` | - | 审批 webhook 认证令牌 |
 
-**Config File Paths**:
-| Variable | Default | Description |
+**配置文件路径**：
+| 变量 | 默认值 | 描述 |
 |----------|---------|-------------|
-| `CONFIG_PATH` | `./config/features.yaml` | Feature flags configuration |
-| `MODELS_CONFIG_PATH` | `./config/models.yaml` | Model definitions and pricing |
+| `CONFIG_PATH` | `./config/features.yaml` | 功能标志配置 |
+| `MODELS_CONFIG_PATH` | `./config/models.yaml` | 模型定义和定价 |
 
 ---
 
-## Model Routing & Budgets
+## 模型路由和预算
 
-Control LLM selection, token limits, and cost management.
+控制 LLM 选择、令牌限制和成本管理。
 
-| Variable | Type | Default | Description |
+| 变量 | 类型 | 默认值 | 描述 |
 |----------|------|---------|-------------|
-| `DEFAULT_MODEL_TIER` | string | `small` | Default model size: `small`, `medium`, `large` |
-| `COMPLEXITY_MODEL_ID` | string | `gpt-4o` | Model for complexity analysis |
-| `DECOMPOSITION_MODEL_ID` | string | `claude-sonnet-4-20250514` | Model for task decomposition |
-| `MAX_TOKENS` | integer | `2000` | Default max output tokens |
-| `TEMPERATURE` | float | `0.7` | Default sampling temperature (0.0-1.0) |
-| `MAX_TOKENS_PER_REQUEST` | integer | `10000` | Maximum tokens per API request |
-| `MAX_COST_PER_REQUEST` | float | `0.50` | Maximum cost per request (USD) |
-| `LLM_DISABLE_BUDGETS` | integer | `1` | `1` = orchestrator manages budgets, `0` = enforce in LLM service |
-| `HISTORY_WINDOW_MESSAGES` | integer | `50` | Number of history messages to include |
-| `HISTORY_WINDOW_DEBUG_MESSAGES` | integer | `75` | History messages in debug mode |
-| `WORKFLOW_SYNTH_BYPASS_SINGLE` | boolean | `true` | Skip synthesis for single-result tasks |
-| `TOKEN_BUDGET_PER_AGENT` | integer | - | Per-agent token limit |
-| `TOKEN_BUDGET_PER_TASK` | integer | - | Per-task token limit |
+| `DEFAULT_MODEL_TIER` | string | `small` | 默认模型大小：`small`、`medium`、`large` |
+| `COMPLEXITY_MODEL_ID` | string | `gpt-4o` | 复杂度分析模型 |
+| `DECOMPOSITION_MODEL_ID` | string | `claude-sonnet-4-20250514` | 任务分解模型 |
+| `MAX_TOKENS` | integer | `2000` | 默认最大输出令牌数 |
+| `TEMPERATURE` | float | `0.7` | 默认采样温度（0.0-1.0） |
+| `MAX_TOKENS_PER_REQUEST` | integer | `10000` | 每个 API 请求的最大令牌数 |
+| `MAX_COST_PER_REQUEST` | float | `0.50` | 每个请求的最大成本（美元） |
+| `LLM_DISABLE_BUDGETS` | integer | `1` | `1` = 编排器管理预算，`0` = 在 LLM 服务中强制执行 |
+| `HISTORY_WINDOW_MESSAGES` | integer | `50` | 包含的历史消息数量 |
+| `HISTORY_WINDOW_DEBUG_MESSAGES` | integer | `75` | 调试模式下的历史消息数 |
+| `WORKFLOW_SYNTH_BYPASS_SINGLE` | boolean | `true` | 跳过单结果任务的合成 |
+| `TOKEN_BUDGET_PER_AGENT` | integer | - | 每个代理的令牌限制 |
+| `TOKEN_BUDGET_PER_TASK` | integer | - | 每个任务的令牌限制 |
 
-**Example - Cost-Optimized**:
+**示例 - 成本优化**：
 ```bash
 DEFAULT_MODEL_TIER=small
 MAX_COST_PER_REQUEST=0.10
@@ -238,7 +230,7 @@ MAX_TOKENS_PER_REQUEST=5000
 TEMPERATURE=0.5
 ```
 
-**Example - High-Quality**:
+**示例 - 高质量**：
 ```bash
 DEFAULT_MODEL_TIER=large
 MAX_COST_PER_REQUEST=2.00
@@ -248,164 +240,164 @@ TEMPERATURE=0.7
 
 ---
 
-## Cache & Rate Limiting
+## 缓存和速率限制
 
-Performance and cost optimization through caching and rate limits.
+通过缓存和速率限制进行性能和成本优化。
 
-| Variable | Type | Default | Description |
+| 变量 | 类型 | 默认值 | 描述 |
 |----------|------|---------|-------------|
-| `ENABLE_CACHE` | boolean | `true` | Enable LLM response caching |
-| `CACHE_SIMILARITY_THRESHOLD` | float | `0.95` | Semantic similarity threshold (0.0-1.0) |
-| `RATE_LIMIT_REQUESTS` | integer | `100` | Requests per window |
-| `RATE_LIMIT_WINDOW` | integer | `60` | Rate limit window (seconds) |
-| `WEB_SEARCH_RATE_LIMIT` | integer | `120` | Web search requests per minute |
-| `CALCULATOR_RATE_LIMIT` | integer | `2000` | Calculator tool requests per minute |
-| `PYTHON_EXECUTOR_RATE_LIMIT` | integer | `60` | Python execution requests per minute |
-| `PARTIAL_CHUNK_CHARS` | integer | `512` | Streaming chunk size (characters) |
+| `ENABLE_CACHE` | boolean | `true` | 启用 LLM 响应缓存 |
+| `CACHE_SIMILARITY_THRESHOLD` | float | `0.95` | 语义相似度阈值（0.0-1.0） |
+| `RATE_LIMIT_REQUESTS` | integer | `100` | 每个时间窗口的请求数 |
+| `RATE_LIMIT_WINDOW` | integer | `60` | 速率限制窗口（秒） |
+| `WEB_SEARCH_RATE_LIMIT` | integer | `120` | 每分钟网络搜索请求数 |
+| `CALCULATOR_RATE_LIMIT` | integer | `2000` | 每分钟计算器工具请求数 |
+| `PYTHON_EXECUTOR_RATE_LIMIT` | integer | `60` | 每分钟 Python 执行请求数 |
+| `PARTIAL_CHUNK_CHARS` | integer | `512` | 流式传输块大小（字符） |
 
-**Cache Behavior**:
-- Responses are cached by **semantic similarity**
-- Cache key: SHA256 hash of (prompt + model + temperature)
-- TTL: Controlled by `REDIS_TTL_SECONDS`
+**缓存行为**：
+- 响应按**语义相似度**缓存
+- 缓存键：SHA256 哈希（提示 + 模型 + 温度）
+- TTL：由 `REDIS_TTL_SECONDS` 控制
 
-**Example**:
+**示例**：
 ```bash
 ENABLE_CACHE=true
-CACHE_SIMILARITY_THRESHOLD=0.98  # Higher = more exact matches
+CACHE_SIMILARITY_THRESHOLD=0.98  # 更高 = 更精确的匹配
 RATE_LIMIT_REQUESTS=200
 RATE_LIMIT_WINDOW=60
 ```
 
 ---
 
-## Tool Execution & Workflow Controls
+## 工具执行和工作流控制
 
-Fine-tune parallelism, timeouts, and execution behavior.
+微调并行性、超时和执行行为。
 
-| Variable | Type | Default | Range | Description |
+| 变量 | 类型 | 默认值 | 范围 | 描述 |
 |----------|------|---------|-------|-------------|
-| `TOOL_PARALLELISM` | integer | `5` | 1-10 | Concurrent tool executions (1=sequential) |
-| `ENABLE_TOOL_SELECTION` | integer | `1` | 0,1 | `1`=auto tool selection, `0`=manual only |
-| `PRIORITY_QUEUES` | string | `off` | on/off | Enable priority-based task queuing |
-| `STREAMING_RING_CAPACITY` | integer | `1000` | - | Event stream buffer size |
-| `COMPRESSION_TRIGGER_RATIO` | float | `0.75` | 0.0-1.0 | Context compression trigger threshold |
-| `COMPRESSION_TARGET_RATIO` | float | `0.375` | 0.0-1.0 | Target compression ratio |
-| `ENFORCE_TIMEOUT_SECONDS` | integer | `90` | - | Hard timeout for operations |
-| `ENFORCE_MAX_TOKENS` | integer | `32768` | - | Absolute maximum tokens |
-| `ENFORCE_RATE_RPS` | integer | `20` | - | Requests per second limit |
+| `TOOL_PARALLELISM` | integer | `5` | 1-10 | 并发工具执行数（1=顺序） |
+| `ENABLE_TOOL_SELECTION` | integer | `1` | 0,1 | `1`=自动工具选择，`0`=仅手动 |
+| `PRIORITY_QUEUES` | string | `off` | on/off | 启用基于优先级的任务队列 |
+| `STREAMING_RING_CAPACITY` | integer | `1000` | - | 事件流缓冲区大小 |
+| `COMPRESSION_TRIGGER_RATIO` | float | `0.75` | 0.0-1.0 | 上下文压缩触发阈值 |
+| `COMPRESSION_TARGET_RATIO` | float | `0.375` | 0.0-1.0 | 目标压缩比率 |
+| `ENFORCE_TIMEOUT_SECONDS` | integer | `90` | - | 操作的硬超时 |
+| `ENFORCE_MAX_TOKENS` | integer | `32768` | - | 绝对最大令牌数 |
+| `ENFORCE_RATE_RPS` | integer | `20` | - | 每秒请求数限制 |
 
-**Circuit Breaker Settings**:
-| Variable | Type | Default | Description |
+**断路器设置**：
+| 变量 | 类型 | 默认值 | 描述 |
 |----------|------|---------|-------------|
-| `ENFORCE_CB_ERROR_THRESHOLD` | float | `0.5` | Error rate to open circuit (50%) |
-| `ENFORCE_CB_WINDOW_SECONDS` | integer | `30` | Sliding window for error rate |
-| `ENFORCE_CB_MIN_REQUESTS` | integer | `20` | Minimum requests before opening circuit |
+| `ENFORCE_CB_ERROR_THRESHOLD` | float | `0.5` | 打开断路器的错误率（50%） |
+| `ENFORCE_CB_WINDOW_SECONDS` | integer | `30` | 错误率的滑动窗口 |
+| `ENFORCE_CB_MIN_REQUESTS` | integer | `20` | 打开断路器前的最小请求数 |
 
-**Performance Tuning**:
+**性能调优**：
 ```bash
-# High throughput
+# 高吞吐量
 TOOL_PARALLELISM=10
 ENFORCE_RATE_RPS=50
 
-# Conservative / Low resources
+# 保守/低资源
 TOOL_PARALLELISM=2
 ENFORCE_RATE_RPS=10
 ```
 
 ---
 
-## Approvals & Security
+## 审批和安全
 
-Human-in-the-loop and authentication settings.
+人工参与和认证设置。
 
-| Variable | Type | Default | Description |
+| 变量 | 类型 | 默认值 | 描述 |
 |----------|------|---------|-------------|
-| `APPROVAL_ENABLED` | boolean | `false` | Enable manual approval workflow |
-| `APPROVAL_COMPLEXITY_THRESHOLD` | float | `0.5` | Complexity score requiring approval (0.0-1.0) |
-| `APPROVAL_DANGEROUS_TOOLS` | string | `file_system,code_execution` | Comma-separated tools requiring approval |
-| `APPROVAL_TIMEOUT_SECONDS` | integer | `7200` | Approval wait timeout (2 hours) |
-| `JWT_SECRET` | string | `development-only-secret-change-in-production` | JWT signing secret (⚠️ **CHANGE IN PRODUCTION**) |
-| `GATEWAY_SKIP_AUTH` | integer | `1` | `1`=auth disabled, `0`=auth enabled |
+| `APPROVAL_ENABLED` | boolean | `false` | 启用人工审批工作流 |
+| `APPROVAL_COMPLEXITY_THRESHOLD` | float | `0.5` | 需要审批的复杂度分数（0.0-1.0） |
+| `APPROVAL_DANGEROUS_TOOLS` | string | `file_system,code_execution` | 需要审批的工具（逗号分隔） |
+| `APPROVAL_TIMEOUT_SECONDS` | integer | `7200` | 审批等待超时（2 小时） |
+| `JWT_SECRET` | string | `development-only-secret-change-in-production` | JWT 签名密钥（⚠️ **在生产环境中更改**） |
+| `GATEWAY_SKIP_AUTH` | integer | `1` | `1`=禁用认证，`0`=启用认证 |
 
-**Security Best Practices**:
+**安全最佳实践**：
 ```bash
-# Production setup
+# 生产设置
 APPROVAL_ENABLED=true
 APPROVAL_DANGEROUS_TOOLS=file_system,code_execution,shell,network_access
 JWT_SECRET=$(openssl rand -base64 64)
 GATEWAY_SKIP_AUTH=0
 ```
 
-**Development setup**:
+**开发设置**：
 ```bash
-# Fast iteration (⚠️ NOT FOR PRODUCTION)
+# 快速迭代（⚠️ 不适用于生产环境）
 APPROVAL_ENABLED=false
 GATEWAY_SKIP_AUTH=1
 ```
 
 ---
 
-## Python WASI Sandbox
+## Python WASI 沙箱
 
-Secure Python code execution environment.
+安全的 Python 代码执行环境。
 
-| Variable | Type | Default | Description |
+| 变量 | 类型 | 默认值 | 描述 |
 |----------|------|---------|-------------|
-| `PYTHON_WASI_WASM_PATH` | string | `./wasm-interpreters/python-3.11.4.wasm` | Path to Python WASI interpreter |
-| `PYTHON_WASI_SESSION_TIMEOUT` | integer | `3600` | Session timeout (seconds) |
-| `WASI_MEMORY_LIMIT_MB` | integer | `512` | Memory limit per execution (MB) |
-| `WASI_TIMEOUT_SECONDS` | integer | `60` | Execution timeout per run |
+| `PYTHON_WASI_WASM_PATH` | string | `./wasm-interpreters/python-3.11.4.wasm` | Python WASI 解释器路径 |
+| `PYTHON_WASI_SESSION_TIMEOUT` | integer | `3600` | 会话超时（秒） |
+| `WASI_MEMORY_LIMIT_MB` | integer | `512` | 每次执行的内存限制（MB） |
+| `WASI_TIMEOUT_SECONDS` | integer | `60` | 每次运行的执行超时 |
 
-**Setup**:
+**设置**：
 ```bash
-# Download Python WASI interpreter (20MB)
+# 下载 Python WASI 解释器（20MB）
 ./scripts/setup_python_wasi.sh
 
-# Verify
+# 验证
 ls -lh wasm-interpreters/python-3.11.4.wasm
 ```
 
-**Tuning**:
+**调优**：
 ```bash
-# Tight limits (basic scripts)
+# 严格限制（基本脚本）
 WASI_MEMORY_LIMIT_MB=256
 WASI_TIMEOUT_SECONDS=30
 
-# Generous limits (data processing)
+# 宽松限制（数据处理）
 WASI_MEMORY_LIMIT_MB=1024
 WASI_TIMEOUT_SECONDS=300
 ```
 
 ---
 
-## OpenAPI & MCP Integrations
+## OpenAPI 和 MCP 集成
 
-External tool and API integration settings.
+外部工具和 API 集成设置。
 
-### OpenAPI Tools
+### OpenAPI 工具
 
-| Variable | Type | Default | Description |
+| 变量 | 类型 | 默认值 | 描述 |
 |----------|------|---------|-------------|
-| `OPENAPI_ALLOWED_DOMAINS` | string | `*` | Allowed domains (`*` or comma-separated) |
-| `OPENAPI_MAX_SPEC_SIZE` | integer | `5242880` | Max OpenAPI spec size (5MB) |
-| `OPENAPI_FETCH_TIMEOUT` | integer | `30` | Spec fetch timeout (seconds) |
-| `OPENAPI_RETRIES` | integer | `3` | Retry attempts |
+| `OPENAPI_ALLOWED_DOMAINS` | string | `*` | 允许的域名（`*` 或逗号分隔） |
+| `OPENAPI_MAX_SPEC_SIZE` | integer | `5242880` | 最大 OpenAPI 规范大小（5MB） |
+| `OPENAPI_FETCH_TIMEOUT` | integer | `30` | 规范获取超时（秒） |
+| `OPENAPI_RETRIES` | integer | `3` | 重试次数 |
 
-### MCP (Model Context Protocol)
+### MCP（模型上下文协议）
 
-| Variable | Type | Default | Description |
+| 变量 | 类型 | 默认值 | 描述 |
 |----------|------|---------|-------------|
-| `MCP_ALLOWED_DOMAINS` | string | `*` | Allowed MCP domains |
-| `MCP_MAX_RESPONSE_BYTES` | integer | `10485760` | Max response size (10MB) |
-| `MCP_RETRIES` | integer | `3` | Retry attempts |
-| `MCP_TIMEOUT_SECONDS` | integer | `10` | Request timeout |
-| `MCP_REGISTER_TOKEN` | string | - | Registration auth token |
-| `MCP_RATE_LIMIT_DEFAULT` | integer | `60` | Default rate limit (req/min) |
-| `MCP_CB_FAILURES` | integer | `5` | Circuit breaker failure threshold |
-| `MCP_CB_RECOVERY_SECONDS` | integer | `60` | Circuit breaker recovery time |
-| `MCP_COST_TO_TOKENS` | integer | `0` | Cost-to-token conversion |
+| `MCP_ALLOWED_DOMAINS` | string | `*` | 允许的 MCP 域名 |
+| `MCP_MAX_RESPONSE_BYTES` | integer | `10485760` | 最大响应大小（10MB） |
+| `MCP_RETRIES` | integer | `3` | 重试次数 |
+| `MCP_TIMEOUT_SECONDS` | integer | `10` | 请求超时 |
+| `MCP_REGISTER_TOKEN` | string | - | 注册认证令牌 |
+| `MCP_RATE_LIMIT_DEFAULT` | integer | `60` | 默认速率限制（请求/分钟） |
+| `MCP_CB_FAILURES` | integer | `5` | 断路器失败阈值 |
+| `MCP_CB_RECOVERY_SECONDS` | integer | `60` | 断路器恢复时间 |
+| `MCP_COST_TO_TOKENS` | integer | `0` | 成本到令牌的转换 |
 
-**Example - Restricted**:
+**示例 - 受限**：
 ```bash
 OPENAPI_ALLOWED_DOMAINS=api.example.com,api.partner.com
 MCP_ALLOWED_DOMAINS=mcp.trusted.com
@@ -414,24 +406,24 @@ MCP_REGISTER_TOKEN=secret_token_here
 
 ---
 
-## Observability & Telemetry
+## 可观测性和遥测
 
-Metrics, tracing, and logging configuration.
+指标、跟踪和日志配置。
 
-| Variable | Type | Default | Description |
+| 变量 | 类型 | 默认值 | 描述 |
 |----------|------|---------|-------------|
-| `OTEL_SERVICE_NAME` | string | `shannon-llm-service` | OpenTelemetry service name |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | string | `localhost:4317` | OTLP endpoint |
-| `OTEL_ENABLED` | boolean | `false` | Enable OpenTelemetry tracing |
-| `LOG_FORMAT` | string | `plain` | Log format: `plain` or `json` |
-| `METRICS_PORT` | integer | `2112` | Prometheus metrics port |
+| `OTEL_SERVICE_NAME` | string | `shannon-llm-service` | OpenTelemetry 服务名称 |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | string | `localhost:4317` | OTLP 端点 |
+| `OTEL_ENABLED` | boolean | `false` | 启用 OpenTelemetry 追踪 |
+| `LOG_FORMAT` | string | `plain` | 日志格式：`plain` 或 `json` |
+| `METRICS_PORT` | integer | `2112` | Prometheus 指标端口 |
 
-**Prometheus Endpoints**:
-- Orchestrator: `http://localhost:2112/metrics`
-- Agent Core: `http://localhost:2113/metrics`
-- LLM Service: `http://localhost:8000/metrics`
+**Prometheus 端点**：
+- 编排器：`http://localhost:2112/metrics`
+- 代理核心：`http://localhost:2113/metrics`
+- LLM 服务：`http://localhost:8000/metrics`
 
-**Example - Production Observability**:
+**示例 - 生产可观测性**：
 ```bash
 OTEL_ENABLED=true
 OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
@@ -441,47 +433,47 @@ METRICS_PORT=2112
 
 ---
 
-## Advanced Orchestrator Controls
+## 高级编排器控制
 
-Low-level tuning for Temporal workers and orchestrator behavior.
+Temporal worker 和编排器行为的底层调优。
 
-### Worker Concurrency
+### Worker 并发
 
-| Variable | Type | Default | Description |
+| 变量 | 类型 | 默认值 | 描述 |
 |----------|------|---------|-------------|
-| `WORKER_ACT` | integer | - | Activity worker concurrency (all priorities) |
-| `WORKER_WF` | integer | - | Workflow worker concurrency (all priorities) |
-| `WORKER_ACT_CRITICAL` | integer | `10` | Critical priority activity workers |
-| `WORKER_WF_CRITICAL` | integer | `5` | Critical priority workflow workers |
-| `WORKER_ACT_HIGH` | integer | - | High priority activity workers |
-| `WORKER_WF_HIGH` | integer | - | High priority workflow workers |
-| `WORKER_ACT_NORMAL` | integer | - | Normal priority activity workers |
-| `WORKER_WF_NORMAL` | integer | - | Normal priority workflow workers |
-| `WORKER_ACT_LOW` | integer | - | Low priority activity workers |
-| `WORKER_WF_LOW` | integer | - | Low priority workflow workers |
+| `WORKER_ACT` | integer | - | Activity worker 并发数（所有优先级） |
+| `WORKER_WF` | integer | - | Workflow worker 并发数（所有优先级） |
+| `WORKER_ACT_CRITICAL` | integer | `10` | 关键优先级 activity worker 数 |
+| `WORKER_WF_CRITICAL` | integer | `5` | 关键优先级 workflow worker 数 |
+| `WORKER_ACT_HIGH` | integer | - | 高优先级 activity worker 数 |
+| `WORKER_WF_HIGH` | integer | - | 高优先级 workflow worker 数 |
+| `WORKER_ACT_NORMAL` | integer | - | 正常优先级 activity worker 数 |
+| `WORKER_WF_NORMAL` | integer | - | 正常优先级 workflow worker 数 |
+| `WORKER_ACT_LOW` | integer | - | 低优先级 activity worker 数 |
+| `WORKER_WF_LOW` | integer | - | 低优先级 workflow worker 数 |
 
-### Event & Circuit Settings
+### 事件和断路器设置
 
-| Variable | Type | Default | Description |
+| 变量 | 类型 | 默认值 | 描述 |
 |----------|------|---------|-------------|
-| `EVENTLOG_BATCH_SIZE` | integer | `100` | Event batch size |
-| `EVENTLOG_BATCH_INTERVAL_MS` | integer | `100` | Event batch interval (ms) |
-| `RATE_LIMIT_INTERVAL_MS` | integer | `60000` | Rate limit window (ms) |
-| `BACKPRESSURE_THRESHOLD` | integer | - | Backpressure trigger threshold |
-| `MAX_BACKPRESSURE_DELAY_MS` | integer | - | Max backpressure delay |
-| `CIRCUIT_FAILURE_THRESHOLD` | integer | - | Circuit breaker failure count |
-| `CIRCUIT_HALF_OPEN_REQUESTS` | integer | - | Half-open state test requests |
-| `CIRCUIT_RESET_TIMEOUT_MS` | integer | - | Circuit reset timeout |
-| `LLM_TIMEOUT_SECONDS` | integer | `120` | LLM request timeout |
+| `EVENTLOG_BATCH_SIZE` | integer | `100` | 事件批处理大小 |
+| `EVENTLOG_BATCH_INTERVAL_MS` | integer | `100` | 事件批处理间隔（毫秒） |
+| `RATE_LIMIT_INTERVAL_MS` | integer | `60000` | 速率限制窗口（毫秒） |
+| `BACKPRESSURE_THRESHOLD` | integer | - | 背压触发阈值 |
+| `MAX_BACKPRESSURE_DELAY_MS` | integer | - | 最大背压延迟 |
+| `CIRCUIT_FAILURE_THRESHOLD` | integer | - | 断路器失败计数 |
+| `CIRCUIT_HALF_OPEN_REQUESTS` | integer | - | 半开状态测试请求数 |
+| `CIRCUIT_RESET_TIMEOUT_MS` | integer | - | 断路器重置超时 |
+| `LLM_TIMEOUT_SECONDS` | integer | `120` | LLM 请求超时 |
 
-**Performance Tuning**:
+**性能调优**：
 ```bash
-# High load
+# 高负载
 WORKER_ACT_CRITICAL=20
 WORKER_WF_CRITICAL=10
 EVENTLOG_BATCH_SIZE=500
 
-# Low resources
+# 低资源
 WORKER_ACT_CRITICAL=5
 WORKER_WF_CRITICAL=3
 EVENTLOG_BATCH_SIZE=50
@@ -489,22 +481,22 @@ EVENTLOG_BATCH_SIZE=50
 
 ---
 
-## Miscellaneous
+## 杂项
 
-Additional configuration options.
+其他配置选项。
 
-| Variable | Type | Default | Description |
+| 变量 | 类型 | 默认值 | 描述 |
 |----------|------|---------|-------------|
-| `SHANNON_WORKSPACE` | string | `./workspace` | Workspace directory for file operations |
-| `SEED_DATA` | boolean | `false` | Seed Qdrant with sample data on startup |
-| `AGENT_TIMEOUT_SECONDS` | integer | `600` | Max runtime per agent execution (10 minutes) |
-| `TEMPLATE_FALLBACK_ENABLED` | boolean | `false` | Fallback to AI if template execution fails |
+| `SHANNON_WORKSPACE` | string | `./workspace` | 文件操作的工作空间目录 |
+| `SEED_DATA` | boolean | `false` | 启动时在 Qdrant 中填充示例数据 |
+| `AGENT_TIMEOUT_SECONDS` | integer | `600` | 每个代理执行的最大运行时间（10 分钟） |
+| `TEMPLATE_FALLBACK_ENABLED` | boolean | `false` | 如果模板执行失败则回退到 AI |
 
 ---
 
-## Configuration Profiles
+## 配置配置文件
 
-### Development Profile
+### 开发配置文件
 
 ```bash
 # .env.dev
@@ -518,7 +510,7 @@ LLM_DISABLE_BUDGETS=1
 OTEL_ENABLED=false
 ```
 
-### Staging Profile
+### 预发布配置文件
 
 ```bash
 # .env.staging
@@ -533,7 +525,7 @@ OTEL_ENABLED=true
 JWT_SECRET=$(openssl rand -base64 64)
 ```
 
-### Production Profile
+### 生产配置文件
 
 ```bash
 # .env.prod
@@ -549,111 +541,105 @@ OTEL_ENABLED=true
 JWT_SECRET=$(openssl rand -base64 64)
 POSTGRES_SSLMODE=require
 REDIS_PASSWORD=secure_password
-# Add strong passwords and restrict domains
+# 添加强密码并限制域名
 OPENAPI_ALLOWED_DOMAINS=api.trusted.com
 MCP_ALLOWED_DOMAINS=mcp.trusted.com
 ```
 
 ---
 
-## Hot-Reload Support
+## 热重载支持
 
-Most configuration changes require a service restart:
+大多数配置更改需要重启服务：
 
 ```bash
-# After editing .env
+# 编辑 .env 后
 docker compose restart orchestrator
 docker compose restart agent-core
 docker compose restart llm-service
 docker compose restart gateway
 ```
 
-**Services that auto-reload**:
-- ✅ Feature flags (`config/features.yaml`)
-- ✅ Model configuration (`config/models.yaml`)
+**自动重载的服务**：
+- ✅ 功能标志（`config/features.yaml`）
+- ✅ 模型配置（`config/models.yaml`）
 
-**Services requiring restart**:
-- ❌ Environment variables (`.env`)
-- ❌ Database credentials
-- ❌ Service endpoints
+**需要重启的服务**：
+- ❌ 环境变量（`.env`）
+- ❌ 数据库凭证
+- ❌ 服务端点
 
 ---
 
-## Validation & Testing
+## 验证和测试
 
-### Verify Configuration
+### 验证配置
 
 ```bash
-# Check loaded environment variables
+# 检查加载的环境变量
 docker compose exec orchestrator env | sort
 
-# Test database connection
+# 测试数据库连接
 docker compose exec postgres psql -U shannon -d shannon -c "SELECT 1;"
 
-# Test Redis connection
+# 测试 Redis 连接
 docker compose exec redis redis-cli ping
 
-# Test API endpoints
+# 测试 API 端点
 curl http://localhost:8080/health
 curl http://localhost:8000/health
 ```
 
-### Configuration Debugging
+### 配置调试
 
 ```bash
-# View service logs
+# 查看服务日志
 docker compose logs orchestrator | grep -i "config\|environment"
 
-# Check for errors
+# 检查错误
 docker compose logs orchestrator | grep -i "error\|warning"
 
-# Validate YAML syntax
+# 验证 YAML 语法
 docker compose config
 ```
 
 ---
 
-## Security Checklist
+## 安全检查清单
 
 <AccordionGroup>
-  <Accordion title="Production Deployment Checklist">
-    - [ ] Change `JWT_SECRET` to strong random value
-    - [ ] Enable authentication (`GATEWAY_SKIP_AUTH=0`)
-    - [ ] Set strong database passwords
-    - [ ] Enable Redis authentication
-    - [ ] Use SSL for PostgreSQL (`POSTGRES_SSLMODE=require`)
-    - [ ] Enable approvals (`APPROVAL_ENABLED=true`)
-    - [ ] Restrict `OPENAPI_ALLOWED_DOMAINS`
-    - [ ] Restrict `MCP_ALLOWED_DOMAINS`
-    - [ ] Enable structured logging (`LOG_FORMAT=json`)
-    - [ ] Set up monitoring (`OTEL_ENABLED=true`)
-    - [ ] Configure budget limits appropriately
-    - [ ] Review worker concurrency for your load
-    - [ ] Backup `.env` file securely
+  <Accordion title="生产部署检查清单">
+    - [ ] 将 `JWT_SECRET` 更改为强随机值
+    - [ ] 启用认证（`GATEWAY_SKIP_AUTH=0`）
+    - [ ] 设置强数据库密码
+    - [ ] 启用 Redis 认证
+    - [ ] 为 PostgreSQL 使用 SSL（`POSTGRES_SSLMODE=require`）
+    - [ ] 启用审批（`APPROVAL_ENABLED=true`）
+    - [ ] 限制 `OPENAPI_ALLOWED_DOMAINS`
+    - [ ] 限制 `MCP_ALLOWED_DOMAINS`
+    - [ ] 启用结构化日志（`LOG_FORMAT=json`）
+    - [ ] 设置监控（`OTEL_ENABLED=true`）
+    - [ ] 适当配置预算限制
+    - [ ] 根据负载审查 worker 并发性
+    - [ ] 安全备份 `.env` 文件
   </Accordion>
 </AccordionGroup>
 
 ---
 
-## Related Topics
+## 相关主题
 
 <CardGroup cols={2}>
-  <Card title="Installation" icon="download" href="/cn/quickstart/installation">
-    Initial setup guide
+  <Card title="安装" icon="download" href="/cn/quickstart/installation">
+    初始设置指南
   </Card>
-  <Card title="Troubleshooting" icon="wrench" href="/cn/quickstart/troubleshooting">
-    Common configuration issues
+  <Card title="故障排除" icon="wrench" href="/cn/quickstart/troubleshooting">
+    常见配置问题
   </Card>
-  <Card title="Cost Control" icon="dollar" href="/cn/quickstart/concepts/cost-control">
-    Budget management
+  <Card title="成本控制" icon="dollar" href="/cn/quickstart/concepts/cost-control">
+    预算管理
   </Card>
-  <Card title="Monitoring" icon="chart-line" href="/cn/quickstart/concepts/monitoring">
-    Observability setup
+  <Card title="监控" icon="chart-line" href="/cn/quickstart/concepts/monitoring">
+    可观测性设置
   </Card>
 </CardGroup>
-
----
-
-## 参与翻译
-
-如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。
