@@ -1,63 +1,55 @@
 ---
-title: "Authentication & Headers"
-description: "Authentication methods and header reference for Shannon REST API"
+title: "身份验证和请求头"
+description: "Shannon REST API 的身份验证方法和请求头参考"
 ---
 
-> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
+## 身份验证
 
-**原文件**: `api/rest/authentication.mdx`
-**英文版本**: [查看英文文档](/en/api/rest/authentication)
+Shannon Gateway 支持对所有受保护端点的 API 密钥认证。
 
----
+### API 密钥认证
 
-
-## Authentication
-
-Shannon Gateway supports API key authentication for all protected endpoints.
-
-### API Key Authentication
-
-Include your API key in the `X-API-Key` header:
+在 `X-API-Key` 请求头中包含您的 API 密钥：
 
 ```bash
 curl -H "X-API-Key: sk_test_123456" \
   http://localhost:8080/api/v1/tasks
 ```
 
-### Obtaining an API Key
+### 获取 API 密钥
 
-API keys are managed through the database:
+API 密钥通过数据库管理：
 
 ```sql
--- Insert new API key
+-- 插入新 API 密钥
 INSERT INTO auth.api_keys (key, user_id, tenant_id, name, enabled)
 VALUES ('sk_test_123456', 'user-uuid', 'tenant-uuid', 'My API Key', true);
 ```
 
-**Key Format**: `sk_{env}_{random}`
-- `sk_test_*` - Test/development keys
-- `sk_prod_*` - Production keys
-- `sk_live_*` - Live environment keys
+**密钥格式**：`sk_{env}_{random}`
+- `sk_test_*` - 测试/开发密钥
+- `sk_prod_*` - 生产密钥
+- `sk_live_*` - 实时环境密钥
 
-### Development Mode (Skip Authentication)
+### 开发模式（跳过认证）
 
-For local development, you can disable authentication:
+对于本地开发，您可以禁用认证：
 
 ```bash
-# In .env file
+# 在 .env 文件中
 GATEWAY_SKIP_AUTH=1
 ```
 
 ```bash
-# Restart gateway
+# 重启网关
 docker compose restart gateway
 ```
 
-**Warning**: Never use `GATEWAY_SKIP_AUTH=1` in production.
+**警告**：切勿在生产环境中使用 `GATEWAY_SKIP_AUTH=1`。
 
-### Authentication Errors
+### 认证错误
 
-**401 Unauthorized** - Missing or invalid API key:
+**401 未授权** - 缺少或无效的 API 密钥：
 
 ```json
 {
@@ -65,89 +57,89 @@ docker compose restart gateway
 }
 ```
 
-**Common causes**:
-- Missing `X-API-Key` header
-- Invalid API key format
-- Disabled or expired API key
-- Wrong authentication endpoint
+**常见原因**：
+- 缺少 `X-API-Key` 请求头
+- 无效的 API 密钥格式
+- 禁用的或过期的 API 密钥
+- 错误的认证端点
 
-## Request Headers
+## 请求头
 
-### Required Headers
+### 必需请求头
 
 #### X-API-Key
 
-**Purpose**: Authentication
-**Required**: Yes (unless `GATEWAY_SKIP_AUTH=1`)
-**Format**: String
+**用途**：身份验证
+**必需**：是（除非 `GATEWAY_SKIP_AUTH=1`）
+**格式**：字符串
 
 ```bash
 X-API-Key: sk_test_123456
 ```
 
-#### Content-Type (POST requests)
+#### Content-Type（POST 请求）
 
-**Purpose**: Specify request body format
-**Required**: Yes for POST requests
-**Format**: `application/json`
+**用途**：指定请求体格式
+**必需**：POST 请求需要
+**格式**：`application/json`
 
 ```bash
 Content-Type: application/json
 ```
 
-### Optional Headers
+### 可选请求头
 
 #### Idempotency-Key
 
-**Purpose**: Prevent duplicate task submissions
-**Required**: No (recommended for critical operations)
-**Format**: UUID or unique string
-**Cache Duration**: 24 hours
+**用途**：防止重复任务提交
+**必需**：否（推荐用于关键操作）
+**格式**：UUID 或唯一字符串
+**缓存持续时间**：24 小时
 
 ```bash
 Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
 ```
 
-**Example**:
+**示例**：
 ```bash
-# First request - creates task
+# 第一次请求 - 创建任务
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "X-API-Key: sk_test_123456" \
   -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \
   -H "Content-Type: application/json" \
-  -d '{"query": "Process payment #12345"}'
+  -d '{"query": "处理支付 #12345"}'
 
-# Duplicate request - returns cached response
+# 重复请求 - 返回缓存响应
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "X-API-Key: sk_test_123456" \
   -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \
   -H "Content-Type: application/json" \
-  -d '{"query": "Process payment #12345"}'
+  -d '{"query": "处理支付 #12345"}'
 ```
 
 #### traceparent
 
-**Purpose**: W3C distributed tracing
-**Required**: No (recommended for observability)
-**Format**: `{version}-{trace-id}-{parent-id}-{flags}`
+**用途**：W3C 分布式追踪
+**必需**：否（推荐用于可观测性）
+**格式**：`{version}-{trace-id}-{parent-id}-{flags}`
 
 ```bash
 traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
 ```
 
-**Format Specification**:
-- **version**: `00` (current version)
-- **trace-id**: 32 hex characters (128 bits)
-- **parent-id**: 16 hex characters (64 bits)
-- **flags**: 2 hex characters (sampled: `01`, not sampled: `00`)
+**格式规范**：
+- **version**：`00`（当前版本）
+- **trace-id**：32 个十六进制字符（128 位）
+- **parent-id**：16 个十六进制字符（64 位）
+- **flags**：2 个十六进制字符（采样：`01`，未采样：`00`）
 
-**Example**:
+**示例**：
 ```python
 import uuid
 
 def generate_traceparent():
-    trace_id = uuid.uuid4().hex + uuid.uuid4().hex  # 32 chars
-    parent_id = uuid.uuid4().hex[:16]                # 16 chars
+    trace_id = uuid.uuid4().hex + uuid.uuid4().hex  # 32 个字符
+    parent_id = uuid.uuid4().hex[:16]                # 16 个字符
     return f"00-{trace_id}-{parent_id}-01"
 
 traceparent = generate_traceparent()
@@ -156,9 +148,9 @@ traceparent = generate_traceparent()
 
 #### tracestate
 
-**Purpose**: Vendor-specific trace context
-**Required**: No
-**Format**: Comma-separated key-value pairs
+**用途**：供应商特定的追踪上下文
+**必需**：否
+**格式**：逗号分隔的键值对
 
 ```bash
 tracestate: shannon=task_abc123,vendor=value
@@ -166,60 +158,60 @@ tracestate: shannon=task_abc123,vendor=value
 
 #### Cache-Control
 
-**Purpose**: Control caching behavior
-**Required**: No
-**Format**: Standard HTTP cache directives
+**用途**：控制缓存行为
+**必需**：否
+**格式**：标准 HTTP 缓存指令
 
 ```bash
 Cache-Control: no-cache
 Cache-Control: max-age=300
 ```
 
-#### Last-Event-ID (SSE only)
+#### Last-Event-ID（仅 SSE）
 
-**Purpose**: Resume SSE stream from specific event
-**Required**: No
-**Format**: Event ID string
+**用途**：从特定事件恢复 SSE 流
+**必需**：否
+**格式**：事件 ID 字符串
 
 ```bash
 Last-Event-ID: 42
 ```
 
-Used for SSE reconnection:
+用于 SSE 重连：
 ```javascript
 const eventSource = new EventSource(url, {
   headers: {
     'X-API-Key': 'sk_test_123456',
-    'Last-Event-ID': '42'  // Resume from event 42
+    'Last-Event-ID': '42'  // 从事件 42 恢复
   }
 });
 ```
 
-## Response Headers
+## 响应头
 
-### Standard Response Headers
+### 标准响应头
 
 #### X-Workflow-ID
 
-**Purpose**: Temporal workflow identifier
-**Present In**: POST /api/v1/tasks, GET /api/v1/tasks/{id}
-**Format**: String (same as task_id)
+**用途**：Temporal 工作流标识符
+**出现位置**：POST /api/v1/tasks、GET /api/v1/tasks/{id}
+**格式**：字符串（与 task_id 相同）
 
 ```bash
 X-Workflow-ID: task_01HQZX3Y9K8M2P4N5S7T9W2V
 ```
 
-**Use Case**: Track workflow execution in Temporal UI
+**用例**：在 Temporal UI 中跟踪工作流执行
 ```bash
 WORKFLOW_ID=$(curl -s -X POST ... | grep -i "X-Workflow-ID" | cut -d: -f2)
-echo "Monitor at: http://localhost:8088/workflows/$WORKFLOW_ID"
+echo "监控地址: http://localhost:8088/workflows/$WORKFLOW_ID"
 ```
 
 #### X-Session-ID
 
-**Purpose**: Session identifier for multi-turn conversations
-**Present In**: POST /api/v1/tasks
-**Format**: UUID string
+**用途**：多轮对话的会话标识符
+**出现位置**：POST /api/v1/tasks
+**格式**：UUID 字符串
 
 ```bash
 X-Session-ID: user-123-chat-session
@@ -227,26 +219,26 @@ X-Session-ID: user-123-chat-session
 
 #### Content-Type
 
-**Purpose**: Response body format
-**Present In**: All JSON responses
-**Format**: `application/json`
+**用途**：响应体格式
+**出现位置**：所有 JSON 响应
+**格式**：`application/json`
 
 ```bash
 Content-Type: application/json
 ```
 
-For SSE:
+对于 SSE：
 ```bash
 Content-Type: text/event-stream
 ```
 
-### Rate Limiting Headers
+### 速率限制请求头
 
 #### X-RateLimit-Limit
 
-**Purpose**: Maximum requests allowed per window
-**Present In**: All authenticated requests
-**Format**: Integer
+**用途**：每个窗口允许的最大请求数
+**出现位置**：所有认证请求
+**格式**：整数
 
 ```bash
 X-RateLimit-Limit: 100
@@ -254,9 +246,9 @@ X-RateLimit-Limit: 100
 
 #### X-RateLimit-Remaining
 
-**Purpose**: Remaining requests in current window
-**Present In**: All authenticated requests
-**Format**: Integer
+**用途**：当前窗口中剩余的请求数
+**出现位置**：所有认证请求
+**格式**：整数
 
 ```bash
 X-RateLimit-Remaining: 95
@@ -264,20 +256,20 @@ X-RateLimit-Remaining: 95
 
 #### X-RateLimit-Reset
 
-**Purpose**: Unix timestamp when rate limit resets
-**Present In**: All authenticated requests
-**Format**: Unix timestamp (seconds)
+**用途**：速率限制重置的 Unix 时间戳
+**出现位置**：所有认证请求
+**格式**：Unix 时间戳（秒）
 
 ```bash
 X-RateLimit-Reset: 1609459200
 ```
 
-**Example - Check Rate Limit**:
+**示例 - 检查速率限制**：
 ```bash
 curl -v http://localhost:8080/api/v1/tasks \
   -H "X-API-Key: sk_test_123456" 2>&1 | grep -i "X-RateLimit"
 
-# Output:
+# 输出：
 # < X-RateLimit-Limit: 100
 # < X-RateLimit-Remaining: 95
 # < X-RateLimit-Reset: 1609459200
@@ -285,15 +277,15 @@ curl -v http://localhost:8080/api/v1/tasks \
 
 #### Retry-After
 
-**Purpose**: Seconds to wait before retrying (429 responses)
-**Present In**: 429 Too Many Requests responses
-**Format**: Integer (seconds)
+**用途**：重试前等待的秒数（429 响应）
+**出现位置**：429 Too Many Requests 响应
+**格式**：整数（秒）
 
 ```bash
 Retry-After: 60
 ```
 
-**Example - Handle Rate Limit**:
+**示例 - 处理速率限制**：
 ```python
 import time
 import httpx
@@ -302,24 +294,24 @@ response = httpx.post(...)
 
 if response.status_code == 429:
     retry_after = int(response.headers.get("Retry-After", 60))
-    print(f"Rate limited, waiting {retry_after}s...")
+    print(f"速率限制，等待 {retry_after}s...")
     time.sleep(retry_after)
-    # Retry request...
+    # 重试请求...
 ```
 
-### CORS Headers
+### CORS 请求头
 
 #### Access-Control-Allow-Origin
 
-**Purpose**: Allowed origins for CORS
-**Present In**: All responses (development mode)
-**Format**: Domain or `*`
+**用途**：CORS 允许的来源
+**出现位置**：所有响应（开发模式）
+**格式**：域名或 `*`
 
 ```bash
 Access-Control-Allow-Origin: *
 ```
 
-**Production**: Configure specific domains:
+**生产环境**：配置特定域名：
 ```go
 // gateway/main.go
 w.Header().Set("Access-Control-Allow-Origin", "https://app.example.com")
@@ -327,9 +319,9 @@ w.Header().Set("Access-Control-Allow-Origin", "https://app.example.com")
 
 #### Access-Control-Allow-Methods
 
-**Purpose**: Allowed HTTP methods
-**Present In**: CORS preflight responses
-**Format**: Comma-separated methods
+**用途**：允许的 HTTP 方法
+**出现位置**：CORS 预检响应
+**格式**：逗号分隔的方法
 
 ```bash
 Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
@@ -337,24 +329,24 @@ Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
 
 #### Access-Control-Allow-Headers
 
-**Purpose**: Allowed request headers
-**Present In**: CORS preflight responses
-**Format**: Comma-separated headers
+**用途**：允许的请求头
+**出现位置**：CORS 预检响应
+**格式**：逗号分隔的请求头
 
 ```bash
 Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Key, Idempotency-Key, traceparent
 ```
 
-## Header Examples
+## 请求头示例
 
-### Minimal Request (GET)
+### 最小请求（GET）
 
 ```bash
 curl http://localhost:8080/api/v1/tasks \
   -H "X-API-Key: sk_test_123456"
 ```
 
-### Full Request (POST)
+### 完整请求（POST）
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/tasks \
@@ -362,10 +354,10 @@ curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \
   -H "traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01" \
-  -d '{"query": "Analyze data"}'
+  -d '{"query": "分析数据"}'
 ```
 
-### Python - All Headers
+### Python - 所有请求头
 
 ```python
 import httpx
@@ -384,17 +376,17 @@ response = httpx.post(
         "Idempotency-Key": str(uuid.uuid4()),
         "traceparent": generate_traceparent()
     },
-    json={"query": "Analyze data"}
+    json={"query": "分析数据"}
 )
 
-# Extract response headers
+# 提取响应头
 workflow_id = response.headers.get("X-Workflow-ID")
 session_id = response.headers.get("X-Session-ID")
 rate_limit = response.headers.get("X-RateLimit-Remaining")
 
-print(f"Workflow: {workflow_id}")
-print(f"Session: {session_id}")
-print(f"Rate limit remaining: {rate_limit}")
+print(f"工作流: {workflow_id}")
+print(f"会话: {session_id}")
+print(f"剩余速率限制: {rate_limit}")
 ```
 
 ### JavaScript - Fetch API
@@ -408,34 +400,34 @@ const response = await fetch('http://localhost:8080/api/v1/tasks', {
     'Idempotency-Key': crypto.randomUUID()
   },
   body: JSON.stringify({
-    query: 'Analyze data'
+    query: '分析数据'
   })
 });
 
-// Read response headers
+// 读取响应头
 const workflowId = response.headers.get('X-Workflow-ID');
 const rateLimit = response.headers.get('X-RateLimit-Remaining');
 
-console.log('Workflow:', workflowId);
-console.log('Rate limit remaining:', rateLimit);
+console.log('工作流:', workflowId);
+console.log('剩余速率限制:', rateLimit);
 ```
 
-## Security Best Practices
+## 安全最佳实践
 
-### 1. Protect API Keys
+### 1. 保护 API 密钥
 
-**Never commit API keys to version control**:
+**永远不要将 API 密钥提交到版本控制**：
 
 ```bash
-# ✅ Good - Use environment variables
+# ✅ 好 - 使用环境变量
 export SHANNON_API_KEY="sk_test_123456"
 curl -H "X-API-Key: $SHANNON_API_KEY" ...
 
-# ❌ Bad - Hardcoded in scripts
+# ❌ 坏 - 在脚本中硬编码
 curl -H "X-API-Key: sk_test_123456" ...
 ```
 
-**Store in secure configuration**:
+**存储在安全配置中**：
 ```python
 import os
 
@@ -444,119 +436,119 @@ if not API_KEY:
     raise ValueError("SHANNON_API_KEY not set")
 ```
 
-### 2. Use HTTPS in Production
+### 2. 在生产环境中使用 HTTPS
 
 ```python
-# ✅ Production
+# ✅ 生产环境
 BASE_URL = "https://shannon.example.com"
 
-# ⚠️ Development only
+# ⚠️ 仅限开发
 BASE_URL = "http://localhost:8080"
 ```
 
-### 3. Rotate API Keys Regularly
+### 3. 定期轮换 API 密钥
 
 ```sql
--- Disable old key
+-- 禁用旧密钥
 UPDATE auth.api_keys SET enabled = false WHERE key = 'sk_test_old';
 
--- Create new key
+-- 创建新密钥
 INSERT INTO auth.api_keys (key, user_id, tenant_id, name, enabled)
 VALUES ('sk_test_new', 'user-uuid', 'tenant-uuid', 'Rotated Key', true);
 ```
 
-### 4. Implement Key Expiration
+### 4. 实施密钥过期
 
 ```sql
--- Add expiration to keys
+-- 为密钥添加过期时间
 UPDATE auth.api_keys SET expires_at = NOW() + INTERVAL '90 days';
 
--- Check for expired keys
+-- 检查过期密钥
 SELECT * FROM auth.api_keys WHERE expires_at < NOW();
 ```
 
-### 5. Monitor API Key Usage
+### 5. 监控 API 密钥使用
 
 ```python
 def track_api_usage(api_key: str):
-    """Log API key usage for monitoring."""
+    """记录 API 密钥使用以供监控。"""
     response = httpx.post(...)
 
-    # Log usage
-    logger.info("API request", extra={
-        "api_key": api_key[:10] + "...",  # Partial key only
+    # 记录使用情况
+    logger.info("API 请求", extra={
+        "api_key": api_key[:10] + "...",  # 仅部分密钥
         "endpoint": "/api/v1/tasks",
         "status": response.status_code,
         "rate_limit_remaining": response.headers.get("X-RateLimit-Remaining")
     })
 ```
 
-## Troubleshooting
+## 故障排除
 
-### Authentication Failures
+### 认证失败
 
-**Problem**: Getting 401 Unauthorized
+**问题**：收到 401 未授权
 
-**Solutions**:
-1. Check API key is included:
+**解决方案**：
+1. 检查是否包含 API 密钥：
    ```bash
    curl -v http://localhost:8080/api/v1/tasks 2>&1 | grep "X-API-Key"
    ```
 
-2. Verify API key format:
+2. 验证 API 密钥格式：
    ```bash
-   # Should start with sk_
+   # 应以 sk_ 开头
    echo $API_KEY | grep -E "^sk_"
    ```
 
-3. Check if auth is disabled:
+3. 检查是否禁用了认证：
    ```bash
    docker compose exec gateway env | grep GATEWAY_SKIP_AUTH
    ```
 
-4. Verify key in database:
+4. 在数据库中验证密钥：
    ```sql
    SELECT key, enabled, expires_at FROM auth.api_keys WHERE key = 'sk_test_123456';
    ```
 
-### Rate Limit Issues
+### 速率限制问题
 
-**Problem**: Getting 429 Too Many Requests
+**问题**：收到 429 Too Many Requests
 
-**Solutions**:
-1. Check rate limit headers:
+**解决方案**：
+1. 检查速率限制请求头：
    ```bash
    curl -v ... 2>&1 | grep "X-RateLimit"
    ```
 
-2. Implement exponential backoff:
+2. 实施指数退避：
    ```python
    if response.status_code == 429:
        retry_after = int(response.headers.get("Retry-After", 60))
        time.sleep(retry_after)
    ```
 
-3. Increase rate limits (if needed):
+3. 增加速率限制（如需要）：
    ```bash
-   # In .env
+   # 在 .env 中
    RATE_LIMIT_RPM=200
    RATE_LIMIT_BURST=50
    ```
 
-### Idempotency Issues
+### 幂等性问题
 
-**Problem**: Duplicate tasks created
+**问题**：创建了重复任务
 
-**Solutions**:
-1. Always include Idempotency-Key:
+**解决方案**：
+1. 始终包含 Idempotency-Key：
    ```python
    idempotency_key = str(uuid.uuid4())
    headers["Idempotency-Key"] = idempotency_key
    ```
 
-2. Store idempotency keys:
+2. 存储幂等性密钥：
    ```python
-   # Store key with request
+   # 存储密钥与请求
    db.requests.insert({
        "idempotency_key": idempotency_key,
        "task_id": task_id,
@@ -564,31 +556,24 @@ def track_api_usage(api_key: str):
    })
    ```
 
-3. Check Redis cache:
+3. 检查 Redis 缓存：
    ```bash
    docker compose exec redis redis-cli KEYS "idempotency:*"
    ```
 
-## Related Documentation
+## 相关文档
 
 <CardGroup cols={2}>
-  <Card title="REST API Overview" icon="book" href="/cn/api/rest/overview">
-    Complete API reference
+  <Card title="REST API 概述" icon="book" href="/cn/api/rest/overview">
+    完整 API 参考
   </Card>
-  <Card title="Submit Task" icon="paper-plane" href="/cn/api/rest/submit-task">
+  <Card title="提交任务" icon="paper-plane" href="/cn/api/rest/submit-task">
     POST /api/v1/tasks
   </Card>
-  <Card title="Rate Limiting" icon="gauge" href="/cn/api/rest/overview#rate-limiting">
-    Rate limit details
+  <Card title="速率限制" icon="gauge" href="/cn/api/rest/overview#rate-limiting">
+    速率限制详情
   </Card>
-  <Card title="Distributed Tracing" icon="route" href="/cn/api/rest/overview#distributed-tracing">
-    Tracing setup
+  <Card title="分布式追踪" icon="route" href="/cn/api/rest/overview#distributed-tracing">
+    追踪设置
   </Card>
 </CardGroup>
-
-
----
-
-## 参与翻译
-
-如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。

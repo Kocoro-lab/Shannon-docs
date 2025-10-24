@@ -1,59 +1,51 @@
 ---
 title: "GET /api/v1/tasks/{id}"
-description: "Get task status and result"
+description: "获取任务状态和结果"
 ---
 
-> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
-
-**原文件**: `api/rest/get-status.mdx`
-**英文版本**: [查看英文文档](/en/api/rest/get-status)
-
----
-
-
-## Endpoint
+## 端点
 
 ```
 GET http://localhost:8080/api/v1/tasks/{id}
 ```
 
-## Description
+## 描述
 
-Retrieves the current status, result, and metadata for a specific task. Use this endpoint to check task progress or retrieve final results.
+获取指定任务的当前状态、结果和元数据。使用此端点检查任务进度或获取最终结果。
 
-## Authentication
+## 身份验证
 
-**Required**: Yes
+**必需**：是
 
-Include API key in header:
+在请求头中包含 API 密钥：
 ```
 X-API-Key: sk_test_123456
 ```
 
-## Request
+## 请求
 
-### Path Parameters
+### 路径参数
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `id` | string | Yes | Task ID (also serves as workflow ID) |
+| 参数 | 类型 | 必需 | 描述 |
+|------|------|------|------|
+| `id` | string | 是 | 任务 ID（也用作工作流 ID） |
 
-### Headers
+### 请求头
 
-| Header | Required | Description |
-|--------|----------|-------------|
-| `X-API-Key` | Yes | Authentication key |
+| 请求头 | 必需 | 描述 |
+|-------|------|------|
+| `X-API-Key` | 是 | 身份验证密钥 |
 
-## Response
+## 响应
 
-### Success Response
+### 成功响应
 
-**Status**: `200 OK`
+**状态**：`200 OK`
 
-**Headers**:
-- `X-Workflow-ID`: Temporal workflow identifier (same as task ID)
+**响应头**：
+- `X-Workflow-ID`：Temporal 工作流标识符（与任务 ID 相同）
 
-**Body**:
+**响应体**：
 ```json
 {
   "task_id": "string",
@@ -71,46 +63,46 @@ X-API-Key: sk_test_123456
 }
 ```
 
-### Response Fields
+### 响应字段
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `task_id` | string | Unique task identifier |
-| `status` | string | Current task status |
-| `response` | object | Task result (null if not completed) |
-| `error` | string | Error message (empty if no error) |
-| `created_at` | timestamp | Task creation time |
-| `updated_at` | timestamp | Last update time |
-| `query` | string | Original task query |
-| `session_id` | string | Session identifier |
-| `mode` | string | Execution mode used |
+| 字段 | 类型 | 描述 |
+|------|------|------|
+| `task_id` | string | 唯一任务标识符 |
+| `status` | string | 当前任务状态 |
+| `response` | object | 任务结果（未完成时为 null） |
+| `error` | string | 错误消息（无错误时为空） |
+| `created_at` | timestamp | 任务创建时间 |
+| `updated_at` | timestamp | 最后更新时间 |
+| `query` | string | 原始任务查询 |
+| `session_id` | string | 会话标识符 |
+| `mode` | string | 使用的执行模式 |
 
-### Status Values
+### 状态值
 
-- `TASK_STATUS_UNSPECIFIED` - Status unknown
-- `TASK_STATUS_QUEUED` - Waiting to execute
-- `TASK_STATUS_RUNNING` - Currently executing
-- `TASK_STATUS_COMPLETED` - Successfully completed
-- `TASK_STATUS_FAILED` - Failed with error
-- `TASK_STATUS_CANCELLED` - Cancelled by user
-- `TASK_STATUS_TIMEOUT` - Exceeded timeout limit
+- `TASK_STATUS_UNSPECIFIED` - 状态未知
+- `TASK_STATUS_QUEUED` - 等待执行
+- `TASK_STATUS_RUNNING` - 正在执行
+- `TASK_STATUS_COMPLETED` - 成功完成
+- `TASK_STATUS_FAILED` - 执行失败
+- `TASK_STATUS_CANCELLED` - 用户已取消
+- `TASK_STATUS_TIMEOUT` - 超出超时限制
 
-### Execution Mode Values
+### 执行模式值
 
-- `EXECUTION_MODE_SIMPLE` - Single LLM call, no tools
-- `EXECUTION_MODE_STANDARD` - Multi-step with tools
-- `EXECUTION_MODE_COMPLEX` - Advanced reasoning patterns
+- `EXECUTION_MODE_SIMPLE` - 单个 LLM 调用，无工具
+- `EXECUTION_MODE_STANDARD` - 多步骤执行，包含工具
+- `EXECUTION_MODE_COMPLEX` - 高级推理模式
 
-## Examples
+## 示例
 
-### Check Task Status
+### 检查任务状态
 
 ```bash
 curl -X GET "http://localhost:8080/api/v1/tasks/task_01HQZX3Y9K8M2P4N5S7T9W2V" \
   -H "X-API-Key: sk_test_123456"
 ```
 
-**Response (Queued)**:
+**响应（已排队）**：
 ```json
 {
   "task_id": "task_01HQZX3Y9K8M2P4N5S7T9W2V",
@@ -119,13 +111,13 @@ curl -X GET "http://localhost:8080/api/v1/tasks/task_01HQZX3Y9K8M2P4N5S7T9W2V" \
   "error": "",
   "created_at": "2025-10-22T10:30:00Z",
   "updated_at": "2025-10-22T10:30:00Z",
-  "query": "What is the capital of France?",
+  "query": "法国的首都是什么？",
   "session_id": "user-123-session",
   "mode": "EXECUTION_MODE_SIMPLE"
 }
 ```
 
-**Response (Running)**:
+**响应（运行中）**：
 ```json
 {
   "task_id": "task_01HQZX3Y9K8M2P4N5S7T9W2V",
@@ -134,49 +126,49 @@ curl -X GET "http://localhost:8080/api/v1/tasks/task_01HQZX3Y9K8M2P4N5S7T9W2V" \
   "error": "",
   "created_at": "2025-10-22T10:30:00Z",
   "updated_at": "2025-10-22T10:30:02Z",
-  "query": "What is the capital of France?",
+  "query": "法国的首都是什么？",
   "session_id": "user-123-session",
   "mode": "EXECUTION_MODE_SIMPLE"
 }
 ```
 
-**Response (Completed)**:
+**响应（已完成）**：
 ```json
 {
   "task_id": "task_01HQZX3Y9K8M2P4N5S7T9W2V",
   "status": "TASK_STATUS_COMPLETED",
   "response": {
-    "result": "The capital of France is Paris. Paris has been the capital since 987 AD and is located in the north-central part of the country.",
+    "result": "法国的首都是巴黎。巴黎自 987 年以来一直是首都，位于法国的中北部。",
     "confidence": 1.0,
     "sources": []
   },
   "error": "",
   "created_at": "2025-10-22T10:30:00Z",
   "updated_at": "2025-10-22T10:30:05Z",
-  "query": "What is the capital of France?",
+  "query": "法国的首都是什么？",
   "session_id": "user-123-session",
   "mode": "EXECUTION_MODE_SIMPLE"
 }
 ```
 
-**Response (Failed)**:
+**响应（失败）**：
 ```json
 {
   "task_id": "task_01HQZX3Y9K8M2P4N5S7T9W2V",
   "status": "TASK_STATUS_FAILED",
   "response": null,
-  "error": "LLM service unavailable: connection timeout",
+  "error": "LLM 服务不可用：连接超时",
   "created_at": "2025-10-22T10:30:00Z",
   "updated_at": "2025-10-22T10:30:10Z",
-  "query": "What is the capital of France?",
+  "query": "法国的首都是什么？",
   "session_id": "user-123-session",
   "mode": "EXECUTION_MODE_SIMPLE"
 }
 ```
 
-## Error Responses
+## 错误响应
 
-### 401 Unauthorized
+### 401 未授权
 
 ```json
 {
@@ -184,7 +176,7 @@ curl -X GET "http://localhost:8080/api/v1/tasks/task_01HQZX3Y9K8M2P4N5S7T9W2V" \
 }
 ```
 
-### 404 Not Found
+### 404 未找到
 
 ```json
 {
@@ -192,7 +184,7 @@ curl -X GET "http://localhost:8080/api/v1/tasks/task_01HQZX3Y9K8M2P4N5S7T9W2V" \
 }
 ```
 
-### 500 Internal Server Error
+### 500 内部服务器错误
 
 ```json
 {
@@ -200,15 +192,15 @@ curl -X GET "http://localhost:8080/api/v1/tasks/task_01HQZX3Y9K8M2P4N5S7T9W2V" \
 }
 ```
 
-## Code Examples
+## 代码示例
 
-### Python - Simple Status Check
+### Python - 简单状态检查
 
 ```python
 import httpx
 
 def get_task_status(task_id: str, api_key: str):
-    """Get task status."""
+    """获取任务状态。"""
     response = httpx.get(
         f"http://localhost:8080/api/v1/tasks/{task_id}",
         headers={"X-API-Key": api_key}
@@ -221,19 +213,19 @@ def get_task_status(task_id: str, api_key: str):
 
 status = get_task_status("task_abc123", "sk_test_123456")
 if status:
-    print(f"Status: {status['status']}")
+    print(f"状态：{status['status']}")
     if status['status'] == 'TASK_STATUS_COMPLETED':
-        print(f"Result: {status['response']['result']}")
+        print(f"结果：{status['response']['result']}")
 ```
 
-### Python - Poll Until Completion
+### Python - 轮询直到完成
 
 ```python
 import httpx
 import time
 
 def wait_for_completion(task_id: str, api_key: str, timeout: int = 300):
-    """Poll task status until completion or timeout."""
+    """轮询任务状态直到完成或超时。"""
     start_time = time.time()
 
     while True:
@@ -245,29 +237,29 @@ def wait_for_completion(task_id: str, api_key: str, timeout: int = 300):
         status = response.json()
         current_status = status["status"]
 
-        # Check if terminal state
+        # 检查终止状态
         if current_status == "TASK_STATUS_COMPLETED":
             return status["response"]
         elif current_status == "TASK_STATUS_FAILED":
-            raise Exception(f"Task failed: {status['error']}")
+            raise Exception(f"任务失败：{status['error']}")
         elif current_status == "TASK_STATUS_TIMEOUT":
-            raise Exception("Task timed out")
+            raise Exception("任务超时")
         elif current_status == "TASK_STATUS_CANCELLED":
-            raise Exception("Task was cancelled")
+            raise Exception("任务已被取消")
 
-        # Check timeout
+        # 检查轮询超时
         if time.time() - start_time > timeout:
-            raise TimeoutError(f"Polling timeout after {timeout}s")
+            raise TimeoutError(f"轮询超时，已等待 {timeout}s")
 
-        # Wait before next poll
+        # 等待后再轮询
         time.sleep(2)
 
-# Usage
+# 用法
 try:
     result = wait_for_completion("task_abc123", "sk_test_123456")
-    print("Result:", result)
+    print("结果：", result)
 except Exception as e:
-    print("Error:", e)
+    print("错误：", e)
 ```
 
 ### JavaScript/Node.js
@@ -288,20 +280,20 @@ async function getTaskStatus(taskId) {
 
     const status = response.data;
 
-    console.log('Status:', status.status);
+    console.log('状态：', status.status);
 
     if (status.status === 'TASK_STATUS_COMPLETED') {
-      console.log('Result:', status.response.result);
+      console.log('结果：', status.response.result);
     } else if (status.status === 'TASK_STATUS_FAILED') {
-      console.error('Error:', status.error);
+      console.error('错误：', status.error);
     }
 
     return status;
   } catch (error) {
     if (error.response?.status === 404) {
-      console.error('Task not found');
+      console.error('任务未找到');
     } else {
-      console.error('Error:', error.response?.data || error.message);
+      console.error('错误：', error.response?.data || error.message);
     }
     throw error;
   }
@@ -310,12 +302,12 @@ async function getTaskStatus(taskId) {
 getTaskStatus('task_abc123');
 ```
 
-### JavaScript - Poll with Async/Await
+### JavaScript - 使用 Async/Await 轮询
 
 ```javascript
 async function waitForCompletion(taskId, timeout = 300000) {
   const startTime = Date.now();
-  const pollInterval = 2000; // 2 seconds
+  const pollInterval = 2000; // 2 秒
 
   while (true) {
     const response = await axios.get(
@@ -328,25 +320,25 @@ async function waitForCompletion(taskId, timeout = 300000) {
     if (status === 'TASK_STATUS_COMPLETED') {
       return result;
     } else if (status === 'TASK_STATUS_FAILED') {
-      throw new Error(`Task failed: ${error}`);
+      throw new Error(`任务失败：${error}`);
     } else if (status === 'TASK_STATUS_TIMEOUT') {
-      throw new Error('Task timed out');
+      throw new Error('任务超时');
     }
 
-    // Check timeout
+    // 检查超时
     if (Date.now() - startTime > timeout) {
-      throw new Error(`Polling timeout after ${timeout}ms`);
+      throw new Error(`轮询超时，已等待 ${timeout}ms`);
     }
 
-    // Wait before next poll
+    // 等待后再轮询
     await new Promise(resolve => setTimeout(resolve, pollInterval));
   }
 }
 
-// Usage
+// 用法
 waitForCompletion('task_abc123')
-  .then(result => console.log('Result:', result))
-  .catch(error => console.error('Error:', error.message));
+  .then(result => console.log('结果：', result))
+  .catch(error => console.error('错误：', error.message));
 ```
 
 ### Go
@@ -385,7 +377,7 @@ func getTaskStatus(taskID string) (*TaskStatusResponse, error) {
     defer resp.Body.Close()
 
     if resp.StatusCode == 404 {
-        return nil, fmt.Errorf("task not found")
+        return nil, fmt.Errorf("任务未找到")
     }
 
     var status TaskStatusResponse
@@ -407,13 +399,13 @@ func waitForCompletion(taskID string, timeout time.Duration) (map[string]interfa
         case "TASK_STATUS_COMPLETED":
             return status.Response, nil
         case "TASK_STATUS_FAILED":
-            return nil, fmt.Errorf("task failed: %s", status.Error)
+            return nil, fmt.Errorf("任务失败：%s", status.Error)
         case "TASK_STATUS_TIMEOUT":
-            return nil, fmt.Errorf("task timed out")
+            return nil, fmt.Errorf("任务超时")
         }
 
         if time.Since(start) > timeout {
-            return nil, fmt.Errorf("polling timeout")
+            return nil, fmt.Errorf("轮询超时")
         }
 
         time.Sleep(2 * time.Second)
@@ -423,15 +415,15 @@ func waitForCompletion(taskID string, timeout time.Duration) (map[string]interfa
 func main() {
     result, err := waitForCompletion("task_abc123", 5*time.Minute)
     if err != nil {
-        fmt.Println("Error:", err)
+        fmt.Println("错误：", err)
         return
     }
 
-    fmt.Println("Result:", result)
+    fmt.Println("结果：", result)
 }
 ```
 
-### Bash - Monitor Task Progress
+### Bash - 监控任务进度
 
 ```bash
 #!/bin/bash
@@ -440,11 +432,11 @@ API_KEY="sk_test_123456"
 TASK_ID="$1"
 
 if [ -z "$TASK_ID" ]; then
-  echo "Usage: $0 <task_id>"
+  echo "用法：$0 <task_id>"
   exit 1
 fi
 
-echo "Monitoring task: $TASK_ID"
+echo "监控任务：$TASK_ID"
 echo ""
 
 while true; do
@@ -453,31 +445,31 @@ while true; do
 
   STATUS=$(echo $RESPONSE | jq -r '.status')
 
-  echo "[$(date +%T)] Status: $STATUS"
+  echo "[$(date +%T)] 状态：$STATUS"
 
   case $STATUS in
     "TASK_STATUS_COMPLETED")
       echo ""
-      echo "✓ Task completed!"
+      echo "✓ 任务完成！"
       echo ""
       echo $RESPONSE | jq -r '.response.result'
       exit 0
       ;;
     "TASK_STATUS_FAILED")
       echo ""
-      echo "✗ Task failed!"
+      echo "✗ 任务失败！"
       ERROR=$(echo $RESPONSE | jq -r '.error')
-      echo "Error: $ERROR"
+      echo "错误：$ERROR"
       exit 1
       ;;
     "TASK_STATUS_TIMEOUT")
       echo ""
-      echo "✗ Task timed out!"
+      echo "✗ 任务超时！"
       exit 1
       ;;
     "TASK_STATUS_CANCELLED")
       echo ""
-      echo "✗ Task cancelled!"
+      echo "✗ 任务已取消！"
       exit 1
       ;;
   esac
@@ -486,26 +478,26 @@ while true; do
 done
 ```
 
-## Use Cases
+## 用例
 
-### 1. Submit and Wait Pattern
+### 1. 提交并等待模式
 
 ```python
 import httpx
 import time
 
 def submit_and_wait(query: str, api_key: str):
-    """Submit task and wait for result."""
-    # Submit
+    """提交任务并等待结果。"""
+    # 提交
     submit_response = httpx.post(
         "http://localhost:8080/api/v1/tasks",
         headers={"X-API-Key": api_key},
         json={"query": query}
     )
     task_id = submit_response.json()["task_id"]
-    print(f"Task submitted: {task_id}")
+    print(f"任务已提交：{task_id}")
 
-    # Wait
+    # 等待
     while True:
         status_response = httpx.get(
             f"http://localhost:8080/api/v1/tasks/{task_id}",
@@ -520,15 +512,15 @@ def submit_and_wait(query: str, api_key: str):
 
         time.sleep(2)
 
-result = submit_and_wait("What is Python?", "sk_test_123456")
+result = submit_and_wait("Python 是什么？", "sk_test_123456")
 print(result)
 ```
 
-### 2. Dashboard Status Widget
+### 2. 仪表板状态部件
 
 ```python
 def get_task_summary(task_id: str, api_key: str):
-    """Get task summary for dashboard."""
+    """获取用于仪表板的任务摘要。"""
     response = httpx.get(
         f"http://localhost:8080/api/v1/tasks/{task_id}",
         headers={"X-API-Key": api_key}
@@ -544,16 +536,16 @@ def get_task_summary(task_id: str, api_key: str):
         "created": status["created_at"]
     }
 
-# Display in UI
+# 在 UI 中显示
 summary = get_task_summary("task_abc123", "sk_test_123456")
-print(f"{summary['status']}: {summary['query']}")
+print(f"{summary['status']}：{summary['query']}")
 ```
 
-### 3. Batch Status Check
+### 3. 批量状态检查
 
 ```python
 def check_multiple_tasks(task_ids: list, api_key: str):
-    """Check status of multiple tasks."""
+    """检查多个任务的状态。"""
     results = {}
 
     for task_id in task_ids:
@@ -565,67 +557,67 @@ def check_multiple_tasks(task_ids: list, api_key: str):
             )
             results[task_id] = response.json()["status"]
         except Exception as e:
-            results[task_id] = f"ERROR: {e}"
+            results[task_id] = f"错误：{e}"
 
     return results
 
-# Check 5 tasks
+# 检查 5 个任务
 task_ids = ["task_1", "task_2", "task_3", "task_4", "task_5"]
 statuses = check_multiple_tasks(task_ids, "sk_test_123456")
 
 for task_id, status in statuses.items():
-    print(f"{task_id}: {status}")
+    print(f"{task_id}：{status}")
 ```
 
-## Best Practices
+## 最佳实践
 
-### 1. Use Streaming Instead of Polling
+### 1. 使用流式传输而不是轮询
 
-For long-running tasks, use SSE streaming instead of polling:
+对于长时间运行的任务，使用 SSE 流式传输而不是轮询：
 
 ```python
-# ❌ Bad - Polls every 2 seconds
+# ❌ 不好 - 每 2 秒轮询一次
 while True:
     status = httpx.get(f".../{task_id}")
     if status["status"] == "COMPLETED":
         break
     time.sleep(2)
 
-# ✅ Good - Use streaming
+# ✅ 好 - 使用流式传输
 for event in client.stream(task_id):
     print(event.type, event.message)
     if event.type == "TASK_COMPLETED":
         break
 ```
 
-### 2. Handle All Status States
+### 2. 处理所有状态
 
 ```python
 status = get_task_status(task_id, api_key)
 
 match status["status"]:
     case "TASK_STATUS_QUEUED":
-        print("Task is queued...")
+        print("任务已排队...")
     case "TASK_STATUS_RUNNING":
-        print("Task is running...")
+        print("任务正在运行...")
     case "TASK_STATUS_COMPLETED":
         result = status["response"]["result"]
-        print(f"Result: {result}")
+        print(f"结果：{result}")
     case "TASK_STATUS_FAILED":
-        print(f"Failed: {status['error']}")
+        print(f"失败：{status['error']}")
     case "TASK_STATUS_TIMEOUT":
-        print("Task timed out")
+        print("任务超时")
     case "TASK_STATUS_CANCELLED":
-        print("Task was cancelled")
+        print("任务已被取消")
 ```
 
-### 3. Implement Exponential Backoff
+### 3. 实施指数退避
 
 ```python
 import time
 
 def poll_with_backoff(task_id, api_key, max_wait=60):
-    """Poll with exponential backoff."""
+    """使用指数退避轮询。"""
     wait_time = 1
 
     while True:
@@ -635,10 +627,10 @@ def poll_with_backoff(task_id, api_key, max_wait=60):
             return status
 
         time.sleep(wait_time)
-        wait_time = min(wait_time * 2, max_wait)  # Cap at 60s
+        wait_time = min(wait_time * 2, max_wait)  # 上限为 60 秒
 ```
 
-### 4. Cache Status Responses
+### 4. 缓存状态响应
 
 ```python
 from functools import lru_cache
@@ -646,19 +638,19 @@ import time
 
 @lru_cache(maxsize=1000)
 def get_cached_status(task_id: str, api_key: str, timestamp: int):
-    """Cache status for 5 seconds."""
+    """缓存状态 5 秒。"""
     return get_task_status(task_id, api_key)
 
-# Usage
-current_time = int(time.time() / 5)  # 5-second buckets
+# 用法
+current_time = int(time.time() / 5)  # 5 秒单位
 status = get_cached_status("task_abc123", "sk_test_123456", current_time)
 ```
 
-### 5. Extract Metadata
+### 5. 提取元数据
 
 ```python
 def extract_task_info(task_id: str, api_key: str):
-    """Extract useful metadata."""
+    """提取有用的元数据。"""
     status = get_task_status(task_id, api_key)
 
     return {
@@ -673,28 +665,28 @@ def extract_task_info(task_id: str, api_key: str):
     }
 ```
 
-## Related Endpoints
+## 相关端点
 
 <CardGroup cols={2}>
-  <Card title="Submit Task" icon="paper-plane" href="/cn/api/rest/submit-task">
+  <Card title="提交任务" icon="paper-plane" href="/cn/api/rest/submit-task">
     POST /api/v1/tasks
   </Card>
-  <Card title="Stream Events" icon="stream" href="/cn/api/rest/streaming">
-    Real-time monitoring
+  <Card title="流式事件" icon="stream" href="/cn/api/rest/streaming">
+    实时监控
   </Card>
   <Card title="Python SDK" icon="python" href="/cn/sdk/python/quickstart">
-    Use client.get_status()
+    使用 client.get_status()
   </Card>
 </CardGroup>
 
-## Notes
+## 注意
 
 <Warning>
-**Don't Poll in Production**: For long-running tasks, use streaming endpoints instead of polling status. Polling creates unnecessary load and adds latency.
+**勿在生产环境轮询**：对于长时间运行的任务，使用流式端点而不是轮询状态。轮询会增加不必要的负载并增加延迟。
 </Warning>
 
 <Tip>
-**Session Tracking**: The `session_id` field allows you to track which session a task belongs to, useful for multi-turn conversations and cost attribution.
+**会话追踪**：`session_id` 字段允许跟踪任务属于哪个会话，这对多轮对话和成本归属很有用。
 </Tip>
 
 

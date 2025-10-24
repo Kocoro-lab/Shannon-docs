@@ -1,68 +1,60 @@
 ---
 title: "GET /api/v1/tasks"
-description: "List and filter tasks"
+description: "列出和筛选任务"
 ---
 
-> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
-
-**原文件**: `api/rest/list-tasks.mdx`
-**英文版本**: [查看英文文档](/en/api/rest/list-tasks)
-
----
-
-
-## Endpoint
+## 端点
 
 ```
 GET http://localhost:8080/api/v1/tasks
 ```
 
-## Description
+## 描述
 
-Retrieves a paginated list of tasks with optional filtering by status and session.
+获取任务的分页列表，支持按状态和会话筛选。
 
-## Authentication
+## 身份验证
 
-**Required**: Yes
+**必需**：是
 
-Include API key in header:
+在请求头中包含 API 密钥：
 ```
 X-API-Key: sk_test_123456
 ```
 
-## Request
+## 请求
 
-### Headers
+### 请求头
 
-| Header | Required | Description |
-|--------|----------|-------------|
-| `X-API-Key` | Yes | Authentication key |
+| 请求头 | 必需 | 描述 |
+|-------|------|------|
+| `X-API-Key` | 是 | 身份验证密钥 |
 
-### Query Parameters
+### 查询参数
 
-| Parameter | Type | Required | Description | Default |
-|-----------|------|----------|-------------|---------|
-| `limit` | integer | No | Number of tasks to return (1-100) | `20` |
-| `offset` | integer | No | Number of tasks to skip | `0` |
-| `session_id` | string | No | Filter by session ID | - |
-| `status` | string | No | Filter by task status | - |
+| 参数 | 类型 | 必需 | 描述 | 默认值 |
+|------|------|------|------|-------|
+| `limit` | integer | 否 | 返回的任务数量（1-100） | `20` |
+| `offset` | integer | 否 | 跳过的任务数量 | `0` |
+| `session_id` | string | 否 | 按会话 ID 筛选 | - |
+| `status` | string | 否 | 按任务状态筛选 | - |
 
-### Status Filter Values
+### 状态筛选值
 
-- `QUEUED` - Tasks waiting to execute
-- `RUNNING` - Tasks currently executing
-- `COMPLETED` - Successfully completed tasks
-- `FAILED` - Failed tasks
-- `CANCELLED` or `CANCELED` - Cancelled tasks
-- `TIMEOUT` - Tasks that exceeded timeout
+- `QUEUED` - 等待执行的任务
+- `RUNNING` - 正在执行的任务
+- `COMPLETED` - 成功完成的任务
+- `FAILED` - 失败的任务
+- `CANCELLED` 或 `CANCELED` - 已取消的任务
+- `TIMEOUT` - 超时的任务
 
-## Response
+## 响应
 
-### Success Response
+### 成功响应
 
-**Status**: `200 OK`
+**状态**：`200 OK`
 
-**Body**:
+**响应体**：
 ```json
 {
   "tasks": [
@@ -85,50 +77,50 @@ X-API-Key: sk_test_123456
 }
 ```
 
-### Response Fields
+### 响应字段
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `tasks` | array | Array of task summaries |
-| `total_count` | integer | Total number of tasks matching filters |
+| 字段 | 类型 | 描述 |
+|------|------|------|
+| `tasks` | array | 任务摘要数组 |
+| `total_count` | integer | 匹配筛选条件的任务总数 |
 
-### Task Summary Fields
+### 任务摘要字段
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `task_id` | string | Unique task identifier |
-| `query` | string | Original task query |
-| `status` | string | Current task status |
-| `mode` | string | Execution mode (`EXECUTION_MODE_SIMPLE`, `EXECUTION_MODE_STANDARD`, `EXECUTION_MODE_COMPLEX`) |
-| `created_at` | timestamp | Task creation time (ISO 8601) |
-| `completed_at` | timestamp | Task completion time (null if not completed) |
-| `total_token_usage` | object | Token usage and cost metrics |
+| 字段 | 类型 | 描述 |
+|------|------|------|
+| `task_id` | string | 唯一任务标识符 |
+| `query` | string | 原始任务查询 |
+| `status` | string | 当前任务状态 |
+| `mode` | string | 执行模式（`EXECUTION_MODE_SIMPLE`、`EXECUTION_MODE_STANDARD`、`EXECUTION_MODE_COMPLEX`） |
+| `created_at` | timestamp | 任务创建时间（ISO 8601） |
+| `completed_at` | timestamp | 任务完成时间（如果未完成则为 null） |
+| `total_token_usage` | object | 令牌使用量和成本指标 |
 
-### Token Usage Fields
+### 令牌使用字段
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `total_tokens` | integer | Total tokens consumed |
-| `cost_usd` | float | Total cost in USD |
-| `prompt_tokens` | integer | Tokens in prompts |
-| `completion_tokens` | integer | Tokens in completions |
+| 字段 | 类型 | 描述 |
+|------|------|------|
+| `total_tokens` | integer | 使用的总令牌数 |
+| `cost_usd` | float | 以美元计的总成本 |
+| `prompt_tokens` | integer | 提示中的令牌数 |
+| `completion_tokens` | integer | 完成中的令牌数 |
 
-## Examples
+## 示例
 
-### List All Tasks
+### 列出所有任务
 
 ```bash
 curl -X GET "http://localhost:8080/api/v1/tasks" \
   -H "X-API-Key: sk_test_123456"
 ```
 
-**Response**:
+**响应**：
 ```json
 {
   "tasks": [
     {
       "task_id": "task_01HQZX3Y9K8M2P4N5S7T9W2V",
-      "query": "What is the capital of France?",
+      "query": "法国的首都是什么？",
       "status": "TASK_STATUS_COMPLETED",
       "mode": "EXECUTION_MODE_SIMPLE",
       "created_at": "2025-10-22T10:30:00Z",
@@ -142,7 +134,7 @@ curl -X GET "http://localhost:8080/api/v1/tasks" \
     },
     {
       "task_id": "task_01HQZX4Y9K8M2P4N5S7T9W2W",
-      "query": "Analyze sales trends for Q4",
+      "query": "分析 Q4 销售趋势",
       "status": "TASK_STATUS_RUNNING",
       "mode": "EXECUTION_MODE_STANDARD",
       "created_at": "2025-10-22T10:31:00Z",
@@ -154,47 +146,47 @@ curl -X GET "http://localhost:8080/api/v1/tasks" \
 }
 ```
 
-### Filter by Status
+### 按状态筛选
 
 ```bash
-# Get only running tasks
+# 仅获取运行中的任务
 curl -X GET "http://localhost:8080/api/v1/tasks?status=RUNNING" \
   -H "X-API-Key: sk_test_123456"
 ```
 
 ```bash
-# Get completed tasks
+# 获取已完成的任务
 curl -X GET "http://localhost:8080/api/v1/tasks?status=COMPLETED" \
   -H "X-API-Key: sk_test_123456"
 ```
 
 ```bash
-# Get failed tasks
+# 获取失败的任务
 curl -X GET "http://localhost:8080/api/v1/tasks?status=FAILED" \
   -H "X-API-Key: sk_test_123456"
 ```
 
-### Filter by Session
+### 按会话筛选
 
 ```bash
 curl -X GET "http://localhost:8080/api/v1/tasks?session_id=user-123-chat" \
   -H "X-API-Key: sk_test_123456"
 ```
 
-**Response**:
+**响应**：
 ```json
 {
   "tasks": [
     {
       "task_id": "task_abc123",
-      "query": "What is Python?",
+      "query": "Python 是什么？",
       "status": "TASK_STATUS_COMPLETED",
       "created_at": "2025-10-22T10:00:00Z",
       "completed_at": "2025-10-22T10:00:03Z"
     },
     {
       "task_id": "task_def456",
-      "query": "What are its main advantages?",
+      "query": "它的主要优点是什么？",
       "status": "TASK_STATUS_COMPLETED",
       "created_at": "2025-10-22T10:01:00Z",
       "completed_at": "2025-10-22T10:01:04Z"
@@ -204,33 +196,33 @@ curl -X GET "http://localhost:8080/api/v1/tasks?session_id=user-123-chat" \
 }
 ```
 
-### Pagination
+### 分页
 
 ```bash
-# First page (20 tasks)
+# 第一页（20 个任务）
 curl -X GET "http://localhost:8080/api/v1/tasks?limit=20&offset=0" \
   -H "X-API-Key: sk_test_123456"
 
-# Second page
+# 第二页
 curl -X GET "http://localhost:8080/api/v1/tasks?limit=20&offset=20" \
   -H "X-API-Key: sk_test_123456"
 
-# Third page
+# 第三页
 curl -X GET "http://localhost:8080/api/v1/tasks?limit=20&offset=40" \
   -H "X-API-Key: sk_test_123456"
 ```
 
-### Combined Filters
+### 组合筛选
 
 ```bash
-# Get completed tasks in a session, paginated
+# 获取会话中已完成的任务，分页显示
 curl -X GET "http://localhost:8080/api/v1/tasks?session_id=user-123&status=COMPLETED&limit=10&offset=0" \
   -H "X-API-Key: sk_test_123456"
 ```
 
-## Error Responses
+## 错误响应
 
-### 401 Unauthorized
+### 401 未授权
 
 ```json
 {
@@ -238,7 +230,7 @@ curl -X GET "http://localhost:8080/api/v1/tasks?session_id=user-123&status=COMPL
 }
 ```
 
-### 429 Too Many Requests
+### 429 请求过多
 
 ```json
 {
@@ -246,7 +238,7 @@ curl -X GET "http://localhost:8080/api/v1/tasks?session_id=user-123&status=COMPL
 }
 ```
 
-### 500 Internal Server Error
+### 500 内部服务器错误
 
 ```json
 {
@@ -254,7 +246,7 @@ curl -X GET "http://localhost:8080/api/v1/tasks?session_id=user-123&status=COMPL
 }
 ```
 
-## Code Examples
+## 代码示例
 
 ### Python with httpx
 
@@ -272,21 +264,21 @@ response = httpx.get(
 )
 
 data = response.json()
-print(f"Total: {data['total_count']} tasks")
+print(f"总计：{data['total_count']} 个任务")
 
 for task in data["tasks"]:
-    print(f"- {task['task_id']}: {task['status']}")
+    print(f"- {task['task_id']}：{task['status']}")
     if task['total_token_usage']:
-        print(f"  Cost: ${task['total_token_usage']['cost_usd']:.4f}")
+        print(f"  成本：${task['total_token_usage']['cost_usd']:.4f}")
 ```
 
-### Python - List All Tasks (Pagination)
+### Python - 列出所有任务（分页）
 
 ```python
 import httpx
 
 def list_all_tasks(api_key: str, status: str = None):
-    """List all tasks with pagination."""
+    """列出所有任务，带分页。"""
     all_tasks = []
     offset = 0
     limit = 100
@@ -306,7 +298,7 @@ def list_all_tasks(api_key: str, status: str = None):
         tasks = data["tasks"]
         all_tasks.extend(tasks)
 
-        # Check if we've retrieved all tasks
+        # 检查是否已获取所有任务
         if len(tasks) < limit:
             break
 
@@ -314,9 +306,9 @@ def list_all_tasks(api_key: str, status: str = None):
 
     return all_tasks
 
-# Usage
+# 用法
 completed_tasks = list_all_tasks("sk_test_123456", status="COMPLETED")
-print(f"Found {len(completed_tasks)} completed tasks")
+print(f"找到 {len(completed_tasks)} 个已完成的任务")
 ```
 
 ### JavaScript/Node.js
@@ -341,27 +333,27 @@ async function listTasks(filters = {}) {
       }
     );
 
-    console.log(`Total tasks: ${response.data.total_count}`);
+    console.log(`总任务数：${response.data.total_count}`);
 
     response.data.tasks.forEach(task => {
-      console.log(`${task.task_id}: ${task.status}`);
+      console.log(`${task.task_id}：${task.status}`);
     });
 
     return response.data;
   } catch (error) {
-    console.error('Error:', error.response?.data || error.message);
+    console.error('错误：', error.response?.data || error.message);
     throw error;
   }
 }
 
-// List running tasks
+// 列出运行中的任务
 listTasks({ status: 'RUNNING' });
 
-// List tasks in a session
+// 列出会话中的任务
 listTasks({ sessionId: 'user-123-chat', limit: 50 });
 ```
 
-### Bash Script - Monitor Running Tasks
+### Bash 脚本 - 监控运行中的任务
 
 ```bash
 #!/bin/bash
@@ -369,21 +361,21 @@ listTasks({ sessionId: 'user-123-chat', limit: 50 });
 API_KEY="sk_test_123456"
 BASE_URL="http://localhost:8080"
 
-echo "Monitoring running tasks..."
+echo "监控运行中的任务..."
 
 while true; do
   clear
-  echo "=== Running Tasks ==="
+  echo "=== 运行中的任务 ==="
   echo ""
 
   RESPONSE=$(curl -s "$BASE_URL/api/v1/tasks?status=RUNNING" \
     -H "X-API-Key: $API_KEY")
 
   TOTAL=$(echo $RESPONSE | jq -r '.total_count')
-  echo "Total running: $TOTAL"
+  echo "运行中：$TOTAL"
   echo ""
 
-  echo $RESPONSE | jq -r '.tasks[] | "\(.task_id): \(.query)"'
+  echo $RESPONSE | jq -r '.tasks[] | "\(.task_id)：\(.query)"'
 
   sleep 5
 done
@@ -418,7 +410,7 @@ type TaskSummary struct {
 func listTasks(status string, limit, offset int) (*ListTasksResponse, error) {
     baseURL := "http://localhost:8080/api/v1/tasks"
 
-    // Build query parameters
+    // 构建查询参数
     params := url.Values{}
     if status != "" {
         params.Add("status", status)
@@ -447,24 +439,24 @@ func listTasks(status string, limit, offset int) (*ListTasksResponse, error) {
 func main() {
     tasks, err := listTasks("COMPLETED", 10, 0)
     if err != nil {
-        fmt.Println("Error:", err)
+        fmt.Println("错误：", err)
         return
     }
 
-    fmt.Printf("Total tasks: %d\n", tasks.TotalCount)
+    fmt.Printf("总任务数：%d\n", tasks.TotalCount)
     for _, task := range tasks.Tasks {
-        fmt.Printf("- %s: %s\n", task.TaskID, task.Status)
+        fmt.Printf("- %s：%s\n", task.TaskID, task.Status)
     }
 }
 ```
 
-## Use Cases
+## 用例
 
-### 1. Dashboard - Show Recent Tasks
+### 1. 仪表板 - 显示最近的任务
 
 ```python
 def get_recent_tasks(api_key: str, limit: int = 10):
-    """Get most recent tasks for dashboard."""
+    """获取用于仪表板的最近任务。"""
     response = httpx.get(
         "http://localhost:8080/api/v1/tasks",
         headers={"X-API-Key": api_key},
@@ -474,14 +466,14 @@ def get_recent_tasks(api_key: str, limit: int = 10):
 
 recent = get_recent_tasks("sk_test_123456", limit=5)
 for task in recent:
-    print(f"{task['created_at']}: {task['query'][:50]}...")
+    print(f"{task['created_at']}：{task['query'][:50]}...")
 ```
 
-### 2. Cost Tracking
+### 2. 成本追踪
 
 ```python
 def calculate_session_cost(api_key: str, session_id: str):
-    """Calculate total cost for a session."""
+    """计算会话的总成本。"""
     response = httpx.get(
         "http://localhost:8080/api/v1/tasks",
         headers={"X-API-Key": api_key},
@@ -496,16 +488,16 @@ def calculate_session_cost(api_key: str, session_id: str):
     return total_cost
 
 cost = calculate_session_cost("sk_test_123456", "user-123-chat")
-print(f"Session cost: ${cost:.4f}")
+print(f"会话成本：${cost:.4f}")
 ```
 
-### 3. Failure Monitoring
+### 3. 失败监控
 
 ```python
 import time
 
 def monitor_failures(api_key: str, interval: int = 60):
-    """Monitor for failed tasks."""
+    """监控失败的任务。"""
     while True:
         response = httpx.get(
             "http://localhost:8080/api/v1/tasks",
@@ -516,46 +508,46 @@ def monitor_failures(api_key: str, interval: int = 60):
         failed_tasks = response.json()["tasks"]
 
         if failed_tasks:
-            print(f"⚠️  {len(failed_tasks)} failed tasks:")
+            print(f"⚠️  {len(failed_tasks)} 个失败任务：")
             for task in failed_tasks:
-                print(f"  - {task['task_id']}: {task['query']}")
+                print(f"  - {task['task_id']}：{task['query']}")
 
-                # Get details
+                # 获取详情
                 details = httpx.get(
                     f"http://localhost:8080/api/v1/tasks/{task['task_id']}",
                     headers={"X-API-Key": api_key}
                 )
-                error = details.json().get("error", "Unknown error")
-                print(f"    Error: {error}")
+                error = details.json().get("error", "未知错误")
+                print(f"    错误：{error}")
 
         time.sleep(interval)
 
 monitor_failures("sk_test_123456")
 ```
 
-## Implementation Notes
+## 实现注意事项
 
-### Rate Limiting
+### 速率限制
 
-This endpoint is rate limited. Default limits:
-- **100 requests/minute** per API key
-- **20 requests/second** burst
+此端点受速率限制。默认限制：
+- **每分钟 100 个请求** 每个 API 密钥
+- **每秒 20 个请求** 突发
 
-### Performance
+### 性能
 
-- **Indexed queries**: Filtering by `status` and `session_id` is fast
-- **Pagination**: Use `limit` and `offset` to avoid large responses
-- **Total count**: Includes all matching tasks, not just returned page
+- **索引查询**：按 `status` 和 `session_id` 筛选很快
+- **分页**：使用 `limit` 和 `offset` 避免大型响应
+- **总计数**：包括所有匹配的任务，不仅是返回的页面
 
-### Ordering
+### 排序
 
-Tasks are returned in **reverse chronological order** (newest first).
+任务按**反向时间顺序**返回（最新优先）。
 
-## Best Practices
+## 最佳实践
 
-### 1. Use Pagination
+### 1. 使用分页
 
-Always paginate for large result sets:
+总是对大型结果集进行分页：
 
 ```python
 def fetch_page(offset, limit=20):
@@ -565,28 +557,28 @@ def fetch_page(offset, limit=20):
         params={"limit": limit, "offset": offset}
     ).json()
 
-# Fetch first 3 pages
+# 获取前 3 页
 for page in range(3):
     tasks = fetch_page(offset=page * 20, limit=20)
     process_tasks(tasks)
 ```
 
-### 2. Filter by Status
+### 2. 按状态筛选
 
-Don't fetch all tasks if you only need specific statuses:
+如果只需要特定状态，不要获取所有任务：
 
 ```python
-# ✅ Good - filter server-side
+# ✅ 好 - 服务器端筛选
 running = httpx.get(..., params={"status": "RUNNING"})
 
-# ❌ Bad - filter client-side
+# ❌ 不好 - 客户端筛选
 all_tasks = httpx.get(...)
 running = [t for t in all_tasks if t["status"] == "RUNNING"]
 ```
 
-### 3. Cache Results
+### 3. 缓存结果
 
-Cache task lists for dashboards:
+缓存任务列表用于仪表板：
 
 ```python
 import time
@@ -596,7 +588,7 @@ cache = {"data": None, "timestamp": 0}
 def get_cached_tasks():
     now = time.time()
     if cache["data"] is None or now - cache["timestamp"] > 60:
-        # Refresh every 60 seconds
+        # 每 60 秒刷新一次
         response = httpx.get(...)
         cache["data"] = response.json()
         cache["timestamp"] = now
@@ -604,27 +596,27 @@ def get_cached_tasks():
     return cache["data"]
 ```
 
-## Related Endpoints
+## 相关端点
 
 <CardGroup cols={2}>
-  <Card title="Submit Task" icon="paper-plane" href="/cn/api/rest/submit-task">
+  <Card title="提交任务" icon="paper-plane" href="/cn/api/rest/submit-task">
     POST /api/v1/tasks
   </Card>
-  <Card title="Get Task Status" icon="circle-info" href="/cn/api/rest/get-status">
+  <Card title="获取任务状态" icon="circle-info" href="/cn/api/rest/get-status">
     GET /api/v1/tasks/{id}
   </Card>
-  <Card title="Stream Events" icon="stream" href="/cn/api/rest/streaming">
-    Real-time monitoring
+  <Card title="流式事件" icon="stream" href="/cn/api/rest/streaming">
+    实时监控
   </Card>
   <Card title="Python SDK" icon="python" href="/cn/sdk/python/quickstart">
-    Use the SDK instead
+    使用 SDK 替代
   </Card>
 </CardGroup>
 
-## Notes
+## 注意
 
 <Note>
-**SDK Alternative**: The Python SDK does not expose a `list_tasks()` method. This endpoint is REST-only. For SDK usage, store task IDs and query status individually using `client.get_status(task_id)`.
+**SDK 替代方案**：Python SDK 不公开 `list_tasks()` 方法。此端点仅限 REST。对于 SDK 使用，存储任务 ID 并使用 `client.get_status(task_id)` 单独查询状态。
 </Note>
 
 

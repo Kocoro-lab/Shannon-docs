@@ -1,51 +1,43 @@
 ---
-title: "Get Task Status"
-description: "GET /api/v1/tasks/{id} - Retrieve task status"
+title: "获取任务状态"
+description: "GET /api/v1/tasks/{id} - 检索任务状态"
 ---
 
-> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
-
-**原文件**: `api/endpoints/get-task-status.mdx`
-**英文版本**: [查看英文文档](/en/api/endpoints/get-task-status)
-
----
-
-
-## Endpoint
+## 端点
 
 ```
 GET /api/v1/tasks/{task_id}
 ```
 
-Retrieve the current status of a task.
+检索任务的当前状态。
 
-## Request
+## 请求
 
-### Path Parameters
+### 路径参数
 
-| Parameter | Type | Required | Description |
+| 参数 | 类型 | 必需 | 描述 |
 |-----------|------|----------|-------------|
-| `task_id` | string | Yes | Task identifier from submit response |
+| `task_id` | string | 是 | 来自提交响应的任务标识符 |
 
-### Headers
+### 请求头
 
-| Header | Required | Description |
+| 请求头 | 必需 | 描述 |
 |--------|----------|-------------|
-| `X-API-Key` | Conditional | API key (when auth enabled) |
+| `X-API-Key` | 条件性 | API 密钥（启用认证时） |
 
-## Response
+## 响应
 
-### Success (200 OK)
+### 成功 (200 OK)
 
 <CodeGroup>
 
-```json Running Task
+```json 运行中的任务
 {
   "task_id": "task-dev-1730000000",
   "status": "TASK_STATUS_RUNNING",
   "response": null,
   "error": "",
-  "query": "Analyze the sentiment of this text",
+  "query": "分析此文本的情感",
   "session_id": "sess-123",
   "mode": "EXECUTION_MODE_STANDARD",
   "created_at": "2024-10-22T10:30:00Z",
@@ -53,15 +45,15 @@ Retrieve the current status of a task.
 }
 ```
 
-```json Completed Task
+```json 已完成的任务
 {
   "task_id": "task-dev-1730000000",
   "status": "TASK_STATUS_COMPLETED",
   "response": {
-    "result": "The sentiment is overwhelmingly positive..."
+    "result": "情感非常积极..."
   },
   "error": "",
-  "query": "Analyze the sentiment of this text",
+  "query": "分析此文本的情感",
   "session_id": "sess-123",
   "mode": "EXECUTION_MODE_STANDARD",
   "created_at": "2024-10-22T10:30:00Z",
@@ -69,13 +61,13 @@ Retrieve the current status of a task.
 }
 ```
 
-```json Failed Task
+```json 失败的任务
 {
   "task_id": "task-dev-1730000000",
   "status": "TASK_STATUS_FAILED",
   "response": null,
-  "error": "Budget exceeded",
-  "query": "Analyze the sentiment of this text",
+  "error": "预算超限",
+  "query": "分析此文本的情感",
   "session_id": "sess-123",
   "mode": "EXECUTION_MODE_STANDARD",
   "created_at": "2024-10-22T10:30:00Z",
@@ -85,16 +77,16 @@ Retrieve the current status of a task.
 
 </CodeGroup>
 
-### Error Responses
+### 错误响应
 
-| Status | Error Code | Description |
+| 状态码 | 错误代码 | 描述 |
 |--------|------------|-------------|
-| 404 | `TASK_NOT_FOUND` | Task ID doesn't exist |
-| 401 | `UNAUTHORIZED` | Invalid or missing API key |
+| 404 | `TASK_NOT_FOUND` | 任务 ID 不存在 |
+| 401 | `UNAUTHORIZED` | 无效或缺少 API 密钥 |
 
-## Examples
+## 示例
 
-### Basic Status Check
+### 基本状态检查
 
 <CodeGroup>
 
@@ -108,45 +100,45 @@ from shannon import ShannonClient
 client = ShannonClient()
 
 status = client.get_status("task-dev-1730000000")
-print("Status:", status.status)
+print("状态:", status.status)
 if status.status == status.status.COMPLETED:
-    print("Result:", status.result)
+    print("结果:", status.result)
 ```
 
 ```javascript JavaScript (fetch)
 const response = await fetch('http://localhost:8080/api/v1/tasks/task-dev-1730000000');
 const task = await response.json();
-console.log('Status:', task.status);
+console.log('状态:', task.status);
 if (task.status === 'TASK_STATUS_COMPLETED') {
-  console.log('Response:', task.response);
+  console.log('响应:', task.response);
 }
 ```
 
 </CodeGroup>
 
-### Poll Until Complete
+### 轮询直到完成
 
 <CodeGroup>
 
 ```python Python SDK
 import time
 
-handle = client.submit_task(query="Analyze data")
+handle = client.submit_task(query="分析数据")
 
 while True:
     status = client.get_status(handle.task_id)
-    print("Status:", status.status)
+    print("状态:", status.status)
     if status.status in [status.status.COMPLETED, status.status.FAILED]:
         break
     time.sleep(2)
 
 if status.status == status.status.COMPLETED:
-    print("Result:", status.result)
+    print("结果:", status.result)
 else:
-    print("Error:", status.error_message)
+    print("错误:", status.error_message)
 ```
 
-```bash Shell Script
+```bash Shell 脚本
 #!/bin/bash
 
 TASK_ID="task-dev-1730000000"
@@ -154,7 +146,7 @@ TASK_ID="task-dev-1730000000"
 while true; do
   STATUS=$(curl -s http://localhost:8080/api/v1/tasks/$TASK_ID | jq -r '.status')
 
-  echo "Status: $STATUS"
+  echo "状态: $STATUS"
 
   if [ "$STATUS" = "COMPLETED" ] || [ "$STATUS" = "FAILED" ]; then
     break
@@ -163,70 +155,70 @@ while true; do
   sleep 2
 done
 
-# Get final response payload
+# 获取最终响应载荷
 curl http://localhost:8080/api/v1/tasks/$TASK_ID | jq '.response'
 ```
 
 </CodeGroup>
 
-### Wait for Completion (SDK)
+### 等待完成 (SDK)
 
 ```python
-handle = client.submit_task(query="Complex analysis")
+handle = client.submit_task(query="复杂分析")
 final = client.wait(handle.task_id, timeout=300)
-print("Result:", final.result)
+print("结果:", final.result)
 ```
 
-## Response Fields
+## 响应字段
 
-### Task Status
+### 任务状态
 
-| Field | Type | Description |
+| 字段 | 类型 | 描述 |
 |-------|------|-------------|
-| `task_id` | string | Unique task identifier |
+| `task_id` | string | 唯一任务标识符 |
 | `status` | string | `TASK_STATUS_*` |
-| `response` | object\|null | Result JSON (when completed) |
-| `error` | string | Error message (when failed) |
-| `query` | string | Original query text |
-| `session_id` | string | Session ID |
-| `mode` | string | Execution mode (enum string) |
+| `response` | object\|null | 结果 JSON（完成时） |
+| `error` | string | 错误消息（失败时） |
+| `query` | string | 原始查询文本 |
+| `session_id` | string | 会话 ID |
+| `mode` | string | 执行模式（枚举字符串） |
 
 <Note>
-The REST status response does not include detailed metrics. Use the dashboard, streaming events, or the gRPC API/SDK for metrics.
+REST 状态响应不包含详细指标。使用仪表板、流式事件或 gRPC API/SDK 获取指标。
 </Note>
 
-## Task Status Values
+## 任务状态值
 
-| Status | Description |
+| 状态 | 描述 |
 |--------|-------------|
-| `QUEUED` | Task waiting to be executed |
-| `RUNNING` | Task currently executing |
-| `COMPLETED` | Task finished successfully |
-| `FAILED` | Task encountered an error |
-| `CANCELLED` | Task was cancelled by user |
+| `QUEUED` | 任务等待执行 |
+| `RUNNING` | 任务正在执行 |
+| `COMPLETED` | 任务成功完成 |
+| `FAILED` | 任务遇到错误 |
+| `CANCELLED` | 任务被用户取消 |
 
-## Progress Tracking
+## 进度跟踪
 
-Progress is calculated based on subtask completion:
+进度基于子任务完成情况计算：
 
 ```python
 progress = completed_subtasks / total_subtasks
 ```
 
-For simple mode (no decomposition):
-- `0.0` - Not started
-- `0.5` - In progress
-- `1.0` - Complete
+对于简单模式（无分解）：
+- `0.0` - 未开始
+- `0.5` - 进行中
+- `1.0` - 完成
 
-## Best Practices
+## 最佳实践
 
-### 1. Use SDK's wait helper
+### 1. 使用 SDK 的 wait 辅助方法
 
 ```python
-# ✅ Good: SDK handles polling
+# ✅ 好：SDK 处理轮询
 result = client.wait(handle.task_id, timeout=300)
 
-# ❌ Avoid: Manual polling
+# ❌ 避免：手动轮询
 while True:
     status = client.get_status(task_id)
     if status.status == "COMPLETED":
@@ -234,20 +226,20 @@ while True:
     time.sleep(1)
 ```
 
-### 2. Check for Errors
+### 2. 检查错误
 
 ```python
 status = client.get_status(task_id)
 
 if status.status == "FAILED":
-    print(f"Error: {status.error.code}")
-    print(f"Message: {status.error.message}")
+    print(f"错误: {status.error.code}")
+    print(f"消息: {status.error.message}")
 
     if status.error.code == "BUDGET_EXCEEDED":
-        print("Increase budget or simplify task")
+        print("增加预算或简化任务")
 ```
 
-### 3. Monitor Token Usage
+### 3. 监控 Token 使用
 
 ```python
 if status.status == "COMPLETED":
@@ -255,50 +247,43 @@ if status.status == "COMPLETED":
     cost = status.metrics.token_usage.cost_usd
 
     if cost > 1.0:
-        print(f"Warning: High cost (${cost:.2f})")
+        print(f"警告: 高成本 (${cost:.2f})")
 ```
 
-### 4. Use Streaming for Long Tasks
+### 4. 对长任务使用流式传输
 
-For tasks that take > 30 seconds, use streaming instead:
+对于耗时超过 30 秒的任务，使用流式传输而不是轮询：
 
 ```python
-# Instead of polling
+# 而不是轮询
 for event in client.stream(workflow_id):
     if event.type == "TASK_COMPLETED":
         break
 ```
 
-## Common Error Codes
+## 常见错误代码
 
-| Error Code | Description | Solution |
+| 错误代码 | 描述 | 解决方案 |
 |------------|-------------|----------|
-| `BUDGET_EXCEEDED` | Token/cost limit reached | Increase budget or simplify task |
-| `TIMEOUT` | Execution timeout | Increase timeout_seconds |
-| `LLM_ERROR` | LLM provider error | Check API keys, retry |
-| `POLICY_VIOLATION` | OPA policy denied | Check permissions |
-| `INVALID_STATE` | Task in invalid state | Check task status |
+| `BUDGET_EXCEEDED` | 达到 token/成本限制 | 增加预算或简化任务 |
+| `TIMEOUT` | 执行超时 | 增加 timeout_seconds |
+| `LLM_ERROR` | LLM 提供商错误 | 检查 API 密钥，重试 |
+| `POLICY_VIOLATION` | OPA 策略拒绝 | 检查权限 |
+| `INVALID_STATE` | 任务处于无效状态 | 检查任务状态 |
 
-## Next Steps
+## 下一步
 
 <CardGroup cols={2}>
-  <Card title="Stream Events" icon="stream" href="/cn/api/endpoints/stream-task">
-    Monitor tasks in real-time
+  <Card title="流式传输事件" icon="stream" href="/cn/api/endpoints/stream-task">
+    实时监控任务
   </Card>
-  <Card title="Cancel Task" icon="xmark" href="/cn/api/endpoints/cancel-task">
-    Cancel (via SDK / gRPC)
+  <Card title="取消任务" icon="xmark" href="/cn/api/endpoints/cancel-task">
+    取消（通过 SDK / gRPC）
   </Card>
   <Card title="Python SDK" icon="python" href="/cn/sdk/python/quickstart">
-    SDK usage
+    SDK 使用
   </Card>
-  <Card title="API Overview" icon="code" href="/cn/api/overview">
-    Endpoints and usage
+  <Card title="API 概述" icon="code" href="/cn/api/overview">
+    端点和使用
   </Card>
 </CardGroup>
-
-
----
-
-## 参与翻译
-
-如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。

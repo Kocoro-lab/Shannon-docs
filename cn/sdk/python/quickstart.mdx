@@ -1,269 +1,254 @@
 ---
-title: "Python SDK Quick Start"
-description: "Get started with the Shannon Python SDK in 5 minutes"
+title: "Python SDK 快速开始"
+description: "5 分钟内开始使用 Shannon Python SDK"
 ---
 
-> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
+## 安装
 
-**原文件**: `sdk/python/quickstart.mdx`
-**英文版本**: [查看英文文档](/en/sdk/python/quickstart)
-
----
-
-
-## Installation
-
-```bash
+\`\`\`bash
 pip install shannon-sdk
-```
+\`\`\`
 
-## Your First Task
+## 您的第一个任务
 
-### 1. Import and Initialize
+### 1. 导入和初始化
 
-```python
+\`\`\`python
 from shannon import ShannonClient
 
-# Defaults: gRPC localhost:50052, SSE http://localhost:8081
+# 默认值：gRPC localhost:50052，SSE http://localhost:8081
 client = ShannonClient()
-```
+\`\`\`
 
-### 2. Submit a Task
+### 2. 提交任务
 
-```python
-handle = client.submit_task(query="What is the capital of France?")
-print("Task submitted:", handle.task_id)
-```
+\`\`\`python
+handle = client.submit_task(query="法国的首都是什么？")
+print("任务已提交：", handle.task_id)
+\`\`\`
 
-### 3. Get Results
+### 3. 获取结果
 
-```python
+\`\`\`python
 final = client.wait(handle.task_id, timeout=60)
-print("Result:", final.result)
-```
+print("结果：", final.result)
+\`\`\`
 
-## Complete Example
+## 完整示例
 
-```python
+\`\`\`python
 from shannon import ShannonClient
 
 def main():
     client = ShannonClient()
     handle = client.submit_task(
-        query="Analyze the sentiment: Shannon makes AI agents simple!",
+        query="分析情绪：Shannon 让 AI 代理变得简单！",
     )
-    print("Task ID:", handle.task_id)
-    print("Waiting for completion...")
+    print("任务 ID：", handle.task_id)
+    print("等待完成...")
     result = client.wait(handle.task_id, timeout=60)
-    print("\nResult:", result.result)
+    print("\n结果：", result.result)
 
 if __name__ == "__main__":
     main()
-```
+\`\`\`
 
-## Common Patterns
+## 常见模式
 
-### Idempotency
+### 幂等性
 
-```python
-# Use HTTP via gateway for idempotency on submit if needed
-# (Idempotency is a REST feature; SDK submits via gRPC.)
-```
+\`\`\`python
+# 如果需要，使用通过网关的 HTTP 以在提交时使用幂等性
+# （幂等性是 REST 功能；SDK 通过 gRPC 提交。）
+\`\`\`
 
-### Multi-Turn Conversation
+### 多轮对话
 
-```python
+\`\`\`python
 session_id = "user-123-chat"
-handle1 = client.submit_task(query="What is Python?", session_id=session_id)
+handle1 = client.submit_task(query="Python 是什么？", session_id=session_id)
 print(client.wait(handle1.task_id).result)
 
-handle2 = client.submit_task(query="What are its main advantages?", session_id=session_id)
+handle2 = client.submit_task(query="它的主要优点是什么？", session_id=session_id)
 print(client.wait(handle2.task_id).result)
-```
+\`\`\`
 
-### Streaming Events
+### 流式事件
 
-```python
-handle = client.submit_task(query="Research quantum computing breakthroughs")
+\`\`\`python
+handle = client.submit_task(query="研究量子计算的突破")
 for event in client.stream(handle.workflow_id):
     print(f"[{event.type}] {event.message}")
     if event.type == "TASK_COMPLETED":
         break
-```
+\`\`\`
 
-### Error Handling
+### 错误处理
 
-```python
+\`\`\`python
 from shannon.errors import ShannonError, TaskTimeoutError
 
 try:
-    handle = client.submit_task(query="Complex analysis")
+    handle = client.submit_task(query="复杂分析")
     result = client.wait(handle.task_id, timeout=120)
     print(result.result)
 
 except TaskTimeoutError:
-    print("Task timed out")
+    print("任务超时")
 except ShannonError as e:
-    print(f"Shannon error: {e}")
-```
+    print(f"Shannon 错误：{e}")
+\`\`\`
 
-## Task Modes
+## 任务模式
 
-Shannon selects execution modes internally. SDK calls do not accept a `mode` parameter.
+Shannon 在内部选择执行模式。SDK 调用不接受 `mode` 参数。
 
-## Checking Status
+## 检查状态
 
-### Synchronous
+### 同步
 
-```python
+\`\`\`python
 handle = client.submit_task(query="...")
 status = client.get_status(handle.task_id)
-print("Status:", status.status)
-```
+print("状态：", status.status)
+\`\`\`
 
-### With Polling
+### 使用轮询
 
-```python
+\`\`\`python
 import time
 
-handle = client.submit_task(query="Long running task")
+handle = client.submit_task(query="长时间运行的任务")
 while True:
     status = client.get_status(handle.task_id)
-    print("Status:", status.status)
+    print("状态：", status.status)
     if status.status in [status.status.COMPLETED, status.status.FAILED]:
         break
     time.sleep(2)
-```
+\`\`\`
 
-## Async Usage
+## 异步用法
 
-```python
+\`\`\`python
 import asyncio
 from shannon import AsyncShannonClient
 
 async def main():
     async with AsyncShannonClient() as client:
-        handle = await client.submit_task(query="Analyze sentiment")
+        handle = await client.submit_task(query="分析情绪")
         result = await client.wait(handle.task_id)
         print(result.result)
 
 asyncio.run(main())
-```
+\`\`\`
 
-### Multiple Tasks in Parallel
+### 并行执行多个任务
 
-```python
+\`\`\`python
 async def analyze_multiple():
     async with AsyncShannonClient() as client:
         handles = await asyncio.gather(*[
-            client.submit_task(query=f"Analyze text {i}") for i in range(5)
+            client.submit_task(query=f"分析文本 {i}") for i in range(5)
         ])
         results = await asyncio.gather(*[
             client.wait(h.task_id) for h in handles
         ])
         for i, result in enumerate(results):
-            print(f"Task {i}: {result.result}")
+            print(f"任务 {i}：{result.result}")
 
 asyncio.run(analyze_multiple())
-```
+\`\`\`
 
-## Configuration
+## 配置
 
-### Client Configuration
+### 客户端配置
 
-```python
+\`\`\`python
 client = ShannonClient(api_key="sk_test_123456")
-```
+\`\`\`
 
-### Task Configuration
+### 任务配置
 
-Explicit per-request budget/mode settings are not yet configurable via SDK.
+通过 SDK 尚无法配置显式的预算/模式设置。
 
-## Best Practices
+## 最佳实践
 
-### 1. Prefer streaming for long tasks
+### 1. 对长任务使用流式传输
 
-### 2. Use Context Managers
+### 2. 使用上下文管理器
 
-```python
+\`\`\`python
 async with AsyncShannonClient() as client:
     handle = await client.submit_task(...)
     status = await client.wait(handle.task_id)
-```
+\`\`\`
 
-### 3. Handle Errors
+### 3. 处理错误
 
-```python
+\`\`\`python
 try:
     result = client.wait(handle.task_id)
 except ShannonError as e:
-    print(f"Task failed: {e}")
-```
+    print(f"任务失败：{e}")
+\`\`\`
 
-### 4. Use Streaming for Long Tasks
+### 4. 对长任务使用流式传输
 
-```python
-# ✅ Good: Real-time feedback
+\`\`\`python
+# ✅ 好：实时反馈
 for event in client.stream(workflow_id):
     update_ui(event)
 
-# ❌ Less ideal: Blocking wait
+# ❌ 较不理想：阻塞等待
 result = handle.wait(timeout=600)
-```
+\`\`\`
 
-## Examples by Use Case
+## 按用例的示例
 
-### Sentiment Analysis
+### 情绪分析
 
-```python
-handle = client.submit_task(query="Analyze sentiment: The product is amazing!")
+\`\`\`python
+handle = client.submit_task(query="分析情绪：产品太棒了！")
 print(client.wait(handle.task_id).result)
-```
+\`\`\`
 
-### Data Research
+### 数据研究
 
-```python
-handle = client.submit_task(query="Research the top 3 cloud providers and compare pricing")
+\`\`\`python
+handle = client.submit_task(query="研究前 3 个云提供商并比较定价")
 for event in client.stream(handle.workflow_id):
     print(event.type)
-```
+\`\`\`
 
-### Code Generation
+### 代码生成
 
-```python
-handle = client.submit_task(query="Write a Python function to calculate Fibonacci numbers")
+\`\`\`python
+handle = client.submit_task(query="编写 Python 函数以计算斐波那契数列")
 print(client.wait(handle.task_id).result)
-```
+\`\`\`
 
-### Complex Analysis
+### 复杂分析
 
-```python
+\`\`\`python
 handle = client.submit_task(
-    query="Compare SQL vs NoSQL databases for an e-commerce platform"
+    query="比较 SQL 和 NoSQL 数据库用于电子商务平台"
 )
 print(client.wait(handle.task_id, timeout=300).result)
-```
+\`\`\`
 
-## Next Steps
+## 后续步骤
 
 <CardGroup cols={2}>
-  <Card title="Streaming" icon="stream" href="/cn/sdk/python/streaming">
-    Real-time event streaming
+  <Card title="流式传输" icon="stream" href="/cn/sdk/python/streaming">
+    实时事件流传输
   </Card>
-  <Card title="Async Usage" icon="bolt" href="/cn/sdk/python/async-usage">
-    Async/await patterns
+  <Card title="异步用法" icon="bolt" href="/cn/sdk/python/async-usage">
+    Async/await 模式
   </Card>
-  <Card title="Streaming" icon="stream" href="/cn/sdk/python/streaming">
-    Real-time event streaming
+  <Card title="流式传输" icon="stream" href="/cn/sdk/python/streaming">
+    实时事件流传输
   </Card>
-  <Card title="Examples" icon="code" href="/cn/sdk/python/examples">
-    More code examples
+  <Card title="示例" icon="code" href="/cn/sdk/python/examples">
+    更多代码示例
   </Card>
 </CardGroup>
-
-
----
-
-## 参与翻译
-
-如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。

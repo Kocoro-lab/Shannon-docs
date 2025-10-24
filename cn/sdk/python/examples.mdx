@@ -1,118 +1,110 @@
 ---
-title: "Code Examples"
-description: "Practical examples using the Shannon Python SDK"
+title: "代码示例"
+description: "使用 Shannon Python SDK 的实用示例"
 ---
-
-> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
-
-**原文件**: `sdk/python/examples.mdx`
-**英文版本**: [查看英文文档](/en/sdk/python/examples)
-
----
-
 
 <Note>
-This examples collection is growing. More use cases will be added regularly.
+此示例集合正在增长。将定期添加更多用例。
 </Note>
 
-## Basic Examples
+## 基本示例
 
-### Simple Question Answering
+### 简单问答
 
-```python
+\`\`\`python
 from shannon import ShannonClient
 
 client = ShannonClient(http_endpoint="http://localhost:8080")
 
-# Ask a simple question
+# 提出一个简单问题
 handle = client.submit_task(
-    query="What is the capital of France?",
-    # Mode auto-selected
+    query="法国的首都是什么？",
+    # 模式自动选择
 )
 
 result = client.get_status(handle.workflow_id)
-print(f"Answer: {result}")
-```
+print(f"答案：{result}")
+\`\`\`
 
-### Data Analysis
+### 数据分析
 
-```python
-# Analyze CSV data
+\`\`\`python
+# 分析 CSV 数据
 handle = client.submit_task(
-    query="Analyze the sales trends in this CSV file",
-    # Mode auto-selected,
+    query="分析此 CSV 文件中的销售趋势",
+    # 模式自动选择,
     context={"file_path": "/data/sales_2024.csv"}
 )
 
-# Stream progress
+# 流式传输进度
 for event in client.stream(handle.workflow_id):
     if event.type == "AGENT_THINKING":
-        print(f"Analyzing: {event.message}")
+        print(f"分析中：{event.message}")
     elif event.type == "TASK_COMPLETED":
-        print(f"Analysis: {event.data['result']}")
+        print(f"分析：{event.data['result']}")
         break
-```
+\`\`\`
 
-## Advanced Examples
+## 高级示例
 
-### Multi-Step Workflow
+### 多步工作流
 
-```python
+\`\`\`python
 from shannon import ShannonClient
 
 def complex_analysis():
     client = ShannonClient()
 
-    # Create session for context
-    session = client.create_session(name="Quarterly Analysis")
+    # 为上下文创建会话
+    session = client.create_session(name="季度分析")
 
-    # Step 1: Load data
+    # 第 1 步：加载数据
     load_handle = client.submit_task(
-        query="Load Q4 financial data from database",
+        query="从数据库加载 Q4 财务数据",
         session_id=session.id,
-        # Mode auto-selected
+        # 模式自动选择
     )
     client.wait(load_handle.workflow_id)
 
-    # Step 2: Analyze trends (has context from step 1)
+    # 第 2 步：分析趋势（具有第 1 步的上下文）
     analyze_handle = client.submit_task(
-        query="Identify top 3 revenue trends",
+        query="识别前 3 个收入趋势",
         session_id=session.id,
-        # Mode auto-selected
+        # 模式自动选择
     )
     trends = client.get_status(analyze_handle.workflow_id)
 
-    # Step 3: Generate report
+    # 第 3 步：生成报告
     report_handle = client.submit_task(
-        query="Create executive summary with visualizations",
+        query="创建带有可视化的执行摘要",
         session_id=session.id,
-        # Mode auto-selected
+        # 模式自动选择
     )
 
     return client.get_status(report_handle.workflow_id)
-```
+\`\`\`
 
-### Parallel Processing
+### 并行处理
 
-```python
+\`\`\`python
 import asyncio
 from shannon import AsyncShannonClient
 
 async def parallel_research(topics):
     async with AsyncShannonClient() as client:
-        # Submit all research tasks in parallel
+        # 并行提交所有研究任务
         tasks = [
             client.submit_task(
-                query=f"Research latest developments in {topic}",
-                # Mode auto-selected
+                query=f"研究 {topic} 的最新发展",
+                # 模式自动选择
             )
             for topic in topics
         ]
 
-        # Wait for all handles
+        # 等待所有句柄
         handles = await asyncio.gather(*tasks)
 
-        # Collect all results
+        # 收集所有结果
         results = await asyncio.gather(*[
             client.get_status(h.workflow_id)
             for h in handles
@@ -120,18 +112,18 @@ async def parallel_research(topics):
 
         return dict(zip(topics, results))
 
-# Use it
-topics = ["AI", "Quantum Computing", "Biotechnology"]
+# 使用它
+topics = ["AI", "量子计算", "生物技术"]
 results = asyncio.run(parallel_research(topics))
-```
+\`\`\`
 
-### Custom Budget Management
+### 自定义预算管理
 
-```python
+\`\`\`python
 def budget_controlled_task():
     client = ShannonClient()
 
-    # Set strict budget limits
+    # 设置严格的预算限制
     config = {
         "budget": {
             "max_cost_usd": 0.50,
@@ -146,27 +138,27 @@ def budget_controlled_task():
     }
 
     handle = client.submit_task(
-        query="Generate a product description",
-        # Mode auto-selected,
+        query="生成产品描述",
+        # 模式自动选择,
         config=config
     )
 
-    # Monitor cost
+    # 监控成本
     for event in client.stream(handle.workflow_id):
         if event.type == "BUDGET_UPDATE":
-            print(f"Cost so far: ${event.data['cost_usd']:.3f}")
+            print(f"到目前为止的成本：\${event.data['cost_usd']:.3f}")
         elif event.type == "TASK_COMPLETED":
             break
 
     result = client.get_status(handle.workflow_id)
     return result
-```
+\`\`\`
 
-## Real-World Use Cases
+## 真实用例
 
-### Customer Support Bot
+### 客户支持机器人
 
-```python
+\`\`\`python
 class SupportBot:
     def __init__(self):
         self.client = ShannonClient()
@@ -179,9 +171,9 @@ class SupportBot:
 
     def handle_query(self, message):
         handle = self.client.submit_task(
-            query=f"Help customer with: {message}",
+            query=f"帮助客户：{message}",
             session_id=self.session.id,
-            # Mode auto-selected,
+            # 模式自动选择,
             config={
                 "context": {
                     "role": "customer_support",
@@ -195,17 +187,17 @@ class SupportBot:
     def end_conversation(self):
         self.client.delete_session(self.session.id)
 
-# Usage
+# 用法
 bot = SupportBot()
 bot.start_conversation("cust_12345")
-response = bot.handle_query("How do I reset my password?")
+response = bot.handle_query("我如何重置密码？")
 print(response)
 bot.end_conversation()
-```
+\`\`\`
 
-### Code Review Assistant
+### 代码审查助手
 
-```python
+\`\`\`python
 def automated_code_review(file_path, language="python"):
     client = ShannonClient()
 
@@ -213,38 +205,38 @@ def automated_code_review(file_path, language="python"):
         code = f.read()
 
     handle = client.submit_task(
-        query=f"Review this {language} code for bugs, security issues, and improvements",
-        # Mode auto-selected,
+        query=f"检查此 {language} 代码的错误、安全问题和改进",
+        # 模式自动选择,
         context={"code": code}
     )
 
-    # Track progress
+    # 追踪进度
     for event in client.stream(handle.workflow_id):
         if event.type == "AGENT_THINKING":
-            print(f"Reviewing: {event.message}")
+            print(f"审查中：{event.message}")
         elif event.type == "TOOL_INVOKED":
-            print(f"Using tool: {event.data['tool_name']}")
+            print(f"使用工具：{event.data['tool_name']}")
 
     return client.get_status(handle.workflow_id)
 
-# Use it
+# 使用它
 review = automated_code_review("app.py")
 print(review)
-```
+\`\`\`
 
-### Research Assistant
+### 研究助手
 
-```python
+\`\`\`python
 class ResearchAssistant:
     def __init__(self):
         self.client = ShannonClient()
 
     def research_topic(self, topic, depth="standard"):
-        """Research a topic with configurable depth"""
+        """使用可配置的深度研究主题"""
         queries = {
-            "simple": f"Provide a brief overview of {topic}",
-            "standard": f"Research {topic} including key concepts, recent developments, and applications",
-            "advanced": f"Comprehensive research on {topic} with citations, comparisons, and critical analysis"
+            "simple": f"提供 {topic} 的简要概述",
+            "standard": f"研究 {topic}，包括关键概念、最新发展和应用",
+            "advanced": f"关于 {topic} 的全面研究，包含引文、比较和批判性分析"
         }
 
         handle = self.client.submit_task(
@@ -258,25 +250,25 @@ class ResearchAssistant:
         return self.client.get_status(handle.workflow_id)
 
     def compare_topics(self, topics):
-        """Compare multiple topics"""
-        query = f"Compare and contrast: {', '.join(topics)}"
+        """比较多个主题"""
+        query = f"比较和对比：{', '.join(topics)}"
 
         handle = self.client.submit_task(
             query=query,
-            # Mode auto-selected
+            # 模式自动选择
         )
 
         return self.client.get_status(handle.workflow_id)
 
-# Usage
+# 用法
 assistant = ResearchAssistant()
-overview = assistant.research_topic("Large Language Models", depth="standard")
+overview = assistant.research_topic("大型语言模型", depth="standard")
 comparison = assistant.compare_topics(["GPT-4", "Claude", "Gemini"])
-```
+\`\`\`
 
-## Error Handling Examples
+## 错误处理示例
 
-```python
+\`\`\`python
 from shannon import ShannonClient, ShannonError
 import time
 
@@ -285,10 +277,10 @@ def robust_task_submission(query, max_retries=3):
 
     for attempt in range(max_retries):
         try:
-            # Submit task
-            handle = client.submit_task(query=query, # Mode auto-selected)
+            # 提交任务
+            handle = client.submit_task(query=query, # 模式自动选择)
 
-            # Wait with timeout
+            # 等待超时
             result = client.wait(
                 handle.workflow_id,
                 timeout_seconds=300
@@ -298,35 +290,29 @@ def robust_task_submission(query, max_retries=3):
 
         except ConnectionError:
             if attempt < max_retries - 1:
-                time.sleep(2 ** attempt)  # Exponential backoff
+                time.sleep(2 ** attempt)  # 指数退避
                 continue
             raise
 
         except ShannonError as e:
-            print(f"Shannon error: {e}")
+            print(f"Shannon 错误：{e}")
             if e.error_code == "BUDGET_EXCEEDED":
-                # Try with lower budget
+                # 尝试使用更低的预算
                 return client.submit_task(
                     query=query,
-                    # Mode auto-selected,
+                    # 模式自动选择,
                     config={"budget": {"max_cost_usd": 0.10}}
                 )
             raise
-```
+\`\`\`
 
-## Next Steps
+## 后续步骤
 
 <CardGroup cols={2}>
-  <Card title="Async Usage" icon="bolt" href="/cn/sdk/python/async-usage">
-    Async/await patterns
+  <Card title="异步用法" icon="bolt" href="/cn/sdk/python/async-usage">
+    Async/await 模式
   </Card>
-  <Card title="Error Handling" icon="shield" href="/cn/sdk/python/error-handling">
-    Handle errors properly
+  <Card title="错误处理" icon="shield" href="/cn/sdk/python/error-handling">
+    正确处理错误
   </Card>
 </CardGroup>
-
----
-
-## 参与翻译
-
-如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。

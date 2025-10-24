@@ -1,75 +1,67 @@
 ---
-title: "Submit Task"
-description: "POST /api/v1/tasks - Submit a task for agent execution"
+title: "提交任务"
+description: "POST /api/v1/tasks - 提交任务供智能体执行"
 ---
 
-> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
-
-**原文件**: `api/endpoints/submit-task.mdx`
-**英文版本**: [查看英文文档](/en/api/endpoints/submit-task)
-
----
-
-
-## Endpoint
+## 端点
 
 ```
 POST /api/v1/tasks
 ```
 
-Submit a new task to Shannon for AI agent execution. The task will be executed and monitored; advanced configuration (budgets, modes) is handled internally and not exposed via REST yet.
+向 Shannon 提交新任务供 AI 智能体执行。任务将被执行和监控；高级配置（预算、模式）由内部处理，尚未通过 REST 公开。
 
-## Request
+## 请求
 
-### Headers
+### 请求头
 
-| Header | Required | Description |
+| 请求头 | 必需 | 描述 |
 |--------|----------|-------------|
-| `Content-Type` | Yes | `application/json` |
-| `X-API-Key` | Conditional | API key (when auth enabled) |
-| `Idempotency-Key` | No | Unique key to prevent duplicate execution |
+| `Content-Type` | 是 | `application/json` |
+| `X-API-Key` | 条件性 | API 密钥（启用认证时） |
+| `Idempotency-Key` | 否 | 用于防止重复执行的唯一密钥 |
 
-### Body Parameters
+### 请求体参数
 
-| Parameter | Type | Required | Description |
+| 参数 | 类型 | 必需 | 描述 |
 |-----------|------|----------|-------------|
-| `query` | string | Yes | The task description or question |
-| `session_id` | string | No | Session ID for multi‑turn conversations (auto‑generated if omitted) |
-| `context` | object | No | Additional context data |
+| `query` | string | 是 | 任务描述或问题 |
+| `session_id` | string | 否 | 多轮对话的会话 ID（省略时自动生成） |
+| `context` | object | 否 | 额外的上下文数据 |
 
 <Note>
-Budget limits, explicit modes, and cognitive strategy selection are managed by the platform. These controls are not yet configurable via the REST request body.
+预算限制、显式模式和认知策略选择由平台管理。这些控件还不能通过 REST 请求体进行配置。
 </Note>
 
-## Response
+## 响应
 
-### Success (200 OK)
+### 成功 (200 OK)
 
 ```json
 {
   "task_id": "task-dev-1730000000",
   "status": "TASK_STATUS_RUNNING",
-  "message": "Task submitted",
+  "message": "任务已提交",
   "created_at": "2024-10-22T10:30:00Z"
 }
 
-Response headers include:
-- `X-Workflow-ID`: the workflow ID associated with the task
-- `X-Session-ID`: the session ID used for the task
+响应头包括：
+- `X-Workflow-ID`: 与任务关联的工作流 ID
+- `X-Session-ID`: 用于任务的会话 ID
 ```
 
-### Error Responses
+### 错误响应
 
-| Status | Error Code | Description |
+| 状态码 | 错误代码 | 描述 |
 |--------|------------|-------------|
-| 400 | `INVALID_REQUEST` | Missing or invalid parameters |
-| 401 | `UNAUTHORIZED` | Invalid or missing API key |
-| 429 | `RATE_LIMIT_EXCEEDED` | Too many requests |
-| 500 | `INTERNAL_ERROR` | Server error |
+| 400 | `INVALID_REQUEST` | 缺少或无效的参数 |
+| 401 | `UNAUTHORIZED` | 无效或缺少 API 密钥 |
+| 429 | `RATE_LIMIT_EXCEEDED` | 请求过多 |
+| 500 | `INTERNAL_ERROR` | 服务器错误 |
 
-## Examples
+## 示例
 
-### Simple Query
+### 简单查询
 
 <CodeGroup>
 
@@ -77,18 +69,18 @@ Response headers include:
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
   -d '{
-    "query": "What is the capital of France?"
+    "query": "法国的首都是什么？"
   }'
 ```
 
 ```python Python SDK
 from shannon import ShannonClient
 
-# Use gRPC for submission and Orchestrator admin for SSE (default)
+# 使用 gRPC 提交，SSE 默认使用管理端口 8081
 client = ShannonClient()  # grpc: localhost:50052, http: http://localhost:8081
 
-handle = client.submit_task(query="What is the capital of France?")
-print("Task ID:", handle.task_id)
+handle = client.submit_task(query="法国的首都是什么？")
+print("任务 ID:", handle.task_id)
 ```
 
 ```javascript JavaScript (fetch)
@@ -98,17 +90,17 @@ const response = await fetch('http://localhost:8080/api/v1/tasks', {
     'Content-Type': 'application/json',
   },
   body: JSON.stringify({
-    query: 'What is the capital of France?'
+    query: '法国的首都是什么？'
   })
 });
 
 const data = await response.json();
-console.log('Task ID:', data.task_id);
+console.log('任务 ID:', data.task_id);
 ```
 
 </CodeGroup>
 
-### Idempotency
+### 幂等性
 
 <CodeGroup>
 
@@ -116,33 +108,33 @@ console.log('Task ID:', data.task_id);
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Idempotency-Key: unique-id-12345" \
   -H "Content-Type: application/json" \
-  -d '{"query": "Process payment"}'
+  -d '{"query": "处理支付"}'
 ```
 
 ```python Python SDK
-handle = client.submit_task(query="Process payment")
+handle = client.submit_task(query="处理支付")
 ```
 
 </CodeGroup>
 
-### Multi-Turn Conversation
+### 多轮对话
 
 <CodeGroup>
 
 ```bash cURL
-# First message
+# 第一条消息
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
   -d '{
-    "query": "What is Python?",
+    "query": "什么是 Python？",
     "session_id": "user-123-conv"
   }'
 
-# Follow-up message (Shannon remembers context)
+# 后续消息（Shannon 记住上下文）
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
   -d '{
-    "query": "What are its main use cases?",
+    "query": "它的主要用例是什么？",
     "session_id": "user-123-conv"
   }'
 ```
@@ -150,16 +142,16 @@ curl -X POST http://localhost:8080/api/v1/tasks \
 ```python Python SDK
 session_id = "user-123-conv"
 
-handle1 = client.submit_task(query="What is Python?", session_id=session_id)
-handle2 = client.submit_task(query="What are its main use cases?", session_id=session_id)
+handle1 = client.submit_task(query="什么是 Python？", session_id=session_id)
+handle2 = client.submit_task(query="它的主要用例是什么？", session_id=session_id)
 ```
 
 </CodeGroup>
 
-### Complex Task with Custom Context
+### 带自定义上下文的复杂任务
 
 <Note>
-Advanced configuration like execution modes and cognitive strategies are not exposed via the REST API body parameters. The platform intelligently selects the appropriate execution strategy based on query complexity.
+执行模式和认知策略等高级配置不通过 REST API 请求体参数公开。平台根据查询复杂度智能选择适当的执行策略。
 </Note>
 
 <CodeGroup>
@@ -168,7 +160,7 @@ Advanced configuration like execution modes and cognitive strategies are not exp
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
   -d '{
-    "query": "Compare microservices vs monolithic architecture and provide detailed pros/cons",
+    "query": "比较微服务与单体架构并提供详细的优缺点",
     "context": {
       "domain": "software_architecture",
       "detail_level": "comprehensive"
@@ -177,9 +169,9 @@ curl -X POST http://localhost:8080/api/v1/tasks \
 ```
 
 ```python Python SDK
-# Python SDK supports additional parameters via gRPC
+# Python SDK 通过 gRPC 支持额外参数
 handle = client.submit_task(
-    query="Compare microservices vs monolithic architecture",
+    query="比较微服务与单体架构",
     context={
         "domain": "software_architecture",
         "detail_level": "comprehensive"
@@ -189,7 +181,7 @@ handle = client.submit_task(
 
 </CodeGroup>
 
-### With Custom Context
+### 使用自定义上下文
 
 <CodeGroup>
 
@@ -197,7 +189,7 @@ handle = client.submit_task(
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
   -d '{
-    "query": "Recommend database for my application",
+    "query": "为我的应用程序推荐数据库",
     "context": {
       "application_type": "e-commerce",
       "expected_traffic": "10k requests/sec",
@@ -208,7 +200,7 @@ curl -X POST http://localhost:8080/api/v1/tasks \
 
 ```python Python SDK
 handle = client.submit_task(
-    query="Recommend database for my application",
+    query="为我的应用程序推荐数据库",
     context={
         "application_type": "e-commerce",
         "expected_traffic": "10k requests/sec",
@@ -219,55 +211,55 @@ handle = client.submit_task(
 
 </CodeGroup>
 
-### With Idempotency
+### 使用幂等性
 
 ```bash
-# First request
+# 第一次请求
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Idempotency-Key: unique-id-12345" \
   -H "Content-Type: application/json" \
-  -d '{"query": "Process payment"}'
+  -d '{"query": "处理支付"}'
 
-# Duplicate request (returns same result, no re-execution)
+# 重复请求（返回相同结果，不重新执行）
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Idempotency-Key: unique-id-12345" \
   -H "Content-Type: application/json" \
-  -d '{"query": "Process payment"}'
+  -d '{"query": "处理支付"}'
 ```
 
-## Execution Modes
+## 执行模式
 
-### Notes
+### 说明
 
-Execution modes (Simple/Standard/Complex) are selected internally. The REST API does not accept a `mode` parameter at this time.
+执行模式（Simple/Standard/Complex）在内部选择。REST API 目前不接受 `mode` 参数。
 
-## Cognitive Strategies
+## 认知策略
 
-Shannon selects appropriate strategies internally (e.g., direct execution, decomposition, ReAct). Manual selection via REST will be documented when available.
+Shannon 在内部选择适当的策略（例如，直接执行、分解、ReAct）。通过 REST 手动选择将在可用时记录在文档中。
 
-## Response Fields
+## 响应字段
 
-| Field | Type | Description |
+| 字段 | 类型 | 描述 |
 |-------|------|-------------|
-| `task_id` | string | Unique task identifier |
-| `status` | string | `TASK_STATUS_*` (e.g., `TASK_STATUS_RUNNING`) |
-| `created_at` | timestamp | Task creation time |
+| `task_id` | string | 唯一任务标识符 |
+| `status` | string | `TASK_STATUS_*`（例如，`TASK_STATUS_RUNNING`） |
+| `created_at` | timestamp | 任务创建时间 |
 
-## Best Practices
+## 最佳实践
 
-### 1. Use Idempotency for Retries
+### 1. 对重试使用幂等性
 
-### 2. Use Sessions for Context
+### 2. 使用会话保持上下文
 
 ```python
 session_id = f"user-{user.id}-{conversation.id}"
 ```
 
-### 3. Provide Rich Context
+### 3. 提供丰富的上下文
 
 ```python
 handle = client.submit_task(
-    query="Analyze sales trends",
+    query="分析销售趋势",
     context={
         "time_period": "Q4 2024",
         "region": "North America",
@@ -276,34 +268,27 @@ handle = client.submit_task(
 )
 ```
 
-### 2. Monitor Task Progress
+### 2. 监控任务进度
 
 ```python
-# Submit task
+# 提交任务
 handle = client.submit_task(query="...")
 
-# Stream events
+# 流式传输事件
 for event in client.stream(handle.workflow_id):
     print(f"{event.type}: {event.message}")
 ```
 
-## Next Steps
+## 下一步
 
 <CardGroup cols={2}>
-  <Card title="Get Task Status" icon="magnifying-glass" href="/cn/api/endpoints/get-task-status">
-    Check task execution status
+  <Card title="获取任务状态" icon="magnifying-glass" href="/cn/api/endpoints/get-task-status">
+    检查任务执行状态
   </Card>
-  <Card title="Stream Events" icon="stream" href="/cn/api/endpoints/stream-task">
-    Monitor task in real-time
+  <Card title="流式传输事件" icon="stream" href="/cn/api/endpoints/stream-task">
+    实时监控任务
   </Card>
   <Card title="Python SDK" icon="python" href="/cn/sdk/python/quickstart">
-    Use the SDK for easier integration
+    使用 SDK 以便于集成
   </Card>
 </CardGroup>
-
-
----
-
-## 参与翻译
-
-如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。

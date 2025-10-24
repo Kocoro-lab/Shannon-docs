@@ -1,57 +1,49 @@
 ---
-title: "List Tasks"
-description: "GET /api/v1/tasks - List tasks with filtering and pagination"
+title: "列出任务"
+description: "GET /api/v1/tasks - 使用过滤和分页列出任务"
 ---
 
-> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
-
-**原文件**: `api/endpoints/list-tasks.mdx`
-**英文版本**: [查看英文文档](/en/api/endpoints/list-tasks)
-
----
-
-
-## Endpoint
+## 端点
 
 ```
 GET /api/v1/tasks
 ```
 
-Retrieve a list of tasks with optional filtering by status, session, and pagination support. Returns task summaries including execution metadata and token usage.
+检索任务列表，支持按状态、会话过滤和分页。返回任务摘要，包括执行元数据和 token 使用情况。
 
-## Request
+## 请求
 
-### Query Parameters
+### 查询参数
 
-| Parameter | Type | Required | Description | Valid Values | Default |
+| 参数 | 类型 | 必需 | 描述 | 有效值 | 默认值 |
 |-----------|------|----------|-------------|--------------|---------|
-| `limit` | integer | No | Maximum results to return (1-100) | 1-100 | 20 |
-| `offset` | integer | No | Pagination offset for results | ≥ 0 | 0 |
-| `status` | string | No | Filter by task status | See [Task Statuses](#task-statuses) below | All statuses |
-| `session_id` | string | No | Filter by session ID | Valid UUID | All sessions |
+| `limit` | integer | 否 | 返回的最大结果数 (1-100) | 1-100 | 20 |
+| `offset` | integer | 否 | 结果的分页偏移量 | ≥ 0 | 0 |
+| `status` | string | 否 | 按任务状态过滤 | 见下面的[任务状态](#任务状态) | 所有状态 |
+| `session_id` | string | 否 | 按会话 ID 过滤 | 有效 UUID | 所有会话 |
 
-**Validation Rules**:
-- `limit`: Automatically clamped to range [1, 100]. Values outside this range default to 20
-- `offset`: Must be non-negative. Negative values default to 0
-- `status`: Case-insensitive. Invalid values return all statuses
+**验证规则**：
+- `limit`: 自动限制在 [1, 100] 范围内。超出此范围的值默认为 20
+- `offset`: 必须为非负数。负值默认为 0
+- `status`: 不区分大小写。无效值返回所有状态
 
-### Headers
+### 请求头
 
-| Header | Required | Description |
+| 请求头 | 必需 | 描述 |
 |--------|----------|-------------|
-| `X-API-Key` | Conditional | API key for authentication (when `GATEWAY_SKIP_AUTH=0`) |
-| `Authorization` | Conditional | Bearer token for JWT authentication |
+| `X-API-Key` | 条件性 | API 密钥用于认证（当 `GATEWAY_SKIP_AUTH=0` 时） |
+| `Authorization` | 条件性 | Bearer token 用于 JWT 认证 |
 
-## Response
+## 响应
 
-### Success Response (200 OK)
+### 成功响应 (200 OK)
 
 ```json
 {
   "tasks": [
     {
       "task_id": "wf-550e8400-e29b-41d4-a716-446655440000",
-      "query": "Analyze Q4 sales trends",
+      "query": "分析 Q4 销售趋势",
       "status": "TASK_STATUS_COMPLETED",
       "mode": "EXECUTION_MODE_STANDARD",
       "created_at": "2024-10-27T10:00:00Z",
@@ -65,7 +57,7 @@ Retrieve a list of tasks with optional filtering by status, session, and paginat
     },
     {
       "task_id": "wf-660e8400-e29b-41d4-a716-446655440001",
-      "query": "Generate product descriptions",
+      "query": "生成产品描述",
       "status": "TASK_STATUS_RUNNING",
       "mode": "EXECUTION_MODE_SIMPLE",
       "created_at": "2024-10-27T10:05:00Z",
@@ -77,73 +69,73 @@ Retrieve a list of tasks with optional filtering by status, session, and paginat
 }
 ```
 
-### Response Fields
+### 响应字段
 
-| Field | Type | Description |
+| 字段 | 类型 | 描述 |
 |-------|------|-------------|
-| `tasks` | array | Array of task summary objects |
-| `total_count` | integer | Total number of tasks matching filters (ignores pagination) |
+| `tasks` | array | 任务摘要对象数组 |
+| `total_count` | integer | 匹配过滤器的任务总数（忽略分页） |
 
-**Task Summary Fields**:
+**任务摘要字段**：
 
-| Field | Type | Description |
+| 字段 | 类型 | 描述 |
 |-------|------|-------------|
-| `task_id` | string | Unique workflow identifier (UUID format) |
-| `query` | string | Original task query text |
-| `status` | string | Current task status (see [Task Statuses](#task-statuses)) |
-| `mode` | string | Execution mode used (see [Execution Modes](#execution-modes)) |
-| `created_at` | timestamp | ISO 8601 timestamp when task was created |
-| `completed_at` | timestamp | ISO 8601 timestamp when task completed (null if running/queued) |
-| `total_token_usage` | object | Token consumption and cost summary (null if not completed) |
+| `task_id` | string | 唯一工作流标识符（UUID 格式） |
+| `query` | string | 原始任务查询文本 |
+| `status` | string | 当前任务状态（见[任务状态](#任务状态)） |
+| `mode` | string | 使用的执行模式（见[执行模式](#执行模式)） |
+| `created_at` | timestamp | 创建任务时的 ISO 8601 时间戳 |
+| `completed_at` | timestamp | 任务完成时的 ISO 8601 时间戳（运行中/排队时为 null） |
+| `total_token_usage` | object | Token 消耗和成本摘要（未完成时为 null） |
 
-**Token Usage Fields**:
+**Token 使用字段**：
 
-| Field | Type | Description |
+| 字段 | 类型 | 描述 |
 |-------|------|-------------|
-| `total_tokens` | integer | Sum of prompt + completion tokens |
-| `prompt_tokens` | integer | Tokens in input prompts |
-| `completion_tokens` | integer | Tokens in model responses |
-| `cost_usd` | float | Total cost in USD based on provider pricing |
+| `total_tokens` | integer | 提示词 + 完成 token 的总和 |
+| `prompt_tokens` | integer | 输入提示词中的 token |
+| `completion_tokens` | integer | 模型响应中的 token |
+| `cost_usd` | float | 基于提供商定价的总成本（美元） |
 
-### Error Responses
+### 错误响应
 
-#### 401 Unauthorized
+#### 401 未授权
 
 ```json
 {
   "error": "Unauthorized",
-  "message": "Missing or invalid authentication credentials"
+  "message": "缺少或无效的认证凭据"
 }
 ```
 
-**Causes**:
-- Missing `X-API-Key` header when authentication is enabled
-- Invalid API key
-- Expired JWT token
+**原因**：
+- 启用认证时缺少 `X-API-Key` 请求头
+- 无效的 API 密钥
+- 过期的 JWT token
 
-#### 500 Internal Server Error
+#### 500 内部服务器错误
 
 ```json
 {
   "error": "Internal server error",
-  "message": "Failed to retrieve tasks from orchestrator"
+  "message": "无法从编排器检索任务"
 }
 ```
 
-**Causes**:
-- Orchestrator service unavailable
-- Database connection failure
-- Internal gRPC communication error
+**原因**：
+- 编排器服务不可用
+- 数据库连接失败
+- 内部 gRPC 通信错误
 
-## Examples
+## 示例
 
-### List All Tasks (Default Pagination)
+### 列出所有任务（默认分页）
 
 ```bash
 curl http://localhost:8080/api/v1/tasks
 ```
 
-**Response**:
+**响应**：
 ```json
 {
   "tasks": [...],
@@ -151,68 +143,68 @@ curl http://localhost:8080/api/v1/tasks
 }
 ```
 
-### Filter by Status
+### 按状态过滤
 
 ```bash
-# List only running tasks
+# 仅列出运行中的任务
 curl "http://localhost:8080/api/v1/tasks?status=running"
 
-# List completed tasks
+# 列出已完成的任务
 curl "http://localhost:8080/api/v1/tasks?status=completed"
 
-# List failed tasks
+# 列出失败的任务
 curl "http://localhost:8080/api/v1/tasks?status=failed"
 ```
 
-### Filter by Session
+### 按会话过滤
 
 ```bash
-# Get all tasks in a specific session
+# 获取特定会话中的所有任务
 curl "http://localhost:8080/api/v1/tasks?session_id=sess-123456"
 ```
 
-### Pagination
+### 分页
 
 ```bash
-# First page (20 tasks)
+# 第一页（20 个任务）
 curl "http://localhost:8080/api/v1/tasks?limit=20&offset=0"
 
-# Second page
+# 第二页
 curl "http://localhost:8080/api/v1/tasks?limit=20&offset=20"
 
-# Custom page size
+# 自定义页面大小
 curl "http://localhost:8080/api/v1/tasks?limit=50&offset=0"
 ```
 
-### Combined Filters
+### 组合过滤器
 
 ```bash
-# Completed tasks in a session, paginated
+# 会话中已完成的任务，分页
 curl "http://localhost:8080/api/v1/tasks?status=completed&session_id=sess-123&limit=10&offset=0"
 ```
 
-### With Authentication
+### 使用认证
 
 ```bash
-# Using API key
+# 使用 API 密钥
 curl -H "X-API-Key: sk_test_123456" \
   "http://localhost:8080/api/v1/tasks?limit=10"
 
-# Using JWT bearer token
+# 使用 JWT bearer token
 curl -H "Authorization: Bearer eyJhbGc..." \
   "http://localhost:8080/api/v1/tasks"
 ```
 
-### Using Python SDK
+### 使用 Python SDK
 
 <Note>
-The Python SDK does not currently provide a `list_tasks()` method. Use the REST API directly or connect via gRPC to the OrchestratorService.
+Python SDK 目前不提供 `list_tasks()` 方法。直接使用 REST API 或通过 gRPC 连接到 OrchestratorService。
 </Note>
 
 ```python
 import httpx
 
-# Use REST API directly
+# 直接使用 REST API
 response = httpx.get(
     "http://localhost:8080/api/v1/tasks",
     params={"limit": 10, "status": "completed"},
@@ -220,16 +212,16 @@ response = httpx.get(
 )
 
 data = response.json()
-print(f"Total tasks: {data['total_count']}")
+print(f"总任务数: {data['total_count']}")
 
 for task in data['tasks']:
     print(f"{task['task_id']}: {task['status']}")
 ```
 
-### Using JavaScript/TypeScript
+### 使用 JavaScript/TypeScript
 
 ```javascript
-// Using fetch API
+// 使用 fetch API
 const response = await fetch('http://localhost:8080/api/v1/tasks?limit=10&status=completed', {
   headers: {
     'X-API-Key': 'sk_test_123456'
@@ -237,16 +229,16 @@ const response = await fetch('http://localhost:8080/api/v1/tasks?limit=10&status
 });
 
 const data = await response.json();
-console.log(`Total tasks: ${data.total_count}`);
+console.log(`总任务数: ${data.total_count}`);
 
 data.tasks.forEach(task => {
   console.log(`${task.task_id}: ${task.status}`);
   if (task.total_token_usage) {
-    console.log(`  Cost: $${task.total_token_usage.cost_usd}`);
+    console.log(`  成本: $${task.total_token_usage.cost_usd}`);
   }
 });
 
-// Pagination helper
+// 分页辅助函数
 async function getAllTasks(status = null) {
   const allTasks = [];
   let offset = 0;
@@ -271,70 +263,70 @@ async function getAllTasks(status = null) {
 }
 ```
 
-## Task Statuses
+## 任务状态
 
-| Status | Description | Typical Duration |
+| 状态 | 描述 | 典型持续时间 |
 |--------|-------------|------------------|
-| `TASK_STATUS_UNSPECIFIED` | Initial state (rare) | < 1 second |
-| `TASK_STATUS_QUEUED` | Waiting in execution queue | Seconds to minutes |
-| `TASK_STATUS_RUNNING` | Currently executing | Seconds to minutes |
-| `TASK_STATUS_COMPLETED` | Successfully finished | N/A (terminal) |
-| `TASK_STATUS_FAILED` | Encountered error | N/A (terminal) |
-| `TASK_STATUS_CANCELLED` | User-cancelled | N/A (terminal) |
-| `TASK_STATUS_TIMEOUT` | Exceeded time limit | N/A (terminal) |
+| `TASK_STATUS_UNSPECIFIED` | 初始状态（罕见） | < 1 秒 |
+| `TASK_STATUS_QUEUED` | 在执行队列中等待 | 几秒到几分钟 |
+| `TASK_STATUS_RUNNING` | 当前正在执行 | 几秒到几分钟 |
+| `TASK_STATUS_COMPLETED` | 成功完成 | N/A（终态） |
+| `TASK_STATUS_FAILED` | 遇到错误 | N/A（终态） |
+| `TASK_STATUS_CANCELLED` | 用户取消 | N/A（终态） |
+| `TASK_STATUS_TIMEOUT` | 超过时间限制 | N/A（终态） |
 
-**Status Filtering**:
-- Values are **case-insensitive** (`running`, `RUNNING`, `Running` all work)
-- Alternative spellings accepted: `CANCELLED` or `CANCELED`
-- Invalid status values return tasks with **any status**
+**状态过滤**：
+- 值**不区分大小写**（`running`、`RUNNING`、`Running` 都可以）
+- 接受替代拼写：`CANCELLED` 或 `CANCELED`
+- 无效状态值返回**任何状态**的任务
 
-## Execution Modes
+## 执行模式
 
-Tasks run in different execution modes that affect complexity and cost:
+任务在不同的执行模式下运行，影响复杂度和成本：
 
-| Mode | Description | Use Case |
+| 模式 | 描述 | 用例 |
 |------|-------------|----------|
-| `EXECUTION_MODE_SIMPLE` | Single LLM call, no tools | Simple Q&A, text generation |
-| `EXECUTION_MODE_STANDARD` | Multi-step with tools | Research, analysis, data processing |
-| `EXECUTION_MODE_COMPLEX` | Complex patterns (CoT, ToT) | Multi-agent reasoning, debate |
+| `EXECUTION_MODE_SIMPLE` | 单次 LLM 调用，无工具 | 简单问答、文本生成 |
+| `EXECUTION_MODE_STANDARD` | 多步骤带工具 | 研究、分析、数据处理 |
+| `EXECUTION_MODE_COMPLEX` | 复杂模式（CoT、ToT） | 多智能体推理、辩论 |
 
-## Cost Tracking
+## 成本跟踪
 
-The `total_token_usage` field provides cost visibility:
+`total_token_usage` 字段提供成本可见性：
 
 ```json
 {
   "total_token_usage": {
-    "total_tokens": 5420,      // Sum of prompt + completion
-    "prompt_tokens": 3200,      // Input tokens
-    "completion_tokens": 2220,  // Output tokens
-    "cost_usd": 0.0814         // Actual cost based on provider pricing
+    "total_tokens": 5420,      // 提示词 + 完成的总和
+    "prompt_tokens": 3200,      // 输入 token
+    "completion_tokens": 2220,  // 输出 token
+    "cost_usd": 0.0814         // 基于提供商定价的实际成本
   }
 }
 ```
 
-**Cost Calculation**:
-- Costs vary by LLM provider (OpenAI, Anthropic, etc.)
-- Pricing is per-token and model-specific
-- Includes all iterations and tool calls
-- Updated in real-time as task progresses
+**成本计算**：
+- 成本因 LLM 提供商而异（OpenAI、Anthropic 等）
+- 定价按 token 和模型特定
+- 包括所有迭代和工具调用
+- 随任务进展实时更新
 
-## Pagination Best Practices
+## 分页最佳实践
 
-**For small datasets** (< 100 tasks):
+**对于小数据集**（< 100 个任务）：
 ```bash
 curl "http://localhost:8080/api/v1/tasks?limit=100"
 ```
 
-**For large datasets** (efficient iteration):
+**对于大数据集**（高效迭代）：
 ```python
 import httpx
 
 def fetch_all_tasks(api_key, status=None, session_id=None):
-    """Fetch all tasks with pagination using REST API."""
+    """使用 REST API 分页获取所有任务。"""
     all_tasks = []
     offset = 0
-    limit = 100  # Maximum allowed
+    limit = 100  # 最大允许值
 
     while True:
         params = {"limit": limit, "offset": offset}
@@ -352,7 +344,7 @@ def fetch_all_tasks(api_key, status=None, session_id=None):
 
         all_tasks.extend(result['tasks'])
 
-        # Stop if we got fewer tasks than requested
+        # 如果获取的任务数少于请求数，则停止
         if len(result['tasks']) < limit:
             break
 
@@ -361,7 +353,7 @@ def fetch_all_tasks(api_key, status=None, session_id=None):
     return all_tasks
 ```
 
-**Displaying total count**:
+**显示总数**：
 ```python
 import httpx
 
@@ -371,36 +363,29 @@ response = httpx.get(
     headers={"X-API-Key": "sk_test_123456"}
 )
 result = response.json()
-print(f"Showing {len(result['tasks'])} of {result['total_count']} tasks")
+print(f"显示 {len(result['tasks'])} / {result['total_count']} 个任务")
 ```
 
-## Performance Considerations
+## 性能考虑
 
-- **Database indexed fields**: `user_id`, `session_id`, `status`, `created_at`
-- **Typical response time**: 50-200ms for moderate result sets
-- **Maximum recommended `limit`**: 100 (automatically enforced)
-- **Sorting**: Results ordered by `created_at DESC` (newest first)
+- **数据库索引字段**：`user_id`、`session_id`、`status`、`created_at`
+- **典型响应时间**：中等结果集 50-200ms
+- **推荐的最大 `limit`**：100（自动强制）
+- **排序**：结果按 `created_at DESC` 排序（最新的在前）
 
-## Related Endpoints
+## 相关端点
 
 <CardGroup cols={2}>
-  <Card title="Submit Task" icon="plus" href="/cn/api/endpoints/submit-task">
-    Create new tasks
+  <Card title="提交任务" icon="plus" href="/cn/api/endpoints/submit-task">
+    创建新任务
   </Card>
-  <Card title="Get Task Status" icon="info" href="/cn/api/endpoints/get-task-status">
-    Get detailed task information
+  <Card title="获取任务状态" icon="info" href="/cn/api/endpoints/get-task-status">
+    获取详细任务信息
   </Card>
-  <Card title="Cancel Task" icon="xmark" href="/cn/api/endpoints/cancel-task">
-    Cancel running tasks
+  <Card title="取消任务" icon="xmark" href="/cn/api/endpoints/cancel-task">
+    取消运行中的任务
   </Card>
-  <Card title="Sessions" icon="comments" href="/cn/api/endpoints/sessions">
-    Session management
+  <Card title="会话" icon="comments" href="/cn/api/endpoints/sessions">
+    会话管理
   </Card>
 </CardGroup>
-
-
----
-
-## 参与翻译
-
-如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。

@@ -1,50 +1,42 @@
 ---
-title: "Session Management"
-description: "Manage conversation sessions for context continuity and multi-turn interactions"
+title: "会话管理"
+description: "管理对话会话以实现上下文连续性和多轮交互"
 ---
 
-> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
+## 概述
 
-**原文件**: `api/endpoints/sessions.mdx`
-**英文版本**: [查看英文文档](/en/api/endpoints/sessions)
+Shannon 中的会话支持**上下文连续性**跨多个任务提交，允许智能体：
+- 记住之前的对话
+- 基于早期结果构建
+- 维护工作状态
+- 跟踪累积成本
+- 保留智能体特定记忆
 
----
+会话存储在 **Redis** 中，具有自动过期和 LRU 缓存以提高性能。
 
-
-## Overview
-
-Sessions in Shannon enable **context continuity** across multiple task submissions, allowing agents to:
-- Remember previous conversations
-- Build on earlier results
-- Maintain working state
-- Track cumulative costs
-- Preserve agent-specific memory
-
-Sessions are stored in **Redis** with automatic expiration and LRU caching for performance.
-
-## Architecture
+## 架构
 
 ```mermaid
 graph LR
-    Client[Client] --> Gateway[Gateway]
-    Gateway --> Orchestrator[Orchestrator]
-    Orchestrator --> SessionMgr[Session Manager]
+    Client[客户端] --> Gateway[网关]
+    Gateway --> Orchestrator[编排器]
+    Orchestrator --> SessionMgr[会话管理器]
     SessionMgr --> Redis[(Redis)]
-    SessionMgr --> LocalCache[Local LRU Cache]
+    SessionMgr --> LocalCache[本地 LRU 缓存]
 
     style SessionMgr fill:#0070F3
     style Redis fill:#DC382D
 ```
 
-**Key Features**:
-- **Redis-backed**: Persistent storage with circuit breaker protection
-- **Local caching**: 10,000 sessions cached locally for performance
-- **TTL management**: 30-day default expiration (configurable)
-- **History pruning**: Keeps most recent 500 messages per session
-- **Multi-tenancy**: Sessions isolated by tenant ID
-- **Security**: Prevents session hijacking across users
+**关键特性**：
+- **Redis 支持**：持久化存储，带熔断器保护
+- **本地缓存**：本地缓存 10,000 个会话以提高性能
+- **TTL 管理**：默认 30 天过期（可配置）
+- **历史修剪**：每个会话保留最近的 500 条消息
+- **多租户**：按租户 ID 隔离会话
+- **安全性**：防止跨用户会话劫持
 
-## Session Structure
+## 会话结构
 
 ```json
 {
@@ -55,7 +47,7 @@ graph LR
   "updated_at": "2024-10-27T10:15:00Z",
   "expires_at": "2024-11-26T10:00:00Z",
   "metadata": {
-    "name": "Q4 Analysis",
+    "name": "Q4 分析",
     "project": "quarterly-review",
     "tags": ["finance", "reporting"]
   },
@@ -70,7 +62,7 @@ graph LR
     {
       "id": "msg-001",
       "role": "user",
-      "content": "Load Q4 sales data",
+      "content": "加载 Q4 销售数据",
       "timestamp": "2024-10-27T10:00:00Z",
       "tokens_used": 120,
       "cost_usd": 0.0018
@@ -78,7 +70,7 @@ graph LR
     {
       "id": "msg-002",
       "role": "assistant",
-      "content": "Loaded Q4 sales data with 15,000 records...",
+      "content": "已加载 Q4 销售数据，包含 15,000 条记录...",
       "timestamp": "2024-10-27T10:00:15Z",
       "tokens_used": 450,
       "cost_usd": 0.0068
@@ -102,24 +94,24 @@ graph LR
 }
 ```
 
-## API Endpoints
+## API 端点
 
-### Create Session
+### 创建会话
 
-**Endpoint**: `POST /api/v1/sessions` (when implemented)
+**端点**：`POST /api/v1/sessions`（实现时）
 
-**Request**:
+**请求**：
 ```json
 {
   "metadata": {
-    "name": "Data Analysis Session",
-    "project": "Q4 Analysis",
+    "name": "数据分析会话",
+    "project": "Q4 分析",
     "tags": ["finance"]
   }
 }
 ```
 
-**Response**:
+**响应**：
 ```json
 {
   "session_id": "sess-550e8400-e29b-41d4-a716-446655440000",
@@ -129,16 +121,16 @@ graph LR
 }
 ```
 
-### Submit Task with Session
+### 使用会话提交任务
 
-Use the `session_id` parameter when submitting tasks:
+在提交任务时使用 `session_id` 参数：
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
   -H "X-API-Key: sk_test_123456" \
   -d '{
-    "query": "Analyze Q4 sales trends",
+    "query": "分析 Q4 销售趋势",
     "session_id": "sess-550e8400-e29b-41d4-a716-446655440000",
     "context": {
       "dataset": "sales_q4.csv"
@@ -146,46 +138,46 @@ curl -X POST http://localhost:8080/api/v1/tasks \
   }'
 ```
 
-**Automatic Session Creation**:
-If no `session_id` is provided, Shannon automatically creates a new session.
+**自动会话创建**：
+如果未提供 `session_id`，Shannon 会自动创建新会话。
 
-### Get Session Context
+### 获取会话上下文
 
-Sessions automatically accumulate context from task execution:
-- Task queries and responses
-- Tool invocations and results
-- Agent reasoning steps
-- Cumulative token usage and costs
+会话自动从任务执行中累积上下文：
+- 任务查询和响应
+- 工具调用和结果
+- 智能体推理步骤
+- 累积 token 使用和成本
 
-## Session Lifecycle
+## 会话生命周期
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Created: Create Session
-    Created --> Active: First Task
-    Active --> Active: Subsequent Tasks
-    Active --> Expired: TTL Reached (30 days)
-    Active --> Deleted: Manual Delete
+    [*] --> Created: 创建会话
+    Created --> Active: 第一个任务
+    Active --> Active: 后续任务
+    Active --> Expired: 达到 TTL（30 天）
+    Active --> Deleted: 手动删除
     Expired --> [*]
     Deleted --> [*]
 ```
 
-**States**:
-1. **Created**: Session initialized, no tasks yet
-2. **Active**: Session has tasks, context accumulating
-3. **Expired**: TTL reached (30 days default), auto-deleted
-4. **Deleted**: Manually removed
+**状态**：
+1. **Created**：会话已初始化，尚无任务
+2. **Active**：会话有任务，上下文正在累积
+3. **Expired**：达到 TTL（默认 30 天），自动删除
+4. **Deleted**：手动删除
 
-**TTL Configuration**:
+**TTL 配置**：
 ```yaml
 # config/shannon.yaml
 session:
-  ttl: 720h  # 30 days (default)
-  max_history: 500  # messages per session
-  cache_size: 10000  # local cache size
+  ttl: 720h  # 30 天（默认）
+  max_history: 500  # 每个会话的消息数
+  cache_size: 10000  # 本地缓存大小
 ```
 
-## Using Sessions
+## 使用会话
 
 ### Python SDK
 
@@ -194,75 +186,75 @@ from shannon import ShannonClient
 
 client = ShannonClient(http_endpoint="http://localhost:8080")
 
-# Automatic session creation
+# 自动会话创建
 handle1 = client.submit_task(
-    query="Load Q4 sales data",
-    # No session_id - Shannon creates one automatically
+    query="加载 Q4 销售数据",
+    # 无 session_id - Shannon 自动创建一个
 )
 
-# Reuse the session ID from the first task
+# 重用第一个任务的会话 ID
 session_id = handle1.session_id
 
-# Subsequent tasks use the same session
+# 后续任务使用同一会话
 handle2 = client.submit_task(
-    query="What was the highest revenue month?",  # Has context from previous task
+    query="收入最高的月份是什么？",  # 具有先前任务的上下文
     session_id=session_id
 )
 
 handle3 = client.submit_task(
-    query="Create a summary report",  # Builds on all previous tasks
+    query="创建摘要报告",  # 基于所有先前的任务构建
     session_id=session_id
 )
 ```
 
-### Multi-Turn Conversation
+### 多轮对话
 
 ```python
-# Data analysis workflow
+# 数据分析工作流
 session_id = None
 
-# Step 1: Load data
+# 步骤 1：加载数据
 result1 = client.submit_and_wait(
-    query="Load the Q4 sales CSV and describe its structure"
+    query="加载 Q4 销售 CSV 并描述其结构"
 )
 session_id = result1['session_id']
 
-# Step 2: Analyze (agent remembers the data)
+# 步骤 2：分析（智能体记住数据）
 result2 = client.submit_and_wait(
-    query="Calculate total revenue by region",
+    query="按地区计算总收入",
     session_id=session_id
 )
 
-# Step 3: Visualize (agent remembers both data and analysis)
+# 步骤 3：可视化（智能体记住数据和分析）
 result3 = client.submit_and_wait(
-    query="Create a bar chart of the revenue by region",
+    query="创建按地区收入的条形图",
     session_id=session_id
 )
 
-# Step 4: Generate report (agent has full context)
+# 步骤 4：生成报告（智能体拥有完整上下文）
 result4 = client.submit_and_wait(
-    query="Write an executive summary based on the analysis",
+    query="基于分析编写执行摘要",
     session_id=session_id
 )
 ```
 
-## Session Context
+## 会话上下文
 
-### What Gets Stored
+### 存储的内容
 
-**Conversation History** (up to 500 messages):
+**对话历史**（最多 500 条消息）：
 ```python
 {
   "history": [
-    {"role": "user", "content": "Load Q4 data", "tokens_used": 120},
-    {"role": "assistant", "content": "Loaded 15,000 records...", "tokens_used": 450},
-    {"role": "user", "content": "Show top products", "tokens_used": 80},
-    {"role": "assistant", "content": "Top 10 products...", "tokens_used": 620}
+    {"role": "user", "content": "加载 Q4 数据", "tokens_used": 120},
+    {"role": "assistant", "content": "已加载 15,000 条记录...", "tokens_used": 450},
+    {"role": "user", "content": "显示热门产品", "tokens_used": 80},
+    {"role": "assistant", "content": "前 10 个产品...", "tokens_used": 620}
   ]
 }
 ```
 
-**Working Context**:
+**工作上下文**：
 ```python
 {
   "context": {
@@ -280,7 +272,7 @@ result4 = client.submit_and_wait(
 }
 ```
 
-**Agent Memory** (per agent):
+**智能体记忆**（每个智能体）：
 ```python
 {
   "agent_states": {
@@ -297,241 +289,235 @@ result4 = client.submit_and_wait(
 }
 ```
 
-### Context Limits
+### 上下文限制
 
-- **Max history**: 500 messages (oldest pruned automatically)
-- **Session TTL**: 30 days (configurable)
-- **Cache size**: 10,000 sessions in memory
-- **Storage**: Redis with automatic cleanup
+- **最大历史**：500 条消息（自动修剪最旧的）
+- **会话 TTL**：30 天（可配置）
+- **缓存大小**：内存中 10,000 个会话
+- **存储**：Redis，带自动清理
 
-**History Pruning**:
-When the 501st message is added, the oldest message is removed (FIFO queue).
+**历史修剪**：
+当添加第 501 条消息时，删除最旧的消息（FIFO 队列）。
 
-## Best Practices
+## 最佳实践
 
-### 1. Use Sessions for Multi-Step Workflows
+### 1. 为多步骤工作流使用会话
 
 ```python
-# Good: Related tasks in same session
+# 好：相同会话中的相关任务
 session_id = "sess-analysis-001"
 
-client.submit_task("Load data", session_id=session_id)
-client.submit_task("Calculate stats", session_id=session_id)
-client.submit_task("Generate report", session_id=session_id)
+client.submit_task("加载数据", session_id=session_id)
+client.submit_task("计算统计", session_id=session_id)
+client.submit_task("生成报告", session_id=session_id)
 ```
 
 ```python
-# Bad: Unrelated tasks in same session
-client.submit_task("Analyze sales", session_id=session_id)
-client.submit_task("Write a poem", session_id=session_id)  # ❌ Pollutes context
+# 坏：同一会话中的不相关任务
+client.submit_task("分析销售", session_id=session_id)
+client.submit_task("写一首诗", session_id=session_id)  # ❌ 污染上下文
 ```
 
-### 2. Provide Descriptive Metadata
+### 2. 提供描述性元数据
 
 ```python
-# Good: Descriptive metadata
+# 好：描述性元数据
 client.create_session(metadata={
-    "name": "Q4 Financial Analysis",
+    "name": "Q4 财务分析",
     "project": "quarterly-review",
     "department": "finance",
     "tags": ["sales", "reporting", "q4-2024"]
 })
 ```
 
-### 3. Handle Session Expiration
+### 3. 处理会话过期
 
 ```python
 try:
     result = client.submit_task(
-        query="Continue analysis",
+        query="继续分析",
         session_id=old_session_id
     )
 except SessionExpiredError:
-    # Session expired (>30 days), create new one
+    # 会话已过期（>30 天），创建新会话
     new_session = client.create_session(
         metadata={"resumed_from": old_session_id}
     )
     result = client.submit_task(
-        query="Start fresh analysis",
+        query="开始新分析",
         session_id=new_session.id
     )
 ```
 
-### 4. Cost Tracking
+### 4. 成本跟踪
 
 ```python
-# Get session to check cumulative costs
+# 获取会话以检查累积成本
 session = client.get_session(session_id)
 
-print(f"Total tokens: {session['total_tokens_used']}")
-print(f"Total cost: ${session['total_cost_usd']:.4f}")
+print(f"总 token: {session['total_tokens_used']}")
+print(f"总成本: ${session['total_cost_usd']:.4f}")
 
 if session['total_cost_usd'] > 1.0:
-    print("Warning: Session cost exceeded budget")
+    print("警告: 会话成本超过预算")
 ```
 
-## Use Cases
+## 用例
 
-### 1. Data Analysis Workflow
+### 1. 数据分析工作流
 
 ```python
-session = client.create_session(name="Sales Analysis")
+session = client.create_session(name="销售分析")
 
-# Load and explore
-client.submit_task("Load sales data from Q4", session_id=session.id)
-client.submit_task("Show column names and data types", session_id=session.id)
+# 加载和探索
+client.submit_task("从 Q4 加载销售数据", session_id=session.id)
+client.submit_task("显示列名和数据类型", session_id=session.id)
 
-# Analyze
-client.submit_task("Calculate revenue by product category", session_id=session.id)
-client.submit_task("Find top 10 products by revenue", session_id=session.id)
+# 分析
+client.submit_task("按产品类别计算收入", session_id=session.id)
+client.submit_task("查找收入前 10 的产品", session_id=session.id)
 
-# Visualize
-client.submit_task("Create bar chart of top products", session_id=session.id)
+# 可视化
+client.submit_task("创建热门产品条形图", session_id=session.id)
 
-# Report
-client.submit_task("Write executive summary", session_id=session.id)
+# 报告
+client.submit_task("编写执行摘要", session_id=session.id)
 ```
 
-### 2. Research Assistant
+### 2. 研究助手
 
 ```python
-session = client.create_session(name="AI Research")
+session = client.create_session(name="AI 研究")
 
-# Progressive research
-client.submit_task("What is GPT-4?", session_id=session.id)
-client.submit_task("How does it compare to Claude?", session_id=session.id)
-client.submit_task("What are the pricing differences?", session_id=session.id)
-client.submit_task("Which is better for code generation?", session_id=session.id)
+# 渐进式研究
+client.submit_task("什么是 GPT-4？", session_id=session.id)
+client.submit_task("它与 Claude 相比如何？", session_id=session.id)
+client.submit_task("定价差异是什么？", session_id=session.id)
+client.submit_task("哪个更适合代码生成？", session_id=session.id)
 ```
 
-### 3. Code Review Session
+### 3. 代码审查会话
 
 ```python
-session = client.create_session(name="PR Review")
+session = client.create_session(name="PR 审查")
 
-# Review components
-client.submit_task("Review authentication.py for security issues", session_id=session.id)
-client.submit_task("Check if it follows our security guidelines", session_id=session.id)
-client.submit_task("Suggest improvements", session_id=session.id)
-client.submit_task("Generate review summary", session_id=session.id)
+# 审查组件
+client.submit_task("审查 authentication.py 的安全问题", session_id=session.id)
+client.submit_task("检查是否符合我们的安全指南", session_id=session.id)
+client.submit_task("建议改进", session_id=session.id)
+client.submit_task("生成审查摘要", session_id=session.id)
 ```
 
-## Performance Considerations
+## 性能考虑
 
-- **Local caching**: First 10,000 sessions cached in memory
-- **Cache hit rate**: Typically 85-95% for active sessions
-- **Redis latency**: 1-5ms for cache misses
-- **History pruning**: Automatic, no performance impact
-- **Expiration**: Background cleanup every 5 minutes
+- **本地缓存**：前 10,000 个会话缓存在内存中
+- **缓存命中率**：活跃会话通常为 85-95%
+- **Redis 延迟**：缓存未命中时为 1-5ms
+- **历史修剪**：自动，无性能影响
+- **过期**：每 5 分钟后台清理一次
 
-**Metrics**:
+**指标**：
 ```
-sessions_created_total            # Counter
-sessions_cache_hits_total        # Counter
-sessions_cache_misses_total      # Counter
-sessions_cache_size              # Gauge
-sessions_expired_total           # Counter
+sessions_created_total            # 计数器
+sessions_cache_hits_total        # 计数器
+sessions_cache_misses_total      # 计数器
+sessions_cache_size              # 仪表
+sessions_expired_total           # 计数器
 ```
 
-## Security
+## 安全性
 
-### Session Isolation
+### 会话隔离
 
-- **User-scoped**: Users can only access their own sessions
-- **Tenant-scoped**: Multi-tenant isolation enforced
-- **Hijacking prevention**: Cannot reuse session IDs across users
+- **用户作用域**：用户只能访问自己的会话
+- **租户作用域**：强制执行多租户隔离
+- **劫持防护**：无法跨用户重用会话 ID
 
 ```go
-// Automatic security check
+// 自动安全检查
 if existingSession.UserID != requestingUser {
-    // Generate new session ID instead
+    // 改为生成新会话 ID
     return createNewSession()
 }
 ```
 
-### Authentication
+### 认证
 
-Sessions respect the same authentication as tasks:
-- API key authentication
-- JWT bearer tokens
-- Per-user authorization
+会话遵循与任务相同的认证：
+- API 密钥认证
+- JWT bearer token
+- 每用户授权
 
-## Troubleshooting
+## 故障排除
 
-### Session Not Found
+### 会话未找到
 
-**Error**: `session not found`
+**错误**：`session not found`
 
-**Causes**:
-- Session expired (>30 days)
-- Session deleted manually
-- Invalid session ID
+**原因**：
+- 会话已过期（>30 天）
+- 会话被手动删除
+- 无效的会话 ID
 
-**Solution**:
+**解决方案**：
 ```python
-# Check if session exists before using
+# 使用前检查会话是否存在
 try:
     session = client.get_session(session_id)
 except SessionNotFoundError:
-    # Create new session
-    session = client.create_session(name="New Session")
+    # 创建新会话
+    session = client.create_session(name="新会话")
 ```
 
-### Context Not Preserved
+### 上下文未保留
 
-**Issue**: Agent doesn't remember previous tasks
+**问题**：智能体不记得之前的任务
 
-**Causes**:
-- Different session IDs used
-- Session expired
-- History pruned (>500 messages)
+**原因**：
+- 使用了不同的会话 ID
+- 会话已过期
+- 历史被修剪（>500 条消息）
 
-**Solution**:
+**解决方案**：
 ```python
-# Verify session ID consistency
-print(f"Using session: {session_id}")
+# 验证会话 ID 一致性
+print(f"使用会话: {session_id}")
 
-# Check history length
+# 检查历史长度
 session = client.get_session(session_id)
-print(f"History length: {len(session['history'])}")
+print(f"历史长度: {len(session['history'])}")
 ```
 
-### High Memory Usage
+### 高内存使用
 
-**Issue**: Session manager using too much memory
+**问题**：会话管理器使用过多内存
 
-**Causes**:
-- Too many cached sessions
-- Large metadata objects
-- Long conversation histories
+**原因**：
+- 缓存了太多会话
+- 大型元数据对象
+- 长对话历史
 
-**Solution**:
+**解决方案**：
 ```yaml
 # config/shannon.yaml
 session:
-  cache_size: 5000  # Reduce from 10000
-  max_history: 250   # Reduce from 500
+  cache_size: 5000  # 从 10000 减少
+  max_history: 250   # 从 500 减少
 ```
 
-## Related Topics
+## 相关主题
 
 <CardGroup cols={2}>
-  <Card title="Submit Task" icon="plus" href="/cn/api/endpoints/submit-task">
-    Submit tasks with sessions
+  <Card title="提交任务" icon="plus" href="/cn/api/endpoints/submit-task">
+    使用会话提交任务
   </Card>
-  <Card title="List Tasks" icon="list" href="/cn/api/endpoints/list-tasks">
-    View tasks by session
+  <Card title="列出任务" icon="list" href="/cn/api/endpoints/list-tasks">
+    按会话查看任务
   </Card>
-  <Card title="Cost Control" icon="dollar" href="/cn/quickstart/concepts/cost-control">
-    Track session costs
+  <Card title="成本控制" icon="dollar" href="/cn/quickstart/concepts/cost-control">
+    跟踪会话成本
   </Card>
-  <Card title="Streaming" icon="stream" href="/cn/quickstart/concepts/streaming">
-    Stream session events
+  <Card title="流式传输" icon="stream" href="/cn/quickstart/concepts/streaming">
+    流式传输会话事件
   </Card>
 </CardGroup>
-
----
-
-## 参与翻译
-
-如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。
