@@ -1,68 +1,60 @@
 ---
-title: "Stream Task Events"
-description: "GET /api/v1/tasks/{id}/stream - Real-time task event streaming"
+title: "流式传输任务事件"
+description: "GET /api/v1/tasks/{id}/stream - 实时任务事件流式传输"
 ---
-
-> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
-
-**原文件**: `api/endpoints/stream-task.mdx`
-**英文版本**: [查看英文文档](/en/api/endpoints/stream-task)
-
----
-
 
 <Note>
-This documentation is being expanded. Basic streaming information is available below.
+本文档正在扩充中。基本的流式传输信息如下。
 </Note>
 
-## Endpoint
+## 端点
 
 ```
 GET /api/v1/tasks/{task_id}/stream
 ```
 
-Stream real-time events as a task executes using Server-Sent Events (SSE).
+使用 Server-Sent Events (SSE) 在任务执行时流式传输实时事件。
 
-## Request
+## 请求
 
-### Path Parameters
+### 路径参数
 
-| Parameter | Type | Required | Description |
+| 参数 | 类型 | 必需 | 描述 |
 |-----------|------|----------|-------------|
-| `task_id` | string | Yes | Task identifier |
+| `task_id` | string | 是 | 任务标识符 |
 
-### Headers
+### 请求头
 
-| Header | Required | Description |
+| 请求头 | 必需 | 描述 |
 |--------|----------|-------------|
-| `X-API-Key` | Conditional | API key (when auth enabled) |
+| `X-API-Key` | 条件性 | API 密钥（启用认证时） |
 
-## Response
+## 响应
 
-Server-Sent Events stream with real-time updates.
+Server-Sent Events 流，包含实时更新。
 
-## Event Types
+## 事件类型
 
-| Event | Description |
+| 事件 | 描述 |
 |-------|-------------|
-| `AGENT_THINKING` | Agent is processing |
-| `TASK_DECOMPOSED` | Task broken into subtasks |
-| `SUBTASK_STARTED` | Subtask execution begins |
-| `SUBTASK_COMPLETED` | Subtask finished |
-| `TOOL_INVOKED` | Tool execution started |
-| `TOOL_RESULT` | Tool returned result |
-| `TASK_COMPLETED` | Entire task done |
-| `TASK_FAILED` | Task encountered error |
+| `AGENT_THINKING` | 智能体正在处理 |
+| `TASK_DECOMPOSED` | 任务分解为子任务 |
+| `SUBTASK_STARTED` | 子任务开始执行 |
+| `SUBTASK_COMPLETED` | 子任务完成 |
+| `TOOL_INVOKED` | 工具执行开始 |
+| `TOOL_RESULT` | 工具返回结果 |
+| `TASK_COMPLETED` | 整个任务完成 |
+| `TASK_FAILED` | 任务遇到错误 |
 
-## Examples
+## 示例
 
-### Using cURL
+### 使用 cURL
 
 ```bash
 curl -N http://localhost:8080/api/v1/tasks/task-dev-1730000000/stream
 ```
 
-### Using Python SDK
+### 使用 Python SDK
 
 ```python
 from shannon import ShannonClient
@@ -75,7 +67,7 @@ for event in client.stream(workflow_id):
         break
 ```
 
-### Example Event Stream
+### 事件流示例
 
 ```
 event: AGENT_THINKING
@@ -94,26 +86,19 @@ event: TASK_COMPLETED
 data: {"result":"Final result","metrics":{"latency_ms":5000}}
 ```
 
-## More Information
+## 更多信息
 
-For detailed streaming documentation, see:
-- [Streaming Concepts](/cn/quickstart/concepts/streaming)
-- [Python SDK Streaming](/cn/sdk/python/quickstart)
+有关详细的流式传输文档，请参阅：
+- [流式传输概念](/cn/quickstart/concepts/streaming)
+- [Python SDK 流式传输](/cn/sdk/python/quickstart)
 
-## Next Steps
+## 下一步
 
 <CardGroup cols={2}>
-  <Card title="Cancel Task" icon="xmark" href="/cn/api/endpoints/cancel-task">
-    Cancel running tasks
+  <Card title="取消任务" icon="xmark" href="/cn/api/endpoints/cancel-task">
+    取消运行中的任务
   </Card>
-  <Card title="Sessions" icon="comments" href="/cn/api/endpoints/sessions">
-    Session management
+  <Card title="会话" icon="comments" href="/cn/api/endpoints/sessions">
+    会话管理
   </Card>
 </CardGroup>
-
-
----
-
-## 参与翻译
-
-如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。

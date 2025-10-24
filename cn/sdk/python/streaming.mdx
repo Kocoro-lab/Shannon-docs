@@ -1,30 +1,22 @@
 ---
-title: "Event Streaming"
-description: "Real-time event streaming with the Python SDK"
+title: "事件流式传输"
+description: "使用 Python SDK 进行实时事件流式传输"
 ---
-
-> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
-
-**原文件**: `sdk/python/streaming.mdx`
-**英文版本**: [查看英文文档](/en/sdk/python/streaming)
-
----
-
 
 <Note>
-Complete streaming documentation coming soon. For now, see the [Quick Start guide](/cn/sdk/python/quickstart) for basic streaming examples.
+完整的流式传输文档即将推出。目前请参阅[快速入门指南](/cn/sdk/python/quickstart)了解基本的流式传输示例。
 </Note>
 
-## Overview
+## 概述
 
-Shannon provides real-time event streaming to monitor task execution as it happens.
+Shannon 提供实时事件流式传输，以便在任务执行时进行监控。
 
-## Basic Usage
+## 基本用法
 
 ```python
 from shannon import ShannonClient
 
-client = ShannonClient()  # SSE uses http://localhost:8081 by default
+client = ShannonClient()  # SSE 默认使用 http://localhost:8081
 
 handle = client.submit_task(query="Analyze market trends")
 
@@ -34,17 +26,17 @@ for event in client.stream(handle.workflow_id):
         break
 ```
 
-## Event Types
+## 事件类型
 
-Common events you'll see:
-- `AGENT_THINKING` - Agent processing
-- `TASK_DECOMPOSED` - Task broken into subtasks
-- `SUBTASK_COMPLETED` - Subtask finished
-- `TOOL_INVOKED` - Tool execution
-- `TASK_COMPLETED` - Task finished
-- `TASK_FAILED` - Task error
+常见事件：
+- `AGENT_THINKING` - 智能体处理中
+- `TASK_DECOMPOSED` - 任务分解为子任务
+- `SUBTASK_COMPLETED` - 子任务完成
+- `TOOL_INVOKED` - 工具执行
+- `TASK_COMPLETED` - 任务完成
+- `TASK_FAILED` - 任务失败
 
-## Async Streaming
+## 异步流式传输
 
 ```python
 import asyncio
@@ -62,9 +54,9 @@ async def stream_task():
 asyncio.run(stream_task())
 ```
 
-## Progress Tracking
+## 进度追踪
 
-Track task progress from events:
+从事件中追踪任务进度：
 
 ```python
 total_subtasks = 0
@@ -80,27 +72,20 @@ for event in client.stream(workflow_id):
         print(f"Progress: {progress:.1f}%")
 ```
 
-## More Examples
+## 更多示例
 
-For more streaming examples, see:
-- [SDK Quick Start](/cn/sdk/python/quickstart)
-- [Streaming Concepts](/cn/quickstart/concepts/streaming)
-- [API Streaming Endpoint](/cn/api/endpoints/stream-task)
+更多流式传输示例，请参阅：
+- [SDK 快速入门](/cn/sdk/python/quickstart)
+- [流式传输概念](/cn/quickstart/concepts/streaming)
+- [API 流式传输端点](/cn/api/endpoints/stream-task)
 
-## Next Steps
+## 下一步
 
 <CardGroup cols={2}>
-  <Card title="Async Usage" icon="bolt" href="/cn/sdk/python/async-usage">
-    Async/await patterns
+  <Card title="异步使用" icon="bolt" href="/cn/sdk/python/async-usage">
+    异步/等待模式
   </Card>
-  <Card title="Examples" icon="code" href="/cn/sdk/python/examples">
-    More code examples
+  <Card title="示例" icon="code" href="/cn/sdk/python/examples">
+    更多代码示例
   </Card>
 </CardGroup>
-
-
----
-
-## 参与翻译
-
-如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。
