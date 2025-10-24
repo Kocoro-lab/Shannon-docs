@@ -1,421 +1,413 @@
 ---
-title: "Workflows and Patterns"
-description: "Understanding Shannon"
+title: "工作流和模式"
+description: "了解 Shannon 的工作流"
 ---
 
-> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
+## 什么是工作流？
 
-**原文件**: `quickstart/concepts/workflows.mdx`
-**英文版本**: [查看英文文档](/en/quickstart/concepts/workflows)
+Shannon 中的工作流是持久的、有状态的流程，用于编排 AI 智能体完成复杂任务。基于 [Temporal](https://temporal.io) 构建，它们提供：
 
----
+- **持久性**：工作流在服务重启和故障后仍然存活
+- **确定性**：可以重放以进行调试
+- **可见性**：完整的执行历史和状态检查
+- **可靠性**：自动重试和错误处理
 
-
-## What are Workflows?
-
-Workflows in Shannon are durable, stateful processes that orchestrate AI agents to complete complex tasks. Built on [Temporal](https://temporal.io), they provide:
-
-- **Durability**: Workflows survive service restarts and failures
-- **Determinism**: Can be replayed for debugging
-- **Visibility**: Full execution history and state inspection
-- **Reliability**: Automatic retries and error handling
-
-## Workflow Architecture
+## 工作流架构
 
 ```mermaid
 graph TD
-    A[Task Submitted] --> B{Complexity Analysis}
-    B -->|Simple| C[SimpleWorkflow]
-    B -->|Standard| D[OrchestratorRouter]
-    B -->|Complex| D
+    A[提交任务] --> B{复杂度分析}
+    B -->|简单| C[简单工作流]
+    B -->|标准| D[编排路由器]
+    B -->|复杂| D
 
-    D --> E{Pattern Selection}
-    E -->|Sequential| F[Chain-of-Thought]
-    E -->|Exploratory| G[Tree-of-Thoughts]
-    E -->|Interactive| H[ReAct]
-    E -->|Collaborative| I[Debate]
+    D --> E{模式选择}
+    E -->|顺序| F[思维链]
+    E -->|探索性| G[思维树]
+    E -->|交互式| H[ReAct]
+    E -->|协作| I[辩论]
 
-    F --> J[Execute Agents]
+    F --> J[执行智能体]
     G --> J
     H --> J
     I --> J
 
-    J --> K[Synthesize Results]
-    K --> L[Return to Client]
+    J --> K[综合结果]
+    K --> L[返回客户端]
 
     style D fill:#0070F3
     style E fill:#00A3FF
 ```
 
-## Cognitive Patterns
+## 认知模式
 
-Shannon implements several proven cognitive patterns for different task types:
+Shannon 为不同类型的任务实现了几种经过验证的认知模式：
 
-### Chain-of-Thought (CoT)
+### 思维链（CoT）
 
-Sequential reasoning where each step builds logically on the previous one.
+顺序推理，每个步骤在逻辑上建立在前一步之上。
 
-**Best for:**
-- Mathematical problems
-- Step-by-step analysis
-- Linear workflows
+**最适合：**
+- 数学问题
+- 逐步分析
+- 线性工作流
 
-**Example:**
+**示例：**
 ```python
 client.submit_task(
-    query="Calculate the ROI of a $100k investment with 8% annual return over 5 years"
+    query="计算 10 万美元投资在 8% 年回报率下 5 年的投资回报率"
 )
 ```
 
 <Note>
-Shannon automatically applies Chain-of-Thought reasoning for sequential mathematical and analytical tasks.
+Shannon 会自动对顺序数学和分析任务应用思维链推理。
 </Note>
 
-**Execution:**
+**执行：**
 ```
-Step 1: Identify formula (ROI = (Final Value - Initial Value) / Initial Value)
-Step 2: Calculate year-by-year growth
-Step 3: Compute final value ($146,933)
-Step 4: Calculate ROI (46.93%)
+步骤 1：确定公式（ROI = (最终价值 - 初始价值) / 初始价值）
+步骤 2：逐年计算增长
+步骤 3：计算最终价值（$146,933）
+步骤 4：计算 ROI（46.93%）
 ```
 
-### Tree-of-Thoughts (ToT)
+### 思维树（ToT）
 
-Explores multiple solution paths simultaneously, evaluates them, and selects the best.
+同时探索多个解决方案路径，评估它们，并选择最佳方案。
 
-**Best for:**
-- Design decisions
-- Strategic planning
-- Problems with multiple approaches
+**最适合：**
+- 设计决策
+- 战略规划
+- 有多种方法的问题
 
-**Example:**
+**示例：**
 ```python
 client.submit_task(
-    query="Design a scalable message queue system. Evaluate multiple architectures and recommend the best approach."
+    query="设计一个可扩展的消息队列系统。评估多个架构并推荐最佳方法。"
 )
 ```
 
 <Note>
-Shannon automatically applies Tree-of-Thoughts exploration for design and planning tasks with multiple solution paths.
+Shannon 会自动对具有多个解决方案路径的设计和规划任务应用思维树探索。
 </Note>
 
-**Execution:**
+**执行：**
 ```
-Branch 1: Redis-based solution
-  ├─ Pros: Fast, simple, familiar
-  ├─ Cons: Limited persistence, memory-bound
-  └─ Score: 7/10
+分支 1：基于 Redis 的解决方案
+  ├─ 优点：快速、简单、熟悉
+  ├─ 缺点：持久性有限、受内存限制
+  └─ 评分：7/10
 
-Branch 2: Kafka-based solution
-  ├─ Pros: High throughput, durable, battle-tested
-  ├─ Cons: Operational complexity, resource-heavy
-  └─ Score: 9/10
+分支 2：基于 Kafka 的解决方案
+  ├─ 优点：高吞吐量、持久、经过实战检验
+  ├─ 缺点：运维复杂、资源密集
+  └─ 评分：9/10
 
-Branch 3: RabbitMQ-based solution
-  ├─ Pros: Feature-rich, good balance
-  ├─ Cons: Lower throughput than Kafka
-  └─ Score: 8/10
+分支 3：基于 RabbitMQ 的解决方案
+  ├─ 优点：功能丰富、平衡性好
+  ├─ 缺点：吞吐量低于 Kafka
+  └─ 评分：8/10
 
-Selected: Kafka (highest score for requirements)
+选择：Kafka（对需求评分最高）
 ```
 
-### ReAct (Reasoning + Acting)
+### ReAct（推理 + 行动）
 
-Interleaves thinking and acting in loops, ideal for dynamic problem-solving.
+在循环中交替思考和行动，非常适合动态问题解决。
 
-**Best for:**
-- Research tasks
-- Debugging problems
-- Adaptive workflows
+**最适合：**
+- 研究任务
+- 调试问题
+- 自适应工作流
 
-**Example:**
+**示例：**
 ```python
 client.submit_task(
-    query="Find the latest Rust async runtime benchmarks"
+    query="查找最新的 Rust 异步运行时基准测试"
 )
 ```
 
 <Note>
-Shannon automatically applies ReAct (Reasoning + Acting) for research and iterative discovery tasks.
+Shannon 会自动对研究和迭代发现任务应用 ReAct（推理 + 行动）模式。
 </Note>
 
-**Execution:**
+**执行：**
 ```
-Think: "I need to search for recent benchmarks"
-Act: web_search("Rust async runtime benchmarks 2024")
-Observe: Found 3 articles from 2024
-Think: "Let me get detailed comparison data"
-Act: web_search("tokio vs async-std vs smol benchmark comparison")
-Observe: Found performance data
-Think: "Now I can summarize findings"
-Act: Synthesize results into report
+思考："我需要搜索最近的基准测试"
+行动：web_search("Rust 异步运行时基准测试 2024")
+观察：找到 3 篇来自 2024 年的文章
+思考："让我获取详细的比较数据"
+行动：web_search("tokio vs async-std vs smol 基准比较")
+观察：找到性能数据
+思考："现在我可以总结发现"
+行动：将结果综合成报告
 ```
 
-### Debate Pattern
+### 辩论模式
 
-Multiple agents argue different perspectives, then synthesize consensus.
+多个智能体争论不同观点，然后综合共识。
 
-**Best for:**
-- Decision making
-- Evaluating trade-offs
-- Balanced analysis
+**最适合：**
+- 决策制定
+- 评估权衡
+- 平衡分析
 
-**Example:**
+**示例：**
 ```python
 client.submit_task(
-    query="Should we migrate our monolith to microservices? Provide arguments for and against, then recommend."
+    query="我们应该将单体架构迁移到微服务吗？提供赞成和反对的论据，然后推荐。"
 )
 ```
 
 <Note>
-Shannon automatically applies the Debate pattern for decision-making tasks requiring multiple perspectives.
+Shannon 会自动对需要多个视角的决策任务应用辩论模式。
 </Note>
 
-**Execution:**
+**执行：**
 ```
-Agent 1 (Pro-Microservices):
-  - Better scalability
-  - Independent deployment
-  - Technology flexibility
+智能体 1（支持微服务）：
+  - 更好的可扩展性
+  - 独立部署
+  - 技术灵活性
 
-Agent 2 (Pro-Monolith):
-  - Simpler operations
-  - Easier debugging
-  - Lower latency
+智能体 2（支持单体）：
+  - 运维更简单
+  - 更容易调试
+  - 延迟更低
 
-Agent 3 (Synthesizer):
-  - Evaluates both arguments
-  - Considers context
-  - Provides recommendation
+智能体 3（综合者）：
+  - 评估两方论据
+  - 考虑上下文
+  - 提供推荐
 ```
 
-## Task Decomposition
+## 任务分解
 
-For complex tasks, Shannon automatically decomposes them into subtasks:
+对于复杂任务，Shannon 会自动将它们分解为子任务：
 
-### DAG (Directed Acyclic Graph) Execution
+### DAG（有向无环图）执行
 
 ```mermaid
 graph LR
-    A[Task: Research AI trends] --> B[Subtask 1: LLM advances]
-    A --> C[Subtask 2: Vision models]
-    A --> D[Subtask 3: Robotics AI]
+    A[任务：研究 AI 趋势] --> B[子任务 1：LLM 进展]
+    A --> C[子任务 2：视觉模型]
+    A --> D[子任务 3：机器人 AI]
 
-    B --> E[Synthesis]
+    B --> E[综合]
     C --> E
     D --> E
 
-    E --> F[Final Report]
+    E --> F[最终报告]
 
     style A fill:#0070F3
     style E fill:#00A3FF
     style F fill:#4ECDC4
 ```
 
-**Parallel Execution:**
-Subtasks without dependencies run in parallel, reducing latency.
+**并行执行：**
+没有依赖关系的子任务并行运行，减少延迟。
 
-**Example:**
+**示例：**
 ```python
-# This query will be automatically decomposed into 3 parallel subtasks
+# 此查询将自动分解为 3 个并行子任务
 client.submit_task(
-    query="Research: 1) GPT-4 capabilities, 2) Claude 3 features, 3) Gemini updates"
+    query="研究：1) GPT-4 能力，2) Claude 3 功能，3) Gemini 更新"
 )
 ```
 
-### Decomposition Strategy
+### 分解策略
 
-Shannon analyzes tasks and creates execution plans internally. While the decomposition structure isn't directly exposed in the SDK response, you can observe the workflow execution through events:
+Shannon 在内部分析任务并创建执行计划。虽然分解结构不会直接在 SDK 响应中暴露，但您可以通过事件观察工作流执行：
 
 ```python
-# Stream events to see decomposition in action
+# 流式传输事件以查看分解的实际操作
 for event in client.stream(workflow_id):
     if event.type == "TASK_DECOMPOSED":
-        print(f"Task decomposed: {event.message}")
+        print(f"任务已分解：{event.message}")
     elif event.type == "SUBTASK_STARTED":
-        print(f"Subtask started: {event.message}")
+        print(f"子任务已开始：{event.message}")
     elif event.type == "SUBTASK_COMPLETED":
-        print(f"Subtask completed: {event.message}")
+        print(f"子任务已完成：{event.message}")
 ```
 
-**Internal Structure** (for understanding, not directly accessible):
-- Subtasks run in parallel when no dependencies exist
-- Synthesis task waits for all subtasks to complete
-- Each subtask is assigned to specialized agents
+**内部结构**（用于理解，不能直接访问）：
+- 当不存在依赖关系时，子任务并行运行
+- 综合任务等待所有子任务完成
+- 每个子任务分配给专门的智能体
 
-## Workflow Activities
+## 工作流活动
 
-Temporal workflows are composed of activities - discrete units of work:
+Temporal 工作流由活动组成 - 离散的工作单元：
 
-| Activity | Purpose |
+| 活动 | 目的 |
 |----------|---------|
-| **DecomposeTask** | Analyzes task and creates subtasks |
-| **ExecuteAgent** | Runs a single agent task |
-| **SynthesizeResults** | Combines outputs from multiple agents |
-| **UpdateSessionResult** | Persists session state |
-| **RecordQuery** | Stores in vector memory |
-| **FetchSessionMemory** | Retrieves relevant context |
+| **DecomposeTask** | 分析任务并创建子任务 |
+| **ExecuteAgent** | 运行单个智能体任务 |
+| **SynthesizeResults** | 组合多个智能体的输出 |
+| **UpdateSessionResult** | 持久化会话状态 |
+| **RecordQuery** | 存储到向量记忆 |
+| **FetchSessionMemory** | 检索相关上下文 |
 
-## Monitoring Workflows
+## 监控工作流
 
-### Via Python SDK
+### 通过 Python SDK
 
 ```python
-# Get task status
+# 获取任务状态
 status = client.get_status(task_id)
 
-print(f"Status: {status.status}")
-print(f"Progress: {status.progress}")
+print(f"状态：{status.status}")
+print(f"进度：{status.progress}")
 if status.result:
-    print(f"Result: {status.result}")
+    print(f"结果：{status.result}")
 ```
 
 <Note>
-Task decomposition happens internally in Shannon. Use event streaming to observe workflow execution in real-time.
+任务分解在 Shannon 内部进行。使用事件流式传输实时观察工作流执行。
 </Note>
 
-### Via Temporal UI
+### 通过 Temporal UI
 
-Visit http://localhost:8088 to see:
-- Workflow execution timeline
-- Activity statuses
-- Input/output payloads
-- Error traces
-- Replay history
+访问 http://localhost:8088 可以查看：
+- 工作流执行时间线
+- 活动状态
+- 输入/输出载荷
+- 错误跟踪
+- 重放历史
 
-## Deterministic Replay
+## 确定性重放
 
-Shannon workflows are deterministic - they produce the same result when replayed with the same inputs.
+Shannon 工作流是确定性的 - 当使用相同输入重放时，它们会产生相同的结果。
 
-**Use cases:**
-- **Debugging**: Replay failed workflows to find bugs
-- **Testing**: Validate code changes don't break existing workflows
-- **Auditing**: Understand exactly what happened
+**用例：**
+- **调试**：重放失败的工作流以查找错误
+- **测试**：验证代码更改不会破坏现有工作流
+- **审计**：准确了解发生了什么
 
-**Example:**
+**示例：**
 ```bash
-# Export workflow history
+# 导出工作流历史
 make replay-export WORKFLOW_ID=task-123 OUT=history.json
 
-# Replay against current code
+# 针对当前代码重放
 make replay HISTORY=history.json
 
-# If code changed in non-deterministic way, replay fails
+# 如果代码以非确定性方式更改，重放失败
 ```
 
-## Workflow Configuration
+## 工作流配置
 
-Workflow behavior is configured at the platform level via environment variables:
+工作流行为通过环境变量在平台级别进行配置：
 
 ```bash
-# In .env file
-MAX_AGENTS_PER_TASK=5          # Maximum parallel agents
-MAX_TOKENS_PER_REQUEST=50000   # Token budget per task
-MAX_COST_PER_REQUEST=5.0       # Cost limit (USD)
-WORKFLOW_TIMEOUT_SECONDS=600   # Task timeout
+# 在 .env 文件中
+MAX_AGENTS_PER_TASK=5          # 最大并行智能体数
+MAX_TOKENS_PER_REQUEST=50000   # 每个任务的令牌预算
+MAX_COST_PER_REQUEST=5.0       # 成本限制（美元）
+WORKFLOW_TIMEOUT_SECONDS=600   # 任务超时时间
 ```
 
-Monitor workflow execution via streaming events:
+通过流式传输事件监控工作流执行：
 
 ```python
-handle = client.submit_task(query="Complex analysis task")
+handle = client.submit_task(query="复杂分析任务")
 
-# Stream workflow events
+# 流式传输工作流事件
 for event in client.stream(handle.workflow_id):
     print(f"[{event.type}] {event.message}")
 ```
 
-See [Configuration Guide](/cn/quickstart/configuration) for all environment variables.
+有关所有环境变量，请参阅[配置指南](/cn/quickstart/configuration)。
 
-## Error Handling
+## 错误处理
 
-Workflows automatically handle failures:
+工作流自动处理故障：
 
 <AccordionGroup>
-  <Accordion title="Retries">
-    Activities retry automatically with exponential backoff:
+  <Accordion title="重试">
+    活动自动使用指数退避进行重试：
     ```
-    Attempt 1: Immediate
-    Attempt 2: After 1s
-    Attempt 3: After 2s
-    Attempt 4: After 4s
+    尝试 1：立即
+    尝试 2：1秒后
+    尝试 3：2秒后
+    尝试 4：4秒后
     ...
-    Max: 5 attempts
+    最多：5次尝试
     ```
   </Accordion>
 
-  <Accordion title="Circuit Breakers">
-    If an LLM provider is failing, circuit breaker opens and routes to fallback:
+  <Accordion title="熔断器">
+    如果 LLM 提供商失败，熔断器打开并路由到备用：
     ```
-    Primary: OpenAI (failing)
-    Fallback: Anthropic (healthy)
+    主要：OpenAI（失败）
+    备用：Anthropic（健康）
     ```
   </Accordion>
 
-  <Accordion title="Graceful Degradation">
-    If complex mode fails, automatically falls back to simpler execution.
+  <Accordion title="优雅降级">
+    如果复杂模式失败，自动回退到更简单的执行。
   </Accordion>
 
-  <Accordion title="Budget Exceeded">
-    Tasks halt immediately when budget limits are reached, preventing cost overruns.
+  <Accordion title="预算超支">
+    当达到预算限制时，任务立即停止，防止成本超支。
   </Accordion>
 </AccordionGroup>
 
-## Best Practices
+## 最佳实践
 
-### 1. Choose the Right Strategy
+### 1. 选择正确的策略
 
-Match the cognitive strategy to your task:
+将认知策略与您的任务相匹配：
 
-| Task Type | Recommended Strategy |
+| 任务类型 | 推荐策略 |
 |-----------|---------------------|
-| Simple Q&A | DIRECT (Single agent) |
-| Research | REACT (Web search + synthesis) |
-| Analysis | DECOMPOSE (Break into parts) |
-| Design | EXPLORATORY (ToT evaluation) |
+| 简单问答 | DIRECT（单智能体） |
+| 研究 | REACT（网络搜索 + 综合） |
+| 分析 | DECOMPOSE（分解为部分） |
+| 设计 | EXPLORATORY（ToT 评估） |
 
-### 2. Use Appropriate Mode
+### 2. 使用适当的模式
 
-- **simple**: Direct execution, no overhead
-- **standard**: Task decomposition, multi-agent
-- **complex**: Full cognitive patterns (CoT, ToT, etc.)
+- **simple**：直接执行，无开销
+- **standard**：任务分解，多智能体
+- **complex**：完整认知模式（CoT、ToT 等）
 
-### 3. Monitor Progress
+### 3. 监控进度
 
-Stream events to track workflow execution:
+流式传输事件以跟踪工作流执行：
 
 ```python
 for event in client.stream(workflow_id):
     if event.type == "AGENT_THINKING":
-        print(f"Agent thinking: {event.message}")
+        print(f"智能体思考：{event.message}")
     elif event.type == "SUBTASK_COMPLETED":
-        print(f"Subtask done: {event.message}")
+        print(f"子任务完成：{event.message}")
 ```
 
-### 4. Set Timeouts
+### 4. 设置超时
 
-Prevent workflows from running indefinitely via environment variables:
+通过环境变量防止工作流无限运行：
 
 ```bash
-# In .env file
-WORKFLOW_TIMEOUT_SECONDS=300  # 5 minute limit
-REQUEST_TIMEOUT_SECONDS=600   # Overall request timeout
+# 在 .env 文件中
+WORKFLOW_TIMEOUT_SECONDS=300  # 5 分钟限制
+REQUEST_TIMEOUT_SECONDS=600   # 总请求超时
 ```
 
-## Next Steps
+## 下一步
 
 <CardGroup cols={2}>
-  <Card title="Cost Control" icon="dollar-sign" href="/cn/quickstart/concepts/cost-control">
-    Learn budget management
+  <Card title="成本控制" icon="dollar-sign" href="/cn/quickstart/concepts/cost-control">
+    学习预算管理
   </Card>
-  <Card title="Streaming" icon="stream" href="/cn/quickstart/concepts/streaming">
-    Real-time event streaming
+  <Card title="流式传输" icon="stream" href="/cn/quickstart/concepts/streaming">
+    实时事件流式传输
   </Card>
-  <Card title="Architecture" icon="boxes" href="/cn/architecture/overview">
-    System architecture overview
+  <Card title="架构" icon="boxes" href="/cn/architecture/overview">
+    系统架构概述
   </Card>
   <Card title="Python SDK" icon="code" href="/cn/sdk/python/quickstart">
-    Get started with the SDK
+    开始使用 SDK
   </Card>
 </CardGroup>
 

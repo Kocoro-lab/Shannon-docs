@@ -1,76 +1,68 @@
 ---
-title: "Monitoring & Observability"
-description: "Monitor Shannon task execution and system health"
+title: "监控和可观测性"
+description: "监控 Shannon 任务执行和系统健康"
 ---
-
-> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
-
-**原文件**: `quickstart/concepts/monitoring.mdx`
-**英文版本**: [查看英文文档](/en/quickstart/concepts/monitoring)
-
----
-
 
 <Note>
-Monitoring documentation is under development. Core concepts are outlined below.
+监控文档正在开发中。以下概述了核心概念。
 </Note>
 
-## Overview
+## 概述
 
-Shannon provides comprehensive monitoring and observability features to track task execution, system performance, and resource usage in production environments.
+Shannon 提供全面的监控和可观测性功能，以跟踪生产环境中的任务执行、系统性能和资源使用。
 
-## Monitoring Capabilities
+## 监控能力
 
-### Task Monitoring
+### 任务监控
 
-Track individual task execution:
-- Execution status and progress
-- Resource consumption
-- Error rates and types
-- Latency metrics
-- Cost tracking
+跟踪单个任务执行：
+- 执行状态和进度
+- 资源消耗
+- 错误率和类型
+- 延迟指标
+- 成本跟踪
 
-### System Monitoring
+### 系统监控
 
-Monitor Shannon infrastructure:
-- Service health status
-- API endpoint latency
-- Queue depths
-- Agent availability
-- LLM provider status
+监控 Shannon 基础设施：
+- 服务健康状态
+- API 端点延迟
+- 队列深度
+- 智能体可用性
+- LLM 提供商状态
 
-## Metrics
+## 指标
 
-### Task Metrics
+### 任务指标
 
-| Metric | Description | Unit |
+| 指标 | 描述 | 单位 |
 |--------|-------------|------|
-| `task.latency` | End-to-end task completion time | ms |
-| `task.cost` | Total cost per task | USD |
-| `task.tokens.input` | Input tokens consumed | count |
-| `task.tokens.output` | Output tokens generated | count |
-| `task.iterations` | Number of agent iterations | count |
-| `task.tools.invocations` | Tool usage count | count |
+| `task.latency` | 端到端任务完成时间 | 毫秒 |
+| `task.cost` | 每个任务的总成本 | 美元 |
+| `task.tokens.input` | 消耗的输入令牌 | 数量 |
+| `task.tokens.output` | 生成的输出令牌 | 数量 |
+| `task.iterations` | 智能体迭代次数 | 数量 |
+| `task.tools.invocations` | 工具使用次数 | 数量 |
 
-### System Metrics
+### 系统指标
 
-| Metric | Description | Unit |
+| 指标 | 描述 | 单位 |
 |--------|-------------|------|
-| `api.latency` | API response time | ms |
-| `api.requests` | Request rate | req/s |
-| `api.errors` | Error rate | errors/s |
-| `queue.depth` | Tasks waiting | count |
-| `agents.active` | Active agent count | count |
+| `api.latency` | API 响应时间 | 毫秒 |
+| `api.requests` | 请求速率 | 请求/秒 |
+| `api.errors` | 错误率 | 错误/秒 |
+| `queue.depth` | 等待的任务 | 数量 |
+| `agents.active` | 活动智能体数量 | 数量 |
 
-## Health Checks
+## 健康检查
 
-### API Health
+### API 健康
 
 ```bash
 curl http://localhost:8080/health
 ```
 
-Response:
+响应：
 ```json
 {
   "status": "healthy",
@@ -83,34 +75,34 @@ Response:
 }
 ```
 
-### Component Health
+### 组件健康
 
 ```python
 from shannon import ShannonClient
 
 client = ShannonClient()
 
-# Check overall health
-health = # Use REST: requests.get("http://localhost:8080/health")
-print(f"System status: {health.status}")
+# 检查整体健康
+health = # 使用 REST：requests.get("http://localhost:8080/health")
+print(f"系统状态：{health.status}")
 
-# Check specific components
+# 检查特定组件
 if not health.services.agent_core.healthy:
-    print("Agent core is unhealthy!")
+    print("智能体核心不健康！")
 ```
 
-## Logging
+## 日志
 
-### Log Levels
+### 日志级别
 
-Shannon uses structured logging with levels:
-- `DEBUG` - Detailed diagnostic information
-- `INFO` - General operational messages
-- `WARN` - Warning conditions
-- `ERROR` - Error conditions
-- `FATAL` - Critical failures
+Shannon 使用结构化日志记录，级别包括：
+- `DEBUG` - 详细诊断信息
+- `INFO` - 一般操作消息
+- `WARN` - 警告条件
+- `ERROR` - 错误条件
+- `FATAL` - 严重故障
 
-### Log Format
+### 日志格式
 
 ```json
 {
@@ -118,7 +110,7 @@ Shannon uses structured logging with levels:
   "level": "INFO",
   "service": "orchestrator",
   "task_id": "task-dev-1730000000",
-  "message": "Task submitted",
+  "message": "任务已提交",
   "metadata": {
     "mode": "standard",
     "estimated_cost": 0.15
@@ -126,37 +118,37 @@ Shannon uses structured logging with levels:
 }
 ```
 
-## Dashboards
+## 仪表板
 
-### Task Dashboard
+### 任务仪表板
 
-Monitor task execution in real-time:
-- Active tasks
-- Completion rate
-- Average latency
-- Error rate
-- Cost per hour
+实时监控任务执行：
+- 活动任务
+- 完成率
+- 平均延迟
+- 错误率
+- 每小时成本
 
-### System Dashboard
+### 系统仪表板
 
-Track system health:
-- Service status
-- Resource utilization
-- Queue lengths
-- Provider availability
+跟踪系统健康：
+- 服务状态
+- 资源利用率
+- 队列长度
+- 提供商可用性
 
-## Alerting
+## 告警
 
-### Alert Types
+### 告警类型
 
-Configure alerts for:
-- Task failures
-- Budget exceeded
-- High latency
-- Service degradation
-- Rate limiting
+配置告警以监控：
+- 任务失败
+- 预算超支
+- 高延迟
+- 服务降级
+- 速率限制
 
-### Alert Configuration
+### 告警配置
 
 ```yaml
 alerts:
@@ -176,9 +168,9 @@ alerts:
     channels: [pagerduty]
 ```
 
-## Prometheus Integration
+## Prometheus 集成
 
-Export metrics to Prometheus:
+将指标导出到 Prometheus：
 
 ```yaml
 # prometheus.yml
@@ -189,31 +181,31 @@ scrape_configs:
     metrics_path: '/metrics'
 ```
 
-### Available Metrics
+### 可用指标
 
 ```
-# HELP shannon_task_total Total number of tasks
+# HELP shannon_task_total 任务总数
 # TYPE shannon_task_total counter
 shannon_task_total{status="completed"} 1234
 shannon_task_total{status="failed"} 12
 
-# HELP shannon_task_duration_seconds Task execution duration
+# HELP shannon_task_duration_seconds 任务执行时长
 # TYPE shannon_task_duration_seconds histogram
 shannon_task_duration_seconds_bucket{le="1.0"} 100
 shannon_task_duration_seconds_bucket{le="5.0"} 450
 ```
 
-## Grafana Dashboards
+## Grafana 仪表板
 
-Pre-built Grafana dashboards for:
-- Task analytics
-- Cost tracking
-- Performance monitoring
-- Error analysis
+预构建的 Grafana 仪表板用于：
+- 任务分析
+- 成本跟踪
+- 性能监控
+- 错误分析
 
 ## OpenTelemetry
 
-Shannon supports OpenTelemetry for distributed tracing:
+Shannon 支持 OpenTelemetry 进行分布式跟踪：
 
 ```python
 from opentelemetry import trace
@@ -223,50 +215,50 @@ tracer = trace.get_tracer(__name__)
 
 with tracer.start_as_current_span("analyze_data"):
     client = ShannonClient()
-    handle = client.submit_task(query="Analyze dataset")
+    handle = client.submit_task(query="分析数据集")
     result = client.get_status(handle.task_id)
 ```
 
-## Best Practices
+## 最佳实践
 
-1. **Set up alerts** for critical metrics
-2. **Monitor costs** to prevent budget overruns
-3. **Track error patterns** to identify issues
-4. **Use distributed tracing** for debugging
-5. **Archive logs** for compliance
-6. **Create custom dashboards** for your use case
-7. **Implement SLOs** for reliability
+1. **设置告警**以监控关键指标
+2. **监控成本**以防止预算超支
+3. **跟踪错误模式**以识别问题
+4. **使用分布式跟踪**进行调试
+5. **归档日志**以满足合规性要求
+6. **为您的用例创建自定义仪表板**
+7. **实施 SLO**以确保可靠性
 
-## Debugging
+## 调试
 
-### Enable Debug Logging
+### 启用调试日志
 
 ```python
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
-# Now Shannon will output detailed logs
+# 现在 Shannon 将输出详细日志
 client = ShannonClient()
 ```
 
-### Trace Requests
+### 跟踪请求
 
 ```bash
-# Enable request tracing
+# 启用请求跟踪
 export SHANNON_TRACE=true
 
-# Run with verbose logging
-shannon-cli submit "Analyze data" --verbose
+# 使用详细日志运行
+shannon-cli submit "分析数据" --verbose
 ```
 
-## Next Steps
+## 下一步
 
 <CardGroup cols={2}>
-  <Card title="Troubleshooting" icon="wrench" href="/cn/quickstart/troubleshooting">
-    Common issues and solutions
+  <Card title="故障排除" icon="wrench" href="/cn/quickstart/troubleshooting">
+    常见问题和解决方案
   </Card>
-  <Card title="Cost Control" icon="dollar" href="/cn/quickstart/concepts/cost-control">
-    Manage and optimize costs
+  <Card title="成本控制" icon="dollar" href="/cn/quickstart/concepts/cost-control">
+    管理和优化成本
   </Card>
 </CardGroup>
 
