@@ -1,58 +1,50 @@
 ---
 title: "成本控制"
-description: "Managing token budgets and minimizing LLM costs in Shannon"
+description: "在 Shannon 中管理令牌预算和降低 LLM 成本"
 ---
 
-> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
+## 概述
 
-**原文件**: `quickstart/concepts/cost-control.mdx`
-**英文版本**: [查看英文文档](/en/quickstart/concepts/cost-control)
+Shannon 提供全面的成本控制功能，以防止意外的 LLM 费用并优化支出。通过内置的预算执行和智能路由，与简单实现相比，您可以实现 **85-95% 的成本节省**。
 
----
+## 设置预算
 
+### 令牌限制
 
-## Overview
-
-Shannon provides comprehensive cost control features to prevent unexpected LLM charges and optimize spending. With built-in budget enforcement and intelligent routing, you can achieve **85-95% cost savings** compared to naive implementations.
-
-## Setting Budgets
-
-### Token Limits
-
-Limit the maximum tokens consumed per task:
+限制每个任务消耗的最大令牌数：
 
 ```python
 client.submit_task(
-    query="Analyze market trends",
+    query="分析市场趋势",
     config={
         "budget": {
-            "max_tokens": 5000  # Hard limit
+            "max_tokens": 5000  # 硬性限制
         }
     }
 )
 ```
 
-When the limit is reached, the task terminates immediately with a budget error.
+当达到限制时，任务立即终止并返回预算错误。
 
-### Cost Limits
+### 成本限制
 
-Set maximum dollar amounts:
+设置最大金额：
 
 ```python
 config={
     "budget": {
-        "max_cost_usd": 0.50  # $0.50 maximum
+        "max_cost_usd": 0.50  # 最多 $0.50
     }
 }
 ```
 
 <Warning>
-Tasks exceeding budget limits will fail with `BUDGET_EXCEEDED` error. Always set appropriate limits for your use case.
+超过预算限制的任务将失败并显示 `BUDGET_EXCEEDED` 错误。始终为您的用例设置适当的限制。
 </Warning>
 
-### Combined Limits
+### 组合限制
 
-Use both for fine-grained control:
+同时使用两者进行精细控制：
 
 ```python
 config={
@@ -63,257 +55,257 @@ config={
 }
 ```
 
-The task stops when **either** limit is reached.
+当**任一**限制达到时，任务停止。
 
-## Model Tiers
+## 模型层级
 
-Shannon categorizes models into tiers based on capability and cost:
+Shannon 根据能力和成本将模型分为不同层级：
 
-| Tier | Models | Cost per 1M tokens | Use Case |
+| 层级 | 模型 | 每百万令牌成本 | 用例 |
 |------|--------|-------------------|----------|
-| **SMALL** | gpt-4o-mini<br/>claude-haiku | $0.15 - $0.25 | Simple queries, high volume |
-| **MEDIUM** | gpt-4o<br/>claude-sonnet | $3.00 - $15.00 | General purpose tasks |
-| **LARGE** | gpt-4<br/>claude-opus | $15.00 - $75.00 | Complex reasoning, critical tasks |
+| **SMALL** | gpt-4o-mini<br/>claude-haiku | $0.15 - $0.25 | 简单查询、高容量 |
+| **MEDIUM** | gpt-4o<br/>claude-sonnet | $3.00 - $15.00 | 通用任务 |
+| **LARGE** | gpt-4<br/>claude-opus | $15.00 - $75.00 | 复杂推理、关键任务 |
 
-### Explicit Tier Selection
+### 显式层级选择
 
-Force a specific tier:
+强制使用特定层级：
 
 ```python
 client.submit_task(
-    query="What is 2+2?",
-    config={"model_tier": "SMALL"}  # Use cheapest models
+    query="2+2 等于多少？",
+    config={"model_tier": "SMALL"}  # 使用最便宜的模型
 )
 ```
 
 <Tip>
-For production, use `# Mode auto-selected` with `model_tier="SMALL"` for 90%+ cost reduction on simple queries.
+对于生产环境，使用 `# 自动选择模式` 配合 `model_tier="SMALL"` 可在简单查询上节省 90% 以上的成本。
 </Tip>
 
-## Intelligent Router
+## 智能路由器
 
-Shannon's learning router automatically selects the cheapest model capable of handling each task.
+Shannon 的学习路由器自动选择能够处理每个任务的最便宜模型。
 
-### How It Works
+### 工作原理
 
-1. **Task Analysis**: Analyzes complexity, required capabilities
-2. **Model Selection**: Starts with smallest viable model
-3. **Quality Check**: Validates output quality
-4. **Learning**: Remembers successful model-task pairings
+1. **任务分析**：分析复杂度和所需能力
+2. **模型选择**：从最小可行模型开始
+3. **质量检查**：验证输出质量
+4. **学习**：记住成功的模型-任务配对
 
-### Cost Savings
+### 成本节省
 
 ```python
-# Without intelligent routing
-Traditional: Always use GPT-4 → $0.50 per task
+# 没有智能路由
+传统：始终使用 GPT-4 → 每个任务 $0.50
 
-# With Shannon's routing
+# 使用 Shannon 的路由
 Shannon:
-  - 70% routed to gpt-4o-mini → $0.01
-  - 25% routed to gpt-4o → $0.15
-  - 5% routed to gpt-4 → $0.50
-Average: $0.05 per task (90% savings)
+  - 70% 路由到 gpt-4o-mini → $0.01
+  - 25% 路由到 gpt-4o → $0.15
+  - 5% 路由到 gpt-4 → $0.50
+平均：每个任务 $0.05（节省 90%）
 ```
 
-### Monitoring Router Decisions
+### 监控路由器决策
 
 ```python
 result = handle.wait()
-print(f"Model used: {result.metrics.token_usage.model}")
-print(f"Tier: {result.metrics.token_usage.tier}")
-print(f"Cost: ${result.metrics.token_usage.cost_usd}")
+print(f"使用的模型：{result.metrics.token_usage.model}")
+print(f"层级：{result.metrics.token_usage.tier}")
+print(f"成本：${result.metrics.token_usage.cost_usd}")
 ```
 
-## Response Caching
+## 响应缓存
 
-Shannon caches LLM responses to eliminate redundant API calls:
+Shannon 缓存 LLM 响应以消除冗余 API 调用：
 
-### Cache Strategy
+### 缓存策略
 
-- **Key**: SHA256 hash of `(messages + model + parameters)`
-- **TTL**: 3600 seconds (1 hour) by default
-- **Storage**: In-memory LRU + optional Redis for distributed caching
-- **Hit Rate**: Typical 30-50% for production workloads
+- **键**：`(messages + model + parameters)` 的 SHA256 哈希
+- **TTL**：默认 3600 秒（1 小时）
+- **存储**：内存 LRU + 可选 Redis 用于分布式缓存
+- **命中率**：生产工作负载通常为 30-50%
 
-### Cache Benefits
+### 缓存优势
 
 ```bash
-# First call: Cache miss
-Task 1: "What is Python?" → $0.002 (LLM call)
+# 第一次调用：缓存未命中
+任务 1："什么是 Python？" → $0.002（LLM 调用）
 
-# Second call: Cache hit
-Task 2: "What is Python?" → $0.000 (cached)
+# 第二次调用：缓存命中
+任务 2："什么是 Python？" → $0.000（已缓存）
 ```
 
-### Monitoring Cache Performance
+### 监控缓存性能
 
 ```python
 result = handle.wait()
 if result.metrics.cache_hit:
-    print("Response served from cache (no LLM cost)")
+    print("从缓存提供响应（无 LLM 成本）")
 else:
-    print(f"Cache miss - cost: ${result.metrics.token_usage.cost_usd}")
+    print(f"缓存未命中 - 成本：${result.metrics.token_usage.cost_usd}")
 ```
 
-## Provider Rate Limits
+## 提供商速率限制
 
-Shannon respects provider rate limits automatically:
+Shannon 自动遵守提供商速率限制：
 
-### Configured Limits
+### 配置的限制
 
-From `config/models.yaml`:
+来自 `config/models.yaml`：
 
 ```yaml
 providers:
   openai:
-    rpm: 10000  # Requests per minute
-    tpm: 2000000  # Tokens per minute
+    rpm: 10000  # 每分钟请求数
+    tpm: 2000000  # 每分钟令牌数
   anthropic:
     rpm: 4000
     tpm: 400000
 ```
 
-### Automatic Throttling
+### 自动节流
 
-When approaching limits:
-1. Queues requests
-2. Spreads load over time
-3. Falls back to alternative providers if available
+当接近限制时：
+1. 对请求进行排队
+2. 随时间分散负载
+3. 如果可用，回退到替代提供商
 
-## Cost Monitoring
+## 成本监控
 
-### Track Spending Per Task
+### 跟踪每个任务的支出
 
 ```python
 result = handle.wait()
-print(f"Total tokens: {result.metrics.token_usage.total_tokens}")
-print(f"Prompt tokens: {result.metrics.token_usage.prompt_tokens}")
-print(f"Completion tokens: {result.metrics.token_usage.completion_tokens}")
-print(f"Cost: ${result.metrics.token_usage.cost_usd:.4f}")
+print(f"总令牌：{result.metrics.token_usage.total_tokens}")
+print(f"提示令牌：{result.metrics.token_usage.prompt_tokens}")
+print(f"完成令牌：{result.metrics.token_usage.completion_tokens}")
+print(f"成本：${result.metrics.token_usage.cost_usd:.4f}")
 ```
 
-### Aggregate Metrics
+### 聚合指标
 
-Shannon tracks cumulative costs in the dashboard:
-- Total spend by day/week/month
-- Cost per user/team
-- Cost per cognitive pattern
-- Token usage trends
+Shannon 在仪表板中跟踪累计成本：
+- 按天/周/月的总支出
+- 按用户/团队的成本
+- 按认知模式的成本
+- 令牌使用趋势
 
-Visit http://localhost:2111 to view real-time cost analytics.
+访问 http://localhost:2111 查看实时成本分析。
 
-## Best Practices
+## 最佳实践
 
-### 1. Always Set Budgets
+### 1. 始终设置预算
 
-Never run production tasks without budget limits:
+永远不要在没有预算限制的情况下运行生产任务：
 
 ```python
-# ❌ Bad: No budget limits
+# ❌ 不好：无预算限制
 client.submit_task(query="...")
 
-# ✅ Good: Budget protection
+# ✅ 好：预算保护
 client.submit_task(
     query="...",
-    # Budget configured via .env}
+    # 通过 .env 配置预算
 )
 ```
 
-### 2. Use Simple Mode When Possible
+### 2. 尽可能使用简单模式
 
-Complex patterns cost more:
+复杂模式成本更高：
 
 ```python
-# Simple query: Use simple mode
+# 简单查询：使用简单模式
 client.submit_task(
-    query="What is the capital of France?",
-    # Mode auto-selected  # Single agent, minimal tokens
+    query="法国的首都是什么？",
+    # 自动选择模式  # 单智能体，最少令牌
 )
 
-# Complex query: Use standard/complex mode
+# 复杂查询：使用标准/复杂模式
 client.submit_task(
-    query="Research and compare 5 database technologies",
-    # Mode auto-selected  # Task decomposition justified
+    query="研究并比较 5 种数据库技术",
+    # 自动选择模式  # 任务分解是合理的
 )
 ```
 
-### 3. Leverage Caching
+### 3. 利用缓存
 
-For repeated queries, use consistent phrasing to maximize cache hits:
+对于重复查询，使用一致的措辞以最大化缓存命中：
 
 ```python
-# ❌ Bad: Different phrasing prevents cache hits
-client.submit_task(query="What's Python?")
-client.submit_task(query="Tell me about Python")
-client.submit_task(query="Explain Python")
+# ❌ 不好：不同措辞阻止缓存命中
+client.submit_task(query="什么是 Python？")
+client.submit_task(query="告诉我关于 Python 的事")
+client.submit_task(query="解释 Python")
 
-# ✅ Good: Consistent queries hit cache
-standard_query = "What is Python?"
-client.submit_task(query=standard_query)  # Cache miss
-client.submit_task(query=standard_query)  # Cache hit
-client.submit_task(query=standard_query)  # Cache hit
+# ✅ 好：一致的查询命中缓存
+standard_query = "什么是 Python？"
+client.submit_task(query=standard_query)  # 缓存未命中
+client.submit_task(query=standard_query)  # 缓存命中
+client.submit_task(query=standard_query)  # 缓存命中
 ```
 
-### 4. Monitor and Optimize
+### 4. 监控和优化
 
-Review cost metrics regularly:
+定期查看成本指标：
 
 ```python
-# Enable detailed logging
+# 启用详细日志
 import logging
 logging.basicConfig(level=logging.INFO)
 
-# Track costs
+# 跟踪成本
 total_cost = 0
 for task in tasks:
     result = handle.wait()
     cost = result.metrics.token_usage.cost_usd
     total_cost += cost
-    print(f"Task: ${cost:.4f}, Running total: ${total_cost:.4f}")
+    print(f"任务：${cost:.4f}，累计：${total_cost:.4f}")
 ```
 
-### 5. Use Smaller Models First
+### 5. 首先使用较小的模型
 
-Let the intelligent router prove when larger models are needed:
+让智能路由器证明何时需要更大的模型：
 
 ```python
-# Let Shannon choose
-client.submit_task(query="...")  # Auto-selects tier
+# 让 Shannon 选择
+client.submit_task(query="...")  # 自动选择层级
 
-# Or start small
+# 或从小开始
 client.submit_task(
     query="...",
     config={"model_tier": "SMALL"}
 )
 ```
 
-## Cost Optimization Checklist
+## 成本优化清单
 
-<Accordion title="Optimization Checklist">
-  - [ ] Set `max_cost_usd` on all tasks
-  - [ ] Use `# Mode auto-selected` for straightforward queries
-  - [ ] Enable response caching (default: enabled)
-  - [ ] Use `model_tier="SMALL"` when appropriate
-  - [ ] Standardize query phrasing for cache hits
-  - [ ] Monitor cost metrics in dashboard
-  - [ ] Set up budget alerts (via Prometheus)
-  - [ ] Review and optimize prompt templates
-  - [ ] Use session context to reduce token usage
-  - [ ] Enable learning router (default: enabled)
+<Accordion title="优化清单">
+  - [ ] 在所有任务上设置 `max_cost_usd`
+  - [ ] 对直接查询使用 `# 自动选择模式`
+  - [ ] 启用响应缓存（默认：已启用）
+  - [ ] 在适当时使用 `model_tier="SMALL"`
+  - [ ] 标准化查询措辞以实现缓存命中
+  - [ ] 在仪表板中监控成本指标
+  - [ ] 设置预算警报（通过 Prometheus）
+  - [ ] 审查和优化提示模板
+  - [ ] 使用会话上下文减少令牌使用
+  - [ ] 启用学习路由器（默认：已启用）
 </Accordion>
 
-## Example: Cost-Optimized Workflow
+## 示例：成本优化工作流
 
 ```python
 from shannon import ShannonClient
 
 client = ShannonClient()
 
-# High-volume, simple queries
+# 高容量、简单查询
 simple_tasks = [
-    "Classify sentiment: Great product!",
-    "Classify sentiment: Terrible experience",
-    "Classify sentiment: It's okay"
+    "分类情感：很棒的产品！",
+    "分类情感：糟糕的体验",
+    "分类情感：还可以"
 ]
 
 total_cost = 0
@@ -323,24 +315,24 @@ for query in simple_tasks:
     if status.metrics:
         total_cost += status.metrics.cost_usd
 
-print(f"Total cost for 3 tasks: ${total_cost:.4f}")
-# Expected: ~$0.006 (90% savings vs GPT-4)
+print(f"3 个任务的总成本：${total_cost:.4f}")
+# 预期：约 $0.006（与 GPT-4 相比节省 90%）
 ```
 
-## Next Steps
+## 下一步
 
 <CardGroup cols={2}>
-  <Card title="Streaming Events" icon="stream" href="/cn/quickstart/concepts/streaming">
-    Real-time task monitoring
+  <Card title="流式传输事件" icon="stream" href="/cn/quickstart/concepts/streaming">
+    实时任务监控
   </Card>
-  <Card title="Configuration" icon="gear" href="/cn/quickstart/configuration">
-    Advanced cost settings
+  <Card title="配置" icon="gear" href="/cn/quickstart/configuration">
+    高级成本设置
   </Card>
-  <Card title="API Overview" icon="code" href="/cn/api/overview">
-    Endpoints and usage
+  <Card title="API 概述" icon="code" href="/cn/api/overview">
+    端点和用法
   </Card>
-  <Card title="Monitoring" icon="chart-line" href="/cn/quickstart/concepts/monitoring">
-    Cost monitoring UI
+  <Card title="监控" icon="chart-line" href="/cn/quickstart/concepts/monitoring">
+    成本监控 UI
   </Card>
 </CardGroup>
 

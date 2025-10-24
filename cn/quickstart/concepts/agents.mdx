@@ -1,264 +1,256 @@
 ---
 title: "什么是 AI 智能体？"
-description: "Understanding AI agents in Shannon"
+description: "了解 Shannon 中的 AI 智能体"
 ---
 
-> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
+## 简介
 
-**原文件**: `quickstart/concepts/agents.mdx`
-**英文版本**: [查看英文文档](/en/quickstart/concepts/agents)
+**AI 智能体**是一个自主系统，能够感知环境、做出决策并采取行动以实现目标。在 Shannon 中，智能体是使用大型语言模型（LLM）和工具处理任务的基本执行单元。
 
----
+## 智能体能力
 
-
-## Introduction
-
-An **AI agent** is an autonomous system that can perceive its environment, make decisions, and take actions to achieve goals. In Shannon, agents are the fundamental execution units that process tasks using Large Language Models (LLMs) and tools.
-
-## Agent Capabilities
-
-Shannon agents can:
+Shannon 智能体可以：
 
 <CardGroup cols={2}>
-  <Card title="Reason" icon="brain">
-    Use LLMs to analyze tasks, plan solutions, and make decisions
+  <Card title="推理" icon="brain">
+    使用 LLM 分析任务、规划解决方案并做出决策
   </Card>
-  <Card title="Execute Tools" icon="wrench">
-    Call functions, run code, search the web, and interact with APIs
+  <Card title="执行工具" icon="wrench">
+    调用函数、运行代码、搜索网络并与 API 交互
   </Card>
-  <Card title="Collaborate" icon="users">
-    Work with other agents to solve complex multi-step problems
+  <Card title="协作" icon="users">
+    与其他智能体协作解决复杂的多步骤问题
   </Card>
-  <Card title="Learn" icon="graduation-cap">
-    Improve over time through pattern learning and cached results
+  <Card title="学习" icon="graduation-cap">
+    通过模式学习和缓存结果不断改进
   </Card>
 </CardGroup>
 
-## Agent Lifecycle
+## 智能体生命周期
 
-Here's how an agent processes a task:
+以下是智能体处理任务的流程：
 
 ```mermaid
 sequenceDiagram
-    participant Client
-    participant Orchestrator
-    participant Agent
-    participant LLM
-    participant Tools
+    participant Client as 客户端
+    participant Orchestrator as 编排器
+    participant Agent as 智能体
+    participant LLM as 大语言模型
+    participant Tools as 工具
 
-    Client->>Orchestrator: Submit Task
-    Orchestrator->>Agent: Execute Task
-    Agent->>LLM: Analyze Task
-    LLM-->>Agent: Plan & Reasoning
+    Client->>Orchestrator: 提交任务
+    Orchestrator->>Agent: 执行任务
+    Agent->>LLM: 分析任务
+    LLM-->>Agent: 计划与推理
 
-    loop Until Complete
-        Agent->>Tools: Invoke Tool
-        Tools-->>Agent: Tool Result
-        Agent->>LLM: Process Result
-        LLM-->>Agent: Next Action
+    loop 直到完成
+        Agent->>Tools: 调用工具
+        Tools-->>Agent: 工具结果
+        Agent->>LLM: 处理结果
+        LLM-->>Agent: 下一步行动
     end
 
-    Agent-->>Orchestrator: Final Result
-    Orchestrator-->>Client: Response
+    Agent-->>Orchestrator: 最终结果
+    Orchestrator-->>Client: 响应
 ```
 
 <Steps>
-  <Step title="Task Analysis">
-    Agent receives task and analyzes what needs to be done
+  <Step title="任务分析">
+    智能体接收任务并分析需要完成的工作
   </Step>
-  <Step title="Planning">
-    LLM creates a plan, potentially breaking down into steps
+  <Step title="规划">
+    LLM 创建计划，可能会分解为多个步骤
   </Step>
-  <Step title="Tool Selection">
-    Agent identifies which tools are needed
+  <Step title="工具选择">
+    智能体识别需要使用哪些工具
   </Step>
-  <Step title="Execution">
-    Iteratively executes tools and processes results
+  <Step title="执行">
+    迭代执行工具并处理结果
   </Step>
-  <Step title="Synthesis">
-    Combines results into final answer
+  <Step title="综合">
+    将结果组合成最终答案
   </Step>
 </Steps>
 
-## Agent Types in Shannon
+## Shannon 中的智能体类型
 
-### Single Agent (Simple Mode)
+### 单智能体（简单模式）
 
-A single agent handles the entire task without decomposition.
+单个智能体处理整个任务而不进行分解。
 
-**Best for:**
-- Simple queries
-- Fact retrieval
-- Basic calculations
-- Quick responses
+**最适合：**
+- 简单查询
+- 事实检索
+- 基本计算
+- 快速响应
 
-**Example:**
+**示例：**
 ```python
 client.submit_task(
-    query="What is the capital of France?"
+    query="法国的首都是什么？"
 )
 ```
 
 <Note>
-Shannon automatically selects single-agent mode for simple queries.
+Shannon 会自动为简单查询选择单智能体模式。
 </Note>
 
-### Multi-Agent (Standard/Complex Mode)
+### 多智能体（标准/复杂模式）
 
-Multiple specialized agents work together, coordinated by Shannon's orchestrator.
+多个专业智能体协同工作，由 Shannon 的编排器进行协调。
 
-**Best for:**
-- Complex research
-- Multi-step workflows
-- Tasks requiring different expertise
-- Tasks needing parallel processing
+**最适合：**
+- 复杂研究
+- 多步骤工作流
+- 需要不同专业知识的任务
+- 需要并行处理的任务
 
-**Example:**
+**示例：**
 ```python
 client.submit_task(
-    query="Research top 5 AI trends, analyze market impact, and create summary"
+    query="研究前 5 大 AI 趋势，分析市场影响，并创建摘要"
 )
 ```
 
 <Note>
-Shannon automatically decomposes complex queries into multi-agent workflows based on query complexity.
+Shannon 会根据查询复杂度自动将复杂查询分解为多智能体工作流。
 </Note>
 
-## Agent Components
+## 智能体组件
 
-### 1. LLM Brain
+### 1. LLM 大脑
 
-The decision-making core powered by language models:
+由语言模型驱动的决策核心：
 
-- **Model Selection**: Shannon auto-selects models based on task complexity
-  - Small tasks → `gpt-4o-mini`, `claude-haiku`
-  - Complex tasks → `gpt-4o`, `claude-opus`
-- **Context Management**: Automatically manages context windows
-- **Caching**: Reuses previous LLM responses when applicable
+- **模型选择**：Shannon 根据任务复杂度自动选择模型
+  - 小型任务 → `gpt-4o-mini`、`claude-haiku`
+  - 复杂任务 → `gpt-4o`、`claude-opus`
+- **上下文管理**：自动管理上下文窗口
+- **缓存**：在适用时重用之前的 LLM 响应
 
-### 2. Tool System
+### 2. 工具系统
 
-Agents can execute various tools:
+智能体可以执行各种工具：
 
-**Built-in Tools:**
-- Python code execution (WASI sandboxed)
-- Web search (Exa, Perplexity, Brave)
-- Document retrieval
-- Mathematical calculations
+**内置工具：**
+- Python 代码执行（WASI 沙箱隔离）
+- 网络搜索（Exa、Perplexity、Brave）
+- 文档检索
+- 数学计算
 
-**MCP Tools:**
-Shannon supports [Model Context Protocol](https://modelcontextprotocol.io) for external tool integration.
+**MCP 工具：**
+Shannon 支持[模型上下文协议](https://modelcontextprotocol.io)进行外部工具集成。
 
-**Custom Tools:**
-Add your own tools via OpenAPI specs or Python implementations.
+**自定义工具：**
+通过 OpenAPI 规范或 Python 实现添加您自己的工具。
 
-### 3. Memory System
+### 3. 记忆系统
 
-Agents maintain two types of memory:
+智能体维护两种类型的记忆：
 
-**Session Memory:**
-- Short-term context within a conversation
-- Stored in Redis (3600s TTL)
-- Enables multi-turn dialogues
+**会话记忆：**
+- 对话中的短期上下文
+- 存储在 Redis 中（3600秒 TTL）
+- 支持多轮对话
 
-**Vector Memory:**
-- Long-term semantic memory in Qdrant
-- Cross-session retrieval
-- MMR diversity for relevant context
+**向量记忆：**
+- Qdrant 中的长期语义记忆
+- 跨会话检索
+- MMR 多样性获取相关上下文
 
-## Platform Configuration
+## 平台配置
 
-Shannon's behavior is configured at the platform level via environment variables:
+Shannon 的行为通过环境变量在平台级别进行配置：
 
 ```bash
-# In .env file
-DEFAULT_MODEL_TIER=medium           # small, medium, large
-MAX_TOKENS_PER_REQUEST=10000       # Token budget per task
-MAX_COST_PER_REQUEST=0.50          # Cost limit per task (USD)
-REQUEST_TIMEOUT_SECONDS=300        # Task timeout
+# 在 .env 文件中
+DEFAULT_MODEL_TIER=medium           # small、medium、large
+MAX_TOKENS_PER_REQUEST=10000       # 每个任务的令牌预算
+MAX_COST_PER_REQUEST=0.50          # 每个任务的成本限制（美元）
+REQUEST_TIMEOUT_SECONDS=300        # 任务超时时间
 
-# Restart services to apply changes
+# 重启服务以应用更改
 docker compose restart
 ```
 
-### Model Tiers
+### 模型层级
 
-Shannon automatically selects models based on the configured tier:
+Shannon 根据配置的层级自动选择模型：
 
-| Tier | Models | Use Case | Cost |
+| 层级 | 模型 | 用例 | 成本 |
 |------|--------|----------|------|
-| **SMALL** | gpt-4o-mini, claude-haiku | Simple queries, high volume | $ |
-| **MEDIUM** | gpt-4o, claude-sonnet | General purpose | $$ |
-| **LARGE** | gpt-4, claude-opus | Complex reasoning, critical tasks | $$$ |
+| **SMALL** | gpt-4o-mini、claude-haiku | 简单查询、高容量 | $ |
+| **MEDIUM** | gpt-4o、claude-sonnet | 通用目的 | $$ |
+| **LARGE** | gpt-4、claude-opus | 复杂推理、关键任务 | $$$ |
 
 <Tip>
-Shannon's intelligent router selects the most cost-effective model for each task, achieving 85-95% cost savings compared to always using premium models.
+Shannon 的智能路由器为每个任务选择最具成本效益的模型，与始终使用高级模型相比，可节省 85-95% 的成本。
 </Tip>
 
-See [Configuration Guide](/cn/quickstart/configuration) for all available environment variables.
+有关所有可用环境变量，请参阅[配置指南](/cn/quickstart/configuration)。
 
-## Agent Coordination Patterns
+## 智能体协调模式
 
-Shannon uses proven cognitive patterns for multi-agent coordination:
+Shannon 使用经过验证的认知模式进行多智能体协调：
 
-### Chain-of-Thought (CoT)
+### 思维链（CoT）
 
-Sequential reasoning where each step builds on the previous:
-
-```
-Task: "Calculate compound interest"
-Step 1: Identify formula
-Step 2: Gather inputs
-Step 3: Calculate result
-Step 4: Format output
-```
-
-### Tree-of-Thoughts (ToT)
-
-Exploration with backtracking for complex problem-solving:
+每个步骤都基于前一步构建的顺序推理：
 
 ```
-Task: "Design system architecture"
-Branch 1: Microservices approach
-  ├─ Evaluate pros/cons
-  └─ Estimate complexity
-Branch 2: Monolithic approach
-  ├─ Evaluate pros/cons
-  └─ Estimate complexity
-Select: Best option based on criteria
+任务："计算复利"
+步骤 1：确定公式
+步骤 2：收集输入
+步骤 3：计算结果
+步骤 4：格式化输出
 ```
 
-### ReAct (Reasoning + Acting)
+### 思维树（ToT）
 
-Interleaved reasoning and action for dynamic tasks:
+探索性回溯以解决复杂问题：
 
 ```
-Think: "I need to find the latest stock price"
-Act: Search web for "AAPL stock price"
-Observe: "$150.25"
-Think: "Now calculate 10% gain"
-Act: Calculate 150.25 * 1.10
-Result: "$165.28"
+任务："设计系统架构"
+分支 1：微服务方法
+  ├─ 评估优缺点
+  └─ 估算复杂度
+分支 2：单体方法
+  ├─ 评估优缺点
+  └─ 估算复杂度
+选择：根据标准选择最佳选项
 ```
 
-## Security and Isolation
+### ReAct（推理 + 行动）
 
-Shannon agents run in secure environments:
+用于动态任务的推理和行动交替：
 
-<Card title="WASI Sandbox" icon="lock">
-  All code execution happens in WebAssembly System Interface sandboxes with:
-  - **No network access**
-  - **Read-only filesystem**
-  - **Memory limits**
-  - **Execution timeouts**
+```
+思考："我需要找到最新的股票价格"
+行动：在网络上搜索"AAPL 股票价格"
+观察："$150.25"
+思考："现在计算 10% 的收益"
+行动：计算 150.25 * 1.10
+结果："$165.28"
+```
+
+## 安全性和隔离
+
+Shannon 智能体在安全的环境中运行：
+
+<Card title="WASI 沙箱" icon="lock">
+  所有代码执行都在 WebAssembly 系统接口沙箱中进行，具有以下特性：
+  - **无网络访问**
+  - **只读文件系统**
+  - **内存限制**
+  - **执行超时**
 </Card>
 
-### OPA Policy Enforcement
+### OPA 策略执行
 
-Control what agents can do:
+控制智能体可以做什么：
 
 ```rego
-# Example policy: Restrict models by team
+# 示例策略：按团队限制模型
 package shannon.teams.datascience
 
 allow {
@@ -271,69 +263,69 @@ max_tokens = 50000 {
 }
 ```
 
-## Best Practices
+## 最佳实践
 
-### 1. Choose the Right Mode
+### 1. 选择正确的模式
 
-- **Simple**: Single-step tasks, fast responses
-- **Standard**: Multi-step tasks, moderate complexity
-- **Complex**: Research, analysis, advanced reasoning
+- **简单**：单步任务、快速响应
+- **标准**：多步任务、中等复杂度
+- **复杂**：研究、分析、高级推理
 
-### 2. Set Budget Limits
+### 2. 设置预算限制
 
-Configure token and cost limits at the platform level to prevent unexpected charges:
+在平台级别配置令牌和成本限制以防止意外费用：
 
 ```bash
-# In .env file
+# 在 .env 文件中
 MAX_TOKENS_PER_REQUEST=5000
 MAX_COST_PER_REQUEST=1.0
 ```
 
-Monitor costs via task status:
+通过任务状态监控成本：
 
 ```python
 status = client.get_status(task_id, include_details=True)
 if status.metrics:
-    print(f"Cost: ${status.metrics.cost_usd:.4f}")
-    print(f"Tokens: {status.metrics.tokens_used}")
+    print(f"成本：${status.metrics.cost_usd:.4f}")
+    print(f"令牌：{status.metrics.tokens_used}")
 ```
 
-### 3. Use Sessions for Context
+### 3. 使用会话保持上下文
 
-For multi-turn conversations, use consistent `session_id`:
+对于多轮对话，使用一致的 `session_id`：
 
 ```python
 session_id = "user-123-conversation"
 client.submit_task(query="...", session_id=session_id)
 ```
 
-### 4. Monitor Performance
+### 4. 监控性能
 
-Check metrics to optimize:
+检查指标以优化：
 
 ```python
-# Wait for task to complete
+# 等待任务完成
 status = client.wait(handle.task_id, timeout=300)
 if status.metrics:
-    print(f"Tokens used: {status.metrics.tokens_used}")
-    print(f"Cost: ${status.metrics.cost_usd:.4f}")
-    print(f"Duration: {status.metrics.duration_seconds:.2f}s")
+    print(f"使用的令牌：{status.metrics.tokens_used}")
+    print(f"成本：${status.metrics.cost_usd:.4f}")
+    print(f"持续时间：{status.metrics.duration_seconds:.2f}秒")
 ```
 
-## Next Steps
+## 下一步
 
 <CardGroup cols={2}>
-  <Card title="Workflows" icon="diagram-project" href="/cn/quickstart/concepts/workflows">
-    Learn about workflow patterns
+  <Card title="工作流" icon="diagram-project" href="/cn/quickstart/concepts/workflows">
+    了解工作流模式
   </Card>
-  <Card title="Cost Control" icon="dollar-sign" href="/cn/quickstart/concepts/cost-control">
-    Master budget management
+  <Card title="成本控制" icon="dollar-sign" href="/cn/quickstart/concepts/cost-control">
+    掌握预算管理
   </Card>
-  <Card title="API Reference" icon="code" href="/cn/api/overview">
-    Explore agent APIs
+  <Card title="API 参考" icon="code" href="/cn/api/overview">
+    探索智能体 API
   </Card>
   <Card title="Python SDK" icon="python" href="/cn/sdk/python/quickstart">
-    Build with the SDK
+    使用 SDK 构建
   </Card>
 </CardGroup>
 
