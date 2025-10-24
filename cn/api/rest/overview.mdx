@@ -116,52 +116,52 @@ RATE_LIMIT_RPM=100
 RATE_LIMIT_BURST=20
 ```
 
-## Idempotency
+## 幂等性
 
-POST requests support idempotency to prevent duplicate task submissions.
+POST 请求支持幂等性，以防止重复提交任务。
 
-### How It Works
+### 工作原理
 
-1. Generate a unique `Idempotency-Key` (UUIDv4 recommended)
-2. Include in request header
-3. Shannon caches response for 24 hours
-4. Duplicate requests return cached response
+1. 生成唯一的 `Idempotency-Key`（推荐使用 UUIDv4）
+2. 在请求头中包含该密钥
+3. Shannon 缓存响应 24 小时
+4. 重复请求返回缓存的响应
 
-### Example
+### 示例
 
 ```bash
-# First request - creates task
+# 第一次请求 - 创建任务
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "X-API-Key: sk_test_123456" \
   -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \
   -H "Content-Type: application/json" \
   -d '{"query": "Analyze sales data"}'
 
-# Response: 200 OK
+# 响应: 200 OK
 {
   "task_id": "task_abc123",
   "status": "TASK_STATUS_QUEUED"
 }
 
-# Duplicate request (same Idempotency-Key) - returns cached
+# 重复请求（相同的 Idempotency-Key）- 返回缓存结果
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "X-API-Key: sk_test_123456" \
   -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \
   -H "Content-Type: application/json" \
   -d '{"query": "Different query"}'
 
-# Response: 200 OK (same task_id, ignores new query)
+# 响应: 200 OK (相同的 task_id，忽略新查询)
 {
   "task_id": "task_abc123",
   "status": "TASK_STATUS_QUEUED"
 }
 ```
 
-**Cache Duration**: 24 hours (Redis TTL)
+**缓存持续时间**：24 小时（Redis TTL）
 
-## Error Handling
+## 错误处理
 
-### Standard Error Response
+### 标准错误响应
 
 ```json
 {
@@ -169,43 +169,43 @@ curl -X POST http://localhost:8080/api/v1/tasks \
 }
 ```
 
-### HTTP Status Codes
+### HTTP 状态码
 
-| Code | Meaning | Common Causes |
+| 状态码 | 含义 | 常见原因 |
 |------|---------|---------------|
-| `200` | Success | Request completed successfully |
-| `400` | Bad Request | Invalid JSON, missing required fields |
-| `401` | Unauthorized | Missing or invalid API key |
-| `404` | Not Found | Task ID doesn't exist |
-| `429` | Too Many Requests | Rate limit exceeded |
-| `500` | Internal Server Error | Server error, check logs |
-| `502` | Bad Gateway | Upstream service unavailable |
-| `503` | Service Unavailable | System overloaded or maintenance |
+| `200` | 成功 | 请求成功完成 |
+| `400` | 错误请求 | 无效的 JSON，缺少必需字段 |
+| `401` | 未授权 | 缺少或无效的 API 密钥 |
+| `404` | 未找到 | 任务 ID 不存在 |
+| `429` | 请求过多 | 超出速率限制 |
+| `500` | 内部服务器错误 | 服务器错误，请检查日志 |
+| `502` | 网关错误 | 上游服务不可用 |
+| `503` | 服务不可用 | 系统过载或维护中 |
 
-### Error Examples
+### 错误示例
 
-**400 Bad Request**:
+**400 错误请求**：
 ```json
 {
   "error": "Query is required"
 }
 ```
 
-**401 Unauthorized**:
+**401 未授权**：
 ```json
 {
   "error": "Unauthorized"
 }
 ```
 
-**404 Not Found**:
+**404 未找到**：
 ```json
 {
   "error": "Task not found"
 }
 ```
 
-**429 Rate Limited**:
+**429 速率限制**：
 ```json
 {
   "error": "Rate limit exceeded",
@@ -213,47 +213,47 @@ curl -X POST http://localhost:8080/api/v1/tasks \
 }
 ```
 
-**500 Internal Server Error**:
+**500 内部服务器错误**：
 ```json
 {
   "error": "Failed to submit task: database connection failed"
 }
 ```
 
-## Distributed Tracing
+## 分布式追踪
 
-Shannon supports W3C Trace Context for distributed tracing.
+Shannon 支持 W3C 追踪上下文进行分布式追踪。
 
-### Trace Context Header
+### 追踪上下文请求头
 
 ```bash
 curl -H "traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01" \
   http://localhost:8080/api/v1/tasks
 ```
 
-### Format
+### 格式
 
 ```
 traceparent: {version}-{trace-id}-{parent-id}-{trace-flags}
 ```
 
-- **version**: `00` (current version)
-- **trace-id**: 32 hex characters (16 bytes)
-- **parent-id**: 16 hex characters (8 bytes)
-- **trace-flags**: 2 hex characters (sampled flag)
+- **version**：`00`（当前版本）
+- **trace-id**：32 个十六进制字符（16 字节）
+- **parent-id**：16 个十六进制字符（8 字节）
+- **trace-flags**：2 个十六进制字符（采样标志）
 
-Traces propagate through:
-1. Gateway HTTP handler
-2. gRPC calls to Orchestrator
-3. Agent Core execution
-4. LLM Service requests
-5. Temporal workflows
+追踪传播经过：
+1. Gateway HTTP 处理器
+2. 到 Orchestrator 的 gRPC 调用
+3. Agent Core 执行
+4. LLM Service 请求
+5. Temporal 工作流
 
-## CORS Configuration
+## CORS 配置
 
-CORS is enabled for development with permissive settings.
+CORS 在开发环境中启用，采用宽松设置。
 
-### Headers Set
+### 设置的响应头
 
 ```
 Access-Control-Allow-Origin: *
@@ -262,33 +262,33 @@ Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Key, Idempotenc
 Access-Control-Max-Age: 3600
 ```
 
-**Production**: Configure `Access-Control-Allow-Origin` to specific domains.
+**生产环境**：配置 `Access-Control-Allow-Origin` 为特定域名。
 
-## Timeouts
+## 超时设置
 
-### Request Timeouts
+### 请求超时
 
-| Operation | Timeout |
+| 操作 | 超时时间 |
 |-----------|---------|
-| Read timeout | 30 seconds |
-| Write timeout | 30 seconds |
-| Idle timeout | 60 seconds |
+| 读取超时 | 30 秒 |
+| 写入超时 | 30 秒 |
+| 空闲超时 | 60 秒 |
 
-### Task Execution Timeouts
+### 任务执行超时
 
-Task timeouts are configured at the platform level:
+任务超时在平台级别配置：
 
 ```bash
-WORKFLOW_TIMEOUT_SECONDS=600  # 10 minutes default
+WORKFLOW_TIMEOUT_SECONDS=600  # 默认 10 分钟
 ```
 
-Long-running tasks may timeout. Use streaming to monitor progress.
+长时间运行的任务可能会超时。使用流式传输监控进度。
 
-## Best Practices
+## 最佳实践
 
-### 1. Use Idempotency Keys
+### 1. 使用幂等性密钥
 
-Always include `Idempotency-Key` for task submissions:
+始终为任务提交包含 `Idempotency-Key`：
 
 ```python
 import uuid
@@ -306,9 +306,9 @@ response = httpx.post(
 )
 ```
 
-### 2. Handle Rate Limits
+### 2. 处理速率限制
 
-Implement exponential backoff:
+实现指数退避：
 
 ```python
 import time
@@ -332,9 +332,9 @@ def submit_with_retry(query, max_retries=3):
     raise Exception("Max retries exceeded")
 ```
 
-### 3. Use Streaming for Long Tasks
+### 3. 对长任务使用流式传输
 
-Don't poll status - use SSE streaming:
+不要轮询状态 - 使用 SSE 流式传输：
 
 ```python
 import httpx
@@ -350,15 +350,15 @@ with httpx.stream(
             print(event["type"], event["message"])
 ```
 
-### 4. Enable Tracing
+### 4. 启用追踪
 
-Pass trace context for observability:
+传递追踪上下文以便可观测性：
 
 ```python
 import uuid
 
-trace_id = uuid.uuid4().hex + uuid.uuid4().hex  # 32 chars
-parent_id = uuid.uuid4().hex[:16]               # 16 chars
+trace_id = uuid.uuid4().hex + uuid.uuid4().hex  # 32 个字符
+parent_id = uuid.uuid4().hex[:16]               # 16 个字符
 traceparent = f"00-{trace_id}-{parent_id}-01"
 
 response = httpx.post(
@@ -371,9 +371,9 @@ response = httpx.post(
 )
 ```
 
-### 5. Check Response Headers
+### 5. 检查响应头
 
-Extract workflow and session IDs for tracking:
+提取工作流和会话 ID 以便追踪：
 
 ```python
 response = httpx.post(
@@ -388,9 +388,9 @@ session_id = response.headers.get("X-Session-ID")
 print(f"Track at: http://localhost:8088/workflows/{workflow_id}")
 ```
 
-## Quick Start Example
+## 快速开始示例
 
-### Submit and Monitor Task
+### 提交和监控任务
 
 ```bash
 #!/bin/bash
@@ -398,7 +398,7 @@ print(f"Track at: http://localhost:8088/workflows/{workflow_id}")
 API_KEY="sk_test_123456"
 BASE_URL="http://localhost:8080"
 
-# 1. Submit task
+# 1. 提交任务
 RESPONSE=$(curl -s -X POST "$BASE_URL/api/v1/tasks" \
   -H "X-API-Key: $API_KEY" \
   -H "Content-Type: application/json" \
@@ -407,39 +407,33 @@ RESPONSE=$(curl -s -X POST "$BASE_URL/api/v1/tasks" \
 TASK_ID=$(echo $RESPONSE | jq -r '.task_id')
 echo "Task ID: $TASK_ID"
 
-# 2. Check status
+# 2. 检查状态
 curl -s "$BASE_URL/api/v1/tasks/$TASK_ID" \
   -H "X-API-Key: $API_KEY" | jq
 
-# 3. Get events
+# 3. 获取事件
 curl -s "$BASE_URL/api/v1/tasks/$TASK_ID/events" \
   -H "X-API-Key: $API_KEY" | jq
 
-# 4. Stream events (SSE)
+# 4. 流式事件 (SSE)
 curl -N "$BASE_URL/api/v1/tasks/$TASK_ID/stream" \
   -H "X-API-Key: $API_KEY"
 ```
 
-## Next Steps
+## 下一步
 
 <CardGroup cols={2}>
-  <Card title="Submit Task" icon="paper-plane" href="/cn/api/rest/submit-task">
-    POST /api/v1/tasks reference
+  <Card title="提交任务" icon="paper-plane" href="/cn/api/rest/submit-task">
+    POST /api/v1/tasks 参考
   </Card>
-  <Card title="List Tasks" icon="list" href="/cn/api/rest/list-tasks">
-    GET /api/v1/tasks reference
+  <Card title="列出任务" icon="list" href="/cn/api/rest/list-tasks">
+    GET /api/v1/tasks 参考
   </Card>
-  <Card title="Get Status" icon="circle-info" href="/cn/api/rest/get-status">
-    GET /api/v1/tasks/{id} reference
+  <Card title="获取状态" icon="circle-info" href="/cn/api/rest/get-status">
+    GET /api/v1/tasks/{id} 参考
   </Card>
-  <Card title="Streaming" icon="stream" href="/cn/api/rest/streaming">
-    Real-time event streaming
+  <Card title="流式传输" icon="stream" href="/cn/api/rest/streaming">
+    实时事件流式传输
   </Card>
 </CardGroup>
 
-
----
-
-## 参与翻译
-
-如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。
