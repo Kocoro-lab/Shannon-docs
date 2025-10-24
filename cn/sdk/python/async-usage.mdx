@@ -1,32 +1,24 @@
 ---
-title: "Async/Await Usage"
-description: "Using Shannon Python SDK with asyncio for concurrent operations"
+title: "异步/等待使用"
+description: "使用 asyncio 与 Shannon Python SDK 进行并发操作"
 ---
-
-> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
-
-**原文件**: `sdk/python/async-usage.mdx`
-**英文版本**: [查看英文文档](/en/sdk/python/async-usage)
-
----
-
 
 <Note>
-Full async documentation coming soon. Basic patterns are shown below.
+完整的异步文档即将推出。基本模式如下所示。
 </Note>
 
-## Overview
+## 概述
 
-The Shannon Python SDK provides both synchronous and asynchronous clients for maximum flexibility. Use async operations for:
+Shannon Python SDK 提供同步和异步客户端以实现最大灵活性。异步操作适用于：
 
-- Concurrent task submission
-- Non-blocking event streaming
-- Parallel API calls
-- High-throughput applications
+- 并发任务提交
+- 非阻塞事件流式传输
+- 并行 API 调用
+- 高吞吐量应用
 
 ## AsyncShannonClient
 
-### Basic Usage
+### 基本用法
 
 ```python
 import asyncio
@@ -34,37 +26,37 @@ from shannon import AsyncShannonClient
 
 async def main():
     async with AsyncShannonClient(http_endpoint="http://localhost:8080") as client:
-        # Submit task asynchronously
+        # 异步提交任务
         handle = await client.submit_task(
             query="Analyze this data",
-            # Mode auto-selected
+            # 自动选择模式
         )
 
-        # Get result
+        # 获取结果
         result = await client.get_status(handle.workflow_id)
         print(result)
 
 asyncio.run(main())
 ```
 
-## Concurrent Tasks
+## 并发任务
 
-Submit multiple tasks simultaneously:
+同时提交多个任务：
 
 ```python
 async def analyze_multiple():
     async with AsyncShannonClient() as client:
-        # Submit tasks concurrently
+        # 并发提交任务
         tasks = [
             client.submit_task(query="Analyze dataset 1"),
             client.submit_task(query="Analyze dataset 2"),
             client.submit_task(query="Analyze dataset 3"),
         ]
 
-        # Wait for all to complete
+        # 等待所有任务完成
         handles = await asyncio.gather(*tasks)
 
-        # Get all results
+        # 获取所有结果
         results = await asyncio.gather(*[
             client.get_status(h.workflow_id)
             for h in handles
@@ -73,16 +65,16 @@ async def analyze_multiple():
         return results
 ```
 
-## Async Streaming
+## 异步流式传输
 
-Stream events without blocking:
+非阻塞流式事件：
 
 ```python
 async def stream():
     async with AsyncShannonClient() as client:
         handle = await client.submit_task(query="Complex analysis")
 
-        # Stream events asynchronously
+        # 异步流式传输事件
         async for event in client.stream(handle.workflow_id):
             print(f"[{event.type}] {event.message}")
 
@@ -90,19 +82,19 @@ async def stream():
                 return event.data.get('result')
 ```
 
-## Timeout Handling
+## 超时处理
 
 ```python
 async def with_timeout():
     async with AsyncShannonClient() as client:
         try:
-            # Submit with timeout
+            # 带超时的提交
             handle = await asyncio.wait_for(
                 client.submit_task(query="Analyze data"),
                 timeout=30.0
             )
 
-            # Wait for completion with timeout
+            # 带超时等待完成
             result = await asyncio.wait_for(
                 client.wait(handle.workflow_id),
                 timeout=300.0
@@ -112,30 +104,30 @@ async def with_timeout():
             print("Operation timed out")
 ```
 
-## Background Tasks
+## 后台任务
 
-Run tasks in background while doing other work:
+在执行其他工作时在后台运行任务：
 
 ```python
 async def background_processing():
     async with AsyncShannonClient() as client:
-        # Start background task
+        # 启动后台任务
         task = asyncio.create_task(
             client.submit_and_wait("Long running analysis")
         )
 
-        # Do other work
+        # 执行其他工作
         await do_other_work()
 
-        # Check if done
+        # 检查是否完成
         if not task.done():
             print("Still processing...")
 
-        # Wait for result when needed
+        # 需要时等待结果
         result = await task
 ```
 
-## Error Handling
+## 错误处理
 
 ```python
 async def robust_submission():
@@ -155,9 +147,9 @@ async def robust_submission():
             print(f"Error: {e}")
 ```
 
-## Integration with Web Frameworks
+## 与 Web 框架集成
 
-### FastAPI Example
+### FastAPI 示例
 
 ```python
 from fastapi import FastAPI
@@ -173,7 +165,7 @@ async def analyze(query: str):
     return {"result": result}
 ```
 
-### aiohttp Example
+### aiohttp 示例
 
 ```python
 from aiohttp import web
@@ -189,27 +181,21 @@ async def analyze_handler(request):
     return web.json_response({'result': result})
 ```
 
-## Best Practices
+## 最佳实践
 
-1. **Use context managers** (`async with`) for proper cleanup
-2. **Handle timeouts** for long-running operations
-3. **Implement retry logic** for network failures
-4. **Use gather()** for concurrent operations
-5. **Stream events** for real-time updates
+1. **使用上下文管理器**（`async with`）以正确清理
+2. **处理超时**用于长时间运行的操作
+3. **实现重试逻辑**用于网络故障
+4. **使用 gather()**进行并发操作
+5. **流式传输事件**以获得实时更新
 
-## Next Steps
+## 下一步
 
 <CardGroup cols={2}>
-  <Card title="Examples" icon="code" href="/cn/sdk/python/examples">
-    More code examples
+  <Card title="示例" icon="code" href="/cn/sdk/python/examples">
+    更多代码示例
   </Card>
-  <Card title="Error Handling" icon="shield" href="/cn/sdk/python/error-handling">
-    Robust error handling
+  <Card title="错误处理" icon="shield" href="/cn/sdk/python/error-handling">
+    健壮的错误处理
   </Card>
 </CardGroup>
-
----
-
-## 参与翻译
-
-如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。
