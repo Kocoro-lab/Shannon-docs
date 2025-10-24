@@ -1,25 +1,17 @@
 ---
-title: "Python SDK Installation"
-description: "Install and configure the Shannon Python SDK"
+title: "Python SDK 安装"
+description: "安装和配置 Shannon Python SDK"
 ---
 
-> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
+## 安装
 
-**原文件**: `sdk/python/installation.mdx`
-**英文版本**: [查看英文文档](/en/sdk/python/installation)
-
----
-
-
-## Installation
-
-### Via pip (Recommended)
+### 通过 pip（推荐）
 
 ```bash
 pip install shannon-sdk
 ```
 
-### From Source
+### 从源代码安装
 
 ```bash
 git clone https://github.com/Kocoro-lab/Shannon.git
@@ -27,30 +19,30 @@ cd Shannon/clients/python
 pip install -e .
 ```
 
-### Requirements
+### 要求
 
-- Python 3.9 or higher
-- pip or poetry for package management
+- Python 3.9 或更高版本
+- pip 或 poetry 用于包管理
 
-## Verify Installation
+## 验证安装
 
 ```python
 import shannon
 print(shannon.__version__)
 ```
 
-## Basic Setup
+## 基本设置
 
-### Import the Client
+### 导入客户端
 
 ```python
 from shannon import ShannonClient
 
-# Create client instance (defaults: gRPC localhost:50052, SSE http://localhost:8081)
+# 创建客户端实例（默认值：gRPC localhost:50052，SSE http://localhost:8081）
 client = ShannonClient()
 ```
 
-### With Authentication
+### 使用身份认证
 
 ```python
 from shannon import ShannonClient
@@ -58,9 +50,9 @@ from shannon import ShannonClient
 client = ShannonClient(api_key="sk_test_123456")
 ```
 
-### Using Environment Variables
+### 使用环境变量
 
-The SDK does not auto-read environment variables. Use your own config loader or pass values explicitly:
+SDK 不会自动读取环境变量。使用您自己的配置加载器或显式传递值：
 
 ```python
 import os
@@ -72,7 +64,7 @@ client = ShannonClient(
 )
 ```
 
-## Quick Example
+## 快速示例
 
 ```python
 from shannon import ShannonClient
@@ -84,18 +76,18 @@ final = client.wait(handle.task_id, timeout=60)
 print("Result:", final.result)
 ```
 
-## Configuration Options
+## 配置选项
 
-### Client Parameters
+### 客户端参数
 
-| Parameter | Type | Default | Description |
+| 参数 | 类型 | 默认值 | 描述 |
 |-----------|------|---------|-------------|
-| `grpc_endpoint` | str | `localhost:50052` | gRPC endpoint (submit/status/cancel) |
-| `http_endpoint` | str | `http://localhost:8081` | Orchestrator admin endpoint for SSE |
-| `api_key` | str | None | API key for authentication |
-| `timeout` | int | 300 | Default request timeout (seconds) |
+| `grpc_endpoint` | str | `localhost:50052` | gRPC 端点（提交/状态/取消） |
+| `http_endpoint` | str | `http://localhost:8081` | Orchestrator 管理端点，用于 SSE |
+| `api_key` | str | None | API 密钥用于身份认证 |
+| `timeout` | int | 300 | 默认请求超时时间（秒） |
 
-### Full Configuration
+### 完整配置
 
 ```python
 client = ShannonClient(
@@ -106,9 +98,9 @@ client = ShannonClient(
 )
 ```
 
-## Async Client
+## 异步客户端
 
-For async applications, use `AsyncShannonClient`:
+对于异步应用，使用 `AsyncShannonClient`：
 
 ```python
 from shannon import AsyncShannonClient
@@ -123,37 +115,37 @@ async def main():
 asyncio.run(main())
 ```
 
-## Dependencies
+## 依赖项
 
-The SDK automatically installs:
+SDK 自动安装：
 
-- `grpcio` - gRPC support
-- `protobuf` - Protocol buffer serialization
-- `requests` - HTTP client
-- `pydantic` - Data validation
+- `grpcio` - gRPC 支持
+- `protobuf` - 协议缓冲区序列化
+- `requests` - HTTP 客户端
+- `pydantic` - 数据验证
 
-### Optional Dependencies
+### 可选依赖项
 
 ```bash
-# For async support
+# 用于异步支持
 pip install shannon-sdk[async]
 
-# For CLI tool
+# 用于 CLI 工具
 pip install shannon-sdk[cli]
 
-# All extras
+# 所有扩展
 pip install shannon-sdk[all]
 ```
 
-## CLI Tool
+## CLI 工具
 
-The package includes a simple CLI (`shannon`). Run `shannon --help` for usage.
+该包包含一个简单的 CLI（`shannon`）。运行 `shannon --help` 查看用法。
 
-## Troubleshooting
+## 故障排除
 
 <AccordionGroup>
   <Accordion title="ImportError: No module named 'shannon'">
-    **Solution**: Install the SDK
+    **解决方案**：安装 SDK
 
     ```bash
     pip install shannon-sdk
@@ -161,13 +153,13 @@ The package includes a simple CLI (`shannon`). Run `shannon --help` for usage.
   </Accordion>
 
   <Accordion title="Connection refused">
-    **Solution**: Verify Shannon is running
+    **解决方案**：验证 Shannon 正在运行
 
     ```bash
     curl http://localhost:8080/health
     ```
 
-    If not running, start Shannon:
+    如果未运行，启动 Shannon：
 
     ```bash
     cd Shannon
@@ -176,18 +168,18 @@ The package includes a simple CLI (`shannon`). Run `shannon --help` for usage.
   </Accordion>
 
   <Accordion title="Authentication error">
-    **Solution**: Check API key
+    **解决方案**：检查 API 密钥
 
     ```python
     client = ShannonClient(
         http_endpoint="http://localhost:8080",
-        api_key="sk_test_123456"  # Add API key
+        api_key="sk_test_123456"  # 添加 API 密钥
     )
     ```
   </Accordion>
 
   <Accordion title="grpc module not found">
-    **Solution**: Install grpcio
+    **解决方案**：安装 grpcio
 
     ```bash
     pip install grpcio grpcio-tools
@@ -195,21 +187,21 @@ The package includes a simple CLI (`shannon`). Run `shannon --help` for usage.
   </Accordion>
 </AccordionGroup>
 
-## Environment Variables
+## 环境变量
 
-The SDK recognizes these environment variables:
+SDK 识别这些环境变量：
 
-| Variable | Description | Example |
+| 变量 | 描述 | 示例 |
 |----------|-------------|---------|
-| `SHANNON_ENDPOINT` | HTTP endpoint | `http://localhost:8080` |
-| `SHANNON_GRPC_ENDPOINT` | gRPC endpoint | `localhost:50052` |
-| `SHANNON_API_KEY` | API key | `sk_test_123456` |
-| `SHANNON_TIMEOUT` | Default timeout | `300` |
-| `SHANNON_LOG_LEVEL` | Logging level | `INFO` |
+| `SHANNON_ENDPOINT` | HTTP 端点 | `http://localhost:8080` |
+| `SHANNON_GRPC_ENDPOINT` | gRPC 端点 | `localhost:50052` |
+| `SHANNON_API_KEY` | API 密钥 | `sk_test_123456` |
+| `SHANNON_TIMEOUT` | 默认超时时间 | `300` |
+| `SHANNON_LOG_LEVEL` | 日志级别 | `INFO` |
 
-### .env File
+### .env 文件
 
-Create a `.env` file:
+创建 `.env` 文件：
 
 ```bash
 SHANNON_ENDPOINT=http://localhost:8080
@@ -217,7 +209,7 @@ SHANNON_API_KEY=sk_test_123456
 SHANNON_TIMEOUT=600
 ```
 
-Load with python-dotenv:
+使用 python-dotenv 加载：
 
 ```python
 from dotenv import load_dotenv
@@ -225,13 +217,13 @@ from shannon import ShannonClient
 
 load_dotenv()
 
-# Client uses .env values
+# 客户端使用 .env 值
 client = ShannonClient()
 ```
 
-## Logging
+## 日志记录
 
-Enable SDK logging:
+启用 SDK 日志记录：
 
 ```python
 import logging
@@ -240,7 +232,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('shannon')
 ```
 
-Debug mode:
+调试模式：
 
 ```python
 import logging
@@ -251,23 +243,16 @@ logging.basicConfig(
 )
 ```
 
-## Next Steps
+## 下一步
 
 <CardGroup cols={2}>
-  <Card title="Quick Start" icon="rocket" href="/cn/sdk/python/quickstart">
-    Learn SDK basics with examples
+  <Card title="快速入门" icon="rocket" href="/cn/sdk/python/quickstart">
+    通过示例学习 SDK 基础
   </Card>
-  <Card title="Async Usage" icon="bolt" href="/cn/sdk/python/async-usage">
-    Async/await patterns
+  <Card title="异步使用" icon="bolt" href="/cn/sdk/python/async-usage">
+    异步/等待模式
   </Card>
-  <Card title="Examples" icon="code" href="/cn/sdk/python/examples">
-    Real-world code examples
+  <Card title="示例" icon="code" href="/cn/sdk/python/examples">
+    实际代码示例
   </Card>
 </CardGroup>
-
-
----
-
-## 参与翻译
-
-如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。
