@@ -1,79 +1,71 @@
 ---
-title: "组件"
-description: "Shannon system components and their interactions"
+title: "系统组件"
+description: "Shannon 系统组件及其交互关系"
 ---
 
-> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
-
-**原文件**: `architecture/components.mdx`
-**英文版本**: [查看英文文档](/en/architecture/components)
-
----
-
-
-## System Components
+## 系统组件
 
 <Note>
-This page is under construction as part of Phase 2 documentation expansion.
+本页面作为第二阶段文档扩展的一部分正在建设中。
 </Note>
 
-Shannon is built as a distributed system with multiple specialized components:
+Shannon 作为分布式系统构建，包含多个专业化组件：
 
-## Core Services
+## 核心服务
 
 ### Gateway (Go)
-- **Port**: 8080
-- **Role**: REST API gateway, authentication, rate limiting
-- **Technology**: Go, Chi router
-- **Scaling**: Stateless, horizontal
+- **端口**: 8080
+- **角色**: REST API 网关、身份验证、速率限制
+- **技术栈**: Go, Chi router
+- **扩展方式**: 无状态，水平扩展
 
 ### Orchestrator (Go)
-- **Port**: 50052 (gRPC), 8081 (admin)
-- **Role**: Task coordination, workflow management
-- **Technology**: Go, Temporal, gRPC
-- **Scaling**: Stateful via Temporal workflows
+- **端口**: 50052 (gRPC), 8081 (admin)
+- **角色**: 任务协调、工作流管理
+- **技术栈**: Go, Temporal, gRPC
+- **扩展方式**: 通过 Temporal 工作流实现有状态扩展
 
 ### Agent Core (Rust)
-- **Port**: 50051 (gRPC)
-- **Role**: Agent execution, tool invocation, WASI sandboxing
-- **Technology**: Rust, Wasmtime, gRPC
-- **Scaling**: Horizontal
+- **端口**: 50051 (gRPC)
+- **角色**: Agent 执行、工具调用、WASI 沙箱
+- **技术栈**: Rust, Wasmtime, gRPC
+- **扩展方式**: 水平扩展
 
 ### LLM Service (Python)
-- **Port**: 8000
-- **Role**: LLM provider gateway, prompt management
-- **Technology**: Python, FastAPI, litellm
-- **Scaling**: Horizontal
+- **端口**: 8000
+- **角色**: LLM 提供商网关、提示词管理
+- **技术栈**: Python, FastAPI, litellm
+- **扩展方式**: 水平扩展
 
 ### Dashboard (TypeScript)
-- **Port**: 2111
-- **Role**: Real-time monitoring UI
-- **Technology**: TypeScript, React, SSE
-- **Scaling**: Stateless, horizontal
+- **端口**: 2111
+- **角色**: 实时监控界面
+- **技术栈**: TypeScript, React, SSE
+- **扩展方式**: 无状态，水平扩展
 
-## Data Stores
+## 数据存储
 
 ### PostgreSQL
-- **Port**: 5432
-- **Purpose**: Task metadata, events, sessions, users
-- **Schema**: ~15 tables (task_executions, event_logs, sessions, etc.)
+- **端口**: 5432
+- **用途**: 任务元数据、事件、会话、用户
+- **架构**: 约 15 个表（task_executions, event_logs, sessions 等）
 
 ### Redis
-- **Port**: 6379
-- **Purpose**: Session cache, pub/sub, rate limiting
-- **Persistence**: Optional (RDB/AOF)
+- **端口**: 6379
+- **用途**: 会话缓存、发布/订阅、速率限制
+- **持久化**: 可选（RDB/AOF）
 
 ### Qdrant
-- **Port**: 6333
-- **Purpose**: Vector embeddings, semantic memory
-- **Collections**: Per-tenant isolation
+- **端口**: 6333
+- **用途**: 向量嵌入、语义内存
+- **集合**: 按租户隔离
 
 ### Temporal
-- **Port**: 7233 (gRPC), 8088 (UI)
-- **Purpose**: Durable workflow execution
-- **Persistence**: PostgreSQL backend
+- **端口**: 7233 (gRPC), 8088 (UI)
+- **用途**: 持久化工作流执行
+- **持久化**: PostgreSQL 后端
 
-## Component Interactions
+## 组件交互
 
 ```mermaid
 sequenceDiagram
@@ -96,20 +88,13 @@ sequenceDiagram
     Gateway-->>Client: 200 OK + task_id
 ```
 
-## Coming Soon
+## 即将推出
 
-Detailed documentation for each component including:
-- Architecture diagrams
-- API interfaces
-- Configuration options
-- Scaling guidelines
-- Troubleshooting tips
+每个组件的详细文档，包括：
+- 架构图
+- API 接口
+- 配置选项
+- 扩展指南
+- 故障排除提示
 
-See [Architecture Overview](/cn/architecture/overview) for high-level system design.
-
-
----
-
-## 参与翻译
-
-如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。
+查看[架构概览](/cn/architecture/overview)了解高层系统设计。

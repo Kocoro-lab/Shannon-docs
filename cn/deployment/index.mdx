@@ -1,102 +1,94 @@
 ---
 title: "部署"
-description: "Deploy Shannon to production environments"
+description: "将 Shannon 部署到生产环境"
 ---
 
-> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
+## 生产环境部署指南
 
-**原文件**: `deployment/index.mdx`
-**英文版本**: [查看英文文档](/en/deployment/index)
-
----
-
-
-## Production Deployment Guide
-
-Deploy Shannon to your infrastructure with confidence. This section covers deployment patterns, cloud platform integrations, and operational best practices.
+自信地将 Shannon 部署到您的基础设施。本节涵盖部署模式、云平台集成和运维最佳实践。
 
 <Warning>
-Shannon is currently in active development. Production deployment guides are being finalized. For production use, we recommend:
-- Thorough testing in staging environments
-- Monitoring all services closely
-- Joining our [Discord](https://discord.gg/NB7C2fMcQR) for deployment support
+Shannon 目前正在积极开发中。生产环境部署指南正在最后确定。对于生产环境使用,我们建议:
+- 在预发布环境中进行充分测试
+- 密切监控所有服务
+- 加入我们的 [Discord](https://discord.gg/NB7C2fMcQR) 获取部署支持
 </Warning>
 
-## Deployment Options
+## 部署选项
 
 <CardGroup cols={2}>
   <Card title="Docker Compose" icon="docker" href="/cn/deployment/docker-compose">
-    Production-ready Docker Compose configuration
+    生产就绪的 Docker Compose 配置
     <br/>
-    **Status**: 🚧 Phase 3
+    **状态**: 🚧 第三阶段
   </Card>
 
   <Card title="Kubernetes" icon="dharmachakra" href="/cn/deployment/kubernetes">
-    Kubernetes manifests and Helm charts
+    Kubernetes 清单文件和 Helm Charts
     <br/>
-    **Status**: 🚧 Phase 3
+    **状态**: 🚧 第三阶段
   </Card>
 
   <Card title="AWS" icon="aws" href="/cn/deployment/aws">
-    Deploy to Amazon Web Services (ECS, RDS, ElastiCache)
+    部署到 Amazon Web Services (ECS, RDS, ElastiCache)
     <br/>
-    **Status**: 🚧 Phase 3
+    **状态**: 🚧 第三阶段
   </Card>
 
   <Card title="Azure" icon="microsoft" href="/cn/deployment/azure">
-    Deploy to Microsoft Azure (AKS, PostgreSQL, Redis)
+    部署到 Microsoft Azure (AKS, PostgreSQL, Redis)
     <br/>
-    **Status**: 🚧 Phase 3
+    **状态**: 🚧 第三阶段
   </Card>
 </CardGroup>
 
-## Operations
+## 运维
 
 <CardGroup cols={2}>
-  <Card title="Monitoring" icon="chart-line" href="/cn/deployment/monitoring">
-    Prometheus metrics, Grafana dashboards, and alerting
+  <Card title="监控" icon="chart-line" href="/cn/deployment/monitoring">
+    Prometheus 指标、Grafana 仪表板和告警
     <br/>
-    **Status**: 🚧 Phase 3
+    **状态**: 🚧 第三阶段
   </Card>
 
-  <Card title="Performance Tuning" icon="gauge" href="/cn/deployment/performance-tuning">
-    Optimize throughput, latency, and resource usage
+  <Card title="性能调优" icon="gauge" href="/cn/deployment/performance-tuning">
+    优化吞吐量、延迟和资源使用
     <br/>
-    **Status**: 🚧 Phase 3
+    **状态**: 🚧 第三阶段
   </Card>
 
-  <Card title="Security" icon="shield" href="/cn/deployment/security">
-    Production security hardening and best practices
+  <Card title="安全" icon="shield" href="/cn/deployment/security">
+    生产环境安全加固和最佳实践
     <br/>
-    **Status**: 🚧 Phase 3
+    **状态**: 🚧 第三阶段
   </Card>
 </CardGroup>
 
-## Quick Start: Local Development
+## 快速开始: 本地开发
 
-For development and testing, use Docker Compose:
+对于开发和测试,使用 Docker Compose:
 
 ```bash
-# Clone repository
+# 克隆仓库
 git clone https://github.com/Kocoro-lab/Shannon.git
 cd Shannon
 
-# Setup configuration
+# 设置配置
 make setup
 echo "OPENAI_API_KEY=sk-your-key-here" >> .env
 
-# Download Python WASI interpreter
+# 下载 Python WASI 解释器
 ./scripts/setup_python_wasi.sh
 
-# Start all services
+# 启动所有服务
 make dev
 ```
 
-See [Installation Guide](/cn/quickstart/installation) for detailed setup instructions.
+详细的设置说明请参见[安装指南](/cn/quickstart/installation)。
 
-## Architecture Overview
+## 架构概览
 
-Shannon consists of multiple services that need to be deployed:
+Shannon 由多个需要部署的服务组成:
 
 ```mermaid
 graph TB
@@ -110,112 +102,105 @@ graph TB
     Dashboard[Dashboard :2111] --> Orchestrator
 ```
 
-### Core Services
+### 核心服务
 
-| Service | Purpose | Scaling |
+| 服务 | 用途 | 扩展方式 |
 |---------|---------|---------|
-| **Gateway** | REST API, authentication | Horizontal (stateless) |
-| **Orchestrator** | Task coordination, gRPC | Horizontal (stateful via Temporal) |
-| **Agent Core** | Agent execution, Rust runtime | Horizontal |
-| **LLM Service** | LLM provider gateway | Horizontal |
-| **Dashboard** | Real-time monitoring UI | Horizontal (stateless) |
+| **Gateway** | REST API, 身份认证 | 水平扩展 (无状态) |
+| **Orchestrator** | 任务协调, gRPC | 水平扩展 (通过 Temporal 有状态) |
+| **Agent Core** | Agent 执行, Rust 运行时 | 水平扩展 |
+| **LLM Service** | LLM 提供商网关 | 水平扩展 |
+| **Dashboard** | 实时监控 UI | 水平扩展 (无状态) |
 
-### Data Stores
+### 数据存储
 
-| Store | Purpose | Scaling |
+| 存储 | 用途 | 扩展方式 |
 |-------|---------|---------|
-| **PostgreSQL** | Task metadata, events, sessions | Vertical + read replicas |
-| **Redis** | Caching, pub/sub, sessions | Cluster mode |
-| **Qdrant** | Vector embeddings, semantic memory | Horizontal |
-| **Temporal** | Workflow state, durable execution | Cluster mode |
+| **PostgreSQL** | 任务元数据、事件、会话 | 垂直扩展 + 只读副本 |
+| **Redis** | 缓存、发布/订阅、会话 | 集群模式 |
+| **Qdrant** | 向量嵌入、语义记忆 | 水平扩展 |
+| **Temporal** | 工作流状态、持久化执行 | 集群模式 |
 
-## Production Checklist
+## 生产环境检查清单
 
-Before deploying to production:
+在部署到生产环境之前:
 
-### Security
-- [ ] Enable authentication (`GATEWAY_SKIP_AUTH=0`)
-- [ ] Configure TLS/SSL for all services
-- [ ] Rotate API keys regularly
-- [ ] Set up OPA policies for access control
-- [ ] Enable audit logging
-- [ ] Configure network policies/firewalls
+### 安全性
+- [ ] 启用身份认证 (`GATEWAY_SKIP_AUTH=0`)
+- [ ] 为所有服务配置 TLS/SSL
+- [ ] 定期轮换 API 密钥
+- [ ] 设置 OPA 策略进行访问控制
+- [ ] 启用审计日志
+- [ ] 配置网络策略/防火墙
 
-### Reliability
-- [ ] Set up health checks and readiness probes
-- [ ] Configure auto-scaling policies
-- [ ] Implement circuit breakers
-- [ ] Set resource limits (CPU, memory)
-- [ ] Configure backup and disaster recovery
-- [ ] Test failover scenarios
+### 可靠性
+- [ ] 设置健康检查和就绪探针
+- [ ] 配置自动扩展策略
+- [ ] 实现熔断器
+- [ ] 设置资源限制 (CPU、内存)
+- [ ] 配置备份和灾难恢复
+- [ ] 测试故障转移场景
 
-### Observability
-- [ ] Deploy Prometheus and Grafana
-- [ ] Configure alerting rules
-- [ ] Set up log aggregation (ELK/Loki)
-- [ ] Enable distributed tracing (OpenTelemetry)
-- [ ] Create runbooks for common issues
+### 可观测性
+- [ ] 部署 Prometheus 和 Grafana
+- [ ] 配置告警规则
+- [ ] 设置日志聚合 (ELK/Loki)
+- [ ] 启用分布式追踪 (OpenTelemetry)
+- [ ] 为常见问题创建运维手册
 
-### Performance
-- [ ] Tune Temporal worker concurrency
-- [ ] Optimize database connections
-- [ ] Configure Redis caching
-- [ ] Set appropriate resource limits
-- [ ] Load test before production launch
+### 性能
+- [ ] 调优 Temporal worker 并发
+- [ ] 优化数据库连接
+- [ ] 配置 Redis 缓存
+- [ ] 设置适当的资源限制
+- [ ] 生产环境启动前进行负载测试
 
-## Resource Requirements
+## 资源需求
 
-### Minimum (Development)
+### 最低配置 (开发环境)
 
-- **CPU**: 4 cores
+- **CPU**: 4 核
 - **RAM**: 8GB
-- **Storage**: 20GB SSD
+- **存储**: 20GB SSD
 
-### Recommended (Production - Small)
+### 推荐配置 (生产环境 - 小型)
 
-- **CPU**: 16 cores total (distributed across services)
-- **RAM**: 32GB total
-- **Storage**: 100GB SSD
-- **Network**: 1Gbps
+- **CPU**: 总共 16 核 (分布在各服务中)
+- **RAM**: 总共 32GB
+- **存储**: 100GB SSD
+- **网络**: 1Gbps
 
-### Recommended (Production - Large)
+### 推荐配置 (生产环境 - 大型)
 
-- **CPU**: 64+ cores
+- **CPU**: 64+ 核
 - **RAM**: 128GB+
-- **Storage**: 500GB+ SSD
-- **Network**: 10Gbps
-- **Load Balancer**: Required
-- **Multi-AZ**: Recommended
+- **存储**: 500GB+ SSD
+- **网络**: 10Gbps
+- **负载均衡器**: 必需
+- **多可用区**: 推荐
 
-## What's Next?
+## 下一步
 
 <CardGroup cols={2}>
-  <Card title="Quick Start" icon="rocket" href="/cn/quickstart/installation">
-    Install Shannon locally first
+  <Card title="快速开始" icon="rocket" href="/cn/quickstart/installation">
+    首先在本地安装 Shannon
   </Card>
 
-  <Card title="Configuration" icon="gear" href="/cn/quickstart/configuration">
-    Understand environment variables
+  <Card title="配置" icon="gear" href="/cn/quickstart/configuration">
+    了解环境变量
   </Card>
 
-  <Card title="Architecture" icon="sitemap" href="/cn/architecture/overview">
-    Learn system architecture
+  <Card title="架构" icon="sitemap" href="/cn/architecture/overview">
+    学习系统架构
   </Card>
 
-  <Card title="Monitoring" icon="chart-line" href="/cn/quickstart/concepts/monitoring">
-    Set up monitoring
+  <Card title="监控" icon="chart-line" href="/cn/quickstart/concepts/monitoring">
+    设置监控
   </Card>
 </CardGroup>
 
-## Get Help
+## 获取帮助
 
-- **Discord**: Join our [community](https://discord.gg/NB7C2fMcQR) for deployment help
-- **GitHub**: File deployment issues or questions
-- **Docs**: Check [Troubleshooting](/cn/quickstart/troubleshooting) for common problems
-
-
----
-
-## 参与翻译
-
-如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。
+- **Discord**: 加入我们的[社区](https://discord.gg/NB7C2fMcQR)获取部署帮助
+- **GitHub**: 提交部署问题或疑问
+- **文档**: 查看[故障排除](/cn/quickstart/troubleshooting)了解常见问题
