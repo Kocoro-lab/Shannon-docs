@@ -4,7 +4,7 @@ Official documentation for [Shannon](https://github.com/Kocoro-lab/Shannon) - Pr
 
 ## Documentation Site
 
-This repository contains the Mintlify-based documentation for Shannon. Visit the live site at [docs.shannon.dev](https://docs.shannon.dev) (coming soon).
+This repository contains the Mintlify-based documentation for Shannon. Visit the live site at [shannon.kocoro.dev](shannon.kocoro.dev).
 
 ## Local Development
 
