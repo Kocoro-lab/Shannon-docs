@@ -5,38 +5,38 @@ description: "5 分钟内开始使用 Shannon Python SDK"
 
 ## 安装
 
-\`\`\`bash
+```bash
 pip install shannon-sdk
-\`\`\`
+```
 
 ## 您的第一个任务
 
 ### 1. 导入和初始化
 
-\`\`\`python
+```python
 from shannon import ShannonClient
 
 # 默认值：gRPC localhost:50052，SSE http://localhost:8081
 client = ShannonClient()
-\`\`\`
+```
 
 ### 2. 提交任务
 
-\`\`\`python
+```python
 handle = client.submit_task(query="法国的首都是什么？")
 print("任务已提交：", handle.task_id)
-\`\`\`
+```
 
 ### 3. 获取结果
 
-\`\`\`python
+```python
 final = client.wait(handle.task_id, timeout=60)
 print("结果：", final.result)
-\`\`\`
+```
 
 ## 完整示例
 
-\`\`\`python
+```python
 from shannon import ShannonClient
 
 def main():
@@ -51,41 +51,41 @@ def main():
 
 if __name__ == "__main__":
     main()
-\`\`\`
+```
 
 ## 常见模式
 
 ### 幂等性
 
-\`\`\`python
+```python
 # 如果需要，使用通过网关的 HTTP 以在提交时使用幂等性
 # （幂等性是 REST 功能；SDK 通过 gRPC 提交。）
-\`\`\`
+```
 
 ### 多轮对话
 
-\`\`\`python
+```python
 session_id = "user-123-chat"
 handle1 = client.submit_task(query="Python 是什么？", session_id=session_id)
 print(client.wait(handle1.task_id).result)
 
 handle2 = client.submit_task(query="它的主要优点是什么？", session_id=session_id)
 print(client.wait(handle2.task_id).result)
-\`\`\`
+```
 
 ### 流式事件
 
-\`\`\`python
+```python
 handle = client.submit_task(query="研究量子计算的突破")
 for event in client.stream(handle.workflow_id):
     print(f"[{event.type}] {event.message}")
     if event.type == "TASK_COMPLETED":
         break
-\`\`\`
+```
 
 ### 错误处理
 
-\`\`\`python
+```python
 from shannon.errors import ShannonError, TaskTimeoutError
 
 try:
@@ -97,7 +97,7 @@ except TaskTimeoutError:
     print("任务超时")
 except ShannonError as e:
     print(f"Shannon 错误：{e}")
-\`\`\`
+```
 
 ## 任务模式
 
@@ -107,15 +107,15 @@ Shannon 在内部选择执行模式。SDK 调用不接受 `mode` 参数。
 
 ### 同步
 
-\`\`\`python
+```python
 handle = client.submit_task(query="...")
 status = client.get_status(handle.task_id)
 print("状态：", status.status)
-\`\`\`
+```
 
 ### 使用轮询
 
-\`\`\`python
+```python
 import time
 
 handle = client.submit_task(query="长时间运行的任务")
@@ -125,11 +125,11 @@ while True:
     if status.status in [status.status.COMPLETED, status.status.FAILED]:
         break
     time.sleep(2)
-\`\`\`
+```
 
 ## 异步用法
 
-\`\`\`python
+```python
 import asyncio
 from shannon import AsyncShannonClient
 
@@ -140,11 +140,11 @@ async def main():
         print(result.result)
 
 asyncio.run(main())
-\`\`\`
+```
 
 ### 并行执行多个任务
 
-\`\`\`python
+```python
 async def analyze_multiple():
     async with AsyncShannonClient() as client:
         handles = await asyncio.gather(*[
@@ -157,15 +157,15 @@ async def analyze_multiple():
             print(f"任务 {i}：{result.result}")
 
 asyncio.run(analyze_multiple())
-\`\`\`
+```
 
 ## 配置
 
 ### 客户端配置
 
-\`\`\`python
+```python
 client = ShannonClient(api_key="sk_test_123456")
-\`\`\`
+```
 
 ### 任务配置
 
@@ -177,64 +177,64 @@ client = ShannonClient(api_key="sk_test_123456")
 
 ### 2. 使用上下文管理器
 
-\`\`\`python
+```python
 async with AsyncShannonClient() as client:
     handle = await client.submit_task(...)
     status = await client.wait(handle.task_id)
-\`\`\`
+```
 
 ### 3. 处理错误
 
-\`\`\`python
+```python
 try:
     result = client.wait(handle.task_id)
 except ShannonError as e:
     print(f"任务失败：{e}")
-\`\`\`
+```
 
 ### 4. 对长任务使用流式传输
 
-\`\`\`python
+```python
 # ✅ 好：实时反馈
 for event in client.stream(workflow_id):
     update_ui(event)
 
 # ❌ 较不理想：阻塞等待
 result = handle.wait(timeout=600)
-\`\`\`
+```
 
 ## 按用例的示例
 
 ### 情绪分析
 
-\`\`\`python
+```python
 handle = client.submit_task(query="分析情绪：产品太棒了！")
 print(client.wait(handle.task_id).result)
-\`\`\`
+```
 
 ### 数据研究
 
-\`\`\`python
+```python
 handle = client.submit_task(query="研究前 3 个云提供商并比较定价")
 for event in client.stream(handle.workflow_id):
     print(event.type)
-\`\`\`
+```
 
 ### 代码生成
 
-\`\`\`python
+```python
 handle = client.submit_task(query="编写 Python 函数以计算斐波那契数列")
 print(client.wait(handle.task_id).result)
-\`\`\`
+```
 
 ### 复杂分析
 
-\`\`\`python
+```python
 handle = client.submit_task(
     query="比较 SQL 和 NoSQL 数据库用于电子商务平台"
 )
 print(client.wait(handle.task_id, timeout=300).result)
-\`\`\`
+```
 
 ## 后续步骤
 
