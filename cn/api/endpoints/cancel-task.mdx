@@ -1,27 +1,19 @@
 ---
-title: "Cancel Task"
-description: "Cancel a running task via SDK/gRPC"
+title: "取消任务"
+description: "通过 SDK/gRPC 取消运行中的任务"
 ---
-
-> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
-
-**原文件**: `api/endpoints/cancel-task.mdx`
-**英文版本**: [查看英文文档](/en/api/endpoints/cancel-task)
-
----
-
 
 <Warning>
-Task cancellation is **only available via the Python SDK and gRPC**. The REST API does not currently support a `DELETE /api/v1/tasks/{id}` endpoint. Use the SDK methods below.
+任务取消**仅通过 Python SDK 和 gRPC 可用**。REST API 目前不支持 `DELETE /api/v1/tasks/{id}` 端点。请使用下面的 SDK 方法。
 </Warning>
 
-## Overview
+## 概述
 
-Cancel a running task to stop execution and free resources. Cancellation is graceful and may take a few seconds to complete.
+取消正在运行的任务以停止执行并释放资源。取消是优雅的，可能需要几秒钟才能完成。
 
-## SDK Method Signature
+## SDK 方法签名
 
-### Python SDK (Sync)
+### Python SDK (同步)
 
 ```python
 def cancel(
@@ -32,7 +24,7 @@ def cancel(
 ) -> bool
 ```
 
-### Python SDK (Async)
+### Python SDK (异步)
 
 ```python
 async def cancel(
@@ -43,44 +35,44 @@ async def cancel(
 ) -> bool
 ```
 
-### Parameters
+### 参数
 
-| Parameter | Type | Required | Description |
+| 参数 | 类型 | 必需 | 描述 |
 |-----------|------|----------|-------------|
-| `task_id` | string | Yes | Task identifier to cancel |
-| `reason` | string | No | Optional cancellation reason |
-| `timeout` | float | No | Request timeout in seconds |
+| `task_id` | string | 是 | 要取消的任务标识符 |
+| `reason` | string | 否 | 可选的取消原因 |
+| `timeout` | float | 否 | 请求超时时间（秒） |
 
-### Returns
+### 返回值
 
-- **Type**: `bool`
-- **Value**: `True` if cancellation was successful, `False` otherwise
+- **类型**：`bool`
+- **值**：取消成功返回 `True`，否则返回 `False`
 
-## Examples
+## 示例
 
-### Basic Cancellation
+### 基本取消
 
 ```python
 from shannon import ShannonClient
 
 client = ShannonClient()
 
-# Submit a task
+# 提交任务
 handle = client.submit_task(query="Long running analysis...")
 
-# Cancel the task
+# 取消任务
 success = client.cancel(handle.task_id)
 print("Task cancelled" if success else "Cancellation failed")
 ```
 
-### Cancellation with Reason
+### 带原因的取消
 
 ```python
 from shannon import ShannonClient
 
 client = ShannonClient()
 
-# Cancel with reason
+# 带原因取消
 success = client.cancel(
     task_id="task-dev-1730000000",
     reason="User requested abort"
@@ -92,7 +84,7 @@ else:
     print("Failed to cancel task")
 ```
 
-### Async Cancellation
+### 异步取消
 
 ```python
 from shannon import AsyncShannonClient
@@ -100,10 +92,10 @@ import asyncio
 
 async def cancel_task():
     async with AsyncShannonClient() as client:
-        # Submit task
+        # 提交任务
         handle = await client.submit_task(query="Process large dataset...")
 
-        # Cancel after some condition
+        # 在某个条件后取消
         success = await client.cancel(
             task_id=handle.task_id,
             reason="Timeout exceeded"
@@ -111,56 +103,56 @@ async def cancel_task():
 
         return success
 
-# Run async
+# 运行异步函数
 result = asyncio.run(cancel_task())
 print(f"Cancellation {'succeeded' if result else 'failed'}")
 ```
 
-## Behavior and Considerations
+## 行为和注意事项
 
-### Graceful Cancellation
+### 优雅取消
 
-Cancellation is not instantaneous. When you call `cancel()`:
+取消不是瞬时的。当您调用 `cancel()` 时：
 
-1. The cancellation request is sent to the Temporal workflow
-2. The workflow receives the cancellation signal
-3. Running agents complete their current operation
-4. Resources are cleaned up and the task status updates to `TASK_STATUS_CANCELLED`
+1. 取消请求被发送到 Temporal 工作流
+2. 工作流接收取消信号
+3. 运行中的智能体完成当前操作
+4. 清理资源并将任务状态更新为 `TASK_STATUS_CANCELLED`
 
-This process typically takes 1-5 seconds.
+此过程通常需要 1-5 秒。
 
-### Partial Results
+### 部分结果
 
-Tasks cancelled mid-execution may have partial results available. Check the task status after cancellation:
+在执行中途取消的任务可能有部分结果可用。取消后检查任务状态：
 
 ```python
-# Cancel task
+# 取消任务
 client.cancel(task_id)
 
-# Wait a moment for cancellation to complete
+# 等待片刻以完成取消
 import time
 time.sleep(2)
 
-# Check final status
+# 检查最终状态
 status = client.get_status(task_id)
 if status.result:
     print("Partial result:", status.result)
 ```
 
-### Cost Implications
+### 成本影响
 
-- **Tokens consumed before cancellation are still charged**
-- Check `status.metrics.cost_usd` to see accumulated costs
-- Budget limits are enforced even on cancelled tasks
+- **取消前消耗的令牌仍然会被计费**
+- 检查 `status.metrics.cost_usd` 查看累积成本
+- 即使在取消的任务上也会执行预算限制
 
-### When Cancellation Fails
+### 取消失败时
 
-The `cancel()` method returns `False` if:
-- Task ID not found
-- Task already completed/failed/cancelled
-- Network/connection error
+`cancel()` 方法在以下情况返回 `False`：
+- 未找到任务 ID
+- 任务已完成/失败/取消
+- 网络/连接错误
 
-Handle failures appropriately:
+适当处理失败：
 
 ```python
 from shannon import errors
@@ -175,20 +167,13 @@ except errors.ConnectionError as e:
     print(f"Connection failed: {e}")
 ```
 
-## Next Steps
+## 下一步
 
 <CardGroup cols={2}>
-  <Card title="Stream Events" icon="stream" href="/cn/api/endpoints/stream-task">
-    Monitor task execution
+  <Card title="流式事件" icon="stream" href="/cn/api/endpoints/stream-task">
+    监控任务执行
   </Card>
-  <Card title="List Tasks" icon="list" href="/cn/api/endpoints/list-tasks">
-    View all tasks
+  <Card title="列出任务" icon="list" href="/cn/api/endpoints/list-tasks">
+    查看所有任务
   </Card>
 </CardGroup>
-
-
----
-
-## 参与翻译
-
-如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。
