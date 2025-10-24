@@ -4,7 +4,7 @@ Official documentation for [Shannon](https://github.com/Kocoro-lab/Shannon) - Pr
 
 ## Documentation Site
 
-This repository contains the Mintlify-based documentation for Shannon. Visit the live site at [shannon.kocoro.dev](shannon.kocoro.dev).
+This repository contains the Mintlify-based documentation for Shannon. Visit the live site at [https://shannon.kocoro.dev](https://shannon.kocoro.dev).
 
 ## Local Development
 
@@ -24,11 +24,6 @@ mint dev
 
 # The site will be available at http://localhost:3000 (or next available port)
 ```
-
-## Project Documents
-
-- **[CLAUDE.md](./CLAUDE.md)**: Claude Code development guidelines for this repo
-
 ## Configuration
 
 ### mint.json
