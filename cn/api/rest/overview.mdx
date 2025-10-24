@@ -1,111 +1,103 @@
 ---
-title: "REST API Overview"
-description: "Complete REST API reference for Shannon Gateway"
+title: "REST API 概览"
+description: "Shannon Gateway 的完整 REST API 参考"
 ---
 
-> 🚧 **翻译进行中** - 此文档正在从英文翻译为中文
-
-**原文件**: `api/rest/overview.mdx`
-**英文版本**: [查看英文文档](/en/api/rest/overview)
-
----
-
-
-## Base URL
+## 基础 URL
 
 ```
 http://localhost:8080
 ```
 
-For production deployments, replace `localhost:8080` with your gateway URL.
+对于生产环境部署，请将 `localhost:8080` 替换为您的网关 URL。
 
-## API Endpoints
+## API 端点
 
-Shannon provides 11 REST API endpoints organized into three categories:
+Shannon 提供了 11 个 REST API 端点，分为三类：
 
-### Task Management
+### 任务管理
 
-| Method | Endpoint | Description | Auth Required |
+| 方法 | 端点 | 描述 | 需要认证 |
 |--------|----------|-------------|---------------|
-| `POST` | `/api/v1/tasks` | Submit a new task | Yes |
-| `GET` | `/api/v1/tasks` | List tasks with filters | Yes |
-| `GET` | `/api/v1/tasks/{id}` | Get task status and result | Yes |
-| `GET` | `/api/v1/tasks/{id}/events` | Get task event history | Yes |
-| `GET` | `/api/v1/tasks/{id}/timeline` | Get task execution timeline | Yes |
+| `POST` | `/api/v1/tasks` | 提交新任务 | 是 |
+| `GET` | `/api/v1/tasks` | 列出任务（支持过滤） | 是 |
+| `GET` | `/api/v1/tasks/{id}` | 获取任务状态和结果 | 是 |
+| `GET` | `/api/v1/tasks/{id}/events` | 获取任务事件历史 | 是 |
+| `GET` | `/api/v1/tasks/{id}/timeline` | 获取任务执行时间线 | 是 |
 
-### Streaming
+### 流式传输
 
-| Method | Endpoint | Description | Auth Required |
+| 方法 | 端点 | 描述 | 需要认证 |
 |--------|----------|-------------|---------------|
-| `GET` | `/api/v1/tasks/{id}/stream` | Stream task events (SSE) | Yes |
-| `GET` | `/api/v1/stream/sse` | Server-Sent Events endpoint | Yes |
-| `GET` | `/api/v1/stream/ws` | WebSocket streaming endpoint | Yes |
+| `GET` | `/api/v1/tasks/{id}/stream` | 流式传输任务事件 (SSE) | 是 |
+| `GET` | `/api/v1/stream/sse` | Server-Sent Events 端点 | 是 |
+| `GET` | `/api/v1/stream/ws` | WebSocket 流式传输端点 | 是 |
 
-### Health & Observability
+### 健康检查与可观测性
 
-| Method | Endpoint | Description | Auth Required |
+| 方法 | 端点 | 描述 | 需要认证 |
 |--------|----------|-------------|---------------|
-| `GET` | `/health` | Health check probe | No |
-| `GET` | `/readiness` | Readiness check probe | No |
-| `GET` | `/openapi.json` | OpenAPI 3.0 specification | No |
+| `GET` | `/health` | 健康检查探针 | 否 |
+| `GET` | `/readiness` | 就绪检查探针 | 否 |
+| `GET` | `/openapi.json` | OpenAPI 3.0 规范 | 否 |
 
-## Authentication
+## 身份认证
 
-All task and streaming endpoints require authentication via API key.
+所有任务和流式传输端点都需要通过 API 密钥进行身份认证。
 
-### API Key Header
+### API 密钥请求头
 
 ```bash
 curl -H "X-API-Key: sk_test_123456" \
   http://localhost:8080/api/v1/tasks
 ```
 
-### Disabling Auth (Development Only)
+### 禁用认证（仅限开发环境）
 
-Set environment variable:
+设置环境变量：
 
 ```bash
 GATEWAY_SKIP_AUTH=1
 ```
 
-**Warning**: Never disable authentication in production.
+**警告**：切勿在生产环境中禁用身份认证。
 
-## Common Headers
+## 通用请求头
 
-### Request Headers
+### 请求头
 
-| Header | Required | Description | Example |
+| 请求头 | 必需 | 描述 | 示例 |
 |--------|----------|-------------|---------|
-| `X-API-Key` | Yes* | Authentication key | `sk_test_123456` |
-| `Content-Type` | Yes (POST) | Request body format | `application/json` |
-| `Idempotency-Key` | No | Prevent duplicate submissions | `550e8400-e29b-41d4-a716-446655440000` |
-| `traceparent` | No | W3C trace context | `00-4bf92f...` |
+| `X-API-Key` | 是* | 认证密钥 | `sk_test_123456` |
+| `Content-Type` | 是 (POST) | 请求体格式 | `application/json` |
+| `Idempotency-Key` | 否 | 防止重复提交 | `550e8400-e29b-41d4-a716-446655440000` |
+| `traceparent` | 否 | W3C 追踪上下文 | `00-4bf92f...` |
 
-*Not required if `GATEWAY_SKIP_AUTH=1`
+*如果设置了 `GATEWAY_SKIP_AUTH=1` 则不需要
 
-### Response Headers
+### 响应头
 
-| Header | Description | Example |
+| 响应头 | 描述 | 示例 |
 |--------|-------------|---------|
-| `X-Workflow-ID` | Temporal workflow identifier | `task_abc123_workflow` |
-| `X-Session-ID` | Session identifier | `user-123-session` |
-| `Content-Type` | Response format | `application/json` |
+| `X-Workflow-ID` | Temporal 工作流标识符 | `task_abc123_workflow` |
+| `X-Session-ID` | 会话标识符 | `user-123-session` |
+| `Content-Type` | 响应格式 | `application/json` |
 
-## Rate Limiting
+## 速率限制
 
-Rate limits are enforced per API key and stored in Redis.
+速率限制按 API 密钥执行，存储在 Redis 中。
 
-### Rate Limit Headers
+### 速率限制响应头
 
 ```bash
-X-RateLimit-Limit: 100          # Requests per window
-X-RateLimit-Remaining: 95       # Remaining requests
-X-RateLimit-Reset: 1609459200   # Unix timestamp
+X-RateLimit-Limit: 100          # 每个时间窗口的请求数
+X-RateLimit-Remaining: 95       # 剩余请求数
+X-RateLimit-Reset: 1609459200   # Unix 时间戳
 ```
 
-### Rate Limit Errors
+### 速率限制错误
 
-**Status**: `429 Too Many Requests`
+**状态码**：`429 Too Many Requests`
 
 ```json
 {
@@ -114,11 +106,11 @@ X-RateLimit-Reset: 1609459200   # Unix timestamp
 }
 ```
 
-**Default Limits**:
-- **Standard**: 100 requests/minute per API key
-- **Burst**: 20 requests/second
+**默认限制**：
+- **标准**：每个 API 密钥 100 请求/分钟
+- **突发**：20 请求/秒
 
-Configure via environment:
+通过环境变量配置：
 ```bash
 RATE_LIMIT_RPM=100
 RATE_LIMIT_BURST=20
