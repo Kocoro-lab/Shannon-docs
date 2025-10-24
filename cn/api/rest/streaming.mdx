@@ -26,9 +26,9 @@ Shannon 通过 Server-Sent Events (SSE) 和 WebSocket 协议提供实时事件�
 
 **必需**：是
 
-\`\`\`
+```
 X-API-Key: sk_test_123456
-\`\`\`
+```
 
 #### 查询参数
 
@@ -42,23 +42,23 @@ X-API-Key: sk_test_123456
 
 每个事件遵循 SSE 规范：
 
-\`\`\`
+```
 id: <event_id>
 event: <event_type>
 data: <json_payload>
 
-\`\`\`
+```
 
 #### 示例请求
 
-\`\`\`bash
+```bash
 curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id=task_abc123" \\
   -H "X-API-Key: sk_test_123456"
-\`\`\`
+```
 
 #### 示例响应
 
-\`\`\`
+```
 id: 1
 event: WORKFLOW_STARTED
 data: {"workflow_id":"task_abc123","timestamp":"2025-10-22T10:30:00Z","message":"工作流已启动"}
@@ -82,13 +82,13 @@ data: {"workflow_id":"task_abc123","agent_id":"agent_1","result":"Python 是一�
 id: 6
 event: TASK_COMPLETED
 data: {"workflow_id":"task_abc123","status":"COMPLETED","result":"...","timestamp":"2025-10-22T10:30:07Z"}
-\`\`\`
+```
 
 ### GET /api/v1/tasks/{id}/stream
 
 便捷端点，重定向到 `/api/v1/stream/sse`，并设置 workflow_id。
 
-\`\`\`bash
+```bash
 # 此端点
 curl -N "http://localhost:8080/api/v1/tasks/task_abc123/stream" \\
   -H "X-API-Key: sk_test_123456"
@@ -96,7 +96,7 @@ curl -N "http://localhost:8080/api/v1/tasks/task_abc123/stream" \\
 # 重定向到（307 临时重定向）
 curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id=task_abc123" \\
   -H "X-API-Key: sk_test_123456"
-\`\`\`
+```
 
 ## WebSocket
 
@@ -114,7 +114,7 @@ curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id=task_abc123" \\
 服务器环境中基于标头的示例：
 
 Node (ws)：
-\`\`\`js
+```js
 import WebSocket from 'ws';
 
 const ws = new WebSocket('ws://localhost:8080/api/v1/stream/ws', {
@@ -131,10 +131,10 @@ ws.on('message', (msg) => {
 });
 
 ws.on('error', (err) => console.error('WebSocket 错误：', err));
-\`\`\`
+```
 
 Python (websockets)：
-\`\`\`python
+```python
 import asyncio, json, websockets
 
 async def main():
@@ -148,7 +148,7 @@ async def main():
             print('事件：', data.get('type'), data.get('message'))
 
 asyncio.run(main())
-\`\`\`
+```
 
 <Note>
 不支持通过查询字符串传递 API 密钥或通过网关的连接后"auth"消息。
@@ -158,7 +158,7 @@ asyncio.run(main())
 
 **客户端 → 服务器**：
 
-\`\`\`json
+```json
 // 订阅工作流
 {
   "type": "subscribe",
@@ -176,11 +176,11 @@ asyncio.run(main())
 {
   "type": "ping"
 }
-\`\`\`
+```
 
 **服务器 → 客户端**：
 
-\`\`\`json
+```json
 // 事件
 {
   "type": "AGENT_THINKING",
@@ -193,7 +193,7 @@ asyncio.run(main())
 {
   "type": "pong"
 }
-\`\`\`
+```
 
 ## 事件类型
 
@@ -240,7 +240,7 @@ asyncio.run(main())
 
 ### Python with httpx (SSE)
 
-\`\`\`python
+```python
 import httpx
 import json
 
@@ -266,11 +266,11 @@ for event in stream_task_events("task_abc123", "sk_test_123456"):
     if event.get('type') == 'TASK_COMPLETED':
         print("最终结果：", event.get('result'))
         break
-\`\`\`
+```
 
 ### Python - 流式传输带事件筛选
 
-\`\`\`python
+```python
 def stream_filtered_events(task_id: str, api_key: str, event_types: list):
     """仅流式传输特定事件类型。"""
     types_param = ",".join(event_types)
@@ -288,15 +288,15 @@ for event in stream_filtered_events(
     ["AGENT_THINKING", "TOOL_INVOKED", "TOOL_RESULT"]
 ):
     print(f"{event['type']}：{event.get('message', event.get('tool'))}")
-\`\`\`
+```
 
 ### JavaScript/Node.js (SSE)
 
-\`\`\`javascript
+```javascript
 const EventSource = require('eventsource');
 
 function streamTaskEvents(taskId, apiKey) {
-  const url = \`http://localhost:8080/api/v1/stream/sse?workflow_id=\${taskId}\`;
+  const url = `http://localhost:8080/api/v1/stream/sse?workflow_id=${taskId}`;
 
   const eventSource = new EventSource(url, {
     headers: {
@@ -306,7 +306,7 @@ function streamTaskEvents(taskId, apiKey) {
 
   eventSource.onmessage = (event) => {
     const data = JSON.parse(event.data);
-    console.log(\`[\${data.type}] \${data.message || ''}\`);
+    console.log(`[${data.type}] ${data.message || ''}`);
 
     if (data.type === 'TASK_COMPLETED') {
       console.log('最终结果：', data.result);
@@ -327,16 +327,16 @@ const stream = streamTaskEvents('task_abc123', 'sk_test_123456');
 
 // 手动关闭
 setTimeout(() => stream.close(), 60000);
-\`\`\`
+```
 
 ### JavaScript/Node.js - WebSocket (ws)
 
-\`\`\`javascript
+```javascript
 import WebSocket from 'ws';
 
 function connectWebSocket(taskId, apiKey) {
   const ws = new WebSocket(
-    \`ws://localhost:8080/api/v1/stream/ws?workflow_id=\${taskId}\`,
+    `ws://localhost:8080/api/v1/stream/ws?workflow_id=${taskId}`,
     { headers: { 'X-API-Key': apiKey } }
   );
 
@@ -346,20 +346,20 @@ function connectWebSocket(taskId, apiKey) {
     const data = JSON.parse(msg.toString());
     switch (data.type) {
       case 'AGENT_THINKING':
-        console.log(\`💭 \${data.message}\`);
+        console.log(`💭 ${data.message}`);
         break;
       case 'TOOL_INVOKED':
-        console.log(\`🔧 工具：\${data.tool}\`);
+        console.log(`🔧 工具：${data.tool}`);
         break;
       case 'TOOL_RESULT':
-        console.log(\`✓ 结果：\${data.result}\`);
+        console.log(`✓ 结果：${data.result}`);
         break;
       case 'TASK_COMPLETED':
-        console.log(\`✓ 完成：\${data.result}\`);
+        console.log(`✓ 完成：${data.result}`);
         ws.close();
         break;
       default:
-        console.log(\`[\${data.type}] \${data.message || ''}\`);
+        console.log(`[${data.type}] ${data.message || ''}`);
     }
   });
 
@@ -370,11 +370,11 @@ function connectWebSocket(taskId, apiKey) {
 }
 
 const ws = connectWebSocket('task_abc123', 'sk_test_123456');
-\`\`\`
+```
 
 ### Go (SSE)
 
-\`\`\`go
+```go
 package main
 
 import (
@@ -386,10 +386,10 @@ import (
 )
 
 type Event struct {
-    Type      string                 \`json:"type"\`
-    WorkflowID string                \`json:"workflow_id"\`
-    Message   string                 \`json:"message,omitempty"\`
-    Data      map[string]interface{} \`json:",inline"\`
+    Type      string                 `json:"type"`
+    WorkflowID string                `json:"workflow_id"`
+    Message   string                 `json:"message,omitempty"`
+    Data      map[string]interface{} `json:",inline"`
 }
 
 func streamEvents(taskID, apiKey string) error {
@@ -437,11 +437,11 @@ func main() {
         fmt.Println("错误：", err)
     }
 }
-\`\`\`
+```
 
 ### Bash/curl (SSE)
 
-\`\`\`bash
+```bash
 #!/bin/bash
 
 API_KEY="sk_test_123456"
@@ -452,7 +452,7 @@ curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id=$TASK_ID" \\
   | while IFS= read -r line; do
     if [[ $line == data:* ]]; then
       # 从"data：{...}"提取 JSON
-      JSON="\${line#data:}"
+      JSON="${line#data:}"
 
       # 解析并显示
       TYPE=$(echo "$JSON" | jq -r '.type')
@@ -468,13 +468,13 @@ curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id=$TASK_ID" \\
       fi
     fi
   done
-\`\`\`
+```
 
 ## 用例
 
 ### 1. 实时进度显示
 
-\`\`\`python
+```python
 def display_progress(task_id: str, api_key: str):
     """向用户显示实时进度。"""
     print(f"任务 {task_id} 启动...")
@@ -493,11 +493,11 @@ def display_progress(task_id: str, api_key: str):
         elif event_type == 'TASK_COMPLETED':
             print(f"\n\n✓ 完成！")
             return event['result']
-\`\`\`
+```
 
 ### 2. 将所有事件记录到文件
 
-\`\`\`python
+```python
 import json
 from datetime import datetime
 
@@ -516,11 +516,11 @@ def log_events_to_file(task_id: str, api_key: str, log_file: str):
                 break
 
 log_events_to_file("task_abc123", "sk_test_123456", "task_events.jsonl")
-\`\`\`
+```
 
 ### 3. 收集工具使用指标
 
-\`\`\`python
+```python
 def collect_tool_metrics(task_id: str, api_key: str):
     """收集有关工具使用的指标。"""
     metrics = {
@@ -546,11 +546,11 @@ def collect_tool_metrics(task_id: str, api_key: str):
 metrics = collect_tool_metrics("task_abc123", "sk_test_123456")
 print(f"使用的工具：{metrics['tool_list']}")
 print(f"成功率：{metrics['tools_succeeded']}/{metrics['tools_invoked']}")
-\`\`\`
+```
 
 ### 4. React UI 集成
 
-\`\`\`javascript
+```javascript
 import { useState, useEffect } from 'react';
 
 function TaskMonitor({ taskId, apiKey }) {
@@ -559,7 +559,7 @@ function TaskMonitor({ taskId, apiKey }) {
 
   useEffect(() => {
     const eventSource = new EventSource(
-      \`http://localhost:8080/api/v1/stream/sse?workflow_id=\${taskId}\`,
+      `http://localhost:8080/api/v1/stream/sse?workflow_id=${taskId}`,
       { headers: { 'X-API-Key': apiKey } }
     );
 
@@ -596,13 +596,13 @@ function TaskMonitor({ taskId, apiKey }) {
     </div>
   );
 }
-\`\`\`
+```
 
 ## 最佳实践
 
 ### 1. 处理连接错误
 
-\`\`\`python
+```python
 import time
 
 def stream_with_retry(task_id: str, api_key: str, max_retries: int = 3):
@@ -620,11 +620,11 @@ def stream_with_retry(task_id: str, api_key: str, max_retries: int = 3):
                 time.sleep(2 ** attempt)
             else:
                 raise
-\`\`\`
+```
 
 ### 2. 实施超时
 
-\`\`\`python
+```python
 import signal
 
 def stream_with_timeout(task_id: str, api_key: str, timeout: int = 300):
@@ -642,11 +642,11 @@ def stream_with_timeout(task_id: str, api_key: str, timeout: int = 300):
                 break
     finally:
         signal.alarm(0)  # 取消闹钟
-\`\`\`
+```
 
 ### 3. 客户端过滤事件
 
-\`\`\`python
+```python
 def stream_specific_events(task_id: str, api_key: str, event_types: set):
     """客户端过滤事件。"""
     for event in stream_task_events(task_id, api_key):
@@ -664,11 +664,11 @@ for event in stream_specific_events(
     {"AGENT_THINKING", "TOOL_INVOKED", "TOOL_RESULT"}
 ):
     print(event)
-\`\`\`
+```
 
 ### 4. 从最后一个事件恢复
 
-\`\`\`python
+```python
 def stream_with_resume(task_id: str, api_key: str, last_event_id: str = None):
     """从特定事件恢复流式传输。"""
     url = f"http://localhost:8080/api/v1/stream/sse?workflow_id={task_id}"
@@ -677,7 +677,7 @@ def stream_with_resume(task_id: str, api_key: str, last_event_id: str = None):
         url += f"&last_event_id={last_event_id}"
 
     # 流式传输事件...
-\`\`\`
+```
 
 ## 比较：SSE vs WebSocket vs 轮询
 

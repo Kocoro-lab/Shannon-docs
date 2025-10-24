@@ -13,7 +13,7 @@ Shannon Python SDK 提供全面的错误处理以帮助您构建强大的应用�
 
 ## 异常层次结构
 
-\`\`\`python
+```python
 ShannonError                    # 基础异常
 ├── ConnectionError             # 网络/连接问题
 ├── AuthenticationError         # API 密钥/身份验证问题
@@ -22,7 +22,7 @@ ShannonError                    # 基础异常
 ├── SessionNotFoundError       # 会话不存在
 ├── TaskTimeoutError           # 任务超出超时
 └── ConnectionError            # 包括 HTTP 429 速率限制
-\`\`\`
+```
 
 <Note>
 **预算和任务失败处理**：预算超出和任务失败不是异常。检查 `status.status` 字段是否为 `TASK_STATUS_FAILED` 或通过 `status.metrics.cost_usd` 监控成本。
@@ -32,7 +32,7 @@ ShannonError                    # 基础异常
 
 ### Try-Catch 模式
 
-\`\`\`python
+```python
 from shannon import ShannonClient, ShannonError
 
 client = ShannonClient(http_endpoint="http://localhost:8080")
@@ -58,10 +58,10 @@ status = client.get_status(handle.task_id)
 if status.status == "TASK_STATUS_FAILED":
     print(f"任务失败：{status.error}")
 if status.metrics and status.metrics.cost_usd > 1.0:
-    print(f"高成本：\${status.metrics.cost_usd}")
+    print(f"高成本：${status.metrics.cost_usd}")
 except Exception as e:
     print(f"意外错误：{e}")
-\`\`\`
+```
 
 ## 特定错误类型
 
@@ -69,7 +69,7 @@ except Exception as e:
 
 处理网络和连接问题：
 
-\`\`\`python
+```python
 import time
 from shannon import ShannonClient, ConnectionError
 
@@ -90,13 +90,13 @@ def connect_with_retry(max_retries=3):
             else:
                 print(f"{max_retries} 次尝试后无法连接")
                 raise
-\`\`\`
+```
 
 ### 预算错误
 
 处理成本限制超出：
 
-\`\`\`python
+```python
 from shannon import ShannonClient
 
 def submit_with_fallback(query):
@@ -121,13 +121,13 @@ def submit_with_fallback(query):
         )
 
     return client.get_status(handle.workflow_id)
-\`\`\`
+```
 
 ### 超时错误
 
 处理长时间运行的操作：
 
-\`\`\`python
+```python
 from shannon import ShannonClient, TimeoutError
 import asyncio
 
@@ -151,13 +151,13 @@ async def with_timeout_handling():
         return None
 
     return result
-\`\`\`
+```
 
 ### 速率限制
 
 优雅地处理 API 速率限制：
 
-\`\`\`python
+```python
 from shannon import ShannonClient
 import time
 
@@ -180,13 +180,13 @@ def handle_rate_limits(queries):
                 time.sleep(reset_time)
 
     return results
-\`\`\`
+```
 
 ## 验证错误
 
 处理无效参数：
 
-\`\`\`python
+```python
 from shannon import ShannonClient, ValidationError
 
 def validate_and_submit(query, session_id=None):
@@ -213,13 +213,13 @@ def validate_and_submit(query, session_id=None):
             raise
 
     return handle
-\`\`\`
+```
 
 ## 任务失败处理
 
 处理任务执行失败：
 
-\`\`\`python
+```python
 from shannon import ShannonClient
 
 def handle_task_failure(query):
@@ -251,13 +251,13 @@ def handle_task_failure(query):
             raise
 
     return client.get_status(handle.workflow_id)
-\`\`\`
+```
 
 ## 记录错误
 
 实现全面的错误日志：
 
-\`\`\`python
+```python
 import logging
 from shannon import ShannonClient, ShannonError
 
@@ -288,13 +288,13 @@ def logged_task_submission(query):
     except Exception as e:
         logger.critical(f"意外错误：{e}", exc_info=True)
         raise
-\`\`\`
+```
 
 ## 断路器模式
 
 为弹性实现断路器：
 
-\`\`\`python
+```python
 class CircuitBreaker:
     def __init__(self, failure_threshold=5, reset_timeout=60):
         self.failure_count = 0
@@ -337,7 +337,7 @@ try:
     )
 except Exception as e:
     print(f"服务不可用：{e}")
-\`\`\`
+```
 
 ## 最佳实践
 

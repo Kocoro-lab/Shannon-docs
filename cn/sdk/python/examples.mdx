@@ -11,7 +11,7 @@ description: "使用 Shannon Python SDK 的实用示例"
 
 ### 简单问答
 
-\`\`\`python
+```python
 from shannon import ShannonClient
 
 client = ShannonClient(http_endpoint="http://localhost:8080")
@@ -24,11 +24,11 @@ handle = client.submit_task(
 
 result = client.get_status(handle.workflow_id)
 print(f"答案：{result}")
-\`\`\`
+```
 
 ### 数据分析
 
-\`\`\`python
+```python
 # 分析 CSV 数据
 handle = client.submit_task(
     query="分析此 CSV 文件中的销售趋势",
@@ -43,13 +43,13 @@ for event in client.stream(handle.workflow_id):
     elif event.type == "TASK_COMPLETED":
         print(f"分析：{event.data['result']}")
         break
-\`\`\`
+```
 
 ## 高级示例
 
 ### 多步工作流
 
-\`\`\`python
+```python
 from shannon import ShannonClient
 
 def complex_analysis():
@@ -82,11 +82,11 @@ def complex_analysis():
     )
 
     return client.get_status(report_handle.workflow_id)
-\`\`\`
+```
 
 ### 并行处理
 
-\`\`\`python
+```python
 import asyncio
 from shannon import AsyncShannonClient
 
@@ -115,11 +115,11 @@ async def parallel_research(topics):
 # 使用它
 topics = ["AI", "量子计算", "生物技术"]
 results = asyncio.run(parallel_research(topics))
-\`\`\`
+```
 
 ### 自定义预算管理
 
-\`\`\`python
+```python
 def budget_controlled_task():
     client = ShannonClient()
 
@@ -146,19 +146,19 @@ def budget_controlled_task():
     # 监控成本
     for event in client.stream(handle.workflow_id):
         if event.type == "BUDGET_UPDATE":
-            print(f"到目前为止的成本：\${event.data['cost_usd']:.3f}")
+            print(f"到目前为止的成本：${event.data['cost_usd']:.3f}")
         elif event.type == "TASK_COMPLETED":
             break
 
     result = client.get_status(handle.workflow_id)
     return result
-\`\`\`
+```
 
 ## 真实用例
 
 ### 客户支持机器人
 
-\`\`\`python
+```python
 class SupportBot:
     def __init__(self):
         self.client = ShannonClient()
@@ -193,11 +193,11 @@ bot.start_conversation("cust_12345")
 response = bot.handle_query("我如何重置密码？")
 print(response)
 bot.end_conversation()
-\`\`\`
+```
 
 ### 代码审查助手
 
-\`\`\`python
+```python
 def automated_code_review(file_path, language="python"):
     client = ShannonClient()
 
@@ -222,11 +222,11 @@ def automated_code_review(file_path, language="python"):
 # 使用它
 review = automated_code_review("app.py")
 print(review)
-\`\`\`
+```
 
 ### 研究助手
 
-\`\`\`python
+```python
 class ResearchAssistant:
     def __init__(self):
         self.client = ShannonClient()
@@ -264,11 +264,11 @@ class ResearchAssistant:
 assistant = ResearchAssistant()
 overview = assistant.research_topic("大型语言模型", depth="standard")
 comparison = assistant.compare_topics(["GPT-4", "Claude", "Gemini"])
-\`\`\`
+```
 
 ## 错误处理示例
 
-\`\`\`python
+```python
 from shannon import ShannonClient, ShannonError
 import time
 
@@ -304,7 +304,7 @@ def robust_task_submission(query, max_retries=3):
                     config={"budget": {"max_cost_usd": 0.10}}
                 )
             raise
-\`\`\`
+```
 
 ## 后续步骤
 

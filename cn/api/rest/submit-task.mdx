@@ -5,9 +5,9 @@ description: "提交新任务以供执行"
 
 ## 端点
 
-\`\`\`
+```
 POST http://localhost:8080/api/v1/tasks
-\`\`\`
+```
 
 ## 描述
 
@@ -18,9 +18,9 @@ POST http://localhost:8080/api/v1/tasks
 **必需**：是
 
 在请求头中包含 API 密钥：
-\`\`\`
+```
 X-API-Key: sk_test_123456
-\`\`\`
+```
 
 ## 请求
 
@@ -43,7 +43,7 @@ X-API-Key: sk_test_123456
 
 ### 请求体架构
 
-\`\`\`json
+```json
 {
   "query": "string (必需)",
   "session_id": "string (可选)",
@@ -52,7 +52,7 @@ X-API-Key: sk_test_123456
     "key2": "value2"
   }
 }
-\`\`\`
+```
 
 ## 响应
 
@@ -65,14 +65,14 @@ X-API-Key: sk_test_123456
 - `X-Session-ID`：会话标识符（如果未提供则自动生成）
 
 **响应体**：
-\`\`\`json
+```json
 {
   "task_id": "string",
   "status": "string",
   "message": "string (可选)",
   "created_at": "timestamp"
 }
-\`\`\`
+```
 
 ### 响应字段
 
@@ -97,28 +97,28 @@ X-API-Key: sk_test_123456
 
 ### 基本任务提交
 
-\`\`\`bash
+```bash
 curl -X POST http://localhost:8080/api/v1/tasks \\
   -H "X-API-Key: sk_test_123456" \\
   -H "Content-Type: application/json" \\
   -d '{
     "query": "法国的首都是什么？"
   }'
-\`\`\`
+```
 
 **响应**：
-\`\`\`json
+```json
 {
   "task_id": "task_01HQZX3Y9K8M2P4N5S7T9W2V",
   "status": "TASK_STATUS_QUEUED",
   "message": "任务已成功提交",
   "created_at": "2025-10-22T10:30:00Z"
 }
-\`\`\`
+```
 
 ### 带会话 ID 的任务（多轮对话）
 
-\`\`\`bash
+```bash
 # 第一轮
 curl -X POST http://localhost:8080/api/v1/tasks \\
   -H "X-API-Key: sk_test_123456" \\
@@ -136,11 +136,11 @@ curl -X POST http://localhost:8080/api/v1/tasks \\
     "query": "它的主要优点是什么？",
     "session_id": "user-123-chat"
   }'
-\`\`\`
+```
 
 ### 带上下文的任务
 
-\`\`\`bash
+```bash
 curl -X POST http://localhost:8080/api/v1/tasks \\
   -H "X-API-Key: sk_test_123456" \\
   -H "Content-Type: application/json" \\
@@ -153,11 +153,11 @@ curl -X POST http://localhost:8080/api/v1/tasks \\
       "product": "mobile_app"
     }
   }'
-\`\`\`
+```
 
 ### 带幂等性
 
-\`\`\`bash
+```bash
 # 生成幂等性密钥（使用 UUID）
 IDEMPOTENCY_KEY=$(uuidgen)
 
@@ -168,11 +168,11 @@ curl -X POST http://localhost:8080/api/v1/tasks \\
   -d '{
     "query": "分析 Q4 销售数据"
   }'
-\`\`\`
+```
 
 ### 带分布式追踪
 
-\`\`\`bash
+```bash
 curl -X POST http://localhost:8080/api/v1/tasks \\
   -H "X-API-Key: sk_test_123456" \\
   -H "traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01" \\
@@ -180,49 +180,49 @@ curl -X POST http://localhost:8080/api/v1/tasks \\
   -d '{
     "query": "研究最新的人工智能趋势"
   }'
-\`\`\`
+```
 
 ## 错误响应
 
 ### 400 错误的请求
 
 **缺少查询**：
-\`\`\`json
+```json
 {
   "error": "Query is required"
 }
-\`\`\`
+```
 
 **无效的 JSON**：
-\`\`\`json
+```json
 {
   "error": "Invalid request body: unexpected EOF"
 }
-\`\`\`
+```
 
 ### 401 未授权
 
 **缺少 API 密钥**：
-\`\`\`json
+```json
 {
   "error": "Unauthorized"
 }
-\`\`\`
+```
 
 **无效的 API 密钥**：
-\`\`\`json
+```json
 {
   "error": "Unauthorized"
 }
-\`\`\`
+```
 
 ### 429 请求过多
 
-\`\`\`json
+```json
 {
   "error": "Rate limit exceeded"
 }
-\`\`\`
+```
 
 **响应头**：
 - `X-RateLimit-Limit: 100`
@@ -232,17 +232,17 @@ curl -X POST http://localhost:8080/api/v1/tasks \\
 
 ### 500 内部服务器错误
 
-\`\`\`json
+```json
 {
   "error": "Failed to submit task: database connection failed"
 }
-\`\`\`
+```
 
 ## 代码示例
 
 ### Python with httpx
 
-\`\`\`python
+```python
 import httpx
 
 response = httpx.post(
@@ -263,11 +263,11 @@ if response.status_code == 200:
 else:
     print(f"错误：{response.status_code}")
     print(response.json())
-\`\`\`
+```
 
 ### Python with requests
 
-\`\`\`python
+```python
 import requests
 
 response = requests.post(
@@ -286,11 +286,11 @@ response = requests.post(
 
 task = response.json()
 print(f"任务已提交：{task['task_id']}")
-\`\`\`
+```
 
 ### JavaScript/Node.js
 
-\`\`\`javascript
+```javascript
 const axios = require('axios');
 
 async function submitTask(query) {
@@ -319,11 +319,11 @@ async function submitTask(query) {
 }
 
 submitTask('什么是量子计算？');
-\`\`\`
+```
 
 ### cURL with 幂等性
 
-\`\`\`bash
+```bash
 #!/bin/bash
 
 API_KEY="sk_test_123456"
@@ -342,11 +342,11 @@ echo $RESPONSE | jq
 
 TASK_ID=$(echo $RESPONSE | jq -r '.task_id')
 echo "追踪进度：http://localhost:8088/workflows/$TASK_ID"
-\`\`\`
+```
 
 ### Go
 
-\`\`\`go
+```go
 package main
 
 import (
@@ -357,15 +357,15 @@ import (
 )
 
 type TaskRequest struct {
-    Query     string                 \`json:"query"\`
-    SessionID string                 \`json:"session_id,omitempty"\`
-    Context   map[string]interface{} \`json:"context,omitempty"\`
+    Query     string                 `json:"query"`
+    SessionID string                 `json:"session_id,omitempty"`
+    Context   map[string]interface{} `json:"context,omitempty"`
 }
 
 type TaskResponse struct {
-    TaskID    string \`json:"task_id"\`
-    Status    string \`json:"status"\`
-    Message   string \`json:"message,omitempty"\`
+    TaskID    string `json:"task_id"`
+    Status    string `json:"status"`
+    Message   string `json:"message,omitempty"`
 }
 
 func submitTask(query string) (*TaskResponse, error) {
@@ -407,7 +407,7 @@ func main() {
     fmt.Printf("任务 ID：%s\n", task.TaskID)
     fmt.Printf("状态：%s\n", task.Status)
 }
-\`\`\`
+```
 
 ## 实现详情
 
@@ -452,7 +452,7 @@ func main() {
 
 ### 1. 始终为关键任务使用幂等性密钥
 
-\`\`\`python
+```python
 import uuid
 
 idempotency_key = str(uuid.uuid4())
@@ -465,11 +465,11 @@ response = httpx.post(
     },
     json={"query": "处理订单 #12345 的付款"}
 )
-\`\`\`
+```
 
 ### 2. 对对话使用会话
 
-\`\`\`python
+```python
 session_id = "user-456-chat"
 
 # 轮次 1
@@ -483,11 +483,11 @@ httpx.post(..., json={
     "query": "将其与 Q3 比较",
     "session_id": session_id
 })
-\`\`\`
+```
 
 ### 3. 提供丰富的上下文
 
-\`\`\`python
+```python
 httpx.post(..., json={
     "query": "分析此客户反馈",
     "context": {
@@ -498,11 +498,11 @@ httpx.post(..., json={
         "sentiment_history": ["positive", "neutral", "negative"]
     }
 })
-\`\`\`
+```
 
 ### 4. 妥善处理错误
 
-\`\`\`python
+```python
 try:
     response = httpx.post(..., timeout=30.0)
     response.raise_for_status()
@@ -516,11 +516,11 @@ except httpx.HTTPStatusError as e:
         # 重试...
     else:
         print(f"错误：{e.response.json()}")
-\`\`\`
+```
 
 ### 5. 存储任务 ID 以供追踪
 
-\`\`\`python
+```python
 response = httpx.post(...)
 task_id = response.json()["task_id"]
 workflow_id = response.headers["X-Workflow-ID"]
@@ -536,7 +536,7 @@ db.tasks.insert({
 
 # 稍后：检查状态
 status = httpx.get(f"http://localhost:8080/api/v1/tasks/{task_id}")
-\`\`\`
+```
 
 ## 相关端点
 
