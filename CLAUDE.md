@@ -107,6 +107,89 @@ When working on documentation, understanding Shannon's architecture helps create
 
 - **Authentication**: Disabled by default (`GATEWAY_SKIP_AUTH=1`), API key-based when enabled
 
+## Vendor Adapter Pattern (Custom Integrations)
+
+When documenting vendor-specific integrations, Shannon uses a **vendor adapter pattern** for domain-specific code without polluting the core codebase.
+
+### Architecture
+
+```
+Generic Shannon (committed to open source):
+├── python/llm-service/llm_service/tools/openapi_tool.py  # Generic OpenAPI loader
+├── python/llm-service/llm_service/roles/presets.py       # Generic roles + conditional imports
+├── go/orchestrator/internal/activities/agent.go          # Generic field mirroring
+└── config/shannon.yaml                                    # Base config (no vendor code)
+
+Vendor Extensions (NOT committed, kept private):
+├── config/overlays/shannon.vendor.yaml                    # Vendor tool configs
+├── config/openapi_specs/vendor_api.yaml                   # Vendor API specs
+├── python/llm-service/llm_service/tools/vendor_adapters/  # Request/response transformations
+│   ├── __init__.py                                        # Adapter registry
+│   └── vendor.py                                          # VendorAdapter class
+└── python/llm-service/llm_service/roles/vendor/           # Specialized agent roles
+    ├── __init__.py
+    └── custom_agent.py                                    # Agent system prompts
+```
+
+### Key Documentation Rules
+
+1. **Never document vendor-specific code as core Shannon features**
+   - ❌ Hardcoded API transformations in `openapi_tool.py`
+   - ❌ Vendor role definitions in `presets.py`
+   - ❌ Vendor configs in `shannon.yaml`
+   - ✅ Vendor code in separate directories/files
+   - ✅ Generic infrastructure with conditional loading
+
+2. **Use conditional imports for graceful fallback**
+   ```python
+   # In presets.py:
+   try:
+       from .vendor.custom_agent import CUSTOM_AGENT_PRESET
+       _PRESETS["custom_agent"] = CUSTOM_AGENT_PRESET
+   except ImportError:
+       pass  # Shannon works without vendor module
+   ```
+
+3. **Config overlay pattern for vendor settings**
+   ```bash
+   # Base (committed):
+   config/shannon.yaml                     # openapi_tools: {}
+
+   # Vendor (not committed):
+   config/overlays/shannon.vendor.yaml     # Vendor-specific tools
+
+   # Usage:
+   SHANNON_CONFIG_PATH=config/overlays/shannon.vendor.yaml
+   ```
+
+4. **Vendor adapter structure**
+   ```python
+   class MyVendorAdapter:
+       def transform_body(self, body, operation_id, prompt_params):
+           # Transform requests for vendor API conventions
+           # - Field aliasing: "users" → "vendor:users"
+           # - Inject session params: account_id, tenant_id
+           # - Normalize time ranges, sort formats, etc.
+           return body
+   ```
+
+5. **Generic field mirroring in orchestrator**
+   ```go
+   // agent.go: Mirror ALL body fields to prompt_params (no hardcoded lists)
+   for key, val := range body {
+       if _, exists := pp[key]; !exists {
+           pp[key] = val
+       }
+   }
+   ```
+
+### Documentation References
+
+When documenting custom tools and vendor integrations:
+- **Comprehensive guide**: `/en/tutorials/vendor-adapters.mdx`
+- **Adding tools**: `/en/tutorials/custom-tools.mdx#vendor-adapter-pattern`
+- **Extending Shannon**: `/en/tutorials/extending-shannon.mdx#vendor-extensions`
+
 ## Documentation Guidelines
 
 ### Adding New Pages

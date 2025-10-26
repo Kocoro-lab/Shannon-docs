@@ -1,10 +1,1084 @@
 ---
-title: "自定义工具开发"
-description: "使用 WASI 和 MCP 构建自定义工具"
+title: "添加自定义工具"
+description: "使用 MCP、OpenAPI 和内置 Python 工具扩展 Shannon 的完整指南"
 ---
 
-## 即将推出 - 第四阶段
+## 概述
 
-**预计发布时间**：第四阶段（第 3 个月）
+Shannon 支持三种添加自定义工具的方式：
 
-查看[教程概述](/tutorials)了解可用内容。
+| 方法 | 最适合 | 代码更改 | 需要重启 |
+|--------|----------|--------------|------------------|
+| **MCP 工具** | 外部 HTTP API、快速原型 | 无 | ✅ 仅服务 |
+| **OpenAPI 工具** | 带 OpenAPI 规范的 REST API | 无 | ✅ 仅服务 |
+| **内置工具** | 复杂逻辑、数据库访问、性能 | Python 代码 | ✅ 仅服务 |
+
+<Note>
+无需 Proto/Rust/Go 更改 - 所有工具都使用通用容器以获得最大灵活性。
+</Note>
+
+**主要特性：**
+- ✅ 通过 API 或 YAML 配置动态注册
+- ✅ 内置速率限制和熔断器
+- ✅ 用于安全的域白名单
+- ✅ 成本跟踪和预算执行
+
+## 快速开始：添加 MCP 工具
+
+MCP（模型上下文协议）工具允许您将任何 HTTP 端点作为 Shannon 工具集成，无需任何代码更改。
+
+<Steps>
+  <Step title="添加工具定义">
+    编辑 `config/shannon.yaml` 中的 `mcp_tools` 部分：
+
+```yaml
+mcp_tools:
+  weather_forecast:
+    enabled: true
+    url: "https://api.weather.com/v1/forecast"
+    func_name: "get_weather"
+    description: "获取某个位置的天气预报"
+    category: "data"
+    cost_per_use: 0.001
+    parameters:
+      - name: "location"
+        type: "string"
+        required: true
+        description: "城市名称或坐标"
+      - name: "units"
+        type: "string"
+        required: false
+        description: "温度单位（celsius/fahrenheit）"
+        enum: ["celsius", "fahrenheit"]
+    headers:
+      X-API-Key: "${WEATHER_API_KEY}"  # 从 .env 解析
+```
+
+必需字段：
+- `enabled`: 设置为 `true` 以激活
+- `url`: HTTP 端点（必须是 POST，接受 JSON）
+- `func_name`: 内部函数名称
+- `description`: 向 LLM 显示的清晰描述
+- `category`: 工具类别（例如 `search`、`data`、`analytics`、`code`）
+- `cost_per_use`: 以美元计的估计成本
+- `parameters`: 参数定义数组
+</Step>
+
+  <Step title="配置域访问">
+    **开发环境（宽松）：**
+
+添加到 `.env`：
+```bash
+MCP_ALLOWED_DOMAINS=*  # 通配符 - 允许所有域
+```
+
+**生产环境（推荐）：**
+
+```bash
+MCP_ALLOWED_DOMAINS=localhost,127.0.0.1,api.weather.com,api.example.com
+```
+  </Step>
+
+  <Step title="添加 API 密钥">
+    将您的 API 密钥添加到 `.env`：
+
+```bash
+# MCP 工具 API 密钥
+WEATHER_API_KEY=your_api_key_here
+STOCK_API_KEY=your_stock_key_here
+```
+  </Step>
+
+  <Step title="重启服务">
+    <Warning>
+您必须**重新创建**服务（而不仅仅是重启）：
+    </Warning>
+
+```bash
+docker compose -f deploy/compose/docker-compose.yml up -d --force-recreate llm-service
+```
+
+等待健康检查：
+```bash
+docker inspect shannon-llm-service-1 --format='{{.State.Health.Status}}'
+```
+  </Step>
+
+  <Step title="验证注册">
+    检查日志：
+```bash
+docker compose logs llm-service | grep "Loaded MCP tool"
+```
+
+通过 API 列出工具：
+```bash
+curl http://localhost:8000/tools/list | jq .
+```
+
+获取工具架构：
+```bash
+curl http://localhost:8000/tools/weather_forecast/schema | jq .
+```
+  </Step>
+
+  <Step title="测试您的工具">
+    **直接执行：**
+```bash
+curl -X POST http://localhost:8000/tools/execute \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tool_name": "weather_forecast",
+    "parameters": {"location": "Tokyo", "units": "celsius"}
+  }'
+```
+
+**通过工作流：**
+```bash
+SESSION_ID="test-$(date +%s)" ./scripts/submit_task.sh "东京的天气预报是什么？"
+```
+  </Step>
+</Steps>
+
+### MCP 请求约定
+
+Shannon 以此格式发送 POST 请求：
+
+```json
+{
+  "function": "get_weather",
+  "args": {
+    "location": "Tokyo",
+    "units": "celsius"
+  }
+}
+```
+
+您的端点应返回 JSON：
+```json
+{
+  "temperature": 18,
+  "condition": "Cloudy",
+  "humidity": 65
+}
+```
+
+### 替代方案：运行时 API 注册
+
+<Note>
+仅用于开发/测试（重启后工具丢失）：
+</Note>
+
+```bash
+# 在 .env 中设置管理员令牌
+MCP_REGISTER_TOKEN=your_secret_token
+
+# 注册工具
+curl -X POST http://localhost:8000/tools/mcp/register \
+  -H "Authorization: Bearer your_secret_token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "weather_forecast",
+    "url": "https://api.weather.com/v1/forecast",
+    "func_name": "get_weather",
+    "description": "获取天气预报",
+    "category": "data",
+    "parameters": [
+      {"name": "location", "type": "string", "required": true},
+      {"name": "units", "type": "string", "enum": ["celsius", "fahrenheit"]}
+    ]
+  }'
+```
+
+## 添加 OpenAPI 工具
+
+对于具有 OpenAPI 3.x 规范的 REST API，Shannon 可以自动生成工具。
+
+<Tip>
+对于需要自定义转换的特定领域 API，请参阅下面的[供应商适配器模式](#vendor-adapter-pattern)部分或综合[供应商适配器指南](/cn/tutorials/vendor-adapters)。
+</Tip>
+
+### 特性
+
+**支持：**
+- ✅ OpenAPI 3.0 和 3.1 规范
+- ✅ 基于 URL 或内联规范加载
+- ✅ JSON 请求/响应体
+- ✅ 路径和查询参数
+- ✅ Bearer、API Key（header/query）、Basic 认证
+- ✅ 通过 operationId 或 tags 过滤操作
+- ✅ 熔断器（5 次失败 → 60 秒冷却）
+- ✅ 指数退避重试逻辑（3 次重试，可通过 `OPENAPI_RETRIES` 配置）
+- ✅ 可配置的速率限制和超时
+- ✅ 相对服务器 URL（根据规范 URL 解析）
+- ✅ 基本 `$ref` 解析（本地引用到 `#/components/schemas/*`）
+
+### 限制
+
+Shannon OpenAPI 集成对于约 70% 的 REST API（基于 JSON 的简单认证）已经可以用于生产。以下功能**尚不支持**：
+
+<AccordionGroup>
+  <Accordion title="文件上传 API (multipart/form-data)">
+    - 无法上传文件或二进制数据
+    - **解决方法**：在 JSON 体中使用 base64 编码的文件
+    - **受影响**：图像生成、文件处理、文档上传 API
+  </Accordion>
+
+  <Accordion title="OAuth 保护的 API">
+    - 不支持 OAuth 2.0 流程（授权码、客户端凭据）
+    - 只能使用 Bearer 令牌（手动获取）
+    - **受影响**：Google API、GitHub、Slack、Twitter 等
+    - **解决方法**：手动获取 OAuth 令牌并使用 `bearer` auth_type
+  </Accordion>
+
+  <Accordion title="复杂参数编码">
+    - 不支持 `style`、`explode` 或 `deepObject` 序列化
+    - 仅基本路径/查询参数替换
+    - **受影响**：具有复杂数组/对象查询参数的 API
+  </Accordion>
+
+  <Accordion title="多文件 OpenAPI 规范">
+    - 不支持远程 `$ref` 解析（例如 `https://example.com/schemas/Pet.json`）
+    - 仅支持本地引用（`#/components/...`）
+    - **解决方法**：将外部架构合并到单个规范文件中
+  </Accordion>
+
+  <Accordion title="高级架构组合器">
+    - 不支持 `allOf`、`oneOf`、`anyOf`
+    - 仅基本类型映射
+    - **受影响**：具有多态类型或复杂验证的 API
+  </Accordion>
+
+  <Accordion title="表单编码请求">
+    - 不支持 `application/x-www-form-urlencoded` 内容类型
+    - 仅支持 JSON 请求体
+  </Accordion>
+</AccordionGroup>
+
+**运行良好的场景：**
+- ✅ 具有 JSON 请求/响应的简单 REST API
+- ✅ 使用 Bearer/API Key/Basic 认证的 API
+- ✅ 读取密集型操作（GET 请求）
+- ✅ 具有本地 `$ref` 引用的结构良好的规范
+- ✅ 路径和查询参数（原始类型）
+
+<Warning>
+对于具有相对服务器 URL 的规范（例如 `/api/v3`），您必须通过 `spec_url`（而不是 `spec_inline`）提供规范，以便 Shannon 可以解析完整的基础 URL。
+</Warning>
+
+### 快速开始
+
+<Steps>
+  <Step title="添加工具定义">
+    在 `openapi_tools` 下编辑 `config/shannon.yaml`：
+
+```yaml
+openapi_tools:
+  petstore:
+    enabled: true
+    spec_url: "https://petstore3.swagger.io/api/v3/openapi.json"
+    # 或使用内联规范：
+    # spec_inline: |
+    #   <在此处粘贴 OpenAPI JSON/YAML>
+
+    auth_type: "api_key"  # none|api_key|bearer|basic
+    auth_config:
+      api_key_name: "X-API-Key"           # Header 名称或查询参数名称
+      api_key_location: "header"          # header|query
+      api_key_value: "$PETSTORE_API_KEY"  # 使用 $ 前缀表示环境变量
+
+    category: "data"
+    base_cost_per_use: 0.001
+    rate_limit: 30                        # 每分钟请求数
+    timeout_seconds: 30                   # 请求超时
+    max_response_bytes: 10485760          # 最大响应大小（10MB）
+
+    # 可选：过滤到特定操作
+    operations:
+      - "getPetById"
+      - "findPetsByStatus"
+
+    # 可选：按标签过滤
+    # tags:
+    #   - "pet"
+
+    # 可选：覆盖规范中的基础 URL
+    # base_url: "https://custom-petstore.example.com"
+```
+  </Step>
+
+  <Step title="配置环境">
+    添加到 `.env`：
+
+```bash
+# OpenAPI 安全
+OPENAPI_ALLOWED_DOMAINS=*                # 开发使用 *，生产使用特定域
+OPENAPI_MAX_SPEC_SIZE=5242880            # 5MB 默认
+OPENAPI_FETCH_TIMEOUT=30                 # 秒
+
+# API 密钥
+PETSTORE_API_KEY=your_key_here
+GITHUB_TOKEN=ghp_xxxxxxxxxxxxx
+OPENWEATHER_API_KEY=your_key
+API_USERNAME=username
+API_PASSWORD=password
+
+# 与 MCP 相同的注册令牌
+MCP_REGISTER_TOKEN=your_admin_token
+```
+  </Step>
+
+  <Step title="重启服务">
+```bash
+docker compose -f deploy/compose/docker-compose.yml up -d --force-recreate llm-service
+```
+  </Step>
+
+  <Step title="验证和测试">
+    **首先验证规范：**
+```bash
+curl -X POST http://localhost:8000/tools/openapi/validate \
+  -H "Content-Type: application/json" \
+  -d '{"spec_url": "https://petstore3.swagger.io/api/v3/openapi.json"}' | jq .
+```
+
+**响应：**
+```json
+{
+  "valid": true,
+  "operations_count": 19,
+  "operations": [
+    {"operation_id": "getPetById", "method": "GET", "path": "/pet/{petId}"},
+    {"operation_id": "addPet", "method": "POST", "path": "/pet"}
+  ],
+  "base_url": "https://petstore3.swagger.io/api/v3"
+}
+```
+
+**执行工具：**
+```bash
+curl -X POST http://localhost:8000/tools/execute \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tool_name": "getPetById",
+    "parameters": {"petId": 1}
+  }' | jq .
+```
+  </Step>
+</Steps>
+
+### 认证示例
+
+<Tabs>
+  <Tab title="Bearer Token">
+```yaml
+github:
+  enabled: true
+  spec_url: "https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.json"
+  auth_type: "bearer"
+  auth_config:
+    token: "$GITHUB_TOKEN"
+  operations:
+    - "repos/get"
+    - "repos/list-for-user"
+```
+  </Tab>
+
+  <Tab title="API Key in Query">
+```yaml
+weather:
+  enabled: true
+  spec_url: "https://api.openweathermap.org/data/3.0/openapi.json"
+  auth_type: "api_key"
+  auth_config:
+    api_key_name: "appid"
+    api_key_location: "query"
+    api_key_value: "$OPENWEATHER_API_KEY"
+```
+  </Tab>
+
+  <Tab title="Basic Auth">
+```yaml
+custom_api:
+  enabled: true
+  spec_url: "https://api.example.com/openapi.json"
+  auth_type: "basic"
+  auth_config:
+    username: "$API_USERNAME"
+    password: "$API_PASSWORD"
+```
+  </Tab>
+
+  <Tab title="API Key in Header">
+```yaml
+petstore:
+  enabled: true
+  spec_url: "https://petstore3.swagger.io/api/v3/openapi.json"
+  auth_type: "api_key"
+  auth_config:
+    api_key_name: "X-API-Key"
+    api_key_location: "header"
+    api_key_value: "$PETSTORE_API_KEY"
+```
+  </Tab>
+</Tabs>
+
+## 添加内置 Python 工具
+
+用于复杂逻辑、数据库访问或性能关键操作。
+
+### 何时使用内置工具
+
+**使用内置工具的场景：**
+- 需要直接的数据库/Redis 访问
+- 需要复杂的 Python 库（pandas、numpy）
+- 性能关键（避免 HTTP 往返）
+- 需要会话状态管理
+- 实现安全敏感的操作
+
+**使用 MCP/OpenAPI 的场景：**
+- 集成外部 API
+- 需要无代码部署
+- 快速原型设计
+- 第三方服务集成
+
+<Steps>
+  <Step title="创建工具类">
+    在 `python/llm-service/llm_service/tools/builtin/my_custom_tool.py` 中创建文件：
+
+```python
+from typing import Any, Dict, List, Optional
+from ..base import Tool, ToolMetadata, ToolParameter, ToolParameterType, ToolResult
+
+class MyCustomTool(Tool):
+    """
+    此工具功能的简要描述。
+    """
+
+    def _get_metadata(self) -> ToolMetadata:
+        """定义工具元数据。"""
+        return ToolMetadata(
+            name="my_custom_tool",
+            version="1.0.0",
+            description="清晰的描述，让 LLM 了解何时/如何使用此工具",
+            category="custom",  # search, data, analytics, code, file, custom
+            author="Your Name",
+            requires_auth=False,
+            timeout_seconds=30,
+            memory_limit_mb=128,
+            sandboxed=False,
+            session_aware=False,  # 如果工具需要会话状态，设置为 True
+            dangerous=False,      # 对于文件写入、代码执行，设置为 True
+            cost_per_use=0.001,   # 每次调用的美元成本
+            rate_limit=60,        # 每分钟请求数（由基类强制执行）
+        )
+
+    def _get_parameters(self) -> List[ToolParameter]:
+        """定义带验证的工具参数。"""
+        return [
+            ToolParameter(
+                name="required_param",
+                type=ToolParameterType.STRING,
+                description="向 LLM 显示的描述",
+                required=True,
+            ),
+            ToolParameter(
+                name="optional_number",
+                type=ToolParameterType.INTEGER,
+                description="可选的数字参数",
+                required=False,
+                default=10,
+                min_value=1,
+                max_value=100,
+            ),
+            ToolParameter(
+                name="choice_param",
+                type=ToolParameterType.STRING,
+                description="具有预定义选项的参数",
+                required=False,
+                enum=["option1", "option2", "option3"],
+            ),
+        ]
+
+    async def _execute_impl(
+        self,
+        session_context: Optional[Dict] = None,
+        **kwargs
+    ) -> ToolResult:
+        """
+        执行工具逻辑。
+
+        Args:
+            session_context: 如果 session_aware=True，则为会话数据
+            **kwargs: 工具参数（由基类自动验证）
+
+        Returns:
+            具有成功/错误状态的 ToolResult
+        """
+        try:
+            # 提取参数（已由基类验证）
+            required_param = kwargs.get("required_param")
+            optional_number = kwargs.get("optional_number", 10)
+            choice_param = kwargs.get("choice_param")
+
+            # 您的工具逻辑在这里
+            result = self._do_work(required_param, optional_number, choice_param)
+
+            return ToolResult(
+                success=True,
+                output=result,
+                metadata={"processed": True},
+                execution_time_ms=50,
+            )
+
+        except Exception as e:
+            return ToolResult(
+                success=False,
+                output=None,
+                error=f"工具执行失败: {str(e)}"
+            )
+
+    def _do_work(self, param1, param2, param3):
+        """您的实际实现。"""
+        # 示例：数据库查询、API 调用、计算
+        return {"result": "success", "data": [1, 2, 3]}
+```
+  </Step>
+
+  <Step title="运行时注册（可选）">
+    通过 API 动态注册 OpenAPI 工具（使用与 MCP 相同的管理员令牌）：
+
+```bash
+curl -X POST http://localhost:8000/tools/openapi/register \
+  -H "Authorization: Bearer $MCP_REGISTER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "petstore",
+    "spec_url": "https://petstore3.swagger.io/api/v3/openapi.json",
+    "auth_type": "none",
+    "operations": ["getPetById"],
+    "rate_limit": 30,
+    "timeout_seconds": 30
+  }'
+```
+
+响应包括已注册的操作和有效限制。
+  </Step>
+
+  <Step title="注册工具">
+    编辑 `python/llm-service/llm_service/api/tools.py` 第 228 行附近：
+
+```python
+# 在顶部添加导入
+from ..tools.builtin.my_custom_tool import MyCustomTool
+
+# 添加到 startup_event() 中的注册列表
+@router.on_event("startup")
+async def startup_event():
+    registry = get_registry()
+
+    tools_to_register = [
+        WebSearchTool,
+        CalculatorTool,
+        FileReadTool,
+        FileWriteTool,
+        PythonWasiExecutorTool,
+        MyCustomTool,  # 在此处添加您的工具
+    ]
+
+    for tool_class in tools_to_register:
+        try:
+            registry.register(tool_class)
+            logger.info(f"已注册工具: {tool_class.__name__}")
+        except Exception as e:
+            logger.error(f"注册失败 {tool_class.__name__}: {e}")
+```
+  </Step>
+
+  <Step title="重启服务">
+```bash
+docker compose -f deploy/compose/docker-compose.yml up -d --force-recreate llm-service
+```
+  </Step>
+
+  <Step title="测试工具">
+```bash
+# 验证注册
+curl http://localhost:8000/tools/list | grep my_custom_tool
+
+# 获取架构
+curl http://localhost:8000/tools/my_custom_tool/schema | jq .
+
+# 执行
+curl -X POST http://localhost:8000/tools/execute \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tool_name": "my_custom_tool",
+    "parameters": {
+      "required_param": "test",
+      "optional_number": 42,
+      "choice_param": "option1"
+    }
+  }' | jq .
+```
+  </Step>
+</Steps>
+
+### 高级：会话感知工具
+
+对于需要在多次执行中维护状态的工具：
+
+```python
+class SessionAwareTool(Tool):
+    def _get_metadata(self) -> ToolMetadata:
+        return ToolMetadata(
+            name="session_tool",
+            session_aware=True,  # 启用会话上下文
+            ...
+        )
+
+    async def _execute_impl(
+        self,
+        session_context: Optional[Dict] = None,
+        **kwargs
+    ) -> ToolResult:
+        # 访问会话数据
+        session_id = session_context.get("session_id") if session_context else None
+        user_id = session_context.get("user_id") if session_context else None
+
+        # 存储/检索会话特定数据
+        # 示例：Redis、数据库、内存缓存
+
+        return ToolResult(success=True, output={"session": session_id})
+```
+
+## 配置参考
+
+### MCP 工具配置
+
+```yaml
+mcp_tools:
+  tool_name:
+    enabled: true                    # 必需：启用/禁用工具
+    url: "https://api.example.com"   # 必需：HTTP 端点
+    func_name: "function_name"       # 必需：远程函数名称
+    description: "工具描述"          # 必需：LLM 可见的描述
+    category: "data"                 # 必需：工具类别
+    cost_per_use: 0.001             # 必需：美元成本
+    parameters:                      # 必需：参数定义
+      - name: "param1"
+        type: "string"               # string|integer|float|boolean|array|object
+        required: true
+        description: "参数描述"
+        enum: ["val1", "val2"]       # 可选：允许的值
+        default: "val1"              # 可选：默认值
+    headers:                         # 可选：HTTP 标头
+      X-API-Key: "${API_KEY_VAR}"   # 使用 ${} 表示环境变量
+```
+
+### OpenAPI 工具配置
+
+```yaml
+openapi_tools:
+  collection_name:
+    enabled: true
+    spec_url: "https://api.example.com/openapi.json"  # 或 spec_inline
+    auth_type: "none"                # none|api_key|bearer|basic
+    auth_config:                     # 如果 auth_type != "none" 则必需
+      # 对于 api_key:
+      api_key_name: "X-API-Key"
+      api_key_location: "header"     # header|query
+      api_key_value: "$API_KEY"
+      # 对于 bearer:
+      token: "$BEARER_TOKEN"
+      # 对于 basic:
+      username: "$USERNAME"
+      password: "$PASSWORD"
+    category: "api"
+    base_cost_per_use: 0.001
+    rate_limit: 30                   # 每分钟请求数
+    timeout_seconds: 30              # 请求超时
+    max_response_bytes: 10485760     # 最大响应大小（字节）
+    operations:                      # 可选：过滤操作
+      - "operationId1"
+      - "operationId2"
+    tags:                            # 可选：按标签过滤
+      - "tag1"
+    base_url: "https://override.com" # 可选：覆盖规范基础 URL
+```
+
+### 环境变量
+
+**MCP 配置：**
+```bash
+# 域安全
+MCP_ALLOWED_DOMAINS=localhost,127.0.0.1,api.example.com  # 或开发时使用 *
+
+# 熔断器
+MCP_CB_FAILURES=5                    # 熔断器打开前的失败次数
+MCP_CB_RECOVERY_SECONDS=60           # 熔断器打开持续时间
+
+# 请求限制
+MCP_MAX_RESPONSE_BYTES=10485760      # 10MB 默认
+MCP_RETRIES=3                        # 重试次数
+MCP_TIMEOUT_SECONDS=10               # 请求超时
+
+# 注册安全
+MCP_REGISTER_TOKEN=your_secret       # API 注册保护
+```
+
+**OpenAPI 配置：**
+```bash
+# 域安全
+OPENAPI_ALLOWED_DOMAINS=*            # 逗号分隔或开发时使用 *
+OPENAPI_MAX_SPEC_SIZE=5242880        # 5MB 规范大小限制
+OPENAPI_FETCH_TIMEOUT=30             # 规范获取超时
+
+# 请求行为
+OPENAPI_RETRIES=3                    # 重试次数（默认：3，与 MCP 匹配）
+```
+
+## 测试与验证
+
+### 健康检查
+
+```bash
+# 检查服务健康
+curl http://localhost:8081/health | jq .
+
+# 检查 LLM 服务状态
+docker inspect shannon-llm-service-1 --format='{{.State.Health.Status}}'
+```
+
+### 列出工具
+
+```bash
+# 所有工具
+curl http://localhost:8000/tools/list | jq .
+
+# 按类别
+curl "http://localhost:8000/tools/list?category=data" | jq .
+
+# 排除危险工具
+curl "http://localhost:8000/tools/list?exclude_dangerous=true" | jq .
+
+# 列出类别
+curl http://localhost:8000/tools/categories | jq .
+```
+
+### 执行工具
+
+**直接执行：**
+```bash
+curl -X POST http://localhost:8000/tools/execute \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tool_name": "calculator",
+    "parameters": {"expression": "sqrt(144) + 2^3"}
+  }' | jq .
+```
+
+**批量执行：**
+```bash
+curl -X POST http://localhost:8000/tools/batch-execute \
+  -H "Content-Type: application/json" \
+  -d '[
+    {"tool_name": "calculator", "parameters": {"expression": "2+2"}},
+    {"tool_name": "calculator", "parameters": {"expression": "10*5"}}
+  ]' | jq .
+```
+
+**通过工作流：**
+```bash
+SESSION_ID="test-$(date +%s)" ./scripts/submit_task.sh "计算 2+2 然后乘以 5"
+```
+
+## 故障排除
+
+<AccordionGroup>
+  <Accordion title="工具未注册">
+    症状：工具未出现在 `/tools/list` 中
+
+调试步骤：
+```bash
+# 1. 检查 YAML 语法
+yamllint config/shannon.yaml
+
+# 2. 检查日志中的错误
+docker compose logs llm-service | grep -i error
+
+# 3. 验证启用标志
+grep -A 10 "my_tool" config/shannon.yaml | grep enabled
+
+# 4. 强制重新创建服务
+docker compose -f deploy/compose/docker-compose.yml up -d --force-recreate llm-service
+
+# 5. 等待健康检查
+sleep 10
+docker inspect shannon-llm-service-1 --format='{{.State.Health.Status}}'
+```
+  </Accordion>
+
+  <Accordion title="域验证错误">
+    症状：`URL host 'example.com' not in allowed domains`
+
+解决方案：
+
+1. 开发：使用通配符
+   ```bash
+   # .env
+   MCP_ALLOWED_DOMAINS=*
+   OPENAPI_ALLOWED_DOMAINS=*
+   ```
+
+2. 生产：添加特定域
+   ```bash
+   # .env
+   MCP_ALLOWED_DOMAINS=localhost,127.0.0.1,api.example.com
+   OPENAPI_ALLOWED_DOMAINS=api.example.com,api.github.com
+   ```
+  </Accordion>
+
+  <Accordion title="工具执行失败">
+    症状：`ToolResult { success: false, error: "..." }`
+
+调试：
+```bash
+# 1. 直接测试工具
+curl -X POST http://localhost:8000/tools/execute \
+  -H "Content-Type: application/json" \
+  -d '{"tool_name":"my_tool","parameters":{...}}' | jq .
+
+# 2. 检查参数类型
+curl http://localhost:8000/tools/my_tool/schema | jq '.parameters'
+
+# 3. 检查 agent core 日志
+docker logs shannon-agent-core-1 | grep "Tool execution error"
+
+# 4. 检查 LLM 服务日志
+docker logs shannon-llm-service-1 | grep my_tool
+```
+  </Accordion>
+
+  <Accordion title="熔断器触发">
+    症状：`Circuit breaker open for <url> (too many failures)`
+
+调试：
+```bash
+# 检查最近的错误
+docker logs shannon-llm-service-1 --tail 100 | grep -i "circuit\|failure"
+
+# 等待恢复（默认 60 秒）
+sleep 60
+
+# 或重启以重置
+docker compose restart llm-service
+```
+
+预防：
+
+<ul>
+  <li>增加失败阈值：<code>MCP_CB_FAILURES=10</code></li>
+  <li>增加恢复时间：<code>MCP_CB_RECOVERY_SECONDS=120</code></li>
+  <li>修复底层 API 问题</li>
+</ul>
+
+</Accordion>
+</AccordionGroup>
+
+## 安全最佳实践
+
+### 域白名单
+
+<Tabs>
+  <Tab title="开发">
+```bash
+# 测试时宽松
+MCP_ALLOWED_DOMAINS=*
+OPENAPI_ALLOWED_DOMAINS=*
+```
+  </Tab>
+
+  <Tab title="暂存">
+```bash
+# 特定域 + localhost
+MCP_ALLOWED_DOMAINS=localhost,127.0.0.1,staging-api.example.com
+```
+  </Tab>
+
+  <Tab title="生产">
+```bash
+# 仅显式白名单
+MCP_ALLOWED_DOMAINS=api.example.com,api.partner.com
+OPENAPI_ALLOWED_DOMAINS=api.github.com,api.openweathermap.org
+```
+  </Tab>
+</Tabs>
+
+### API 密钥管理
+
+<Warning>
+永远不要在配置文件中硬编码 API 密钥！
+</Warning>
+
+**❌ 坏：**
+```yaml
+headers:
+  X-API-Key: "sk-1234567890abcdef"
+```
+
+**✅ 好：**
+```yaml
+headers:
+  X-API-Key: "${WEATHER_API_KEY}"
+```
+
+**存储在 `.env` 中（不被 git 跟踪）：**
+```bash
+# .env
+WEATHER_API_KEY=sk-real-key-here
+STOCK_API_KEY=your-stock-key
+```
+
+**生产环境：** 使用密钥管理
+- Docker secrets
+- Kubernetes secrets
+- HashiCorp Vault
+- AWS Secrets Manager
+
+### 危险工具
+
+标记修改状态或访问敏感资源的工具：
+
+```python
+ToolMetadata(
+    name="file_write",
+    dangerous=True,        # 触发 OPA 策略检查
+    requires_auth=True,    # 需要用户认证
+    ...
+)
+```
+
+## 供应商适配器模式
+
+**用于特定领域的 API 和自定义代理**
+
+当集成需要特定领域转换的专有或内部 API 时，使用**供应商适配器模式**将供应商逻辑与 Shannon 的核心基础设施分离。
+
+### 何时使用
+
+使用供应商适配器的场景：
+- 自定义字段名称别名（例如 `users` → `my:unique_users`）
+- 请求/响应转换
+- 从会话上下文动态注入参数
+- 特定领域的验证或规范化
+- 具有自定义系统提示的专门代理角色
+
+### 快速示例
+
+<Steps>
+  <Step title="创建供应商适配器">
+    `python/llm-service/llm_service/tools/vendor_adapters/myvendor.py`:
+
+```python
+class MyVendorAdapter:
+    def transform_body(self, body, operation_id, prompt_params):
+        # 转换字段名称
+        if isinstance(body.get("metrics"), list):
+            body["metrics"] = [m.replace("users", "my:users") for m in body["metrics"]]
+
+        # 注入会话参数
+        if prompt_params and "account_id" in prompt_params:
+            body["account_id"] = prompt_params["account_id"]
+
+        return body
+```
+  </Step>
+
+  <Step title="注册适配器">
+    `python/llm-service/llm_service/tools/vendor_adapters/__init__.py`:
+
+```python
+def get_vendor_adapter(name: str):
+    if name.lower() == "myvendor":
+        from .myvendor import MyVendorAdapter
+        return MyVendorAdapter()
+    return None
+```
+  </Step>
+
+  <Step title="使用供应商标志配置">
+    `config/overlays/shannon.myvendor.yaml`:
+
+```yaml
+openapi_tools:
+  myvendor_api:
+    enabled: true
+    spec_url: file:///app/config/openapi_specs/myvendor_api.yaml
+    auth_type: bearer
+    auth_config:
+      vendor: myvendor  # 触发适配器加载
+      token: "${MYVENDOR_API_TOKEN}"
+    category: custom
+```
+  </Step>
+
+  <Step title="使用环境">
+```bash
+SHANNON_CONFIG_PATH=config/overlays/shannon.myvendor.yaml
+MYVENDOR_API_TOKEN=your_token_here
+```
+  </Step>
+</Steps>
+
+### 优势
+
+- ✅ **清晰分离：** 供应商代码与 Shannon 核心隔离
+- ✅ **无核心更改：** Shannon 基础设施保持通用
+- ✅ **条件加载：** 如果供应商模块不可用，优雅降级
+- ✅ **易于测试：** 隔离进行单元测试适配器
+- ✅ **密钥管理：** 所有令牌通过环境变量
+
+### 完整指南
+
+有关以下内容的综合指南：
+- 专门领域的自定义代理角色
+- 会话上下文注入模式
+- 测试策略
+- 最佳实践和故障排除
+
+<Card title="供应商适配器指南" icon="plug" href="/cn/tutorials/vendor-adapters">
+  学习如何使用适配器模式构建供应商特定的集成
+</Card>
+
+## 总结
+
+**添加工具的三种方式：**
+
+| 方法 | 命令 | 配置文件 | 代码更改 |
+|--------|---------|-------------|--------------|
+| **MCP** | `docker compose up -d --force-recreate llm-service` | `config/shannon.yaml` | 无 |
+| **OpenAPI** | `docker compose up -d --force-recreate llm-service` | `config/shannon.yaml` | 无 |
+| **内置** | `docker compose up -d --force-recreate llm-service` | `api/tools.py` + 新文件 | 仅 Python |
+
+**关键要点：**
+- ✅ 零 proto/Rust/Go 更改（通用 `google.protobuf.Struct` 容器）
+- ✅ 内置安全性（域白名单、速率限制、熔断器）
+- ✅ 自动成本跟踪（在元数据中设置 `cost_per_use`）
+- ✅ 架构驱动（OpenAI 兼容的 JSON 架构）
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="供应商适配器" icon="plug" href="/cn/tutorials/vendor-adapters">
+    构建供应商特定的集成
+  </Card>
+  <Card title="扩展 Shannon" icon="puzzle-piece" href="/cn/tutorials/extending-shannon">
+    探索所有扩展方法
+  </Card>
+  <Card title="配置" icon="gear" href="/cn/quickstart/configuration">
+    完整配置参考
+  </Card>
+  <Card title="API 参考" icon="code" href="/cn/api/overview">
+    探索 REST API
+  </Card>
+</CardGroup>

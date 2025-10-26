@@ -1,0 +1,671 @@
+---
+title: "供应商适配器"
+description: "使用适配器模式构建供应商特定的集成"
+---
+
+## 概述
+
+**供应商适配器模式**允许您将特定领域的代理和工具集成到 Shannon 中，而不会污染核心代码库。此模式在以下两者之间保持清晰的分离：
+
+- **通用 Shannon 基础设施**（提交到开源）
+- **供应商特定实现**（保持私有或在单独的仓库中）
+
+<CardGroup cols={2}>
+  <Card title="零核心更改" icon="code">
+    无需修改 Shannon 的核心代码库
+  </Card>
+  <Card title="清晰分离" icon="layer-group">
+    通用基础设施与供应商特定逻辑分离
+  </Card>
+  <Card title="易于维护" icon="screwdriver-wrench">
+    供应商逻辑隔离在单独的目录中
+  </Card>
+  <Card title="优雅降级" icon="shield-check">
+    即使没有供应商模块，Shannon 也能正常工作
+  </Card>
+</CardGroup>
+
+## 何时使用供应商适配器
+
+<Tip>
+当集成具有特定领域要求的专有或内部 API 时使用供应商适配器。
+</Tip>
+
+**使用供应商适配器的场景：**
+- 集成具有特定领域要求的专有/内部 API
+- 需要自定义请求/响应转换的 OpenAPI 工具
+- 为特定业务领域构建专门的代理
+- 字段命名约定与内部系统不同
+- 需要从会话上下文动态注入参数
+- 需要自定义身份验证或标头逻辑
+
+**示例用例：**
+- 分析平台（指标别名、时间范围规范化）
+- 电子商务系统（产品字段映射、SKU 转换）
+- CRM 集成（联系人字段规范化）
+- 内部微服务（自定义身份验证令牌、租户 ID）
+- 特定领域的数据验证
+
+## 架构
+
+### 文件结构
+
+```
+Shannon/
+├── config/
+│   ├── shannon.yaml                          # 基础配置（通用，已提交）
+│   └── overlays/
+│       └── shannon.myvendor.yaml             # 供应商覆盖配置（未提交）
+├── config/openapi_specs/
+│   └── myvendor_api.yaml                     # 供应商 API 规范（未提交）
+├── python/llm-service/llm_service/
+│   ├── roles/
+│   │   ├── presets.py                        # 通用角色 + 条件导入
+│   │   └── myvendor/                         # 供应商角色模块（未提交）
+│   │       ├── __init__.py
+│   │       └── custom_agent.py               # 专门的代理角色
+│   └── tools/
+│       ├── openapi_tool.py                   # 通用 OpenAPI 加载器（已提交）
+│       └── vendor_adapters/                  # 供应商适配器（未提交）
+│           ├── __init__.py                   # 适配器注册表
+│           └── myvendor.py                   # 供应商特定转换
+```
+
+### 组件职责
+
+| 组件 | 职责 | 提交到开源 |
+|-----------|---------------|------------------|
+| **配置覆盖** | 供应商特定的工具配置 | ❌ 否 |
+| **OpenAPI 规范** | API 架构定义 | ❌ 否 |
+| **供应商适配器** | 请求/响应转换 | ❌ 否 |
+| **供应商角色** | 专门的代理系统提示 | ❌ 否 |
+| **通用基础设施** | 核心 OpenAPI/角色系统 | ✅ 是 |
+
+## 快速入门示例
+
+让我们为一个虚构的分析平台 "DataInsight" 创建一个完整的供应商集成。
+
+<Steps>
+  <Step title="创建供应商适配器">
+    创建 `python/llm-service/llm_service/tools/vendor_adapters/datainsight.py`:
+
+```python
+"""DataInsight Analytics API 的供应商适配器。"""
+from typing import Any, Dict, List, Optional
+
+
+class DataInsightAdapter:
+    """为 DataInsight API 约定转换请求。"""
+
+    def transform_body(
+        self,
+        body: Dict[str, Any],
+        operation_id: str,
+        prompt_params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        为 DataInsight API 转换请求体。
+
+        Args:
+            body: 来自 LLM 的原始请求体
+            operation_id: OpenAPI 操作 ID
+            prompt_params: 会话上下文参数（由编排器注入）
+
+        Returns:
+            转换后的请求体，符合 DataInsight API 期望
+        """
+        if not isinstance(body, dict):
+            return body
+
+        # 注入会话上下文（从 prompt_params 获取 account_id, user_id）
+        if prompt_params and isinstance(prompt_params, dict):
+            if "account_id" in prompt_params and "account_id" not in body:
+                body["account_id"] = prompt_params["account_id"]
+            if "user_id" in prompt_params and "user_id" not in body:
+                body["user_id"] = prompt_params["user_id"]
+
+        # 特定操作的转换
+        if operation_id == "queryMetrics":
+            body = self._transform_query_metrics(body)
+        elif operation_id == "getDimensionValues":
+            body = self._transform_dimension_values(body)
+
+        return body
+
+    def _transform_query_metrics(self, body: Dict) -> Dict:
+        """转换指标查询请求。"""
+        # 规范化指标名称（支持简写）
+        metric_aliases = {
+            "users": "di:unique_users",
+            "sessions": "di:total_sessions",
+            "pageviews": "di:page_views",
+            "bounce_rate": "di:bounce_rate",
+        }
+
+        if isinstance(body.get("metrics"), list):
+            body["metrics"] = [
+                metric_aliases.get(m, m) for m in body["metrics"]
+            ]
+
+        # 规范化时间范围格式
+        if "timeRange" in body and isinstance(body["timeRange"], dict):
+            tr = body["timeRange"]
+            # 确保使用 startTime/endTime（而不是 start/end）
+            if "start" in tr:
+                tr["startTime"] = tr.pop("start")
+            if "end" in tr:
+                tr["endTime"] = tr.pop("end")
+
+        # 转换排序为预期格式
+        if isinstance(body.get("sort"), dict):
+            field = body["sort"].get("field")
+            order = body["sort"].get("order", "DESC").upper()
+            body["sort"] = {"field": field, "direction": order}
+
+        return body
+
+    def _transform_dimension_values(self, body: Dict) -> Dict:
+        """转换维度值请求。"""
+        dimension_aliases = {
+            "country": "di:geo_country",
+            "device": "di:device_type",
+            "source": "di:traffic_source",
+        }
+
+        if "dimension" in body:
+            body["dimension"] = dimension_aliases.get(
+                body["dimension"], body["dimension"]
+            )
+
+        return body
+```
+  </Step>
+
+  <Step title="注册适配器">
+    编辑 `python/llm-service/llm_service/tools/vendor_adapters/__init__.py`:
+
+```python
+from typing import Optional
+
+
+def get_vendor_adapter(name: str):
+    """按名称返回供应商适配器实例，如果不可用则返回 None。"""
+    if not name:
+        return None
+    try:
+        if name.lower() == "datainsight":
+            from .datainsight import DataInsightAdapter
+            return DataInsightAdapter()
+        # 在此处添加更多供应商
+        # elif name.lower() == "othervendor":
+        #     from .othervendor import OtherVendorAdapter
+        #     return OtherVendorAdapter()
+    except Exception:
+        return None
+    return None
+```
+  </Step>
+
+  <Step title="创建配置覆盖">
+    创建 `config/overlays/shannon.datainsight.yaml`:
+
+```yaml
+# DataInsight Analytics 集成
+# 使用方式: SHANNON_CONFIG_PATH=config/overlays/shannon.datainsight.yaml
+
+openapi_tools:
+  datainsight_analytics:
+    enabled: true
+    spec_url: file:///app/config/openapi_specs/datainsight_api.yaml
+    auth_type: bearer
+    auth_config:
+      vendor: datainsight  # 这会触发适配器加载
+      token: "${DATAINSIGHT_API_TOKEN}"
+      # extra_headers 仅支持静态值和环境变量解析
+      # 不支持从请求体动态模板化
+      extra_headers:
+        X-User-ID: "${DATAINSIGHT_USER_ID}"   # 从环境变量静态获取
+    category: analytics
+    base_cost_per_use: 0.002
+    rate_limit: 60
+    timeout_seconds: 30
+    operations:
+      - queryMetrics
+      - getDimensionValues
+```
+  </Step>
+
+  <Step title="创建供应商角色（可选）">
+    创建 `python/llm-service/llm_service/roles/datainsight/analytics_agent.py`:
+
+```python
+"""DataInsight Analytics Agent 角色预设。"""
+
+ANALYTICS_AGENT_PRESET = {
+    "name": "datainsight_analytics",
+    "system_prompt": """你是一个专门的数据分析代理，可以访问 DataInsight Analytics API。
+
+你的使命：从网站分析数据中提供可操作的见解。
+
+## 可用工具
+- queryMetrics: 检索用户、会话、页面浏览量、跳出率等指标
+- getDimensionValues: 获取维度值（国家、设备、流量来源）
+
+## 输出格式
+始终按以下方式组织你的响应：
+1. **dataResult** 块（JSON）- 用于可视化
+2. **总结**部分 - 关键发现
+3. **见解**部分 - 可操作的建议
+
+## 最佳实践
+- 查询中始终包含时间范围
+- 使用指标别名："users"、"sessions"、"pageviews"（自动转换）
+- 请求相关维度以获取上下文
+- 尽可能提供比较分析
+- 突出显示异常和趋势
+
+记住：你的目标是帮助用户理解数据并做出更好的决策。""",
+
+    "allowed_tools": [
+        "queryMetrics",
+        "getDimensionValues",
+    ],
+
+    "temperature": 0.7,
+    "response_format": None,
+}
+```
+
+在 `python/llm-service/llm_service/roles/presets.py` 中注册：
+
+```python
+# 在 _load_presets() 函数末尾添加：
+try:
+    from .datainsight.analytics_agent import ANALYTICS_AGENT_PRESET
+    _PRESETS["datainsight_analytics"] = ANALYTICS_AGENT_PRESET
+except ImportError:
+    pass  # 如果供应商模块不可用，优雅降级
+```
+  </Step>
+
+  <Step title="添加环境变量">
+    添加到 `.env`:
+
+```bash
+# DataInsight 配置
+SHANNON_CONFIG_PATH=config/overlays/shannon.datainsight.yaml
+DATAINSIGHT_API_TOKEN=your_bearer_token_here
+DATAINSIGHT_USER_ID=your_user_id_here
+
+# 域白名单（开发：使用 *，生产：特定域）
+OPENAPI_ALLOWED_DOMAINS=api.datainsight.com
+```
+  </Step>
+
+  <Step title="测试集成">
+    重建并测试：
+
+```bash
+# 重建服务
+docker compose -f deploy/compose/docker-compose.yml build --no-cache llm-service orchestrator
+docker compose -f deploy/compose/docker-compose.yml up -d
+
+# 等待健康检查
+sleep 10
+
+# 通过 gRPC 测试
+SESSION_ID="test-$(date +%s)"
+grpcurl -plaintext -d '{
+  "metadata": {
+    "user_id": "test-user",
+    "session_id": "'$SESSION_ID'"
+  },
+  "query": "显示过去 30 天的用户增长趋势",
+  "context": {
+    "role": "datainsight_analytics",
+    "prompt_params": {
+      "account_id": "acct_12345",
+      "user_id": "user_67890"
+    }
+  }
+}' localhost:50052 shannon.orchestrator.OrchestratorService/SubmitTask
+```
+  </Step>
+</Steps>
+
+## 组件指南
+
+### 1. 供应商适配器类
+
+**目的：** 为供应商特定的 API 约定转换请求/响应
+
+**常见转换模式：**
+- **字段别名**：`revenue` → `total_revenue`
+- **指标前缀**：`users` → `my:users`
+- **时间范围规范化**：`{start, end}` → `{startTime, endTime}`
+- **排序格式转换**：`{field, order}` → `{column, direction}`
+- **过滤器结构重塑**：列表 → 带逻辑运算符的对象
+- **默认注入**：从会话上下文添加缺失的必需字段
+
+### 2. 配置覆盖
+
+**目的：** 定义供应商特定的工具配置，而不修改基础配置
+
+**标头取值：**
+- `"${ENV_VAR}"` - 从环境变量解析
+- 静态字符串 - 按原样使用
+
+<Note>
+从请求体动态模板化标头（例如 `{{body.field}}`）当前不支持。若标头需要依赖请求体/会话值，请考虑：
+- 在 OpenAPI 规范中将其定义为显式的 header 参数，并在调用工具时传参；或
+- 使用供应商适配器对请求体进行整形（标头仍通过静态/环境变量注入）。
+</Note>
+
+### 3. 供应商角色
+
+**目的：** 具有特定领域知识和工具限制的专门代理
+
+**模板：**
+```python
+"""供应商特定的代理角色。"""
+
+MY_AGENT_PRESET = {
+    "name": "my_agent",
+
+    "system_prompt": """你是 [领域] 的专门代理。
+
+你的使命：[明确目标]
+
+## 可用工具
+- tool1: [描述]
+- tool2: [描述]
+
+## 输出格式
+[具体格式要求]
+
+## 最佳实践
+- [指南 1]
+- [指南 2]
+
+记住：[关键指令]""",
+
+    "allowed_tools": [
+        "tool1",
+        "tool2",
+    ],
+
+    "temperature": 0.7,
+    "response_format": None,  # 或 {"type": "json_object"}
+}
+```
+
+## 最佳实践
+
+<AccordionGroup>
+  <Accordion title="保持适配器通用">
+    ✅ 好：转换字段名称，注入默认值
+
+```python
+def transform_body(self, body, operation_id, prompt_params):
+    # 通用字段规范化
+    if "start_date" in body and "startTime" not in body:
+        body["startTime"] = body.pop("start_date")
+    return body
+```
+
+❌ 坏：在适配器中编写业务逻辑
+
+```python
+def transform_body(self, body, operation_id, prompt_params):
+    # 不要在这里编写复杂的业务逻辑
+    if body["revenue"] > 1000000:
+        body["alert"] = "high_revenue"  # 应该属于应用层
+```
+  </Accordion>
+
+  <Accordion title="使用优雅降级">
+```python
+try:
+    from .myvendor import MyVendorAdapter
+    return MyVendorAdapter()
+except ImportError:
+    pass  # 没有供应商模块，Shannon 也能正常工作
+except Exception as e:
+    logger.warning(f"加载供应商适配器失败: {e}")
+return None
+```
+  </Accordion>
+
+  <Accordion title="文档化转换">
+```python
+def transform_body(self, body, operation_id, prompt_params):
+    """
+    为 MyVendor API 转换请求体。
+
+    转换：
+    - 指标名称："users" → "mv:unique_users"
+    - 时间范围：{start, end} → {startTime, endTime}
+    - 排序格式：{field, order} → {column, direction}
+    - 从 prompt_params 注入 tenant_id
+    """
+```
+  </Accordion>
+
+  <Accordion title="在环境中保密">
+    ✅ 好：
+```yaml
+auth_config:
+  token: "${MYVENDOR_TOKEN}"
+```
+
+❌ 坏：
+```yaml
+auth_config:
+  token: "sk-1234567890abcdef"  # 永远不要硬编码！
+```
+  </Accordion>
+
+  <Accordion title="隔离测试">
+```python
+# tests/test_myvendor_adapter.py
+def test_metric_aliasing():
+    adapter = MyVendorAdapter()
+    body = {"metrics": ["users", "sessions"]}
+    result = adapter.transform_body(body, "queryMetrics", None)
+    assert result["metrics"] == ["mv:unique_users", "mv:total_sessions"]
+```
+  </Accordion>
+
+  <Accordion title="转换前验证">
+```python
+def transform_body(self, body, operation_id, prompt_params):
+    if not isinstance(body, dict):
+        return body  # 不转换非字典
+
+    # 验证必需字段
+    if operation_id == "queryData" and "metrics" not in body:
+        return body  # 让 API 返回验证错误
+```
+  </Accordion>
+</AccordionGroup>
+
+## 测试与验证
+
+### 单元测试适配器
+
+```python
+# tests/vendor/test_datainsight_adapter.py
+import pytest
+from llm_service.tools.vendor_adapters.datainsight import DataInsightAdapter
+
+
+def test_metric_aliasing():
+    adapter = DataInsightAdapter()
+    body = {"metrics": ["users", "pageviews"]}
+    result = adapter.transform_body(body, "queryMetrics", None)
+    assert result["metrics"] == ["di:unique_users", "di:page_views"]
+
+
+def test_session_param_injection():
+    adapter = DataInsightAdapter()
+    body = {}
+    prompt_params = {"account_id": "acct_123", "user_id": "user_456"}
+    result = adapter.transform_body(body, "queryMetrics", prompt_params)
+    assert result["account_id"] == "acct_123"
+    assert result["user_id"] == "user_456"
+
+
+def test_time_range_normalization():
+    adapter = DataInsightAdapter()
+    body = {"timeRange": {"start": "2025-01-01", "end": "2025-01-31"}}
+    result = adapter.transform_body(body, "queryMetrics", None)
+    assert result["timeRange"]["startTime"] == "2025-01-01"
+    assert result["timeRange"]["endTime"] == "2025-01-31"
+    assert "start" not in result["timeRange"]
+```
+
+### 集成测试
+
+```bash
+#!/bin/bash
+# tests/e2e/test_datainsight_integration.sh
+
+SESSION_ID="test-datainsight-$(date +%s)"
+
+# 提交测试查询
+grpcurl -plaintext -d '{
+  "metadata": {"user_id": "test", "session_id": "'$SESSION_ID'"},
+  "query": "显示过去一周的用户增长",
+  "context": {
+    "role": "datainsight_analytics",
+    "prompt_params": {
+      "account_id": "test_account",
+      "user_id": "test_user"
+    }
+  }
+}' localhost:50052 shannon.orchestrator.OrchestratorService/SubmitTask
+
+# 检查适配器应用的日志
+docker logs shannon-llm-service-1 --tail 100 | grep "datainsight"
+```
+
+## 故障排除
+
+<AccordionGroup>
+  <Accordion title="适配器未加载">
+    症状：日志显示 "Vendor adapter '' applied"（空字符串）
+
+修复：
+```yaml
+# 确保在配置覆盖中设置供应商名称
+auth_config:
+  vendor: myvendor  # 必须与适配器名称匹配
+```
+  </Accordion>
+
+  <Accordion title="导入失败">
+    症状：`ImportError: No module named 'myvendor'`
+
+修复：
+```python
+# 在 __init__.py 中使用 try/except
+try:
+    from .myvendor import MyVendorAdapter
+    return MyVendorAdapter()
+except ImportError as e:
+    logger.warning(f"供应商适配器不可用: {e}")
+    return None
+```
+  </Accordion>
+
+  <Accordion title="转换未应用">
+    症状：API 收到原始请求体，未转换
+
+调试：
+```python
+# 在适配器中添加日志
+def transform_body(self, body, operation_id, prompt_params):
+    logger.info(f"转换前: {body}")
+    # ... 转换 ...
+    logger.info(f"转换后: {body}")
+    return body
+```
+
+检查：
+
+1. 适配器已在 `__init__.py` 中注册
+2. 配置中的供应商名称匹配
+3. `auth_config.vendor` 字段存在
+4. 适配器返回修改后的字典（不是 None）
+  </Accordion>
+
+  <Accordion title="会话参数未注入">
+    症状：适配器中的 `prompt_params` 为 None
+
+原因：编排器未发送会话上下文
+
+修复：确保在 gRPC 请求中发送上下文：
+```json
+{
+  "context": {
+    "role": "my_agent",
+    "prompt_params": {
+      "account_id": "123",
+      "user_id": "456"
+    }
+  }
+}
+```
+  </Accordion>
+</AccordionGroup>
+
+## 总结
+
+<Card title="供应商适配器优势" icon="check">
+  - ✅ 清晰分离：通用代码与供应商特定代码
+  - ✅ 无需更改 Shannon 核心
+  - ✅ 条件加载，优雅降级
+  - ✅ 基于环境的密钥管理
+  - ✅ 可隔离测试
+  - ✅ 易于维护和扩展
+</Card>
+
+**三个组件：**
+1. **供应商适配器** - 请求/响应转换
+2. **配置覆盖** - 工具配置
+3. **供应商角色** - 专门的代理（可选）
+
+**快速参考：**
+```bash
+# 结构
+config/overlays/shannon.myvendor.yaml
+config/openapi_specs/myvendor_api.yaml
+python/llm-service/llm_service/tools/vendor_adapters/myvendor.py
+python/llm-service/llm_service/roles/myvendor/my_agent.py
+
+# 环境变量
+SHANNON_CONFIG_PATH=config/overlays/shannon.myvendor.yaml
+MYVENDOR_API_TOKEN=your_token
+
+# 测试
+docker compose build --no-cache llm-service orchestrator
+docker compose up -d
+./scripts/submit_task.sh "你的查询"
+```
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="自定义工具" icon="wrench" href="/cn/tutorials/custom-tools">
+    学习如何添加自定义工具
+  </Card>
+  <Card title="扩展 Shannon" icon="puzzle-piece" href="/cn/tutorials/extending-shannon">
+    探索其他扩展方法
+  </Card>
+  <Card title="配置" icon="gear" href="/cn/quickstart/configuration">
+    完整配置参考
+  </Card>
+  <Card title="架构" icon="sitemap" href="/cn/architecture/overview">
+    了解 Shannon 的架构
+  </Card>
+</CardGroup>

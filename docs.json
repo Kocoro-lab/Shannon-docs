@@ -156,9 +156,11 @@
                 ]
               },
               {
-                "group": "Advanced Patterns",
+                "group": "Extension & Integration",
                 "pages": [
                   "en/tutorials/custom-tools",
+                  "en/tutorials/vendor-adapters",
+                  "en/tutorials/extending-shannon",
                   "en/tutorials/multi-agent-systems"
                 ]
               }
@@ -323,9 +325,11 @@
                 ]
               },
               {
-                "group": "高级模式",
+                "group": "扩展与集成",
                 "pages": [
                   "cn/tutorials/custom-tools",
+                  "cn/tutorials/vendor-adapters",
+                  "cn/tutorials/extending-shannon",
                   "cn/tutorials/multi-agent-systems"
                 ]
               }
