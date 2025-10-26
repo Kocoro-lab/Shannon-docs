@@ -159,6 +159,7 @@
                 "group": "Extension & Integration",
                 "pages": [
                   "en/tutorials/custom-tools",
+                  "en/tutorials/openapi-tools",
                   "en/tutorials/vendor-adapters",
                   "en/tutorials/extending-shannon",
                   "en/tutorials/multi-agent-systems"
