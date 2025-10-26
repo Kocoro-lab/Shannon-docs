@@ -538,9 +538,20 @@ db.tasks.insert({
 status = httpx.get(f"http://localhost:8080/api/v1/tasks/{task_id}")
 ```
 
+## Submit + Stream in One Call
+
+<Tip>
+**Need real-time updates?** Use `POST /api/v1/tasks/stream` instead to submit a task and get a stream URL in one call. Perfect for frontend applications that need immediate progress updates.
+
+See [Unified Submit + Stream](/en/api/rest/streaming#unified-submit-stream-recommended) for examples.
+</Tip>
+
 ## Related Endpoints
 
 <CardGroup cols={2}>
+  <Card title="Submit + Stream" icon="bolt" href="/en/api/rest/streaming#unified-submit-stream-recommended">
+    POST /api/v1/tasks/stream (recommended for UIs)
+  </Card>
   <Card title="Get Task Status" icon="circle-info" href="/en/api/rest/get-status">
     GET /api/v1/tasks/{id}
   </Card>

@@ -11,10 +11,366 @@ Shannon 通过 Server-Sent Events (SSE) 和 WebSocket 协议提供实时事件�
 
 | 方法 | 端点 | 协议 | 描述 |
 |-----|------|------|------|
+| `POST` | `/api/v1/tasks/stream` | HTTP+SSE | 提交任务并获取流 URL（推荐） |
 | `GET` | `/api/v1/tasks/{id}/stream` | SSE | 流式传输特定任务的事件 |
 | `GET` | `/api/v1/stream/sse` | SSE | Server-Sent Events 端点 |
 | `GET` | `/api/v1/stream/ws` | WebSocket | WebSocket 流式传输端点 |
 | `GET` | `/api/v1/tasks/{id}/events` | HTTP | 获取历史事件（分页） |
+
+## 统一提交 + 流式传输（推荐）
+
+### POST /api/v1/tasks/stream
+
+提交任务并立即开始流式传输其事件的最简单方法。此端点在一次调用中结合了任务提交和流式设置。
+
+<Tip>
+**最适合前端应用**：此端点非常适合需要在提交任务后立即显示进度的实时 UI。
+</Tip>
+
+#### 身份验证
+
+**必需**：是
+
+```
+X-API-Key: sk_test_123456
+```
+
+或：
+
+```
+Authorization: Bearer YOUR_TOKEN
+```
+
+#### 请求体
+
+| 参数 | 类型 | 必需 | 描述 |
+|------|------|------|------|
+| `query` | string | 是 | 自然语言任务描述 |
+| `session_id` | string | 否 | 多轮对话的会话标识符 |
+| `context` | object | 否 | 键值对形式的附加上下文数据 |
+
+#### 响应
+
+**状态**：`200 OK`
+
+**响应体**：
+```json
+{
+  "workflow_id": "task_01HQZX3Y9K8M2P4N5S7T9W2V",
+  "stream_url": "/api/v1/stream/sse?workflow_id=task_01HQZX3Y9K8M2P4N5S7T9W2V"
+}
+```
+
+#### 响应字段
+
+| 字段 | 类型 | 描述 |
+|------|------|------|
+| `workflow_id` | string | 任务/工作流标识符 |
+| `stream_url` | string | SSE 流端点的相对 URL |
+
+#### 示例：JavaScript/TypeScript
+
+```javascript
+async function submitAndStream(query, onEvent, onComplete, onError) {
+  try {
+    // 1. 提交任务并获取流 URL
+    const response = await fetch('http://localhost:8080/api/v1/tasks/stream', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer YOUR_TOKEN'
+      },
+      body: JSON.stringify({
+        query: query,
+        session_id: `session-${Date.now()}`
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const { workflow_id, stream_url } = await response.json();
+    console.log(`任务已提交: ${workflow_id}`);
+
+    // 2. 连接到 SSE 流
+    const eventSource = new EventSource(
+      `http://localhost:8080${stream_url}`,
+      { withCredentials: false }
+    );
+
+    eventSource.onmessage = (e) => {
+      const event = JSON.parse(e.data);
+      onEvent(event);
+
+      // 检查完成状态
+      if (event.type === 'WORKFLOW_COMPLETED' || event.type === 'TASK_COMPLETED') {
+        eventSource.close();
+        onComplete(event);
+      }
+    };
+
+    eventSource.onerror = (err) => {
+      console.error('SSE 错误:', err);
+      eventSource.close();
+      onError(err);
+    };
+
+    return { workflow_id, eventSource };
+
+  } catch (error) {
+    onError(error);
+    throw error;
+  }
+}
+
+// 使用示例
+submitAndStream(
+  "分析第四季度收入趋势",
+  (event) => console.log(`[${event.type}]`, event.message),
+  (final) => console.log("已完成:", final.result),
+  (error) => console.error("错误:", error)
+);
+```
+
+#### 示例：React Hook
+
+```jsx
+import { useState, useCallback, useRef } from 'react';
+
+function useTaskStream(apiUrl = 'http://localhost:8080') {
+  const [events, setEvents] = useState([]);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [error, setError] = useState(null);
+  const [workflowId, setWorkflowId] = useState(null);
+  const eventSourceRef = useRef(null);
+
+  const submitTask = useCallback(async (query, sessionId = null) => {
+    setEvents([]);
+    setError(null);
+    setIsStreaming(true);
+
+    try {
+      // 提交任务
+      const response = await fetch(`${apiUrl}/api/v1/tasks/stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          query,
+          session_id: sessionId || `session-${Date.now()}`
+        })
+      });
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      const { workflow_id, stream_url } = await response.json();
+      setWorkflowId(workflow_id);
+
+      // 连接到流
+      const eventSource = new EventSource(`${apiUrl}${stream_url}`);
+      eventSourceRef.current = eventSource;
+
+      eventSource.onmessage = (e) => {
+        const event = JSON.parse(e.data);
+        setEvents(prev => [...prev, event]);
+
+        if (event.type === 'WORKFLOW_COMPLETED' || event.type === 'TASK_COMPLETED' || event.type === 'ERROR_OCCURRED') {
+          eventSource.close();
+          setIsStreaming(false);
+        }
+      };
+
+      eventSource.onerror = (err) => {
+        setError(err);
+        setIsStreaming(false);
+        eventSource.close();
+      };
+
+    } catch (err) {
+      setError(err);
+      setIsStreaming(false);
+    }
+  }, [apiUrl]);
+
+  const stopStreaming = useCallback(() => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      setIsStreaming(false);
+    }
+  }, []);
+
+  return { submitTask, stopStreaming, events, isStreaming, error, workflowId };
+}
+
+// 在组件中使用
+function TaskStreamDemo() {
+  const { submitTask, stopStreaming, events, isStreaming, error, workflowId } = useTaskStream();
+
+  return (
+    <div>
+      <button
+        onClick={() => submitTask("15 + 25 等于多少？")}
+        disabled={isStreaming}
+      >
+        {isStreaming ? '处理中...' : '提交任务'}
+      </button>
+
+      {workflowId && <p>工作流 ID: {workflowId}</p>}
+      {error && <p style={{color: 'red'}}>错误: {error.message}</p>}
+
+      <div>
+        {events.map((event, idx) => (
+          <div key={idx}>
+            <strong>{event.type}</strong>: {event.message || event.agent_id}
+          </div>
+        ))}
+      </div>
+
+      {isStreaming && <button onClick={stopStreaming}>停止</button>}
+    </div>
+  );
+}
+```
+
+#### 示例：Vue 3 Composition API
+
+```vue
+<script setup>
+import { ref } from 'vue';
+
+const events = ref([]);
+const isStreaming = ref(false);
+const error = ref(null);
+const workflowId = ref(null);
+let eventSource = null;
+
+async function submitTask(query) {
+  events.value = [];
+  error.value = null;
+  isStreaming.value = true;
+
+  try {
+    const response = await fetch('http://localhost:8080/api/v1/tasks/stream', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify({
+        query,
+        session_id: `session-${Date.now()}`
+      })
+    });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const { workflow_id, stream_url } = await response.json();
+    workflowId.value = workflow_id;
+
+    eventSource = new EventSource(`http://localhost:8080${stream_url}`);
+
+    eventSource.onmessage = (e) => {
+      const event = JSON.parse(e.data);
+      events.value.push(event);
+
+      if (event.type === 'WORKFLOW_COMPLETED' || event.type === 'TASK_COMPLETED') {
+        eventSource.close();
+        isStreaming.value = false;
+      }
+    };
+
+    eventSource.onerror = (err) => {
+      error.value = err;
+      eventSource.close();
+      isStreaming.value = false;
+    };
+  } catch (err) {
+    error.value = err;
+    isStreaming.value = false;
+  }
+}
+
+function stopStreaming() {
+  if (eventSource) {
+    eventSource.close();
+    isStreaming.value = false;
+  }
+}
+</script>
+
+<template>
+  <div>
+    <button @click="submitTask('分析数据')" :disabled="isStreaming">
+      {{ isStreaming ? '处理中...' : '提交任务' }}
+    </button>
+
+    <div v-if="workflowId">工作流: {{ workflowId }}</div>
+    <div v-if="error" style="color: red">错误: {{ error.message }}</div>
+
+    <div v-for="(event, idx) in events" :key="idx">
+      <strong>{{ event.type }}</strong>: {{ event.message || event.agent_id }}
+    </div>
+
+    <button v-if="isStreaming" @click="stopStreaming">停止</button>
+  </div>
+</template>
+```
+
+#### 示例：Python
+
+```python
+import httpx
+import json
+import time
+
+def submit_and_stream(query: str, api_key: str):
+    """提交任务并流式传输事件。"""
+
+    # 1. 提交任务
+    response = httpx.post(
+        "http://localhost:8080/api/v1/tasks/stream",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        },
+        json={
+            "query": query,
+            "session_id": f"session-{int(time.time())}"
+        }
+    )
+
+    data = response.json()
+    workflow_id = data["workflow_id"]
+    stream_url = data["stream_url"]
+
+    print(f"任务已提交: {workflow_id}")
+
+    # 2. 流式传输事件
+    with httpx.stream(
+        "GET",
+        f"http://localhost:8080{stream_url}",
+        headers={"Authorization": f"Bearer {api_key}"},
+        timeout=None
+    ) as stream_response:
+        for line in stream_response.iter_lines():
+            if line.startswith("data:"):
+                event = json.loads(line[5:])
+                print(f"[{event['type']}] {event.get('message', '')}")
+
+                if event['type'] in ['WORKFLOW_COMPLETED', 'TASK_COMPLETED']:
+                    return event
+
+# 使用示例
+result = submit_and_stream("法国的首都是什么？", "sk_test_123456")
+print("最终结果:", result.get('result'))
+```
+
+<Note>
+**为什么使用此端点？** 统一端点确保您在提交后立即开始流式传输，防止在分别提交和连接时可能错过的任何事件。
+</Note>
 
 ## Server-Sent Events (SSE)
 

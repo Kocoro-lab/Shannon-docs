@@ -538,9 +538,20 @@ db.tasks.insert({
 status = httpx.get(f"http://localhost:8080/api/v1/tasks/{task_id}")
 ```
 
+## 一次调用提交 + 流式传输
+
+<Tip>
+**需要实时更新？** 使用 `POST /api/v1/tasks/stream` 在一次调用中提交任务并获取流 URL。非常适合需要立即进度更新的前端应用。
+
+查看[统一提交 + 流式传输](/cn/api/rest/streaming#统一提交-流式传输推荐)以获取示例。
+</Tip>
+
 ## 相关端点
 
 <CardGroup cols={2}>
+  <Card title="提交 + 流式传输" icon="bolt" href="/cn/api/rest/streaming#统一提交-流式传输推荐">
+    POST /api/v1/tasks/stream（推荐用于 UI）
+  </Card>
   <Card title="获取任务状态" icon="circle-info" href="/cn/api/rest/get-status">
     GET /api/v1/tasks/{id}
   </Card>
