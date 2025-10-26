@@ -213,26 +213,25 @@ def get_vendor_adapter(name: str):
 # DataInsight Analytics Integration
 # Usage: SHANNON_CONFIG_PATH=config/overlays/shannon.datainsight.yaml
 
-    openapi_tools:
-      datainsight_analytics:
-        enabled: true
-        spec_url: file:///app/config/openapi_specs/datainsight_api.yaml
-        auth_type: bearer
-        auth_config:
-          vendor: datainsight  # This triggers adapter loading
-          token: "${DATAINSIGHT_API_TOKEN}"
-          # extra_headers supports only static and env-resolved values
-          # Dynamic header templating from request body is not supported
-          extra_headers:
-            X-User-ID: "${DATAINSIGHT_USER_ID}"   # Static from env
-        category: analytics
-        base_cost_per_use: 0.002
-        rate_limit: 60
-        timeout_seconds: 30
-        operations:
-          - queryMetrics
-          - getDimensionValues
-    ```
+openapi_tools:
+  datainsight_analytics:
+    enabled: true
+    spec_path: config/openapi_specs/datainsight_api.yaml
+    auth_type: bearer
+    auth_config:
+      vendor: datainsight  # This triggers adapter loading
+      token: "${DATAINSIGHT_API_TOKEN}"
+      extra_headers:
+        X-Account-ID: "{{body.account_id}}"  # Dynamic from request body
+        X-User-ID: "${DATAINSIGHT_USER_ID}"   # Static from env
+    category: analytics
+    base_cost_per_use: 0.002
+    rate_limit: 60
+    timeout_seconds: 30
+    operations:
+      - queryMetrics
+      - getDimensionValues
+```
   </Step>
 
   <Step title="Create Vendor Role (Optional)">
