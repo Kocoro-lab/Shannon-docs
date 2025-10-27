@@ -131,42 +131,49 @@ Keep response schema compatible with `DecompositionResponse` to avoid breaking o
     Place templates in your own directory:
 
 ```yaml
-# templates/custom/data-analysis.yaml
-name: "data_analysis"
-description: "Analyze dataset and generate insights"
-version: "1.0"
-category: "analytics"
+# templates/custom/research-workflow.yaml
+name: "research_workflow"
+description: "Multi-stage research and analysis workflow"
+version: "1.0.0"
 
-extends: "base"  # Inherit common defaults
+extends: []  # Optional: inherit from other templates
 
-parameters:
-  - name: "dataset_url"
-    type: "string"
-    required: true
-  - name: "analysis_type"
-    type: "string"
-    enum: ["descriptive", "diagnostic", "predictive"]
-    default: "descriptive"
+defaults:
+  model_tier: "medium"
+  budget_agent_max: 5000
+  require_approval: false
 
-steps:
-  - name: "load_data"
-    tool: "python_executor"
-    code: |
-      import pandas as pd
-      df = pd.read_csv("{{dataset_url}}")
-      print(f"Loaded {len(df)} rows")
+nodes:
+  - id: "search"
+    type: "simple"
+    strategy: "react"
+    tools_allowlist: ["web_search", "calculator"]
+    budget_max: 1000
+    depends_on: []
 
-  - name: "analyze"
-    tool: "python_executor"
-    code: |
-      # Perform {{analysis_type}} analysis
-      summary = df.describe()
-      print(summary.to_json())
+  - id: "analyze"
+    type: "cognitive"
+    strategy: "chain_of_thought"
+    tools_allowlist: ["python_executor", "calculator"]
+    budget_max: 2000
+    depends_on: ["search"]
 
-tools_allowlist:
-  - "python_executor"
-  - "web_search"
-  - "calculator"
+  - id: "synthesize"
+    type: "simple"
+    strategy: "react"
+    tools_allowlist: ["web_search"]
+    budget_max: 1000
+    depends_on: ["analyze"]
+
+edges:
+  - from: "search"
+    to: "analyze"
+  - from: "analyze"
+    to: "synthesize"
+
+metadata:
+  category: "research"
+  author: "your-team"
 ```
   </Step>
 
@@ -188,38 +195,42 @@ if err := registry.Finalize(); err != nil {
   </Step>
 
   <Step title="Use Template">
-    Via API:
+    Via gRPC API:
+
+```bash
+grpcurl -plaintext -d '{
+  "query": "Perform research on AI trends",
+  "context": {
+    "template": "research_workflow",
+    "template_version": "1.0.0",
+    "disable_ai": true
+  }
+}' localhost:50052 shannon.orchestrator.OrchestratorService/SubmitTask
+```
+
+Via HTTP Gateway:
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
   -d '{
-    "template": "data_analysis",
-    "parameters": {
-      "dataset_url": "https://example.com/data.csv",
-      "analysis_type": "predictive"
+    "query": "Perform research on AI trends",
+    "context": {
+      "template": "research_workflow",
+      "template_version": "1.0.0"
     }
   }'
-```
-
-Via Python SDK:
-
-```python
-client.submit_task(
-    template="data_analysis",
-    parameters={
-        "dataset_url": "https://example.com/data.csv",
-        "analysis_type": "predictive"
-    }
-)
 ```
   </Step>
 
   <Step title="List Available Templates">
 ```bash
-# Discovery endpoint
-curl http://localhost:8080/api/v1/templates | jq .
+# Via gRPC
+grpcurl -plaintext -d '{}' localhost:50052 \
+  shannon.orchestrator.OrchestratorService/ListTemplates
 ```
+
+Note: HTTP Gateway template listing endpoint may not be implemented yet. Use gRPC for template discovery.
   </Step>
 </Steps>
 
@@ -228,16 +239,20 @@ curl http://localhost:8080/api/v1/templates | jq .
 <AccordionGroup>
   <Accordion title="Use `extends` for Common Defaults">
 ```yaml
-# Base template
-name: "base"
-timeout_seconds: 300
-max_tokens: 10000
-temperature: 0.7
+# Base template (base.yaml)
+name: "base_research"
+version: "1.0.0"
+defaults:
+  model_tier: "medium"
+  budget_agent_max: 5000
+  require_approval: false
 
-# Child template
-name: "my_template"
-extends: "base"  # Inherits all settings
-temperature: 0.9  # Override specific values
+# Child template (advanced_research.yaml)
+name: "advanced_research"
+version: "1.0.0"
+extends: ["base_research"]  # Inherits all defaults
+defaults:
+  budget_agent_max: 10000  # Override specific values
 ```
   </Accordion>
 

@@ -131,42 +131,49 @@ if ctx.CustomDecomposition {
     将模板放在自己的目录中：
 
 ```yaml
-# templates/custom/data-analysis.yaml
-name: "data_analysis"
-description: "分析数据集并生成见解"
-version: "1.0"
-category: "analytics"
+# templates/custom/research-workflow.yaml
+name: "research_workflow"
+description: "多阶段研究和分析工作流"
+version: "1.0.0"
 
-extends: "base"  # 继承通用默认值
+extends: []  # 可选：从其他模板继承
 
-parameters:
-  - name: "dataset_url"
-    type: "string"
-    required: true
-  - name: "analysis_type"
-    type: "string"
-    enum: ["descriptive", "diagnostic", "predictive"]
-    default: "descriptive"
+defaults:
+  model_tier: "medium"
+  budget_agent_max: 5000
+  require_approval: false
 
-steps:
-  - name: "load_data"
-    tool: "python_executor"
-    code: |
-      import pandas as pd
-      df = pd.read_csv("{{dataset_url}}")
-      print(f"加载了 {len(df)} 行")
+nodes:
+  - id: "search"
+    type: "simple"
+    strategy: "react"
+    tools_allowlist: ["web_search", "calculator"]
+    budget_max: 1000
+    depends_on: []
 
-  - name: "analyze"
-    tool: "python_executor"
-    code: |
-      # 执行 {{analysis_type}} 分析
-      summary = df.describe()
-      print(summary.to_json())
+  - id: "analyze"
+    type: "cognitive"
+    strategy: "chain_of_thought"
+    tools_allowlist: ["python_executor", "calculator"]
+    budget_max: 2000
+    depends_on: ["search"]
 
-tools_allowlist:
-  - "python_executor"
-  - "web_search"
-  - "calculator"
+  - id: "synthesize"
+    type: "simple"
+    strategy: "react"
+    tools_allowlist: ["web_search"]
+    budget_max: 1000
+    depends_on: ["analyze"]
+
+edges:
+  - from: "search"
+    to: "analyze"
+  - from: "analyze"
+    to: "synthesize"
+
+metadata:
+  category: "research"
+  author: "your-team"
 ```
   </Step>
 
@@ -188,38 +195,42 @@ if err := registry.Finalize(); err != nil {
   </Step>
 
   <Step title="使用模板">
-    通过 API：
+    通过 gRPC API：
+
+```bash
+grpcurl -plaintext -d '{
+  "query": "对 AI 趋势进行研究",
+  "context": {
+    "template": "research_workflow",
+    "template_version": "1.0.0",
+    "disable_ai": true
+  }
+}' localhost:50052 shannon.orchestrator.OrchestratorService/SubmitTask
+```
+
+通过 HTTP 网关：
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
   -d '{
-    "template": "data_analysis",
-    "parameters": {
-      "dataset_url": "https://example.com/data.csv",
-      "analysis_type": "predictive"
+    "query": "对 AI 趋势进行研究",
+    "context": {
+      "template": "research_workflow",
+      "template_version": "1.0.0"
     }
   }'
-```
-
-通过 Python SDK：
-
-```python
-client.submit_task(
-    template="data_analysis",
-    parameters={
-        "dataset_url": "https://example.com/data.csv",
-        "analysis_type": "predictive"
-    }
-)
 ```
   </Step>
 
   <Step title="列出可用模板">
 ```bash
-# 发现端点
-curl http://localhost:8080/api/v1/templates | jq .
+# 通过 gRPC
+grpcurl -plaintext -d '{}' localhost:50052 \
+  shannon.orchestrator.OrchestratorService/ListTemplates
 ```
+
+注意：HTTP 网关的模板列表端点可能尚未实现。请使用 gRPC 进行模板发现。
   </Step>
 </Steps>
 
@@ -228,16 +239,20 @@ curl http://localhost:8080/api/v1/templates | jq .
 <AccordionGroup>
   <Accordion title="使用 extends 获取通用默认值">
 ```yaml
-# 基础模板
-name: "base"
-timeout_seconds: 300
-max_tokens: 10000
-temperature: 0.7
+# 基础模板 (base.yaml)
+name: "base_research"
+version: "1.0.0"
+defaults:
+  model_tier: "medium"
+  budget_agent_max: 5000
+  require_approval: false
 
-# 子模板
-name: "my_template"
-extends: "base"  # 继承所有设置
-temperature: 0.9  # 覆盖特定值
+# 子模板 (advanced_research.yaml)
+name: "advanced_research"
+version: "1.0.0"
+extends: ["base_research"]  # 继承所有默认值
+defaults:
+  budget_agent_max: 10000  # 覆盖特定值
 ```
   </Accordion>
 
