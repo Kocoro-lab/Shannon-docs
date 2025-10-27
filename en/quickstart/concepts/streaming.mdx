@@ -30,34 +30,40 @@ SSE is recommended for most use cases due to its simplicity and built-in reconne
 ### Using cURL
 
 ```bash
-curl -N http://localhost:8080/api/v1/tasks/{task_id}/stream
+curl -N http://localhost:8080/api/v1/stream/sse?workflow_id={task_id}
 ```
 
 Output:
 ```
+event: WORKFLOW_STARTED
+data: {"workflow_id":"task-123","agent_id":"orchestrator","message":"Task processing started"}
+
+event: DATA_PROCESSING
+data: {"workflow_id":"task-123","message":"Preparing context"}
+
+event: PROGRESS
+data: {"workflow_id":"task-123","agent_id":"planner","message":"Created a plan with 3 steps"}
+
+event: AGENT_STARTED
+data: {"workflow_id":"task-123","agent_id":"research-agent","message":"Processing query"}
+
 event: AGENT_THINKING
-data: {"message":"Analyzing task complexity..."}
-
-event: TASK_DECOMPOSED
-data: {"subtasks":3,"strategy":"DAG"}
-
-event: SUBTASK_STARTED
-data: {"subtask_id":"1","query":"Research topic A"}
-
-event: AGENT_THINKING
-data: {"message":"Searching for information..."}
+data: {"workflow_id":"task-123","agent_id":"research-agent","message":"Searching for information..."}
 
 event: TOOL_INVOKED
-data: {"tool_name":"web_search","args":{"query":"topic A"}}
+data: {"workflow_id":"task-123","agent_id":"research-agent","message":"Calling web_search with query='topic A'"}
 
-event: TOOL_RESULT
-data: {"tool_name":"web_search","result":"Found 5 results"}
+event: TOOL_OBSERVATION
+data: {"workflow_id":"task-123","agent_id":"research-agent","message":"Found 5 results"}
 
-event: SUBTASK_COMPLETED
-data: {"subtask_id":"1","status":"COMPLETED"}
+event: LLM_OUTPUT
+data: {"workflow_id":"task-123","agent_id":"research-agent","message":"Research complete: Found relevant information"}
 
-event: TASK_COMPLETED
-data: {"result":"Final synthesized result","metrics":{"latency_ms":5000}}
+event: AGENT_COMPLETED
+data: {"workflow_id":"task-123","agent_id":"research-agent","message":"Task done"}
+
+event: WORKFLOW_COMPLETED
+data: {"workflow_id":"task-123","message":"Final synthesized result ready"}
 ```
 
 ### Using Python SDK
@@ -76,26 +82,56 @@ handle = client.submit_task(
 for event in client.stream(handle.workflow_id):
     print(f"[{event.type}] {event.message}")
 
-    if event.type == "TASK_COMPLETED":
+    if event.type == "WORKFLOW_COMPLETED":
         print(f"Task completed: {event.message}")
         break
 ```
 
 ### Event Types
 
-| Event Type | Description | Data Fields |
-|------------|-------------|-------------|
-| `AGENT_THINKING` | Agent is processing | `message` |
-| `TASK_DECOMPOSED` | Task broken into subtasks | `subtasks`, `strategy` |
-| `SUBTASK_STARTED` | Subtask execution begins | `subtask_id`, `query` |
-| `SUBTASK_COMPLETED` | Subtask finished | `subtask_id`, `status`, `result` |
-| `TOOL_INVOKED` | Tool execution started | `tool_name`, `args` |
-| `TOOL_RESULT` | Tool returned result | `tool_name`, `result` |
-| `AGENT_COMPLETED` | Agent finished | `agent_id`, `result` |
-| `TASK_COMPLETED` | Entire task done | `result`, `metrics` |
-| `TASK_FAILED` | Task encountered error | `error`, `error_code` |
-| `BUDGET_WARNING` | Approaching budget limit | `used_tokens`, `max_tokens` |
-| `BUDGET_EXCEEDED` | Budget limit reached | `final_cost` |
+Shannon emits 26 event types across different categories. Here are the most commonly used ones:
+
+#### Core Workflow Events
+
+| Event Type | Description | Example Message |
+|------------|-------------|-----------------|
+| `WORKFLOW_STARTED` | Task processing started | `"Task processing started"` |
+| `WORKFLOW_COMPLETED` | Workflow finished successfully | `"All done"` |
+| `AGENT_STARTED` | Agent began processing | `"Processing query"` |
+| `AGENT_COMPLETED` | Agent finished | `"Task done"` |
+| `AGENT_THINKING` | Agent is reasoning/planning | `"Thinking: What is 5 + 5?"` |
+| `ERROR_OCCURRED` | Error during execution | `"Failed to connect: timeout"` |
+
+#### LLM & Tool Events
+
+| Event Type | Description | Example Message |
+|------------|-------------|-----------------|
+| `LLM_PROMPT` | Prompt sent to LLM | `"What is 5 + 5?"` |
+| `LLM_OUTPUT` | Complete LLM response | `"5 + 5 equals 10"` |
+| `LLM_PARTIAL` | Streaming chunk (often filtered) | `"5 + 5"` |
+| `TOOL_INVOKED` | Tool execution started | `"Calling database_query"` |
+| `TOOL_OBSERVATION` | Tool result/output | `"Query returned 42 rows"` |
+
+#### Progress & Status Events
+
+| Event Type | Description | Example Message |
+|------------|-------------|-----------------|
+| `PROGRESS` | Step completion update | `"Created a plan with 3 steps"` |
+| `DATA_PROCESSING` | Processing/analyzing data | `"Preparing context"` |
+| `DELEGATION` | Task delegated to another agent | `"Handing off to simple task"` |
+
+#### Multi-Agent Events (requires feature gates)
+
+| Event Type | Description | Example Message |
+|------------|-------------|-----------------|
+| `MESSAGE_SENT` | Agent sent message (requires `p2p_v1`) | `"Please analyze section 3"` |
+| `MESSAGE_RECEIVED` | Agent received message (requires `p2p_v1`) | `"Received task"` |
+| `TEAM_RECRUITED` | Agent recruited (requires `dynamic_team_v1`) | `"Summarize section 3"` |
+| `TEAM_RETIRED` | Agent retired (requires `dynamic_team_v1`) | `"Task completed"` |
+
+<Note>
+For a complete list of all 26 event types, see the [Event Types Reference](/en/api/rest/streaming#event-types).
+</Note>
 
 ## WebSocket Streaming
 
@@ -118,7 +154,7 @@ async def stream_task():
             event = json.loads(message)
             print(f"Event: {event['type']}")
 
-            if event['type'] == 'TASK_COMPLETED':
+            if event['type'] == 'WORKFLOW_COMPLETED':
                 break
 
 asyncio.run(stream_task())
@@ -135,7 +171,7 @@ Filter events by type to reduce noise:
 ```python
 # Only show important events
 for event in client.stream(workflow_id):
-    if event.type in ['TASK_DECOMPOSED', 'SUBTASK_COMPLETED', 'TASK_COMPLETED']:
+    if event.type in ['PROGRESS', 'AGENT_COMPLETED', 'WORKFLOW_COMPLETED']:
         print(f"{event.type}: {event.message}")
 ```
 
@@ -145,19 +181,25 @@ Calculate task progress from events:
 
 ```python
 def track_progress(workflow_id):
-    total_subtasks = 0
-    completed_subtasks = 0
+    agents_started = 0
+    agents_completed = 0
 
     for event in client.stream(workflow_id):
-        if event.type == 'TASK_DECOMPOSED':
-            # Track that decomposition happened
-            print(f"Task decomposed: {event.message}")
+        if event.type == 'PROGRESS':
+            # Track progress updates from planner
+            print(f"Progress: {event.message}")
 
-        elif event.type == 'SUBTASK_COMPLETED':
-            completed_subtasks += 1
-            print(f"Subtask {completed_subtasks} completed")
+        elif event.type == 'AGENT_STARTED':
+            agents_started += 1
+            print(f"Agent started: {event.agent_id}")
 
-        elif event.type == 'TASK_COMPLETED':
+        elif event.type == 'AGENT_COMPLETED':
+            agents_completed += 1
+            if agents_started > 0:
+                progress = (agents_completed / agents_started) * 100
+                print(f"Progress: {progress:.1f}% ({agents_completed}/{agents_started})")
+
+        elif event.type == 'WORKFLOW_COMPLETED':
             print("✅ Task complete!")
             break
 
@@ -166,10 +208,13 @@ track_progress(handle.workflow_id)
 
 Output:
 ```
-Task split into 3 parts
-Progress: 33.3%
-Progress: 66.7%
-Progress: 100.0%
+Progress: Created a plan with 3 steps
+Agent started: research-agent
+Agent started: analysis-agent
+Agent started: writer-agent
+Progress: 33.3% (1/3)
+Progress: 66.7% (2/3)
+Progress: 100.0% (3/3)
 ✅ Task complete!
 ```
 
@@ -180,40 +225,93 @@ Progress: 100.0%
 ```jsx
 import { useEffect, useState } from 'react';
 
-function TaskMonitor({ taskId }) {
+function TaskMonitor({ taskId, apiKey }) {
   const [events, setEvents] = useState([]);
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
+    const params = new URLSearchParams({ workflow_id: taskId });
+
+    // For authenticated endpoints, pass API key in URL
+    // Note: Browser EventSource doesn't support custom headers
+    if (apiKey) {
+      params.append('api_key', apiKey);
+    }
+
     const eventSource = new EventSource(
-      `http://localhost:8080/api/v1/tasks/${taskId}/stream`
+      `http://localhost:8080/api/v1/stream/sse?${params}`
     );
 
-    eventSource.onmessage = (e) => {
+    const handleEvent = (e) => {
       const event = JSON.parse(e.data);
       setEvents(prev => [...prev, event]);
 
-      // Update progress
-      if (event.type === 'SUBTASK_COMPLETED') {
-        setProgress(prev => prev + (100 / event.totalSubtasks));
+      // Update progress based on workflow lifecycle
+      if (event.type === 'WORKFLOW_STARTED') {
+        setProgress(10);
+      } else if (event.type === 'PROGRESS') {
+        setProgress(prev => Math.min(prev + 20, 80));
+      } else if (event.type === 'WORKFLOW_COMPLETED') {
+        setProgress(100);
       }
     };
 
-    return () => eventSource.close();
-  }, [taskId]);
+    // Listen to specific event types (Shannon uses named SSE events)
+    const eventTypes = [
+      'WORKFLOW_STARTED',
+      'WORKFLOW_COMPLETED',
+      'AGENT_STARTED',
+      'AGENT_COMPLETED',
+      'AGENT_THINKING',
+      'PROGRESS',
+      'ERROR_OCCURRED',
+      'LLM_OUTPUT',
+      'TOOL_INVOKED',
+      'TOOL_OBSERVATION'
+    ];
+
+    eventTypes.forEach(type => {
+      eventSource.addEventListener(type, handleEvent);
+    });
+
+    // Fallback for unnamed events
+    eventSource.onmessage = handleEvent;
+
+    eventSource.onerror = () => {
+      console.error('SSE connection error');
+    };
+
+    return () => {
+      eventTypes.forEach(type => {
+        eventSource.removeEventListener(type, handleEvent);
+      });
+      eventSource.close();
+    };
+  }, [taskId, apiKey]);
 
   return (
     <div>
       <progress value={progress} max={100} />
       <ul>
         {events.map((e, i) => (
-          <li key={i}>[{e.type}] {e.message}</li>
+          <li key={i}>
+            <strong>[{e.type}]</strong>{' '}
+            {e.agent_id && <span>({e.agent_id})</span>}{' '}
+            {e.message}
+          </li>
         ))}
       </ul>
     </div>
   );
 }
 ```
+
+<Note>
+**Key Implementation Details:**
+- Shannon emits **named SSE events** (e.g., `event: AGENT_STARTED`), so you must use `addEventListener()` for each event type
+- Browser `EventSource` API doesn't support custom headers, so API keys must be passed as URL query parameters
+- Always clean up event listeners in the cleanup function to prevent memory leaks
+</Note>
 
 ## Error Handling
 
@@ -232,7 +330,7 @@ def robust_streaming(workflow_id, max_retries=3):
             for event in client.stream(workflow_id):
                 print(f"Event: {event.type}")
 
-                if event.type == 'TASK_COMPLETED':
+                if event.type == 'WORKFLOW_COMPLETED':
                     # Get final status to retrieve result
                     status = client.get_status(workflow_id.replace('wf-', 'task-'))
                     return status.result
@@ -254,7 +352,7 @@ When authentication is enabled, provide API key:
 ```bash
 curl -N \
   -H "X-API-Key: sk_test_123456" \
-  http://localhost:8080/api/v1/tasks/{task_id}/stream
+  http://localhost:8080/api/v1/stream/sse?workflow_id={task_id}
 ```
 
 ### Python SDK with API Key
@@ -301,7 +399,7 @@ Always close streams when done:
 ```python
 # Iterate through events (automatically handles connection)
 for event in client.stream(workflow_id):
-    if event.type == 'TASK_COMPLETED':
+    if event.type == 'WORKFLOW_COMPLETED':
         break
 # No explicit close needed
 ```
@@ -317,7 +415,7 @@ async def monitor_task(client, workflow_id):
     # Use sync stream() in async context
     for event in client.stream(workflow_id):
         print(f"[{workflow_id}] {event.type}")
-        if event.type == 'TASK_COMPLETED':
+        if event.type == 'WORKFLOW_COMPLETED':
             # Get final result from status
             task_id = workflow_id.replace('wf-', 'task-')
             status = client.get_status(task_id)
@@ -376,7 +474,7 @@ for attempt in range(3):
 
 ```python
 # ✅ Good: Only critical events
-critical_events = ['TASK_DECOMPOSED', 'TASK_COMPLETED', 'TASK_FAILED']
+critical_events = ['PROGRESS', 'WORKFLOW_COMPLETED', 'ERROR_OCCURRED']
 for event in client.stream(workflow_id):
     if event.type in critical_events:
         handle_event(event)

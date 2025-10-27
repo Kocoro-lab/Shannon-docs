@@ -59,7 +59,7 @@ Response:
 Shannon supports Server-Sent Events (SSE) for real-time updates:
 
 ```bash
-curl -N http://localhost:8080/api/v1/tasks/task-dev-1730000000/stream
+curl -N http://localhost:8080/api/v1/stream/sse?workflow_id=task-dev-1730000000
 ```
 
 You'll see events as they happen:

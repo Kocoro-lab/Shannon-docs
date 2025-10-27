@@ -30,34 +30,40 @@ Shannon 支持两种流式传输协议：
 ### 使用 cURL
 
 ```bash
-curl -N http://localhost:8080/api/v1/tasks/{task_id}/stream
+curl -N http://localhost:8080/api/v1/stream/sse?workflow_id={task_id}
 ```
 
 输出：
 ```
+event: WORKFLOW_STARTED
+data: {"workflow_id":"task-123","agent_id":"orchestrator","message":"任务处理已开始"}
+
+event: DATA_PROCESSING
+data: {"workflow_id":"task-123","message":"准备上下文"}
+
+event: PROGRESS
+data: {"workflow_id":"task-123","agent_id":"planner","message":"创建了包含 3 个步骤的计划"}
+
+event: AGENT_STARTED
+data: {"workflow_id":"task-123","agent_id":"research-agent","message":"正在处理查询"}
+
 event: AGENT_THINKING
-data: {"message":"正在分析任务复杂度..."}
-
-event: TASK_DECOMPOSED
-data: {"subtasks":3,"strategy":"DAG"}
-
-event: SUBTASK_STARTED
-data: {"subtask_id":"1","query":"研究主题 A"}
-
-event: AGENT_THINKING
-data: {"message":"正在搜索信息..."}
+data: {"workflow_id":"task-123","agent_id":"research-agent","message":"正在搜索信息..."}
 
 event: TOOL_INVOKED
-data: {"tool_name":"web_search","args":{"query":"主题 A"}}
+data: {"workflow_id":"task-123","agent_id":"research-agent","message":"调用 web_search，查询='主题 A'"}
 
-event: TOOL_RESULT
-data: {"tool_name":"web_search","result":"找到 5 个结果"}
+event: TOOL_OBSERVATION
+data: {"workflow_id":"task-123","agent_id":"research-agent","message":"找到 5 个结果"}
 
-event: SUBTASK_COMPLETED
-data: {"subtask_id":"1","status":"COMPLETED"}
+event: LLM_OUTPUT
+data: {"workflow_id":"task-123","agent_id":"research-agent","message":"研究完成：找到相关信息"}
 
-event: TASK_COMPLETED
-data: {"result":"最终综合结果","metrics":{"latency_ms":5000}}
+event: AGENT_COMPLETED
+data: {"workflow_id":"task-123","agent_id":"research-agent","message":"任务完成"}
+
+event: WORKFLOW_COMPLETED
+data: {"workflow_id":"task-123","message":"最终综合结果已准备就绪"}
 ```
 
 ### 使用 Python SDK
@@ -76,26 +82,56 @@ handle = client.submit_task(
 for event in client.stream(handle.workflow_id):
     print(f"[{event.type}] {event.message}")
 
-    if event.type == "TASK_COMPLETED":
+    if event.type == "WORKFLOW_COMPLETED":
         print(f"任务已完成：{event.message}")
         break
 ```
 
 ### 事件类型
 
-| 事件类型 | 描述 | 数据字段 |
-|------------|-------------|-------------|
-| `AGENT_THINKING` | 智能体正在处理 | `message` |
-| `TASK_DECOMPOSED` | 任务分解为子任务 | `subtasks`、`strategy` |
-| `SUBTASK_STARTED` | 子任务执行开始 | `subtask_id`、`query` |
-| `SUBTASK_COMPLETED` | 子任务完成 | `subtask_id`、`status`、`result` |
-| `TOOL_INVOKED` | 工具执行开始 | `tool_name`、`args` |
-| `TOOL_RESULT` | 工具返回结果 | `tool_name`、`result` |
-| `AGENT_COMPLETED` | 智能体完成 | `agent_id`、`result` |
-| `TASK_COMPLETED` | 整个任务完成 | `result`、`metrics` |
-| `TASK_FAILED` | 任务遇到错误 | `error`、`error_code` |
-| `BUDGET_WARNING` | 接近预算限制 | `used_tokens`、`max_tokens` |
-| `BUDGET_EXCEEDED` | 达到预算限制 | `final_cost` |
+Shannon 在不同类别中发出 26 种事件类型。以下是最常用的事件类型：
+
+#### 核心工作流事件
+
+| 事件类型 | 描述 | 示例消息 |
+|------------|-------------|-----------------|
+| `WORKFLOW_STARTED` | 任务处理开始 | `"任务处理已开始"` |
+| `WORKFLOW_COMPLETED` | 工作流成功完成 | `"全部完成"` |
+| `AGENT_STARTED` | 智能体开始处理 | `"正在处理查询"` |
+| `AGENT_COMPLETED` | 智能体完成 | `"任务完成"` |
+| `AGENT_THINKING` | 智能体正在推理/规划 | `"思考：5 + 5 等于多少？"` |
+| `ERROR_OCCURRED` | 执行期间发生错误 | `"连接失败：超时"` |
+
+#### LLM 和工具事件
+
+| 事件类型 | 描述 | 示例消息 |
+|------------|-------------|-----------------|
+| `LLM_PROMPT` | 发送给 LLM 的提示 | `"5 + 5 等于多少？"` |
+| `LLM_OUTPUT` | 完整的 LLM 响应 | `"5 + 5 等于 10"` |
+| `LLM_PARTIAL` | 流式传输块（通常已过滤） | `"5 + 5"` |
+| `TOOL_INVOKED` | 工具执行开始 | `"调用 database_query"` |
+| `TOOL_OBSERVATION` | 工具结果/输出 | `"查询返回 42 行"` |
+
+#### 进度和状态事件
+
+| 事件类型 | 描述 | 示例消息 |
+|------------|-------------|-----------------|
+| `PROGRESS` | 步骤完成更新 | `"创建了包含 3 个步骤的计划"` |
+| `DATA_PROCESSING` | 处理/分析数据 | `"准备上下文"` |
+| `DELEGATION` | 任务委托给另一个智能体 | `"移交给简单任务"` |
+
+#### 多智能体事件（需要功能门控）
+
+| 事件类型 | 描述 | 示例消息 |
+|------------|-------------|-----------------|
+| `MESSAGE_SENT` | 智能体发送消息（需要 `p2p_v1`） | `"请分析第 3 节"` |
+| `MESSAGE_RECEIVED` | 智能体接收消息（需要 `p2p_v1`） | `"收到任务"` |
+| `TEAM_RECRUITED` | 招募智能体（需要 `dynamic_team_v1`） | `"总结第 3 节"` |
+| `TEAM_RETIRED` | 智能体退役（需要 `dynamic_team_v1`） | `"任务已完成"` |
+
+<Note>
+有关所有 26 种事件类型的完整列表，请参阅[事件类型参考](/cn/api/rest/streaming#event-types)。
+</Note>
 
 ## WebSocket 流式传输
 
@@ -118,7 +154,7 @@ async def stream_task():
             event = json.loads(message)
             print(f"事件：{event['type']}")
 
-            if event['type'] == 'TASK_COMPLETED':
+            if event['type'] == 'WORKFLOW_COMPLETED':
                 break
 
 asyncio.run(stream_task())
@@ -135,7 +171,7 @@ WebSocket 流式传输目前仅支持服务器到客户端。使用 REST API `/a
 ```python
 # 仅显示重要事件
 for event in client.stream(workflow_id):
-    if event.type in ['TASK_DECOMPOSED', 'SUBTASK_COMPLETED', 'TASK_COMPLETED']:
+    if event.type in ['PROGRESS', 'AGENT_COMPLETED', 'WORKFLOW_COMPLETED']:
         print(f"{event.type}：{event.message}")
 ```
 
@@ -145,19 +181,25 @@ for event in client.stream(workflow_id):
 
 ```python
 def track_progress(workflow_id):
-    total_subtasks = 0
-    completed_subtasks = 0
+    agents_started = 0
+    agents_completed = 0
 
     for event in client.stream(workflow_id):
-        if event.type == 'TASK_DECOMPOSED':
-            # 跟踪分解已发生
-            print(f"任务已分解：{event.message}")
+        if event.type == 'PROGRESS':
+            # 跟踪规划器的进度更新
+            print(f"进度：{event.message}")
 
-        elif event.type == 'SUBTASK_COMPLETED':
-            completed_subtasks += 1
-            print(f"子任务 {completed_subtasks} 已完成")
+        elif event.type == 'AGENT_STARTED':
+            agents_started += 1
+            print(f"智能体已启动：{event.agent_id}")
 
-        elif event.type == 'TASK_COMPLETED':
+        elif event.type == 'AGENT_COMPLETED':
+            agents_completed += 1
+            if agents_started > 0:
+                progress = (agents_completed / agents_started) * 100
+                print(f"进度：{progress:.1f}% ({agents_completed}/{agents_started})")
+
+        elif event.type == 'WORKFLOW_COMPLETED':
             print("✅ 任务完成！")
             break
 
@@ -166,10 +208,13 @@ track_progress(handle.workflow_id)
 
 输出：
 ```
-任务分为 3 部分
-进度：33.3%
-进度：66.7%
-进度：100.0%
+进度：创建了包含 3 个步骤的计划
+智能体已启动：research-agent
+智能体已启动：analysis-agent
+智能体已启动：writer-agent
+进度：33.3% (1/3)
+进度：66.7% (2/3)
+进度：100.0% (3/3)
 ✅ 任务完成！
 ```
 
@@ -180,40 +225,93 @@ track_progress(handle.workflow_id)
 ```jsx
 import { useEffect, useState } from 'react';
 
-function TaskMonitor({ taskId }) {
+function TaskMonitor({ taskId, apiKey }) {
   const [events, setEvents] = useState([]);
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
+    const params = new URLSearchParams({ workflow_id: taskId });
+
+    // 对于需要身份验证的端点，在 URL 中传递 API 密钥
+    // 注意：浏览器的 EventSource 不支持自定义请求头
+    if (apiKey) {
+      params.append('api_key', apiKey);
+    }
+
     const eventSource = new EventSource(
-      `http://localhost:8080/api/v1/tasks/${taskId}/stream`
+      `http://localhost:8080/api/v1/stream/sse?${params}`
     );
 
-    eventSource.onmessage = (e) => {
+    const handleEvent = (e) => {
       const event = JSON.parse(e.data);
       setEvents(prev => [...prev, event]);
 
-      // 更新进度
-      if (event.type === 'SUBTASK_COMPLETED') {
-        setProgress(prev => prev + (100 / event.totalSubtasks));
+      // 根据工作流生命周期更新进度
+      if (event.type === 'WORKFLOW_STARTED') {
+        setProgress(10);
+      } else if (event.type === 'PROGRESS') {
+        setProgress(prev => Math.min(prev + 20, 80));
+      } else if (event.type === 'WORKFLOW_COMPLETED') {
+        setProgress(100);
       }
     };
 
-    return () => eventSource.close();
-  }, [taskId]);
+    // 监听特定事件类型（Shannon 使用命名的 SSE 事件）
+    const eventTypes = [
+      'WORKFLOW_STARTED',
+      'WORKFLOW_COMPLETED',
+      'AGENT_STARTED',
+      'AGENT_COMPLETED',
+      'AGENT_THINKING',
+      'PROGRESS',
+      'ERROR_OCCURRED',
+      'LLM_OUTPUT',
+      'TOOL_INVOKED',
+      'TOOL_OBSERVATION'
+    ];
+
+    eventTypes.forEach(type => {
+      eventSource.addEventListener(type, handleEvent);
+    });
+
+    // 未命名事件的备用处理器
+    eventSource.onmessage = handleEvent;
+
+    eventSource.onerror = () => {
+      console.error('SSE 连接错误');
+    };
+
+    return () => {
+      eventTypes.forEach(type => {
+        eventSource.removeEventListener(type, handleEvent);
+      });
+      eventSource.close();
+    };
+  }, [taskId, apiKey]);
 
   return (
     <div>
       <progress value={progress} max={100} />
       <ul>
         {events.map((e, i) => (
-          <li key={i}>[{e.type}] {e.message}</li>
+          <li key={i}>
+            <strong>[{e.type}]</strong>{' '}
+            {e.agent_id && <span>({e.agent_id})</span>}{' '}
+            {e.message}
+          </li>
         ))}
       </ul>
     </div>
   );
 }
 ```
+
+<Note>
+**关键实现细节：**
+- Shannon 发出**命名的 SSE 事件**（例如，`event: AGENT_STARTED`），因此您必须为每种事件类型使用 `addEventListener()`
+- 浏览器的 `EventSource` API 不支持自定义请求头，因此 API 密钥必须作为 URL 查询参数传递
+- 始终在清理函数中清除事件监听器，以防止内存泄漏
+</Note>
 
 ## 错误处理
 
@@ -232,7 +330,7 @@ def robust_streaming(workflow_id, max_retries=3):
             for event in client.stream(workflow_id):
                 print(f"事件：{event.type}")
 
-                if event.type == 'TASK_COMPLETED':
+                if event.type == 'WORKFLOW_COMPLETED':
                     # 获取最终状态以检索结果
                     status = client.get_status(workflow_id.replace('wf-', 'task-'))
                     return status.result
@@ -254,7 +352,7 @@ def robust_streaming(workflow_id, max_retries=3):
 ```bash
 curl -N \
   -H "X-API-Key: sk_test_123456" \
-  http://localhost:8080/api/v1/tasks/{task_id}/stream
+  http://localhost:8080/api/v1/stream/sse?workflow_id={task_id}
 ```
 
 ### 带 API 密钥的 Python SDK
@@ -301,7 +399,7 @@ data: {"message":"..."}
 ```python
 # 遍历事件（自动处理连接）
 for event in client.stream(workflow_id):
-    if event.type == 'TASK_COMPLETED':
+    if event.type == 'WORKFLOW_COMPLETED':
         break
 # 无需显式关闭
 ```
@@ -317,7 +415,7 @@ async def monitor_task(client, workflow_id):
     # 在异步上下文中使用同步 stream()
     for event in client.stream(workflow_id):
         print(f"[{workflow_id}] {event.type}")
-        if event.type == 'TASK_COMPLETED':
+        if event.type == 'WORKFLOW_COMPLETED':
             # 从状态获取最终结果
             task_id = workflow_id.replace('wf-', 'task-')
             status = client.get_status(task_id)
@@ -376,7 +474,7 @@ for attempt in range(3):
 
 ```python
 # ✅ 好：仅关键事件
-critical_events = ['TASK_DECOMPOSED', 'TASK_COMPLETED', 'TASK_FAILED']
+critical_events = ['PROGRESS', 'WORKFLOW_COMPLETED', 'ERROR_OCCURRED']
 for event in client.stream(workflow_id):
     if event.type in critical_events:
         handle_event(event)

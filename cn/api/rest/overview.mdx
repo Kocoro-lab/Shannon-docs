@@ -1,326 +1,205 @@
 ---
-title: "REST API 概览"
-description: "Shannon Gateway 的完整 REST API 参考"
+title: "REST API 参考"
+description: "Shannon 网关的完整 REST API 参考"
 ---
 
 ## 基础 URL
 
 ```
-http://localhost:8080
+http://localhost:8080/api/v1
 ```
 
-对于生产环境部署，请将 `localhost:8080` 替换为您的网关 URL。
+## 端点摘要
 
-## API 端点
+Shannon 提供 **15 个 REST 端点**，分为 4 个类别：
 
-Shannon 提供了 11 个 REST API 端点，分为三类：
+### 任务操作（6 个端点）
 
-### 任务管理
+| 端点 | 描述 |
+|----------|-------------|
+| `POST /tasks` | 提交新任务 |
+| `POST /tasks/stream` | 提交任务并接收流 URL |
+| `GET /tasks` | 使用过滤器列出任务（limit、offset、status、session_id）|
+| `GET /tasks/{id}` | 获取任务状态和结果 |
+| `GET /tasks/{id}/events` | 获取持久化事件历史 |
+| `GET /tasks/{id}/timeline` | 获取确定性 Temporal 时间线 |
 
-| 方法 | 端点 | 描述 | 需要认证 |
-|--------|----------|-------------|---------------|
-| `POST` | `/api/v1/tasks` | 提交新任务 | 是 |
-| `GET` | `/api/v1/tasks` | 列出任务（支持过滤） | 是 |
-| `GET` | `/api/v1/tasks/{id}` | 获取任务状态和结果 | 是 |
-| `GET` | `/api/v1/tasks/{id}/events` | 获取任务事件历史 | 是 |
-| `GET` | `/api/v1/tasks/{id}/timeline` | 获取任务执行时间线 | 是 |
+### 流式传输（2 个端点）
 
-### 流式传输
+| 端点 | 描述 |
+|----------|-------------|
+| `GET /stream/sse?workflow_id={id}` | 服务器发送事件流 |
+| `GET /stream/ws?workflow_id={id}` | WebSocket 流 |
 
-| 方法 | 端点 | 描述 | 需要认证 |
-|--------|----------|-------------|---------------|
-| `GET` | `/api/v1/tasks/{id}/stream` | 流式传输任务事件 (SSE) | 是 |
-| `GET` | `/api/v1/stream/sse` | Server-Sent Events 端点 | 是 |
-| `GET` | `/api/v1/stream/ws` | WebSocket 流式传输端点 | 是 |
+### 会话管理（4 个端点）
 
-### 健康检查与可观测性
+| 端点 | 描述 |
+|----------|-------------|
+| `GET /sessions` | 列出会话（分页）|
+| `GET /sessions/{sessionId}` | 获取会话详情 |
+| `GET /sessions/{sessionId}/history` | 获取会话对话历史 |
+| `GET /sessions/{sessionId}/events` | 获取会话事件（排除 LLM_PARTIAL）|
 
-| 方法 | 端点 | 描述 | 需要认证 |
-|--------|----------|-------------|---------------|
-| `GET` | `/health` | 健康检查探针 | 否 |
-| `GET` | `/readiness` | 就绪检查探针 | 否 |
-| `GET` | `/openapi.json` | OpenAPI 3.0 规范 | 否 |
+### 健康检查和可观测性（3 个端点）
 
-## 身份认证
+| 端点 | 需要认证 | 描述 |
+|----------|---------------|-------------|
+| `GET /health` | 否 | 健康检查探针 |
+| `GET /readiness` | 否 | 就绪探针（检查 orchestrator）|
+| `GET /openapi.json` | 否 | OpenAPI 3.0 规范 |
 
-所有任务和流式传输端点都需要通过 API 密钥进行身份认证。
+## 认证
 
-### API 密钥请求头
+<Note>
+**开发环境**：认证**默认禁用**（`GATEWAY_SKIP_AUTH=1`）。
+
+**生产环境**：设置 `GATEWAY_SKIP_AUTH=0` 并使用 API 密钥。
+</Note>
+
+### API 密钥头部
 
 ```bash
 curl -H "X-API-Key: sk_test_123456" \
   http://localhost:8080/api/v1/tasks
 ```
 
-### 禁用认证（仅限开发环境）
+### SSE 流式传输认证
 
-设置环境变量：
+<Warning>
+浏览器 `EventSource` 不支持自定义请求头。将 API 密钥作为**查询参数**传递：
+</Warning>
 
-```bash
-GATEWAY_SKIP_AUTH=1
+```javascript
+const eventSource = new EventSource(
+  `/api/v1/stream/sse?workflow_id=${id}&api_key=sk_test_123456`
+);
 ```
 
-**警告**：切勿在生产环境中禁用身份认证。
-
-## 通用请求头
+## 常用请求头
 
 ### 请求头
 
-| 请求头 | 必需 | 描述 | 示例 |
-|--------|----------|-------------|---------|
-| `X-API-Key` | 是* | 认证密钥 | `sk_test_123456` |
-| `Content-Type` | 是 (POST) | 请求体格式 | `application/json` |
-| `Idempotency-Key` | 否 | 防止重复提交 | `550e8400-e29b-41d4-a716-446655440000` |
-| `traceparent` | 否 | W3C 追踪上下文 | `00-4bf92f...` |
+| 头部 | 必需 | 描述 |
+|--------|----------|-------------|
+| `X-API-Key` | 是* | API 认证密钥 |
+| `Content-Type` | 是（POST）| `application/json` |
+| `Idempotency-Key` | 否 | 防止重复提交（24 小时缓存）|
+| `traceparent` | 否 | W3C 跟踪上下文，用于分布式追踪 |
 
-*如果设置了 `GATEWAY_SKIP_AUTH=1` 则不需要
+*如果 `GATEWAY_SKIP_AUTH=1` 则不需要
 
 ### 响应头
 
-| 响应头 | 描述 | 示例 |
-|--------|-------------|---------|
-| `X-Workflow-ID` | Temporal 工作流标识符 | `task_abc123_workflow` |
-| `X-Session-ID` | 会话标识符 | `user-123-session` |
-| `Content-Type` | 响应格式 | `application/json` |
+| 头部 | 描述 |
+|--------|-------------|
+| `X-Workflow-ID` | Temporal 工作流标识符，用于追踪 |
+| `X-Session-ID` | 会话标识符 |
+| `X-RateLimit-Limit` | 每分钟允许的请求数 |
+| `X-RateLimit-Remaining` | 当前窗口剩余的请求数 |
+| `X-RateLimit-Reset` | 限制重置的 Unix 时间戳 |
 
 ## 速率限制
 
-速率限制按 API 密钥执行，存储在 Redis 中。
-
-### 速率限制响应头
-
-```bash
-X-RateLimit-Limit: 100          # 每个时间窗口的请求数
-X-RateLimit-Remaining: 95       # 剩余请求数
-X-RateLimit-Reset: 1609459200   # Unix 时间戳
-```
-
-### 速率限制错误
-
-**状态码**：`429 Too Many Requests`
+- **默认**：每个 API 密钥 60 请求/分钟
+- **状态码**：超出时返回 `429 Too Many Requests`
+- **响应头**：`Retry-After` 指示等待秒数
 
 ```json
 {
-  "error": "Rate limit exceeded",
+  "error": "超出速率限制",
   "retry_after": 60
 }
-```
-
-**默认限制**：
-- **标准**：每个 API 密钥 100 请求/分钟
-- **突发**：20 请求/秒
-
-通过环境变量配置：
-```bash
-RATE_LIMIT_RPM=100
-RATE_LIMIT_BURST=20
 ```
 
 ## 幂等性
 
-POST 请求支持幂等性，以防止重复提交任务。
-
-### 工作原理
-
-1. 生成唯一的 `Idempotency-Key`（推荐使用 UUIDv4）
-2. 在请求头中包含该密钥
-3. Shannon 缓存响应 24 小时
-4. 重复请求返回缓存的响应
-
-### 示例
+使用 `Idempotency-Key` 头部防止重复任务提交：
 
 ```bash
-# 第一次请求 - 创建任务
 curl -X POST http://localhost:8080/api/v1/tasks \
-  -H "X-API-Key: sk_test_123456" \
   -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \
   -H "Content-Type: application/json" \
-  -d '{"query": "Analyze sales data"}'
-
-# 响应: 200 OK
-{
-  "task_id": "task_abc123",
-  "status": "TASK_STATUS_QUEUED"
-}
-
-# 重复请求（相同的 Idempotency-Key）- 返回缓存结果
-curl -X POST http://localhost:8080/api/v1/tasks \
-  -H "X-API-Key: sk_test_123456" \
-  -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "Different query"}'
-
-# 响应: 200 OK (相同的 task_id，忽略新查询)
-{
-  "task_id": "task_abc123",
-  "status": "TASK_STATUS_QUEUED"
-}
+  -d '{"query": "分析数据"}'
 ```
 
-**缓存持续时间**：24 小时（Redis TTL）
+**行为**：
+- 24 小时内使用相同密钥返回**缓存响应**
+- 重复请求的请求体被**忽略**
+- 使用 Redis 进行分布式缓存
 
 ## 错误处理
 
-### 标准错误响应
-
-```json
-{
-  "error": "Error message describing what went wrong"
-}
-```
-
 ### HTTP 状态码
 
-| 状态码 | 含义 | 常见原因 |
+| 代码 | 含义 | 常见原因 |
 |------|---------|---------------|
-| `200` | 成功 | 请求成功完成 |
-| `400` | 错误请求 | 无效的 JSON，缺少必需字段 |
+| `200` | 成功 | 请求完成 |
+| `201` | 已创建 | 任务提交成功 |
+| `400` | 错误请求 | 无效的 JSON、缺少必需字段 |
 | `401` | 未授权 | 缺少或无效的 API 密钥 |
-| `404` | 未找到 | 任务 ID 不存在 |
+| `404` | 未找到 | 任务/会话未找到 |
 | `429` | 请求过多 | 超出速率限制 |
-| `500` | 内部服务器错误 | 服务器错误，请检查日志 |
-| `502` | 网关错误 | 上游服务不可用 |
-| `503` | 服务不可用 | 系统过载或维护中 |
+| `500` | 内部服务器错误 | 服务器错误 |
+| `502` | 网关错误 | Orchestrator 不可用 |
+| `503` | 服务不可用 | 系统过载 |
 
-### 错误示例
+### 错误响应格式
 
-**400 错误请求**：
 ```json
 {
-  "error": "Query is required"
+  "error": "任务未找到"
 }
 ```
 
-**401 未授权**：
-```json
-{
-  "error": "Unauthorized"
-}
-```
+## CORS
 
-**404 未找到**：
-```json
-{
-  "error": "Task not found"
-}
-```
-
-**429 速率限制**：
-```json
-{
-  "error": "Rate limit exceeded",
-  "retry_after": 60
-}
-```
-
-**500 内部服务器错误**：
-```json
-{
-  "error": "Failed to submit task: database connection failed"
-}
-```
-
-## 分布式追踪
-
-Shannon 支持 W3C 追踪上下文进行分布式追踪。
-
-### 追踪上下文请求头
-
-```bash
-curl -H "traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01" \
-  http://localhost:8080/api/v1/tasks
-```
-
-### 格式
-
-```
-traceparent: {version}-{trace-id}-{parent-id}-{trace-flags}
-```
-
-- **version**：`00`（当前版本）
-- **trace-id**：32 个十六进制字符（16 字节）
-- **parent-id**：16 个十六进制字符（8 字节）
-- **trace-flags**：2 个十六进制字符（采样标志）
-
-追踪传播经过：
-1. Gateway HTTP 处理器
-2. 到 Orchestrator 的 gRPC 调用
-3. Agent Core 执行
-4. LLM Service 请求
-5. Temporal 工作流
-
-## CORS 配置
-
-CORS 在开发环境中启用，采用宽松设置。
-
-### 设置的响应头
+为开发启用 CORS：
 
 ```
 Access-Control-Allow-Origin: *
 Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
-Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Key, Idempotency-Key, traceparent, tracestate
-Access-Control-Max-Age: 3600
+Access-Control-Allow-Headers: Content-Type, X-API-Key, Idempotency-Key, traceparent
 ```
 
-**生产环境**：配置 `Access-Control-Allow-Origin` 为特定域名。
+<Warning>
+**生产环境**：将 `Access-Control-Allow-Origin` 配置为特定域名。
+</Warning>
 
 ## 超时设置
 
-### 请求超时
-
-| 操作 | 超时时间 |
+| 操作 | 超时 |
 |-----------|---------|
-| 读取超时 | 30 秒 |
-| 写入超时 | 30 秒 |
-| 空闲超时 | 60 秒 |
-
-### 任务执行超时
-
-任务超时在平台级别配置：
-
-```bash
-WORKFLOW_TIMEOUT_SECONDS=600  # 默认 10 分钟
-```
-
-长时间运行的任务可能会超时。使用流式传输监控进度。
+| HTTP 读取 | 30 秒 |
+| HTTP 写入 | 30 秒 |
+| HTTP 空闲 | 60 秒 |
+| 任务执行 | 10 分钟（通过 `WORKFLOW_TIMEOUT_SECONDS` 可配置）|
 
 ## 最佳实践
 
-### 1. 使用幂等性密钥
-
-始终为任务提交包含 `Idempotency-Key`：
+### 1. 始终使用幂等性键
 
 ```python
 import uuid
-import httpx
+import requests
 
-idempotency_key = str(uuid.uuid4())
-
-response = httpx.post(
+response = requests.post(
     "http://localhost:8080/api/v1/tasks",
     headers={
         "X-API-Key": "sk_test_123456",
-        "Idempotency-Key": idempotency_key
+        "Idempotency-Key": str(uuid.uuid4())
     },
-    json={"query": "Analyze data"}
+    json={"query": "分析数据"}
 )
 ```
 
-### 2. 处理速率限制
-
-实现指数退避：
+### 2. 实现指数退避
 
 ```python
 import time
-import httpx
 
 def submit_with_retry(query, max_retries=3):
     for attempt in range(max_retries):
-        response = httpx.post(
-            "http://localhost:8080/api/v1/tasks",
-            headers={"X-API-Key": "sk_test_123456"},
-            json={"query": query}
-        )
+        response = requests.post(url, json={"query": query})
 
         if response.status_code == 429:
             retry_after = int(response.headers.get("Retry-After", 60))
@@ -328,112 +207,73 @@ def submit_with_retry(query, max_retries=3):
             continue
 
         return response
-
-    raise Exception("Max retries exceeded")
 ```
 
-### 3. 对长任务使用流式传输
-
-不要轮询状态 - 使用 SSE 流式传输：
+### 3. 对长任务使用流式传输事件
 
 ```python
 import httpx
 
 with httpx.stream(
     "GET",
-    f"http://localhost:8080/api/v1/tasks/{task_id}/stream",
+    f"http://localhost:8080/api/v1/stream/sse?workflow_id={task_id}",
     headers={"X-API-Key": "sk_test_123456"}
 ) as response:
     for line in response.iter_lines():
         if line.startswith("data:"):
             event = json.loads(line[5:])
-            print(event["type"], event["message"])
+            print(event["type"])
 ```
 
-### 4. 启用追踪
-
-传递追踪上下文以便可观测性：
+### 4. 从响应中提取工作流 ID
 
 ```python
-import uuid
-
-trace_id = uuid.uuid4().hex + uuid.uuid4().hex  # 32 个字符
-parent_id = uuid.uuid4().hex[:16]               # 16 个字符
-traceparent = f"00-{trace_id}-{parent_id}-01"
-
-response = httpx.post(
-    "http://localhost:8080/api/v1/tasks",
-    headers={
-        "X-API-Key": "sk_test_123456",
-        "traceparent": traceparent
-    },
-    json={"query": "Analyze data"}
-)
-```
-
-### 5. 检查响应头
-
-提取工作流和会话 ID 以便追踪：
-
-```python
-response = httpx.post(
+response = requests.post(
     "http://localhost:8080/api/v1/tasks",
     headers={"X-API-Key": "sk_test_123456"},
-    json={"query": "Analyze data"}
+    json={"query": "分析数据"}
 )
 
 workflow_id = response.headers.get("X-Workflow-ID")
-session_id = response.headers.get("X-Session-ID")
-
-print(f"Track at: http://localhost:8088/workflows/{workflow_id}")
+# 使用 workflow_id 进行流式传输或 Temporal UI
 ```
 
-## 快速开始示例
-
-### 提交和监控任务
+## 快速示例
 
 ```bash
 #!/bin/bash
-
 API_KEY="sk_test_123456"
-BASE_URL="http://localhost:8080"
+BASE="http://localhost:8080/api/v1"
 
-# 1. 提交任务
-RESPONSE=$(curl -s -X POST "$BASE_URL/api/v1/tasks" \
+# 提交任务
+RESPONSE=$(curl -s -X POST "$BASE/tasks" \
   -H "X-API-Key: $API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"query": "What is the capital of France?"}')
+  -d '{"query": "2+2 等于多少？"}')
 
 TASK_ID=$(echo $RESPONSE | jq -r '.task_id')
-echo "Task ID: $TASK_ID"
+echo "任务: $TASK_ID"
 
-# 2. 检查状态
-curl -s "$BASE_URL/api/v1/tasks/$TASK_ID" \
-  -H "X-API-Key: $API_KEY" | jq
+# 获取状态
+curl -s "$BASE/tasks/$TASK_ID" -H "X-API-Key: $API_KEY" | jq
 
-# 3. 获取事件
-curl -s "$BASE_URL/api/v1/tasks/$TASK_ID/events" \
-  -H "X-API-Key: $API_KEY" | jq
-
-# 4. 流式事件 (SSE)
-curl -N "$BASE_URL/api/v1/tasks/$TASK_ID/stream" \
-  -H "X-API-Key: $API_KEY"
+# 流式传输事件
+curl -N "$BASE/stream/sse?workflow_id=$TASK_ID" -H "X-API-Key: $API_KEY"
 ```
 
 ## 下一步
 
 <CardGroup cols={2}>
   <Card title="提交任务" icon="paper-plane" href="/cn/api/rest/submit-task">
-    POST /api/v1/tasks 参考
-  </Card>
-  <Card title="列出任务" icon="list" href="/cn/api/rest/list-tasks">
-    GET /api/v1/tasks 参考
-  </Card>
-  <Card title="获取状态" icon="circle-info" href="/cn/api/rest/get-status">
-    GET /api/v1/tasks/{id} 参考
+    任务提交端点
   </Card>
   <Card title="流式传输" icon="stream" href="/cn/api/rest/streaming">
-    实时事件流式传输
+    SSE 和 WebSocket 流
+  </Card>
+  <Card title="会话" icon="messages" href="/cn/api/rest/sessions">
+    会话管理
+  </Card>
+  <Card title="Python SDK" icon="python" href="/cn/sdk/python/quickstart">
+    使用 Python SDK
   </Card>
 </CardGroup>
-

@@ -220,14 +220,14 @@ client.submit_task(
 Shannon analyzes tasks and creates execution plans internally. While the decomposition structure isn't directly exposed in the SDK response, you can observe the workflow execution through events:
 
 ```python
-# Stream events to see decomposition in action
+# Stream events to see workflow execution in action
 for event in client.stream(workflow_id):
-    if event.type == "TASK_DECOMPOSED":
-        print(f"Task decomposed: {event.message}")
-    elif event.type == "SUBTASK_STARTED":
-        print(f"Subtask started: {event.message}")
-    elif event.type == "SUBTASK_COMPLETED":
-        print(f"Subtask completed: {event.message}")
+    if event.type == "PROGRESS":
+        print(f"Progress: {event.message}")
+    elif event.type == "AGENT_STARTED":
+        print(f"Agent started: {event.agent_id} - {event.message}")
+    elif event.type == "AGENT_COMPLETED":
+        print(f"Agent completed: {event.agent_id}")
 ```
 
 **Internal Structure** (for understanding, not directly accessible):
@@ -380,8 +380,8 @@ Stream events to track workflow execution:
 for event in client.stream(workflow_id):
     if event.type == "AGENT_THINKING":
         print(f"Agent thinking: {event.message}")
-    elif event.type == "SUBTASK_COMPLETED":
-        print(f"Subtask done: {event.message}")
+    elif event.type == "AGENT_COMPLETED":
+        print(f"Agent done: {event.agent_id}")
 ```
 
 ### 4. Set Timeouts

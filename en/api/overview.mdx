@@ -1,309 +1,218 @@
 ---
 title: "API Overview"
-description: "Introduction to Shannon's REST and gRPC APIs"
+description: "Shannon's REST and gRPC APIs for AI agent orchestration"
 ---
 
 ## Introduction
 
-Shannon provides comprehensive APIs for orchestrating AI agents, managing tasks, and monitoring execution. The platform offers both REST and gRPC interfaces to accommodate different integration needs.
+Shannon provides HTTP REST and gRPC APIs for submitting tasks, streaming results, and managing AI agent workflows.
+
+**Base URL**: `http://localhost:8080` (development)
+
+## Quick Start
+
+```bash
+# Submit a task
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Analyze sentiment: Shannon makes AI simple"}'
+
+# Response
+{
+  "task_id": "task-dev-1234567890",
+  "status": "submitted",
+  "created_at": "2025-01-20T10:00:00Z"
+}
+
+# Stream real-time events
+curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id=task-dev-1234567890"
+```
 
 ## API Endpoints
 
-Shannon exposes two primary APIs:
-
-<CardGroup cols={2}>
-  <Card title="REST API" icon="code" href="#rest-api">
-    HTTP/JSON interface for easy integration
-  </Card>
-  <Card title="gRPC API" icon="bolt" href="#grpc-api">
-    High-performance binary protocol for advanced use cases
-  </Card>
-</CardGroup>
-
-## REST API
-
-The REST API is the recommended interface for most applications. It provides:
-
-- **Base URL**: `http://localhost:8080/api/v1` (development)
-- **Protocol**: HTTP/1.1 and HTTP/2
-- **Format**: JSON
-- **Authentication**: API Key (optional, disabled by default)
-
-### Key Endpoints
+### Core Task Operations
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/tasks` | POST | Submit a new task |
-| `/tasks` | GET | List tasks (filter by status/session) |
-| `/tasks/{id}` | GET | Get task status |
-| `/tasks/{id}/events` | GET | Get historical task events |
-| `/tasks/{id}/stream` | GET | Stream task events (SSE) |
-| `/stream/sse` | GET | Direct SSE via gateway proxy (`workflow_id` query) |
-| `/stream/ws` | GET | WebSocket streaming endpoint (`workflow_id` query) |
-| `/openapi.json` | GET | OpenAPI specification |
-| `/health` | GET | Health check |
+| `/api/v1/tasks` | POST | Submit a new task |
+| `/api/v1/tasks/stream` | POST | Submit task and get stream URL (201) |
+| `/api/v1/tasks` | GET | List tasks with filters |
+| `/api/v1/tasks/{id}` | GET | Get task status and result |
+| `/api/v1/tasks/{id}/events` | GET | Get task event history |
+| `/api/v1/tasks/{id}/timeline` | GET | Get Temporal execution timeline |
 
-### Example Request
+### Real-Time Streaming
 
-```bash
-curl -X POST http://localhost:8080/api/v1/tasks \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "Analyze the sentiment of this text"
-  }'
-```
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/stream/sse?workflow_id={id}` | GET | Server-Sent Events stream |
+| `/api/v1/stream/ws?workflow_id={id}` | GET | WebSocket stream |
 
-### Example Response
+### Session Management
 
-```json
-{
-  "task_id": "task-dev-1730000000",
-  "status": "TASK_STATUS_RUNNING",
-  "message": "Task submitted",
-  "created_at": "2024-10-22T10:30:00Z"
-}
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/sessions` | GET | List sessions with pagination |
+| `/api/v1/sessions/{sessionId}` | GET | Get session details |
+| `/api/v1/sessions/{sessionId}/history` | GET | Get session chat history |
+| `/api/v1/sessions/{sessionId}/events` | GET | Get session events (excludes LLM_PARTIAL) |
 
-Note: The `X-Workflow-ID` and `X-Session-ID` headers are included in the response for convenience.
-```
+### Health & Observability
 
-## gRPC API
-
-The gRPC API provides high-performance communication for latency-sensitive applications:
-
-- **Orchestrator**: `localhost:50052`
-- **Agent Core**: `localhost:50051` (internal)
-- **Protocol**: gRPC (HTTP/2)
-- **Format**: Protocol Buffers
-
-### Key Services
-
-#### OrchestratorService
-
-```protobuf
-service OrchestratorService {
-  rpc SubmitTask(SubmitTaskRequest) returns (SubmitTaskResponse)
-  rpc GetTaskStatus(GetTaskStatusRequest) returns (GetTaskStatusResponse)
-  rpc CancelTask(CancelTaskRequest) returns (CancelTaskResponse)
-  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse)
-  rpc GetSessionContext(GetSessionContextRequest) returns (GetSessionContextResponse)
-}
-```
-
-### Example (Python)
-
-```python
-import grpc
-from shannon.generated import orchestrator_pb2, orchestrator_pb2_grpc
-
-channel = grpc.insecure_channel('localhost:50052')
-stub = orchestrator_pb2_grpc.OrchestratorServiceStub(channel)
-
-request = orchestrator_pb2.SubmitTaskRequest(
-    query="Analyze sentiment",
-    mode=orchestrator_pb2.SIMPLE
-)
-
-response = stub.SubmitTask(request)
-print(f"Task ID: {response.task_id}")
-```
+| Endpoint | Method | Description | Auth Required |
+|----------|--------|-------------|---------------|
+| `/health` | GET | Health check | No |
+| `/readiness` | GET | Readiness probe | No |
+| `/openapi.json` | GET | OpenAPI 3.0 spec | No |
 
 ## Authentication
 
 <Note>
-Authentication is **disabled by default** for development (`GATEWAY_SKIP_AUTH=1`). Enable it in production.
+**Development Default**: Authentication is **disabled** (`GATEWAY_SKIP_AUTH=1`). Enable for production.
 </Note>
 
-### API Key Authentication
+When enabled, pass API key via header:
 
-When enabled, include your API key in requests:
-
-**Header (Recommended)**:
 ```bash
 curl -H "X-API-Key: sk_test_123456" \
   http://localhost:8080/api/v1/tasks
 ```
 
-**Bearer Token**:
-```bash
-curl -H "Authorization: Bearer sk_test_123456" \
-  http://localhost:8080/api/v1/tasks
+<Warning>
+**SSE Streaming**: Browser `EventSource` doesn't support custom headers. Pass API key as query parameter:
+```
+/api/v1/stream/sse?workflow_id={id}&api_key=sk_test_123456
+```
+</Warning>
+
+## Response Format
+
+All endpoints return JSON with consistent error format:
+
+**Success (200)**:
+```json
+{
+  "task_id": "task-dev-1234567890",
+  "status": "COMPLETED",
+  "result": "Sentiment: Positive"
+}
 ```
 
-### Creating API Keys
-
-```bash
-# Create a test API key
-make seed-api-key
-
-# Output: sk_test_123456
+**Error (400/401/404/429/500)**:
+```json
+{
+  "error": "Task not found"
+}
 ```
-
-For production, generate keys via the dashboard or API.
 
 ## Rate Limiting
 
-Shannon enforces rate limits per API key:
+- **Default**: 60 requests/minute per API key
+- **Headers**: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
+- **429 Response**: Includes `Retry-After` header
 
-- **Default**: 60 requests/minute
-- **Burst**: Up to 10 requests (per-minute window)
-- **Scope**: Per API key (development may skip auth)
+## Event Streaming
 
-Rate limit headers are included in responses:
+Shannon emits 26 event types for real-time monitoring:
 
+**Core Events**:
+- `WORKFLOW_STARTED`, `WORKFLOW_COMPLETED`
+- `AGENT_STARTED`, `AGENT_COMPLETED`, `AGENT_THINKING`
+- `PROGRESS`, `DATA_PROCESSING`
+- `ERROR_OCCURRED`
+
+**LLM Events**:
+- `LLM_PROMPT`, `LLM_OUTPUT`, `LLM_PARTIAL`
+
+**Tool Events**:
+- `TOOL_INVOKED`, `TOOL_OBSERVATION`
+
+See [Event Types Reference](/en/api/rest/streaming#event-types) for complete list.
+
+## gRPC API
+
+For performance-critical applications, use gRPC:
+
+**Endpoint**: `localhost:50052`
+
+**Services**:
+- `OrchestratorService` - Task submission and management
+- `StreamingService` - Real-time event streaming
+- `SessionService` - Session context management
+
+**Example**:
+```python
+import grpc
+from shannon.generated import orchestrator_pb2_grpc
+
+channel = grpc.insecure_channel('localhost:50052')
+stub = orchestrator_pb2_grpc.OrchestratorServiceStub(channel)
+
+request = orchestrator_pb2.SubmitTaskRequest(
+    metadata=orchestrator_pb2.TaskMetadata(user_id="user-123"),
+    query="Analyze sentiment"
+)
+
+response = stub.SubmitTask(request)
 ```
-X-RateLimit-Limit: 60
-X-RateLimit-Remaining: 45
-X-RateLimit-Reset: 1730001234
-```
-
-When exceeded, you'll receive:
-
-```json
-{
-  "error": "Rate limit exceeded",
-  "message": "Too many requests. Please retry after the rate limit window resets."
-}
-```
-
-## Idempotency
-
-Prevent duplicate task execution with idempotency keys:
-
-```bash
-curl -X POST http://localhost:8080/api/v1/tasks \
-  -H "Idempotency-Key: unique-request-id-123" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "Process this"}'
-```
-
-The same idempotency key within 24 hours returns the original response.
-
-## Error Handling
-
-Shannon uses standard HTTP status codes:
-
-| Code | Meaning | Common Causes |
-|------|---------|---------------|
-| 200 | Success | Request completed successfully |
-| 400 | Bad Request | Invalid parameters or malformed JSON |
-| 401 | Unauthorized | Missing or invalid API key |
-| 404 | Not Found | Task ID doesn't exist |
-| 429 | Too Many Requests | Rate limit exceeded |
-| 500 | Internal Server Error | Shannon encountered an error |
-| 503 | Service Unavailable | Shannon is temporarily down |
-
-### Error Response Format
-
-```json
-{
-  "error": "Budget exceeded",
-  "error_code": "BUDGET_EXCEEDED",
-  "details": {
-    "max_tokens": 5000,
-    "used_tokens": 5127
-  },
-  "request_id": "req-abc123"
-}
-```
-
-## Versioning
-
-Shannon uses URL-based versioning:
-
-- **Current**: `/api/v1`
-- **Future**: `/api/v2` (when available)
-
-Breaking changes will be introduced in new versions while maintaining backward compatibility for at least 6 months.
 
 ## Best Practices
 
-### 1. Use Appropriate Timeouts
+### 1. Use Session IDs for Context
 
-Long-running tasks may take minutes to complete:
+```json
+{
+  "query": "What about Q2?",
+  "session_id": "user-123-analytics"
+}
+```
+
+### 2. Stream Events for Long Tasks
 
 ```python
 import requests
 
-response = requests.post(
-    "http://localhost:8080/api/v1/tasks",
-    json={"query": "Complex analysis"},
-    timeout=300  # 5 minute timeout
-)
-```
-
-### 2. Implement Retry Logic
-
-Use exponential backoff for transient errors:
-
-```python
-from tenacity import retry, wait_exponential, stop_after_attempt
-
-@retry(
-    wait=wait_exponential(multiplier=1, min=2, max=60),
-    stop=stop_after_attempt(3)
-)
-def submit_task(query):
-    return requests.post(url, json={"query": query})
-```
-
-### 3. Stream Events for Long Tasks
-
-Use SSE streaming for real-time feedback:
-
-```python
-import requests
-
-response = requests.get(
-    f"http://localhost:8080/api/v1/tasks/{task_id}/stream",
+r = requests.get(
+    f"http://localhost:8080/api/v1/stream/sse?workflow_id={task_id}",
     stream=True
 )
 
-for line in response.iter_lines():
+for line in r.iter_lines():
     if line:
-        event = parse_sse_event(line)
-        print(f"Event: {event['type']}")
+        event = parse_sse(line)
+        print(event['type'])
 ```
 
-### 4. Set Budget Limits
+### 3. Handle Rate Limits
 
-Always specify budget constraints:
+```python
+import time
 
-```json
-{
-  "query": "Analyze data",
-  "config": {
-    "budget": {
-      "max_cost_usd": 1.0,
-      "max_tokens": 10000
-    }
-  }
-}
+def submit_with_retry(query, max_retries=3):
+    for attempt in range(max_retries):
+        response = requests.post(url, json={"query": query})
+
+        if response.status_code == 429:
+            retry_after = int(response.headers.get("Retry-After", 60))
+            time.sleep(retry_after)
+            continue
+
+        return response
 ```
 
-### 5. Use Sessions for Context
+### 4. Use Idempotency Keys
 
-Maintain conversation context with session IDs:
-
-```json
-{
-  "query": "Follow-up question",
-  "session_id": "user-123-conversation"
-}
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{"query": "Process once"}'
 ```
 
 ## SDKs
 
-We recommend using official SDKs for easier integration:
-
 <CardGroup cols={2}>
   <Card title="Python SDK" icon="python" href="/en/sdk/python/quickstart">
-    Full-featured client with async support
-  </Card>
-  <Card title="Go SDK" icon="golang">
-    Coming soon
-  </Card>
-  <Card title="JavaScript SDK" icon="js">
-    Coming soon
+    Official Python client with streaming support
   </Card>
   <Card title="REST Clients" icon="code">
     Use any HTTP client library
@@ -313,26 +222,16 @@ We recommend using official SDKs for easier integration:
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Authentication" icon="key" href="/en/api/authentication">
-    Set up API key authentication
+  <Card title="Submit Tasks" icon="paper-plane" href="/en/api/rest/submit-task">
+    Task submission API
   </Card>
-  <Card title="Submit Task" icon="paper-plane" href="/en/api/endpoints/submit-task">
-    Learn about task submission
-  </Card>
-  <Card title="Stream Events" icon="stream" href="/en/api/endpoints/stream-task">
+  <Card title="Stream Events" icon="stream" href="/en/api/rest/streaming">
     Real-time event streaming
   </Card>
+  <Card title="Sessions API" icon="messages" href="/en/api/rest/sessions">
+    Session management
+  </Card>
   <Card title="Python SDK" icon="python" href="/en/sdk/python/quickstart">
-    Use the Python SDK
+    Get started with Python
   </Card>
 </CardGroup>
-
-## OpenAPI Specification
-
-Full OpenAPI 3.1 specification is available at:
-
-```
-http://localhost:8080/openapi.json
-```
-
-Import this into tools like Postman, Insomnia, or Swagger UI for interactive exploration.

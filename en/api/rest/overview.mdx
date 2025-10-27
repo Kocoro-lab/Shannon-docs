@@ -1,49 +1,60 @@
 ---
-title: "REST API Overview"
+title: "REST API Reference"
 description: "Complete REST API reference for Shannon Gateway"
 ---
 
 ## Base URL
 
 ```
-http://localhost:8080
+http://localhost:8080/api/v1
 ```
 
-For production deployments, replace `localhost:8080` with your gateway URL.
+## Endpoints Summary
 
-## API Endpoints
+Shannon provides **15 REST endpoints** across 4 categories:
 
-Shannon provides 11 REST API endpoints organized into three categories:
+### Task Operations (6 endpoints)
 
-### Task Management
+| Endpoint | Description |
+|----------|-------------|
+| `POST /tasks` | Submit a new task |
+| `POST /tasks/stream` | Submit task and receive stream URL |
+| `GET /tasks` | List tasks with filters (limit, offset, status, session_id) |
+| `GET /tasks/{id}` | Get task status and result |
+| `GET /tasks/{id}/events` | Get persistent event history |
+| `GET /tasks/{id}/timeline` | Get deterministic Temporal timeline |
 
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
-| `POST` | `/api/v1/tasks` | Submit a new task | Yes |
-| `GET` | `/api/v1/tasks` | List tasks with filters | Yes |
-| `GET` | `/api/v1/tasks/{id}` | Get task status and result | Yes |
-| `GET` | `/api/v1/tasks/{id}/events` | Get task event history | Yes |
-| `GET` | `/api/v1/tasks/{id}/timeline` | Get task execution timeline | Yes |
+### Streaming (2 endpoints)
 
-### Streaming
+| Endpoint | Description |
+|----------|-------------|
+| `GET /stream/sse?workflow_id={id}` | Server-Sent Events streaming |
+| `GET /stream/ws?workflow_id={id}` | WebSocket streaming |
 
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
-| `GET` | `/api/v1/tasks/{id}/stream` | Stream task events (SSE) | Yes |
-| `GET` | `/api/v1/stream/sse` | Server-Sent Events endpoint | Yes |
-| `GET` | `/api/v1/stream/ws` | WebSocket streaming endpoint | Yes |
+### Session Management (4 endpoints)
 
-### Health & Observability
+| Endpoint | Description |
+|----------|-------------|
+| `GET /sessions` | List sessions with pagination |
+| `GET /sessions/{sessionId}` | Get session details |
+| `GET /sessions/{sessionId}/history` | Get session conversation history |
+| `GET /sessions/{sessionId}/events` | Get session events (excludes LLM_PARTIAL) |
 
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
-| `GET` | `/health` | Health check probe | No |
-| `GET` | `/readiness` | Readiness check probe | No |
-| `GET` | `/openapi.json` | OpenAPI 3.0 specification | No |
+### Health & Observability (3 endpoints)
+
+| Endpoint | Auth Required | Description |
+|----------|---------------|-------------|
+| `GET /health` | No | Health check probe |
+| `GET /readiness` | No | Readiness probe (checks orchestrator) |
+| `GET /openapi.json` | No | OpenAPI 3.0 specification |
 
 ## Authentication
 
-All task and streaming endpoints require authentication via API key.
+<Note>
+**Development**: Authentication is **disabled by default** (`GATEWAY_SKIP_AUTH=1`).
+
+**Production**: Set `GATEWAY_SKIP_AUTH=0` and use API keys.
+</Note>
 
 ### API Key Header
 
@@ -52,52 +63,46 @@ curl -H "X-API-Key: sk_test_123456" \
   http://localhost:8080/api/v1/tasks
 ```
 
-### Disabling Auth (Development Only)
+### SSE Streaming Authentication
 
-Set environment variable:
+<Warning>
+Browser `EventSource` doesn't support custom headers. Pass API key as **query parameter**:
+</Warning>
 
-```bash
-GATEWAY_SKIP_AUTH=1
+```javascript
+const eventSource = new EventSource(
+  `/api/v1/stream/sse?workflow_id=${id}&api_key=sk_test_123456`
+);
 ```
-
-**Warning**: Never disable authentication in production.
 
 ## Common Headers
 
 ### Request Headers
 
-| Header | Required | Description | Example |
-|--------|----------|-------------|---------|
-| `X-API-Key` | Yes* | Authentication key | `sk_test_123456` |
-| `Content-Type` | Yes (POST) | Request body format | `application/json` |
-| `Idempotency-Key` | No | Prevent duplicate submissions | `550e8400-e29b-41d4-a716-446655440000` |
-| `traceparent` | No | W3C trace context | `00-4bf92f...` |
+| Header | Required | Description |
+|--------|----------|-------------|
+| `X-API-Key` | Yes* | API authentication key |
+| `Content-Type` | Yes (POST) | `application/json` |
+| `Idempotency-Key` | No | Prevents duplicate submissions (24h cache) |
+| `traceparent` | No | W3C trace context for distributed tracing |
 
 *Not required if `GATEWAY_SKIP_AUTH=1`
 
 ### Response Headers
 
-| Header | Description | Example |
-|--------|-------------|---------|
-| `X-Workflow-ID` | Temporal workflow identifier | `task_abc123_workflow` |
-| `X-Session-ID` | Session identifier | `user-123-session` |
-| `Content-Type` | Response format | `application/json` |
+| Header | Description |
+|--------|-------------|
+| `X-Workflow-ID` | Temporal workflow identifier for tracking |
+| `X-Session-ID` | Session identifier |
+| `X-RateLimit-Limit` | Requests allowed per minute |
+| `X-RateLimit-Remaining` | Requests remaining in current window |
+| `X-RateLimit-Reset` | Unix timestamp when limit resets |
 
 ## Rate Limiting
 
-Rate limits are enforced per API key and stored in Redis.
-
-### Rate Limit Headers
-
-```bash
-X-RateLimit-Limit: 100          # Requests per window
-X-RateLimit-Remaining: 95       # Remaining requests
-X-RateLimit-Reset: 1609459200   # Unix timestamp
-```
-
-### Rate Limit Errors
-
-**Status**: `429 Too Many Requests`
+- **Default**: 60 requests/minute per API key
+- **Status**: `429 Too Many Requests` when exceeded
+- **Header**: `Retry-After` indicates seconds to wait
 
 ```json
 {
@@ -106,221 +111,95 @@ X-RateLimit-Reset: 1609459200   # Unix timestamp
 }
 ```
 
-**Default Limits**:
-- **Standard**: 100 requests/minute per API key
-- **Burst**: 20 requests/second
-
-Configure via environment:
-```bash
-RATE_LIMIT_RPM=100
-RATE_LIMIT_BURST=20
-```
-
 ## Idempotency
 
-POST requests support idempotency to prevent duplicate task submissions.
-
-### How It Works
-
-1. Generate a unique `Idempotency-Key` (UUIDv4 recommended)
-2. Include in request header
-3. Shannon caches response for 24 hours
-4. Duplicate requests return cached response
-
-### Example
+Prevent duplicate task submissions using `Idempotency-Key` header:
 
 ```bash
-# First request - creates task
 curl -X POST http://localhost:8080/api/v1/tasks \
-  -H "X-API-Key: sk_test_123456" \
   -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \
   -H "Content-Type: application/json" \
-  -d '{"query": "Analyze sales data"}'
-
-# Response: 200 OK
-{
-  "task_id": "task_abc123",
-  "status": "TASK_STATUS_QUEUED"
-}
-
-# Duplicate request (same Idempotency-Key) - returns cached
-curl -X POST http://localhost:8080/api/v1/tasks \
-  -H "X-API-Key: sk_test_123456" \
-  -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "Different query"}'
-
-# Response: 200 OK (same task_id, ignores new query)
-{
-  "task_id": "task_abc123",
-  "status": "TASK_STATUS_QUEUED"
-}
+  -d '{"query": "Analyze data"}'
 ```
 
-**Cache Duration**: 24 hours (Redis TTL)
+**Behavior**:
+- Same key within 24 hours returns **cached response**
+- Request body is **ignored** for duplicate keys
+- Uses Redis for distributed cache
 
 ## Error Handling
-
-### Standard Error Response
-
-```json
-{
-  "error": "Error message describing what went wrong"
-}
-```
 
 ### HTTP Status Codes
 
 | Code | Meaning | Common Causes |
 |------|---------|---------------|
-| `200` | Success | Request completed successfully |
+| `200` | Success | Request completed |
+| `201` | Created | Task submitted successfully |
 | `400` | Bad Request | Invalid JSON, missing required fields |
 | `401` | Unauthorized | Missing or invalid API key |
-| `404` | Not Found | Task ID doesn't exist |
+| `404` | Not Found | Task/session not found |
 | `429` | Too Many Requests | Rate limit exceeded |
-| `500` | Internal Server Error | Server error, check logs |
-| `502` | Bad Gateway | Upstream service unavailable |
-| `503` | Service Unavailable | System overloaded or maintenance |
+| `500` | Internal Server Error | Server error |
+| `502` | Bad Gateway | Orchestrator unavailable |
+| `503` | Service Unavailable | System overloaded |
 
-### Error Examples
+### Error Response Format
 
-**400 Bad Request**:
-```json
-{
-  "error": "Query is required"
-}
-```
-
-**401 Unauthorized**:
-```json
-{
-  "error": "Unauthorized"
-}
-```
-
-**404 Not Found**:
 ```json
 {
   "error": "Task not found"
 }
 ```
 
-**429 Rate Limited**:
-```json
-{
-  "error": "Rate limit exceeded",
-  "retry_after": 60
-}
-```
+## CORS
 
-**500 Internal Server Error**:
-```json
-{
-  "error": "Failed to submit task: database connection failed"
-}
-```
-
-## Distributed Tracing
-
-Shannon supports W3C Trace Context for distributed tracing.
-
-### Trace Context Header
-
-```bash
-curl -H "traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01" \
-  http://localhost:8080/api/v1/tasks
-```
-
-### Format
-
-```
-traceparent: {version}-{trace-id}-{parent-id}-{trace-flags}
-```
-
-- **version**: `00` (current version)
-- **trace-id**: 32 hex characters (16 bytes)
-- **parent-id**: 16 hex characters (8 bytes)
-- **trace-flags**: 2 hex characters (sampled flag)
-
-Traces propagate through:
-1. Gateway HTTP handler
-2. gRPC calls to Orchestrator
-3. Agent Core execution
-4. LLM Service requests
-5. Temporal workflows
-
-## CORS Configuration
-
-CORS is enabled for development with permissive settings.
-
-### Headers Set
+CORS is enabled for development:
 
 ```
 Access-Control-Allow-Origin: *
 Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
-Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Key, Idempotency-Key, traceparent, tracestate
-Access-Control-Max-Age: 3600
+Access-Control-Allow-Headers: Content-Type, X-API-Key, Idempotency-Key, traceparent
 ```
 
+<Warning>
 **Production**: Configure `Access-Control-Allow-Origin` to specific domains.
+</Warning>
 
 ## Timeouts
 
-### Request Timeouts
-
 | Operation | Timeout |
 |-----------|---------|
-| Read timeout | 30 seconds |
-| Write timeout | 30 seconds |
-| Idle timeout | 60 seconds |
-
-### Task Execution Timeouts
-
-Task timeouts are configured at the platform level:
-
-```bash
-WORKFLOW_TIMEOUT_SECONDS=600  # 10 minutes default
-```
-
-Long-running tasks may timeout. Use streaming to monitor progress.
+| HTTP Read | 30 seconds |
+| HTTP Write | 30 seconds |
+| HTTP Idle | 60 seconds |
+| Task Execution | 10 minutes (configurable via `WORKFLOW_TIMEOUT_SECONDS`) |
 
 ## Best Practices
 
-### 1. Use Idempotency Keys
-
-Always include `Idempotency-Key` for task submissions:
+### 1. Always Use Idempotency Keys
 
 ```python
 import uuid
-import httpx
+import requests
 
-idempotency_key = str(uuid.uuid4())
-
-response = httpx.post(
+response = requests.post(
     "http://localhost:8080/api/v1/tasks",
     headers={
         "X-API-Key": "sk_test_123456",
-        "Idempotency-Key": idempotency_key
+        "Idempotency-Key": str(uuid.uuid4())
     },
     json={"query": "Analyze data"}
 )
 ```
 
-### 2. Handle Rate Limits
-
-Implement exponential backoff:
+### 2. Implement Exponential Backoff
 
 ```python
 import time
-import httpx
 
 def submit_with_retry(query, max_retries=3):
     for attempt in range(max_retries):
-        response = httpx.post(
-            "http://localhost:8080/api/v1/tasks",
-            headers={"X-API-Key": "sk_test_123456"},
-            json={"query": query}
-        )
+        response = requests.post(url, json={"query": query})
 
         if response.status_code == 429:
             retry_after = int(response.headers.get("Retry-After", 60))
@@ -328,111 +207,73 @@ def submit_with_retry(query, max_retries=3):
             continue
 
         return response
-
-    raise Exception("Max retries exceeded")
 ```
 
-### 3. Use Streaming for Long Tasks
-
-Don't poll status - use SSE streaming:
+### 3. Stream Events for Long Tasks
 
 ```python
 import httpx
 
 with httpx.stream(
     "GET",
-    f"http://localhost:8080/api/v1/tasks/{task_id}/stream",
+    f"http://localhost:8080/api/v1/stream/sse?workflow_id={task_id}",
     headers={"X-API-Key": "sk_test_123456"}
 ) as response:
     for line in response.iter_lines():
         if line.startswith("data:"):
             event = json.loads(line[5:])
-            print(event["type"], event["message"])
+            print(event["type"])
 ```
 
-### 4. Enable Tracing
-
-Pass trace context for observability:
+### 4. Extract Workflow ID from Response
 
 ```python
-import uuid
-
-trace_id = uuid.uuid4().hex + uuid.uuid4().hex  # 32 chars
-parent_id = uuid.uuid4().hex[:16]               # 16 chars
-traceparent = f"00-{trace_id}-{parent_id}-01"
-
-response = httpx.post(
-    "http://localhost:8080/api/v1/tasks",
-    headers={
-        "X-API-Key": "sk_test_123456",
-        "traceparent": traceparent
-    },
-    json={"query": "Analyze data"}
-)
-```
-
-### 5. Check Response Headers
-
-Extract workflow and session IDs for tracking:
-
-```python
-response = httpx.post(
+response = requests.post(
     "http://localhost:8080/api/v1/tasks",
     headers={"X-API-Key": "sk_test_123456"},
     json={"query": "Analyze data"}
 )
 
 workflow_id = response.headers.get("X-Workflow-ID")
-session_id = response.headers.get("X-Session-ID")
-
-print(f"Track at: http://localhost:8088/workflows/{workflow_id}")
+# Use workflow_id for streaming or Temporal UI
 ```
 
-## Quick Start Example
-
-### Submit and Monitor Task
+## Quick Example
 
 ```bash
 #!/bin/bash
-
 API_KEY="sk_test_123456"
-BASE_URL="http://localhost:8080"
+BASE="http://localhost:8080/api/v1"
 
-# 1. Submit task
-RESPONSE=$(curl -s -X POST "$BASE_URL/api/v1/tasks" \
+# Submit task
+RESPONSE=$(curl -s -X POST "$BASE/tasks" \
   -H "X-API-Key: $API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"query": "What is the capital of France?"}')
+  -d '{"query": "What is 2+2?"}')
 
 TASK_ID=$(echo $RESPONSE | jq -r '.task_id')
-echo "Task ID: $TASK_ID"
+echo "Task: $TASK_ID"
 
-# 2. Check status
-curl -s "$BASE_URL/api/v1/tasks/$TASK_ID" \
-  -H "X-API-Key: $API_KEY" | jq
+# Get status
+curl -s "$BASE/tasks/$TASK_ID" -H "X-API-Key: $API_KEY" | jq
 
-# 3. Get events
-curl -s "$BASE_URL/api/v1/tasks/$TASK_ID/events" \
-  -H "X-API-Key: $API_KEY" | jq
-
-# 4. Stream events (SSE)
-curl -N "$BASE_URL/api/v1/tasks/$TASK_ID/stream" \
-  -H "X-API-Key: $API_KEY"
+# Stream events
+curl -N "$BASE/stream/sse?workflow_id=$TASK_ID" -H "X-API-Key: $API_KEY"
 ```
 
 ## Next Steps
 
 <CardGroup cols={2}>
-  <Card title="Submit Task" icon="paper-plane" href="/en/api/rest/submit-task">
-    POST /api/v1/tasks reference
-  </Card>
-  <Card title="List Tasks" icon="list" href="/en/api/rest/list-tasks">
-    GET /api/v1/tasks reference
-  </Card>
-  <Card title="Get Status" icon="circle-info" href="/en/api/rest/get-status">
-    GET /api/v1/tasks/{id} reference
+  <Card title="Submit Tasks" icon="paper-plane" href="/en/api/rest/submit-task">
+    Task submission endpoint
   </Card>
   <Card title="Streaming" icon="stream" href="/en/api/rest/streaming">
-    Real-time event streaming
+    SSE and WebSocket streaming
+  </Card>
+  <Card title="Sessions" icon="messages" href="/en/api/rest/sessions">
+    Session management
+  </Card>
+  <Card title="Python SDK" icon="python" href="/en/sdk/python/quickstart">
+    Use the Python SDK
   </Card>
 </CardGroup>

@@ -12,7 +12,6 @@ Shannon provides real-time event streaming through Server-Sent Events (SSE) and 
 | Method | Endpoint | Protocol | Description |
 |--------|----------|----------|-------------|
 | `POST` | `/api/v1/tasks/stream` | HTTP+SSE | Submit task and get stream URL (recommended) |
-| `GET` | `/api/v1/tasks/{id}/stream` | SSE | Stream events for specific task |
 | `GET` | `/api/v1/stream/sse` | SSE | Server-Sent Events endpoint |
 | `GET` | `/api/v1/stream/ws` | WebSocket | WebSocket streaming endpoint |
 | `GET` | `/api/v1/tasks/{id}/events` | HTTP | Get historical events (paginated) |
@@ -437,20 +436,6 @@ data: {"workflow_id":"task_abc123","agent_id":"agent_1","result":"Python is a hi
 id: 6
 event: TASK_COMPLETED
 data: {"workflow_id":"task_abc123","status":"COMPLETED","result":"...","timestamp":"2025-10-22T10:30:07Z"}
-```
-
-### GET /api/v1/tasks/{id}/stream
-
-Convenience endpoint that redirects to `/api/v1/stream/sse` with workflow_id set.
-
-```bash
-# This endpoint
-curl -N "http://localhost:8080/api/v1/tasks/task_abc123/stream" \
-  -H "X-API-Key: sk_test_123456"
-
-# Redirects to (307 Temporary Redirect)
-curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id=task_abc123" \
-  -H "X-API-Key: sk_test_123456"
 ```
 
 ## WebSocket

@@ -100,7 +100,7 @@ When working on documentation, understanding Shannon's architecture helps create
 - **REST API**: `/api/v1` base path
   - Task submission: `POST /tasks`
   - Task status: `GET /tasks/{id}`
-  - Task streaming: `GET /tasks/{id}/stream` (SSE)
+  - Task streaming: `GET /stream/sse?workflow_id={id}` (SSE)
   - List tasks: `GET /tasks`
 
 - **gRPC API**: Direct access to Orchestrator (50052) and Agent Core (50051)

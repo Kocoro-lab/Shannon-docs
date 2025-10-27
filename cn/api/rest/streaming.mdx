@@ -12,7 +12,6 @@ Shannon 通过 Server-Sent Events (SSE) 和 WebSocket 协议提供实时事件�
 | 方法 | 端点 | 协议 | 描述 |
 |-----|------|------|------|
 | `POST` | `/api/v1/tasks/stream` | HTTP+SSE | 提交任务并获取流 URL（推荐） |
-| `GET` | `/api/v1/tasks/{id}/stream` | SSE | 流式传输特定任务的事件 |
 | `GET` | `/api/v1/stream/sse` | SSE | Server-Sent Events 端点 |
 | `GET` | `/api/v1/stream/ws` | WebSocket | WebSocket 流式传输端点 |
 | `GET` | `/api/v1/tasks/{id}/events` | HTTP | 获取历史事件（分页） |
@@ -438,20 +437,6 @@ data: {"workflow_id":"task_abc123","agent_id":"agent_1","result":"Python 是一�
 id: 6
 event: TASK_COMPLETED
 data: {"workflow_id":"task_abc123","status":"COMPLETED","result":"...","timestamp":"2025-10-22T10:30:07Z"}
-```
-
-### GET /api/v1/tasks/{id}/stream
-
-便捷端点，重定向到 `/api/v1/stream/sse`，并设置 workflow_id。
-
-```bash
-# 此端点
-curl -N "http://localhost:8080/api/v1/tasks/task_abc123/stream" \\
-  -H "X-API-Key: sk_test_123456"
-
-# 重定向到（307 临时重定向）
-curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id=task_abc123" \\
-  -H "X-API-Key: sk_test_123456"
 ```
 
 ## WebSocket

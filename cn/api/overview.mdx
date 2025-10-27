@@ -1,309 +1,218 @@
 ---
 title: "API 概述"
-description: "Shannon REST 和 gRPC API 介绍"
+description: "Shannon 的 REST 和 gRPC API，用于 AI 智能体编排"
 ---
 
 ## 简介
 
-Shannon 提供全面的 API 来编排 AI 智能体、管理任务和监控执行。平台提供 REST 和 gRPC 接口以适应不同的集成需求。
+Shannon 提供 HTTP REST 和 gRPC API，用于提交任务、流式传输结果和管理 AI 智能体工作流。
+
+**基础 URL**：`http://localhost:8080`（开发环境）
+
+## 快速开始
+
+```bash
+# 提交任务
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"query": "分析情感：Shannon 让 AI 变得简单"}'
+
+# 响应
+{
+  "task_id": "task-dev-1234567890",
+  "status": "submitted",
+  "created_at": "2025-01-20T10:00:00Z"
+}
+
+# 流式传输实时事件
+curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id=task-dev-1234567890"
+```
 
 ## API 端点
 
-Shannon 公开两个主要 API：
-
-<CardGroup cols={2}>
-  <Card title="REST API" icon="code" href="#rest-api">
-    便于集成的 HTTP/JSON 接口
-  </Card>
-  <Card title="gRPC API" icon="bolt" href="#grpc-api">
-    用于高级用例的高性能二进制协议
-  </Card>
-</CardGroup>
-
-## REST API
-
-REST API 是大多数应用程序的推荐接口。它提供：
-
-- **基础 URL**：`http://localhost:8080/api/v1`（开发环境）
-- **协议**：HTTP/1.1 和 HTTP/2
-- **格式**：JSON
-- **认证**：API 密钥（可选，默认禁用）
-
-### 主要端点
+### 核心任务操作
 
 | 端点 | 方法 | 描述 |
 |----------|--------|-------------|
-| `/tasks` | POST | 提交新任务 |
-| `/tasks` | GET | 列出任务（按状态/会话过滤）|
-| `/tasks/{id}` | GET | 获取任务状态 |
-| `/tasks/{id}/events` | GET | 获取历史任务事件 |
-| `/tasks/{id}/stream` | GET | 流式传输任务事件（SSE）|
-| `/stream/sse` | GET | 通过网关代理直接 SSE（`workflow_id` 查询）|
-| `/stream/ws` | GET | WebSocket 流式传输端点（`workflow_id` 查询）|
-| `/openapi.json` | GET | OpenAPI 规范 |
-| `/health` | GET | 健康检查 |
+| `/api/v1/tasks` | POST | 提交新任务 |
+| `/api/v1/tasks/stream` | POST | 提交任务并获取流 URL（201）|
+| `/api/v1/tasks` | GET | 使用过滤器列出任务 |
+| `/api/v1/tasks/{id}` | GET | 获取任务状态和结果 |
+| `/api/v1/tasks/{id}/events` | GET | 获取任务事件历史 |
+| `/api/v1/tasks/{id}/timeline` | GET | 获取 Temporal 执行时间线 |
 
-### 请求示例
+### 实时流式传输
 
-```bash
-curl -X POST http://localhost:8080/api/v1/tasks \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "分析此文本的情感"
-  }'
-```
+| 端点 | 方法 | 描述 |
+|----------|--------|-------------|
+| `/api/v1/stream/sse?workflow_id={id}` | GET | 服务器发送事件流 |
+| `/api/v1/stream/ws?workflow_id={id}` | GET | WebSocket 流 |
 
-### 响应示例
+### 会话管理
 
-```json
-{
-  "task_id": "task-dev-1730000000",
-  "status": "TASK_STATUS_RUNNING",
-  "message": "任务已提交",
-  "created_at": "2024-10-22T10:30:00Z"
-}
+| 端点 | 方法 | 描述 |
+|----------|--------|-------------|
+| `/api/v1/sessions` | GET | 列出会话（分页）|
+| `/api/v1/sessions/{sessionId}` | GET | 获取会话详情 |
+| `/api/v1/sessions/{sessionId}/history` | GET | 获取会话聊天历史 |
+| `/api/v1/sessions/{sessionId}/events` | GET | 获取会话事件（排除 LLM_PARTIAL）|
 
-注意：响应中包含 `X-Workflow-ID` 和 `X-Session-ID` 头部以便使用。
-```
+### 健康检查和可观测性
 
-## gRPC API
-
-gRPC API 为延迟敏感的应用程序提供高性能通信：
-
-- **Orchestrator**：`localhost:50052`
-- **Agent Core**：`localhost:50051`（内部）
-- **协议**：gRPC (HTTP/2)
-- **格式**：Protocol Buffers
-
-### 主要服务
-
-#### OrchestratorService
-
-```protobuf
-service OrchestratorService {
-  rpc SubmitTask(SubmitTaskRequest) returns (SubmitTaskResponse)
-  rpc GetTaskStatus(GetTaskStatusRequest) returns (GetTaskStatusResponse)
-  rpc CancelTask(CancelTaskRequest) returns (CancelTaskResponse)
-  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse)
-  rpc GetSessionContext(GetSessionContextRequest) returns (GetSessionContextResponse)
-}
-```
-
-### 示例（Python）
-
-```python
-import grpc
-from shannon.generated import orchestrator_pb2, orchestrator_pb2_grpc
-
-channel = grpc.insecure_channel('localhost:50052')
-stub = orchestrator_pb2_grpc.OrchestratorServiceStub(channel)
-
-request = orchestrator_pb2.SubmitTaskRequest(
-    query="分析情感",
-    mode=orchestrator_pb2.SIMPLE
-)
-
-response = stub.SubmitTask(request)
-print(f"任务 ID: {response.task_id}")
-```
+| 端点 | 方法 | 描述 | 需要认证 |
+|----------|--------|-------------|---------------|
+| `/health` | GET | 健康检查 | 否 |
+| `/readiness` | GET | 就绪探针 | 否 |
+| `/openapi.json` | GET | OpenAPI 3.0 规范 | 否 |
 
 ## 认证
 
 <Note>
-开发环境下默认**禁用认证**（`GATEWAY_SKIP_AUTH=1`）。生产环境请启用。
+**开发环境默认**：认证**已禁用**（`GATEWAY_SKIP_AUTH=1`）。生产环境请启用。
 </Note>
 
-### API 密钥认证
+启用后，通过请求头传递 API 密钥：
 
-启用后，在请求中包含您的 API 密钥：
-
-**头部（推荐）**：
 ```bash
 curl -H "X-API-Key: sk_test_123456" \
   http://localhost:8080/api/v1/tasks
 ```
 
-**Bearer 令牌**：
-```bash
-curl -H "Authorization: Bearer sk_test_123456" \
-  http://localhost:8080/api/v1/tasks
+<Warning>
+**SSE 流式传输**：浏览器 `EventSource` 不支持自定义请求头。将 API 密钥作为查询参数传递：
+```
+/api/v1/stream/sse?workflow_id={id}&api_key=sk_test_123456
+```
+</Warning>
+
+## 响应格式
+
+所有端点返回 JSON，错误格式一致：
+
+**成功（200）**：
+```json
+{
+  "task_id": "task-dev-1234567890",
+  "status": "COMPLETED",
+  "result": "情感：积极"
+}
 ```
 
-### 创建 API 密钥
-
-```bash
-# 创建测试 API 密钥
-make seed-api-key
-
-# 输出：sk_test_123456
+**错误（400/401/404/429/500）**：
+```json
+{
+  "error": "任务未找到"
+}
 ```
-
-生产环境下，通过仪表板或 API 生成密钥。
 
 ## 速率限制
 
-Shannon 对每个 API 密钥实施速率限制：
+- **默认**：每个 API 密钥 60 请求/分钟
+- **响应头**：`X-RateLimit-Limit`、`X-RateLimit-Remaining`、`X-RateLimit-Reset`
+- **429 响应**：包含 `Retry-After` 头部
 
-- **默认**：60 请求/分钟
-- **突发**：最多 10 个请求（每分钟窗口）
-- **范围**：每个 API 密钥（开发环境可能跳过认证）
+## 事件流式传输
 
-响应中包含速率限制头部：
+Shannon 为实时监控发出 26 种事件类型：
 
+**核心事件**：
+- `WORKFLOW_STARTED`、`WORKFLOW_COMPLETED`
+- `AGENT_STARTED`、`AGENT_COMPLETED`、`AGENT_THINKING`
+- `PROGRESS`、`DATA_PROCESSING`
+- `ERROR_OCCURRED`
+
+**LLM 事件**：
+- `LLM_PROMPT`、`LLM_OUTPUT`、`LLM_PARTIAL`
+
+**工具事件**：
+- `TOOL_INVOKED`、`TOOL_OBSERVATION`
+
+查看[事件类型参考](/cn/api/rest/streaming#event-types)获取完整列表。
+
+## gRPC API
+
+对于性能关键型应用，使用 gRPC：
+
+**端点**：`localhost:50052`
+
+**服务**：
+- `OrchestratorService` - 任务提交和管理
+- `StreamingService` - 实时事件流
+- `SessionService` - 会话上下文管理
+
+**示例**：
+```python
+import grpc
+from shannon.generated import orchestrator_pb2_grpc
+
+channel = grpc.insecure_channel('localhost:50052')
+stub = orchestrator_pb2_grpc.OrchestratorServiceStub(channel)
+
+request = orchestrator_pb2.SubmitTaskRequest(
+    metadata=orchestrator_pb2.TaskMetadata(user_id="user-123"),
+    query="分析情感"
+)
+
+response = stub.SubmitTask(request)
 ```
-X-RateLimit-Limit: 60
-X-RateLimit-Remaining: 45
-X-RateLimit-Reset: 1730001234
-```
-
-超出限制时，您将收到：
-
-```json
-{
-  "error": "超出速率限制",
-  "message": "请求过多。请在速率限制窗口重置后重试。"
-}
-```
-
-## 幂等性
-
-使用幂等性键防止重复任务执行：
-
-```bash
-curl -X POST http://localhost:8080/api/v1/tasks \
-  -H "Idempotency-Key: unique-request-id-123" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "处理此任务"}'
-```
-
-24 小时内使用相同的幂等性键将返回原始响应。
-
-## 错误处理
-
-Shannon 使用标准 HTTP 状态码：
-
-| 代码 | 含义 | 常见原因 |
-|------|---------|---------------|
-| 200 | 成功 | 请求成功完成 |
-| 400 | 错误请求 | 无效参数或格式错误的 JSON |
-| 401 | 未授权 | 缺少或无效的 API 密钥 |
-| 404 | 未找到 | 任务 ID 不存在 |
-| 429 | 请求过多 | 超出速率限制 |
-| 500 | 内部服务器错误 | Shannon 遇到错误 |
-| 503 | 服务不可用 | Shannon 暂时不可用 |
-
-### 错误响应格式
-
-```json
-{
-  "error": "超出预算",
-  "error_code": "BUDGET_EXCEEDED",
-  "details": {
-    "max_tokens": 5000,
-    "used_tokens": 5127
-  },
-  "request_id": "req-abc123"
-}
-```
-
-## 版本控制
-
-Shannon 使用基于 URL 的版本控制：
-
-- **当前版本**：`/api/v1`
-- **未来版本**：`/api/v2`（可用时）
-
-破坏性更改将在新版本中引入，同时至少 6 个月内保持向后兼容性。
 
 ## 最佳实践
 
-### 1. 使用适当的超时
+### 1. 使用会话 ID 保持上下文
 
-长时间运行的任务可能需要几分钟才能完成：
+```json
+{
+  "query": "Q2 怎么样？",
+  "session_id": "user-123-analytics"
+}
+```
+
+### 2. 对长任务使用流式传输事件
 
 ```python
 import requests
 
-response = requests.post(
-    "http://localhost:8080/api/v1/tasks",
-    json={"query": "复杂分析"},
-    timeout=300  # 5 分钟超时
-)
-```
-
-### 2. 实现重试逻辑
-
-对瞬态错误使用指数退避：
-
-```python
-from tenacity import retry, wait_exponential, stop_after_attempt
-
-@retry(
-    wait=wait_exponential(multiplier=1, min=2, max=60),
-    stop=stop_after_attempt(3)
-)
-def submit_task(query):
-    return requests.post(url, json={"query": query})
-```
-
-### 3. 对长任务使用流式传输
-
-使用 SSE 流式传输获取实时反馈：
-
-```python
-import requests
-
-response = requests.get(
-    f"http://localhost:8080/api/v1/tasks/{task_id}/stream",
+r = requests.get(
+    f"http://localhost:8080/api/v1/stream/sse?workflow_id={task_id}",
     stream=True
 )
 
-for line in response.iter_lines():
+for line in r.iter_lines():
     if line:
-        event = parse_sse_event(line)
-        print(f"事件: {event['type']}")
+        event = parse_sse(line)
+        print(event['type'])
 ```
 
-### 4. 设置预算限制
+### 3. 处理速率限制
 
-始终指定预算约束：
+```python
+import time
 
-```json
-{
-  "query": "分析数据",
-  "config": {
-    "budget": {
-      "max_cost_usd": 1.0,
-      "max_tokens": 10000
-    }
-  }
-}
+def submit_with_retry(query, max_retries=3):
+    for attempt in range(max_retries):
+        response = requests.post(url, json={"query": query})
+
+        if response.status_code == 429:
+            retry_after = int(response.headers.get("Retry-After", 60))
+            time.sleep(retry_after)
+            continue
+
+        return response
 ```
 
-### 5. 使用会话保持上下文
+### 4. 使用幂等性键
 
-使用会话 ID 维护对话上下文：
-
-```json
-{
-  "query": "后续问题",
-  "session_id": "user-123-conversation"
-}
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{"query": "只处理一次"}'
 ```
 
 ## SDK
 
-我们推荐使用官方 SDK 以便更轻松地集成：
-
 <CardGroup cols={2}>
   <Card title="Python SDK" icon="python" href="/cn/sdk/python/quickstart">
-    具有异步支持的全功能客户端
-  </Card>
-  <Card title="Go SDK" icon="golang">
-    即将推出
-  </Card>
-  <Card title="JavaScript SDK" icon="js">
-    即将推出
+    官方 Python 客户端，支持流式传输
   </Card>
   <Card title="REST 客户端" icon="code">
     使用任何 HTTP 客户端库
@@ -313,26 +222,16 @@ for line in response.iter_lines():
 ## 下一步
 
 <CardGroup cols={2}>
-  <Card title="认证" icon="key" href="/cn/api/authentication">
-    设置 API 密钥认证
+  <Card title="提交任务" icon="paper-plane" href="/cn/api/rest/submit-task">
+    任务提交 API
   </Card>
-  <Card title="提交任务" icon="paper-plane" href="/cn/api/endpoints/submit-task">
-    了解任务提交
+  <Card title="流式传输事件" icon="stream" href="/cn/api/rest/streaming">
+    实时事件流
   </Card>
-  <Card title="流式传输事件" icon="stream" href="/cn/api/endpoints/stream-task">
-    实时事件流式传输
+  <Card title="会话 API" icon="messages" href="/cn/api/rest/sessions">
+    会话管理
   </Card>
   <Card title="Python SDK" icon="python" href="/cn/sdk/python/quickstart">
-    使用 Python SDK
+    Python 入门
   </Card>
 </CardGroup>
-
-## OpenAPI 规范
-
-完整的 OpenAPI 3.1 规范可在以下位置获取：
-
-```
-http://localhost:8080/openapi.json
-```
-
-将其导入 Postman、Insomnia 或 Swagger UI 等工具进行交互式探索。
