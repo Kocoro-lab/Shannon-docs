@@ -107,6 +107,7 @@
                   "en/api/rest/get-status",
                   "en/api/rest/cancel-task",
                   "en/api/rest/approve-task",
+                  "en/api/rest/sessions",
                   "en/api/rest/streaming",
                   "en/api/rest/authentication"
                 ]
@@ -268,6 +269,7 @@
                   "cn/api/rest/get-status",
                   "cn/api/rest/cancel-task",
                   "cn/api/rest/approve-task",
+                  "cn/api/rest/sessions",
                   "cn/api/rest/streaming",
                   "cn/api/rest/authentication"
                 ]

@@ -1,0 +1,90 @@
+---
+title: "Sessions API"
+description: "List, inspect, and delete sessions"
+---
+
+## Introduction
+
+Manage user sessions used to group related tasks and context.
+
+Notes:
+- Soft delete only. `DELETE` marks a session as deleted (keeps data) and returns 204.
+- Deleted sessions are excluded from reads and cannot be fetched (404).
+
+## List Sessions
+
+```
+GET /api/v1/sessions?limit=20&offset=0
+```
+
+Query params:
+- `limit` (1–100, default 20)
+- `offset` (>= 0, default 0)
+
+Response (200):
+```json
+{
+  "sessions": [
+    {
+      "session_id": "a0c2b1e2-...",
+      "user_id": "00000000-0000-0000-0000-000000000002",
+      "task_count": 3,
+      "tokens_used": 1234,
+      "token_budget": 10000,
+      "created_at": "2025-10-28T06:00:00Z"
+    }
+  ],
+  "total_count": 1
+}
+```
+
+## Get Session
+
+```
+GET /api/v1/sessions/{sessionId}
+```
+
+Path params:
+- `sessionId` (uuid)
+
+Response (200): session metadata including token usage and task count.
+Errors: 401, 403, 404.
+
+## Get Session History
+
+```
+GET /api/v1/sessions/{sessionId}/history
+```
+
+Returns all tasks in the session with execution details.
+Errors: 401, 403, 404.
+
+## Get Session Events
+
+```
+GET /api/v1/sessions/{sessionId}/events?limit=200&offset=0
+```
+
+Returns SSE-like events across all tasks in the session.
+Notes:
+- Excludes `LLM_PARTIAL` for cleaner chat history.
+- Returns 404 if the session is deleted.
+
+## Delete Session (Soft Delete)
+
+```
+DELETE /api/v1/sessions/{sessionId}
+```
+
+Behavior:
+- Marks the session as deleted (`deleted_at`, `deleted_by`), does not remove data.
+- Idempotent: always returns 204 for the owner.
+- Clears session cache to prevent stale reads.
+
+Responses:
+- 204 No Content
+- 400 Invalid `sessionId` (must be uuid)
+- 401 Unauthorized
+- 403 Forbidden (not the owner)
+- 404 Not Found
+

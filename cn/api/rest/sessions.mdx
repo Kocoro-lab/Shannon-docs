@@ -1,0 +1,90 @@
+---
+title: "会话 API"
+description: "列出、查看与删除会话（软删除）"
+---
+
+## 简介
+
+管理用于关联任务与上下文的用户会话。
+
+说明：
+- 仅支持软删除。`DELETE` 仅标记删除（保留数据），返回 204。
+- 被删除的会话会从读取结果中过滤，并且无法再被获取（返回 404）。
+
+## 列出会话
+
+```
+GET /api/v1/sessions?limit=20&offset=0
+```
+
+查询参数：
+- `limit`（1–100，默认 20）
+- `offset`（>= 0，默认 0）
+
+响应（200）：
+```json
+{
+  "sessions": [
+    {
+      "session_id": "a0c2b1e2-...",
+      "user_id": "00000000-0000-0000-0000-000000000002",
+      "task_count": 3,
+      "tokens_used": 1234,
+      "token_budget": 10000,
+      "created_at": "2025-10-28T06:00:00Z"
+    }
+  ],
+  "total_count": 1
+}
+```
+
+## 获取会话详情
+
+```
+GET /api/v1/sessions/{sessionId}
+```
+
+路径参数：
+- `sessionId`（uuid）
+
+响应（200）：返回会话元数据（令牌用量、任务数量等）。
+错误：401、403、404。
+
+## 获取会话历史
+
+```
+GET /api/v1/sessions/{sessionId}/history
+```
+
+返回该会话下的所有任务及其执行细节。
+错误：401、403、404。
+
+## 获取会话事件
+
+```
+GET /api/v1/sessions/{sessionId}/events?limit=200&offset=0
+```
+
+返回该会话下所有任务的“类似 SSE”事件集合。
+说明：
+- 为了更干净的聊天记录，自动排除 `LLM_PARTIAL` 事件。
+- 如果会话已被软删除，将返回 404。
+
+## 删除会话（软删除）
+
+```
+DELETE /api/v1/sessions/{sessionId}
+```
+
+行为：
+- 标记会话为已删除（写入 `deleted_at`、`deleted_by`），不物理删除数据。
+- 幂等：对拥有者多次调用始终返回 204。
+- 清理会话缓存，避免读取到过期数据。
+
+响应：
+- 204 No Content
+- 400 无效的 `sessionId`（必须为 uuid）
+- 401 Unauthorized
+- 403 Forbidden（非拥有者）
+- 404 Not Found
+

@@ -33,7 +33,7 @@ Shannon 提供 **17 个 REST 端点**，分为 4 个类别：
 | `GET /stream/sse?workflow_id={id}` | 服务器发送事件流 |
 | `GET /stream/ws?workflow_id={id}` | WebSocket 流 |
 
-### 会话管理（4 个端点）
+### 会话管理（5 个端点）
 
 | 端点 | 描述 |
 |----------|-------------|
@@ -41,6 +41,7 @@ Shannon 提供 **17 个 REST 端点**，分为 4 个类别：
 | `GET /sessions/{sessionId}` | 获取会话详情 |
 | `GET /sessions/{sessionId}/history` | 获取会话对话历史 |
 | `GET /sessions/{sessionId}/events` | 获取会话事件（排除 LLM_PARTIAL）|
+| `DELETE /sessions/{sessionId}` | 删除会话（软删除；幂等 204）|
 
 ### 健康检查和可观测性（3 个端点）
 
