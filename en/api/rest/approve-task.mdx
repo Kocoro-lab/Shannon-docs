@@ -1,0 +1,111 @@
+---
+title: "POST /api/v1/approvals/decision"
+description: "Submit a human approval decision for workflows requiring approval"
+---
+
+## Endpoint
+
+```
+POST http://localhost:8080/api/v1/approvals/decision
+```
+
+## Description
+
+Submits an approval or rejection for a workflow that paused for human approval. On success, the decision is signaled to the workflow and execution proceeds (or terminates).
+
+## Authentication
+
+**Required**: Yes
+
+Include API key in header:
+```
+X-API-Key: sk_test_123456
+```
+
+## Request
+
+### Headers
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| `X-API-Key` | Yes | API authentication key |
+| `Content-Type` | Yes | `application/json` |
+| `traceparent` | No | W3C trace context |
+
+### Body Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `workflow_id` | string | Yes | Target workflow ID |
+| `approval_id` | string | Yes | Approval identifier |
+| `approved` | boolean | Yes | Approve or reject |
+| `feedback` | string | No | Optional feedback/comment |
+| `modified_action` | string | No | Optional modified action |
+| `run_id` | string | No | Specific run ID (optional) |
+| `approved_by` | string | No | Defaults to authenticated user |
+
+### Request Body Schema
+
+```json
+{
+  "workflow_id": "task-123",
+  "approval_id": "appr-456",
+  "approved": true,
+  "feedback": "Looks good",
+  "modified_action": "",
+  "run_id": ""
+}
+```
+
+## Response
+
+### 200 OK
+
+```json
+{
+  "status": "sent",
+  "success": true,
+  "message": "Approval appr-456 processed successfully",
+  "workflow_id": "task-123",
+  "run_id": "",
+  "approval_id": "appr-456"
+}
+```
+
+### 400 / 401 / 403 / 404
+
+```json
+{ "error": "..." }
+```
+
+## Examples
+
+### Approve (curl)
+
+```bash
+curl -X POST "http://localhost:8080/api/v1/approvals/decision" \
+  -H "X-API-Key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "workflow_id": "task-123",
+    "approval_id": "appr-456",
+    "approved": true,
+    "feedback": "Proceed"
+  }'
+```
+
+### Reject (Python / httpx)
+
+```python
+import httpx
+
+httpx.post(
+  "http://localhost:8080/api/v1/approvals/decision",
+  headers={"X-API-Key": api_key, "Content-Type": "application/json"},
+  json={"workflow_id": wid, "approval_id": appr, "approved": False, "feedback": "Not safe"}
+)
+```
+
+## Notes
+
+- Replaces the legacy admin endpoint at `http://localhost:8081/approvals/decision` (deprecated).

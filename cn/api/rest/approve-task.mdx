@@ -1,0 +1,112 @@
+---
+title: "POST /api/v1/approvals/decision"
+description: "提交人工审批结果（适用于需要审批的工作流）"
+---
+
+## 端点
+
+```
+POST http://localhost:8080/api/v1/approvals/decision
+```
+
+## 描述
+
+为等待人工审批的工作流提交“同意/拒绝”决策。成功后，决策会以信号形式发送到工作流，随之继续执行或终止。
+
+## 认证
+
+**是否必需**：是
+
+请求头：
+```
+X-API-Key: sk_test_123456
+```
+
+## 请求
+
+### 请求头
+
+| 头部 | 必需 | 说明 |
+|------|------|------|
+| `X-API-Key` | 是 | API 认证密钥 |
+| `Content-Type` | 是 | `application/json` |
+| `traceparent` | 否 | W3C Trace 上下文 |
+
+### 请求体参数
+
+| 参数 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| `workflow_id` | string | 是 | 目标工作流 ID |
+| `approval_id` | string | 是 | 审批标识符 |
+| `approved` | boolean | 是 | 是否同意 |
+| `feedback` | string | 否 | 可选反馈/备注 |
+| `modified_action` | string | 否 | 可选的修改后操作 |
+| `run_id` | string | 否 | 指定运行 ID（可选） |
+| `approved_by` | string | 否 | 默认使用已认证用户 |
+
+### 请求体示例
+
+```json
+{
+  "workflow_id": "task-123",
+  "approval_id": "appr-456",
+  "approved": true,
+  "feedback": "已审核，允许执行",
+  "modified_action": "",
+  "run_id": ""
+}
+```
+
+## 响应
+
+### 200 OK
+
+```json
+{
+  "status": "sent",
+  "success": true,
+  "message": "Approval appr-456 processed successfully",
+  "workflow_id": "task-123",
+  "run_id": "",
+  "approval_id": "appr-456"
+}
+```
+
+### 400 / 401 / 403 / 404
+
+```json
+{ "error": "..." }
+```
+
+## 示例
+
+### 同意（curl）
+
+```bash
+curl -X POST "http://localhost:8080/api/v1/approvals/decision" \
+  -H "X-API-Key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "workflow_id": "task-123",
+    "approval_id": "appr-456",
+    "approved": true,
+    "feedback": "同意执行"
+  }'
+```
+
+### 拒绝（Python / httpx）
+
+```python
+import httpx
+
+httpx.post(
+  "http://localhost:8080/api/v1/approvals/decision",
+  headers={"X-API-Key": api_key, "Content-Type": "application/json"},
+  json={"workflow_id": wid, "approval_id": appr, "approved": False, "feedback": "风险较高"}
+)
+```
+
+## 备注
+
+- 替代旧版管理端点 `http://localhost:8081/approvals/decision`（已弃用，建议使用网关端点）。
+

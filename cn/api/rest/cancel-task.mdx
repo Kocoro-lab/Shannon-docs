@@ -1,0 +1,132 @@
+---
+title: "POST /api/v1/tasks/{id}/cancel"
+description: "取消排队或运行中的任务（幂等）"
+---
+
+## 端点
+
+```
+POST http://localhost:8080/api/v1/tasks/{id}/cancel
+```
+
+## 描述
+
+取消一个排队或运行中的任务。取消请求被接受时返回 `202 Accepted`。如果任务已进入终态，则返回 `409 Conflict`。
+
+## 认证
+
+**是否必需**：是
+
+请求头：
+```
+X-API-Key: sk_test_123456
+```
+
+## 请求
+
+### 请求头
+
+| 头部 | 必需 | 说明 |
+|------|------|------|
+| `X-API-Key` | 是 | API 认证密钥 |
+| `Content-Type` | 否 | 若带请求体则为 `application/json` |
+| `traceparent` | 否 | W3C Trace 上下文 |
+
+### 路径参数
+
+| 参数 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| `id` | string | 是 | 任务 ID（Temporal Workflow ID） |
+
+### 请求体参数
+
+| 参数 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| `reason` | string | 否 | 可选的人类可读原因 |
+
+### 请求体示例
+
+```json
+{
+  "reason": "用户取消"
+}
+```
+
+## 响应
+
+### 202 Accepted
+
+```json
+{
+  "success": true,
+  "message": "Task cancelled successfully"
+}
+```
+
+### 409 Conflict
+
+```json
+{
+  "success": false,
+  "message": "Task is already in terminal state: COMPLETED",
+  "status": "COMPLETED"
+}
+```
+
+### 404 Not Found
+
+```json
+{ "error": "Task not found" }
+```
+
+### 401 / 403
+
+```json
+{ "error": "Unauthorized" }
+```
+
+或
+
+```json
+{ "error": "Forbidden" }
+```
+
+## 示例
+
+### curl
+
+```bash
+curl -X POST "http://localhost:8080/api/v1/tasks/${TASK_ID}/cancel" \
+  -H "X-API-Key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"reason":"用户请求"}'
+```
+
+### Python（httpx）
+
+```python
+import httpx
+
+resp = httpx.post(
+    f"http://localhost:8080/api/v1/tasks/{task_id}/cancel",
+    headers={"X-API-Key": api_key},
+    json={"reason": "清理"}
+)
+print(resp.status_code, resp.json())
+```
+
+### JavaScript（axios）
+
+```javascript
+await axios.post(
+  `http://localhost:8080/api/v1/tasks/${taskId}/cancel`,
+  { reason: "不再需要" },
+  { headers: { "X-API-Key": apiKey } }
+);
+```
+
+## 备注
+
+- 幂等：重复调用会根据当前状态返回 `202` 或 `409`。
+- 取消会向子工作流传播（通过 `REQUEST_CANCEL` 优雅关闭）。
+

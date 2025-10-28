@@ -11,9 +11,9 @@ http://localhost:8080/api/v1
 
 ## Endpoints Summary
 
-Shannon provides **15 REST endpoints** across 4 categories:
+Shannon provides **17 REST endpoints** across 4 categories:
 
-### Task Operations (6 endpoints)
+### Task Operations (8 endpoints)
 
 | Endpoint | Description |
 |----------|-------------|
@@ -23,6 +23,8 @@ Shannon provides **15 REST endpoints** across 4 categories:
 | `GET /tasks/{id}` | Get task status and result |
 | `GET /tasks/{id}/events` | Get persistent event history |
 | `GET /tasks/{id}/timeline` | Get deterministic Temporal timeline |
+| `POST /tasks/{id}/cancel` | Cancel a queued or running task |
+| `POST /approvals/decision` | Submit a human approval decision |
 
 ### Streaming (2 endpoints)
 

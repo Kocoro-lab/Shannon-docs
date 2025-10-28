@@ -507,6 +507,22 @@ curl -X POST http://localhost:8080/api/v1/tasks \
 4. User approves/rejects via API
 5. Workflow continues or terminates
 
+**Gateway endpoint (recommended):**
+
+```bash
+curl -X POST "http://localhost:8080/api/v1/approvals/decision"   -H "X-API-Key: YOUR_API_KEY"   -H "Content-Type: application/json"   -d '{
+    "workflow_id": "<workflow-id>",
+    "approval_id": "<approval-id>",
+    "approved": true,
+    "feedback": "Approved for execution"
+  }'
+```
+
+<Note>
+Legacy admin endpoint at `http://localhost:8081/approvals/decision` is deprecated. Use the gateway endpoint instead.
+</Note>
+
+
 **Approval gates are enforced in the router before execution.**
 
 ## Feature Flags & Config

@@ -11,9 +11,9 @@ http://localhost:8080/api/v1
 
 ## 端点摘要
 
-Shannon 提供 **15 个 REST 端点**，分为 4 个类别：
+Shannon 提供 **17 个 REST 端点**，分为 4 个类别：
 
-### 任务操作（6 个端点）
+### 任务操作（8 个端点）
 
 | 端点 | 描述 |
 |----------|-------------|
@@ -23,6 +23,8 @@ Shannon 提供 **15 个 REST 端点**，分为 4 个类别：
 | `GET /tasks/{id}` | 获取任务状态和结果 |
 | `GET /tasks/{id}/events` | 获取持久化事件历史 |
 | `GET /tasks/{id}/timeline` | 获取确定性 Temporal 时间线 |
+| `POST /tasks/{id}/cancel` | 取消排队或运行中的任务 |
+| `POST /approvals/decision` | 提交人工审批决策 |
 
 ### 流式传输（2 个端点）
 

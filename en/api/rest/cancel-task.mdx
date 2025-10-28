@@ -1,0 +1,131 @@
+---
+title: "POST /api/v1/tasks/{id}/cancel"
+description: "Cancel a queued or running task (idempotent)"
+---
+
+## Endpoint
+
+```
+POST http://localhost:8080/api/v1/tasks/{id}/cancel
+```
+
+## Description
+
+Cancels a queued or running task. Returns `202 Accepted` when the cancellation is accepted for processing. If the task has already reached a terminal state, returns `409 Conflict`.
+
+## Authentication
+
+**Required**: Yes
+
+Include API key in header:
+```
+X-API-Key: sk_test_123456
+```
+
+## Request
+
+### Headers
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| `X-API-Key` | Yes | API authentication key |
+| `Content-Type` | No | `application/json` if body provided |
+| `traceparent` | No | W3C trace context |
+
+### Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | string | Yes | Task ID (Temporal workflow ID) |
+
+### Body Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `reason` | string | No | Optional human-readable reason |
+
+### Request Body Schema
+
+```json
+{
+  "reason": "Stopped by user"
+}
+```
+
+## Response
+
+### 202 Accepted
+
+```json
+{
+  "success": true,
+  "message": "Task cancelled successfully"
+}
+```
+
+### 409 Conflict
+
+```json
+{
+  "success": false,
+  "message": "Task is already in terminal state: COMPLETED",
+  "status": "COMPLETED"
+}
+```
+
+### 404 Not Found
+
+```json
+{ "error": "Task not found" }
+```
+
+### 401 / 403
+
+```json
+{ "error": "Unauthorized" }
+```
+
+or
+
+```json
+{ "error": "Forbidden" }
+```
+
+## Examples
+
+### curl
+
+```bash
+curl -X POST "http://localhost:8080/api/v1/tasks/${TASK_ID}/cancel" \
+  -H "X-API-Key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"reason":"user request"}'
+```
+
+### Python (httpx)
+
+```python
+import httpx
+
+resp = httpx.post(
+    f"http://localhost:8080/api/v1/tasks/{task_id}/cancel",
+    headers={"X-API-Key": api_key},
+    json={"reason": "cleanup"}
+)
+print(resp.status_code, resp.json())
+```
+
+### JavaScript (axios)
+
+```javascript
+await axios.post(
+  `http://localhost:8080/api/v1/tasks/${taskId}/cancel`,
+  { reason: "not needed" },
+  { headers: { "X-API-Key": apiKey } }
+);
+```
+
+## Notes
+
+- Idempotent: repeated calls return `202` or `409` depending on current state.
+- Cancellation is propagated to child workflows (graceful via `REQUEST_CANCEL`).
