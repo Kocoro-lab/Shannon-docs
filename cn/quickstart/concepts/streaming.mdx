@@ -232,11 +232,9 @@ function TaskMonitor({ taskId, apiKey }) {
   useEffect(() => {
     const params = new URLSearchParams({ workflow_id: taskId });
 
-    // 对于需要身份验证的端点，在 URL 中传递 API 密钥
-    // 注意：浏览器的 EventSource 不支持自定义请求头
-    if (apiKey) {
-      params.append('api_key', apiKey);
-    }
+    // 注意：浏览器 EventSource 不支持自定义请求头。
+    // 生产环境请由后端发起 SSE 并注入认证请求头；
+    // 开发环境可使用 GATEWAY_SKIP_AUTH=1 关闭认证。
 
     const eventSource = new EventSource(
       `http://localhost:8080/api/v1/stream/sse?${params}`
@@ -309,7 +307,7 @@ function TaskMonitor({ taskId, apiKey }) {
 <Note>
 **关键实现细节：**
 - Shannon 发出**命名的 SSE 事件**（例如，`event: AGENT_STARTED`），因此您必须为每种事件类型使用 `addEventListener()`
-- 浏览器的 `EventSource` API 不支持自定义请求头，因此 API 密钥必须作为 URL 查询参数传递
+- 浏览器的 `EventSource` API 不支持自定义请求头。不要通过查询参数传递 API 密钥；应由后端代理注入请求头（或在开发环境关闭认证）
 - 始终在清理函数中清除事件监听器，以防止内存泄漏
 </Note>
 

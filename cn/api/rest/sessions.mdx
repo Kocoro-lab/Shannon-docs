@@ -59,16 +59,73 @@ GET /api/v1/sessions/{sessionId}/history
 返回该会话下的所有任务及其执行细节。
 错误：401、403、404。
 
-## 获取会话事件
+## 获取会话事件（按轮次分组）
 
 ```
-GET /api/v1/sessions/{sessionId}/events?limit=200&offset=0
+GET /api/v1/sessions/{sessionId}/events?limit=10&offset=0
 ```
 
-返回该会话下所有任务的“类似 SSE”事件集合。
+按任务/轮次分组返回聊天历史，每个轮次包含完整事件列表（排除 `LLM_PARTIAL`）。
+
+查询参数：
+- `limit`（1–100，默认 10）— 返回的轮次数
+- `offset`（>= 0，默认 0）— 跳过的轮次数
+
+响应（200）：
+```json
+{
+  "session_id": "chat-session-123",
+  "count": 2,
+  "turns": [
+    {
+      "turn": 1,
+      "task_id": "task-001",
+      "user_query": "What is 2+2?",
+      "final_output": "2 + 2 equals 4.",
+      "timestamp": "2025-10-29T06:00:01.513288Z",
+      "events": [
+        { "workflow_id": "wf-1", "type": "LLM_PROMPT", "message": "...", "timestamp": "..." },
+        { "workflow_id": "wf-1", "type": "LLM_OUTPUT", "message": "2 + 2 equals 4.", "timestamp": "..." }
+      ],
+      "metadata": {
+        "tokens_used": 150,
+        "execution_time_ms": 8000,
+        "agents_involved": ["planner", "simple-agent"]
+      }
+    }
+  ]
+}
+```
+
 说明：
-- 为了更干净的聊天记录，自动排除 `LLM_PARTIAL` 事件。
-- 如果会话已被软删除，将返回 404。
+- 当任务结果为空时，`final_output` 回退为首条 `LLM_OUTPUT` 事件内容。
+- `turn` 为全局计数（offset + index）。
+- 会话被删除或不属于请求者时返回 404。
+
+## 更新会话标题
+
+```
+PATCH /api/v1/sessions/{sessionId}
+```
+
+路径参数：
+- `sessionId`（UUID 或 external_id）
+
+请求体：
+```json
+{ "title": "新标题" }
+```
+
+规则：
+- 标题会去除首尾空白并移除控制字符。
+- 最长 60 个字符（UTF-8 安全），更长将被拒绝。
+
+响应：
+- 200 OK，返回更新后的标题
+- 400 无效请求（标题为空或过长）
+- 401 未授权
+- 403 禁止访问（非拥有者）
+- 404 未找到
 
 ## 删除会话（软删除）
 
@@ -83,8 +140,6 @@ DELETE /api/v1/sessions/{sessionId}
 
 响应：
 - 204 No Content
-- 400 无效的 `sessionId`（必须为 uuid）
 - 401 Unauthorized
 - 403 Forbidden（非拥有者）
 - 404 Not Found
-

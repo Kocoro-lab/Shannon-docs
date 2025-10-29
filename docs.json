@@ -99,17 +99,31 @@
                 ]
               },
               {
-                "group": "REST API",
+                "group": "Authentication & Headers",
                 "pages": [
-                  "en/api/rest/overview",
+                  "en/api/rest/authentication"
+                ]
+              },
+              {
+                "group": "Tasks",
+                "pages": [
                   "en/api/rest/submit-task",
                   "en/api/rest/list-tasks",
                   "en/api/rest/get-status",
                   "en/api/rest/cancel-task",
-                  "en/api/rest/approve-task",
-                  "en/api/rest/sessions",
-                  "en/api/rest/streaming",
-                  "en/api/rest/authentication"
+                  "en/api/rest/approve-task"
+                ]
+              },
+              {
+                "group": "Sessions",
+                "pages": [
+                  "en/api/rest/sessions"
+                ]
+              },
+              {
+                "group": "Streaming",
+                "pages": [
+                  "en/api/rest/streaming"
                 ]
               }
             ]
@@ -261,17 +275,31 @@
                 ]
               },
               {
-                "group": "REST API",
+                "group": "认证与请求头",
                 "pages": [
-                  "cn/api/rest/overview",
+                  "cn/api/rest/authentication"
+                ]
+              },
+              {
+                "group": "任务",
+                "pages": [
                   "cn/api/rest/submit-task",
                   "cn/api/rest/list-tasks",
                   "cn/api/rest/get-status",
                   "cn/api/rest/cancel-task",
-                  "cn/api/rest/approve-task",
-                  "cn/api/rest/sessions",
-                  "cn/api/rest/streaming",
-                  "cn/api/rest/authentication"
+                  "cn/api/rest/approve-task"
+                ]
+              },
+              {
+                "group": "会话",
+                "pages": [
+                  "cn/api/rest/sessions"
+                ]
+              },
+              {
+                "group": "流式",
+                "pages": [
+                  "cn/api/rest/streaming"
                 ]
               }
             ]

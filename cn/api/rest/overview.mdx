@@ -11,7 +11,7 @@ http://localhost:8080/api/v1
 
 ## 端点摘要
 
-Shannon 提供 **17 个 REST 端点**，分为 4 个类别：
+Shannon 提供 **19 个 REST 端点**，分为 4 个类别：
 
 ### 任务操作（8 个端点）
 
@@ -33,14 +33,15 @@ Shannon 提供 **17 个 REST 端点**，分为 4 个类别：
 | `GET /stream/sse?workflow_id={id}` | 服务器发送事件流 |
 | `GET /stream/ws?workflow_id={id}` | WebSocket 流 |
 
-### 会话管理（5 个端点）
+### 会话管理（6 个端点）
 
 | 端点 | 描述 |
 |----------|-------------|
 | `GET /sessions` | 列出会话（分页）|
 | `GET /sessions/{sessionId}` | 获取会话详情 |
 | `GET /sessions/{sessionId}/history` | 获取会话对话历史 |
-| `GET /sessions/{sessionId}/events` | 获取会话事件（排除 LLM_PARTIAL）|
+| `GET /sessions/{sessionId}/events` | 获取会话事件（按轮次分组）|
+| `PATCH /sessions/{sessionId}` | 更新会话标题（UUID 或 external_id） |
 | `DELETE /sessions/{sessionId}` | 删除会话（软删除；幂等 204）|
 
 ### 健康检查和可观测性（3 个端点）
@@ -69,12 +70,12 @@ curl -H "X-API-Key: sk_test_123456" \
 ### SSE 流式传输认证
 
 <Warning>
-浏览器 `EventSource` 不支持自定义请求头。将 API 密钥作为**查询参数**传递：
+浏览器 `EventSource` 无法发送自定义请求头。生产环境请通过后端代理转发 SSE，并注入 `X-API-Key` 或 Bearer 头。不要通过 URL 查询参数传递 API 密钥。
 </Warning>
 
 ```javascript
 const eventSource = new EventSource(
-  `/api/v1/stream/sse?workflow_id=${id}&api_key=sk_test_123456`
+  `/api/v1/stream/sse?workflow_id=${id}`
 );
 ```
 

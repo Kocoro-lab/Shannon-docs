@@ -7,6 +7,14 @@ description: "通过 SSE 和 WebSocket 实时事件流传输"
 
 Shannon 通过 Server-Sent Events (SSE) 和 WebSocket 协议提供实时事件流传输。使用流式传输来监控任务执行、显示进度并在生成时接收结果。
 
+<Warning>
+认证：流式端点与其他 API 使用相同的认证请求头。
+浏览器 EventSource 无法携带自定义请求头。
+- 开发环境：设置 `GATEWAY_SKIP_AUTH=1`。
+- 生产环境：通过后端代理转发 SSE，并注入 `X-API-Key` 或 Bearer 头。
+不要通过 URL 查询参数传递 API 密钥。
+</Warning>
+
 ## 端点
 
 | 方法 | 端点 | 协议 | 描述 |

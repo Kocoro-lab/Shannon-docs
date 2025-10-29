@@ -5,6 +5,9 @@ description: "Shannon 中的 API 密钥认证和授权"
 
 ## 概述
 
+<Note>关于 HTTP 请求头和示例，请参见 [/cn/api/rest/authentication](/cn/api/rest/authentication)。</Note>
+
+
 Shannon 支持 API 密钥认证以保护对编排平台的访问。为了方便本地开发,身份验证**默认禁用**,可在生产部署时启用。
 
 ## 认证模式
@@ -68,38 +71,6 @@ curl -X POST http://localhost:8080/api/v1/keys \
     "name": "My Application",
     "user_id": "user-123"
   }'
-```
-
-## 使用 API 密钥
-
-### HTTP 标头(推荐)
-
-```bash
-curl http://localhost:8080/api/v1/tasks \
-  -H "X-API-Key: sk_test_123456" \
-  -H "Content-Type: application/json"
-```
-
-### Bearer Token
-
-```bash
-curl http://localhost:8080/api/v1/tasks \
-  -H "Authorization: Bearer sk_test_123456" \
-  -H "Content-Type: application/json"
-```
-
-### Python SDK
-
-```python
-from shannon import ShannonClient
-
-client = ShannonClient(
-    http_endpoint="http://localhost:8080",
-    api_key="sk_test_123456"
-)
-
-# API key automatically included in all requests
-handle = client.submit_task(query="Hello world")
 ```
 
 ## 速率限制

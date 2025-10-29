@@ -232,11 +232,9 @@ function TaskMonitor({ taskId, apiKey }) {
   useEffect(() => {
     const params = new URLSearchParams({ workflow_id: taskId });
 
-    // For authenticated endpoints, pass API key in URL
-    // Note: Browser EventSource doesn't support custom headers
-    if (apiKey) {
-      params.append('api_key', apiKey);
-    }
+    // Note: Browser EventSource doesn't support custom headers.
+    // Production: initiate SSE from a backend that injects auth headers,
+    // or use GATEWAY_SKIP_AUTH=1 in development.
 
     const eventSource = new EventSource(
       `http://localhost:8080/api/v1/stream/sse?${params}`
@@ -309,7 +307,7 @@ function TaskMonitor({ taskId, apiKey }) {
 <Note>
 **Key Implementation Details:**
 - Shannon emits **named SSE events** (e.g., `event: AGENT_STARTED`), so you must use `addEventListener()` for each event type
-- Browser `EventSource` API doesn't support custom headers, so API keys must be passed as URL query parameters
+- Browser `EventSource` API doesn't support custom headers. Do not pass API keys via query params; use a backend proxy to inject headers or disable auth in development
 - Always clean up event listeners in the cleanup function to prevent memory leaks
 </Note>
 

@@ -7,6 +7,14 @@ description: "Real-time event streaming via SSE and WebSocket"
 
 Shannon provides real-time event streaming through Server-Sent Events (SSE) and WebSocket protocols. Use streaming to monitor task execution, display progress, and receive results as they're generated.
 
+<Warning>
+Authentication: Streaming endpoints require the same headers as other APIs.
+Browsers cannot send custom headers with EventSource.
+- Development: set `GATEWAY_SKIP_AUTH=1`.
+- Production: proxy SSE via your backend and inject `X-API-Key` or Bearer headers.
+Do not pass API keys in URL query parameters.
+</Warning>
+
 ## Endpoints
 
 | Method | Endpoint | Protocol | Description |

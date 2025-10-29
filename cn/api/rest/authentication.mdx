@@ -3,6 +3,9 @@ title: "身份验证和请求头"
 description: "Shannon REST API 的身份验证方法和请求头参考"
 ---
 
+
+<Note>查看平台级认证概览：[/cn/api/authentication](/cn/api/authentication)</Note>
+
 ## 身份验证
 
 Shannon Gateway 支持对所有受保护端点的 API 密钥认证。
@@ -16,36 +19,7 @@ curl -H "X-API-Key: sk_test_123456" \
   http://localhost:8080/api/v1/tasks
 ```
 
-### 获取 API 密钥
 
-API 密钥通过数据库管理：
-
-```sql
--- 插入新 API 密钥
-INSERT INTO auth.api_keys (key, user_id, tenant_id, name, enabled)
-VALUES ('sk_test_123456', 'user-uuid', 'tenant-uuid', 'My API Key', true);
-```
-
-**密钥格式**：`sk_{env}_{random}`
-- `sk_test_*` - 测试/开发密钥
-- `sk_prod_*` - 生产密钥
-- `sk_live_*` - 实时环境密钥
-
-### 开发模式（跳过认证）
-
-对于本地开发，您可以禁用认证：
-
-```bash
-# 在 .env 文件中
-GATEWAY_SKIP_AUTH=1
-```
-
-```bash
-# 重启网关
-docker compose restart gateway
-```
-
-**警告**：切勿在生产环境中使用 `GATEWAY_SKIP_AUTH=1`。
 
 ### 认证错误
 
@@ -169,22 +143,12 @@ Cache-Control: max-age=300
 
 #### Last-Event-ID（仅 SSE）
 
-**用途**：从特定事件恢复 SSE 流
-**必需**：否
-**格式**：事件 ID 字符串
+用途：从特定事件恢复流。
+- 非浏览器客户端可设置 `Last-Event-ID` 请求头。
+- 浏览器 EventSource 无法设置自定义请求头；重连依赖服务端发送的 `id:` 字段自动续传。
 
-```bash
+```http
 Last-Event-ID: 42
-```
-
-用于 SSE 重连：
-```javascript
-const eventSource = new EventSource(url, {
-  headers: {
-    'X-API-Key': 'sk_test_123456',
-    'Last-Event-ID': '42'  // 从事件 42 恢复
-  }
-});
 ```
 
 ## 响应头

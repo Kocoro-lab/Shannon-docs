@@ -3,6 +3,9 @@ title: "Authentication & Headers"
 description: "Authentication methods and header reference for Shannon REST API"
 ---
 
+
+<Note>See platform-level auth: [/en/api/authentication](/en/api/authentication)</Note>
+
 ## Authentication
 
 Shannon Gateway supports API key authentication for all protected endpoints.
@@ -16,36 +19,7 @@ curl -H "X-API-Key: sk_test_123456" \
   http://localhost:8080/api/v1/tasks
 ```
 
-### Obtaining an API Key
 
-API keys are managed through the database:
-
-```sql
--- Insert new API key
-INSERT INTO auth.api_keys (key, user_id, tenant_id, name, enabled)
-VALUES ('sk_test_123456', 'user-uuid', 'tenant-uuid', 'My API Key', true);
-```
-
-**Key Format**: `sk_{env}_{random}`
-- `sk_test_*` - Test/development keys
-- `sk_prod_*` - Production keys
-- `sk_live_*` - Live environment keys
-
-### Development Mode (Skip Authentication)
-
-For local development, you can disable authentication:
-
-```bash
-# In .env file
-GATEWAY_SKIP_AUTH=1
-```
-
-```bash
-# Restart gateway
-docker compose restart gateway
-```
-
-**Warning**: Never use `GATEWAY_SKIP_AUTH=1` in production.
 
 ### Authentication Errors
 

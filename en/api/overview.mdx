@@ -55,7 +55,8 @@ curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id=task-dev-1234567890
 | `/api/v1/sessions` | GET | List sessions with pagination |
 | `/api/v1/sessions/{sessionId}` | GET | Get session details |
 | `/api/v1/sessions/{sessionId}/history` | GET | Get session chat history |
-| `/api/v1/sessions/{sessionId}/events` | GET | Get session events (excludes LLM_PARTIAL) |
+| `/api/v1/sessions/{sessionId}/events` | GET | Get session events (grouped by turn) |
+| `/api/v1/sessions/{sessionId}` | PATCH | Update session title (UUID or external_id) |
 | `/api/v1/sessions/{sessionId}` | DELETE | Delete session (soft delete; 204 idempotent) |
 
 ### Health & Observability
@@ -80,10 +81,11 @@ curl -H "X-API-Key: sk_test_123456" \
 ```
 
 <Warning>
-**SSE Streaming**: Browser `EventSource` doesn't support custom headers. Pass API key as query parameter:
-```
-/api/v1/stream/sse?workflow_id={id}&api_key=sk_test_123456
-```
+SSE Streaming: Browser `EventSource` cannot send custom headers.
+
+- Development: set `GATEWAY_SKIP_AUTH=1` to skip auth.
+- Production: initiate SSE from your backend (or edge) and inject `X-API-Key` or `Authorization: Bearer` headers.
+- Do not pass API keys in URL query parameters.
 </Warning>
 
 ## Response Format

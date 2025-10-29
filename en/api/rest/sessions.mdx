@@ -59,16 +59,73 @@ GET /api/v1/sessions/{sessionId}/history
 Returns all tasks in the session with execution details.
 Errors: 401, 403, 404.
 
-## Get Session Events
+## Get Session Events (Grouped by Turn)
 
 ```
-GET /api/v1/sessions/{sessionId}/events?limit=200&offset=0
+GET /api/v1/sessions/{sessionId}/events?limit=10&offset=0
 ```
 
-Returns SSE-like events across all tasks in the session.
+Returns chat history grouped by task/turn, including full events per turn (excludes `LLM_PARTIAL`).
+
+Query params:
+- `limit` (1–100, default 10) — number of turns to return
+- `offset` (>= 0, default 0) — number of turns to skip
+
+Response (200):
+```json
+{
+  "session_id": "chat-session-123",
+  "count": 2,
+  "turns": [
+    {
+      "turn": 1,
+      "task_id": "task-001",
+      "user_query": "What is 2+2?",
+      "final_output": "2 + 2 equals 4.",
+      "timestamp": "2025-10-29T06:00:01.513288Z",
+      "events": [
+        { "workflow_id": "wf-1", "type": "LLM_PROMPT", "message": "...", "timestamp": "..." },
+        { "workflow_id": "wf-1", "type": "LLM_OUTPUT", "message": "2 + 2 equals 4.", "timestamp": "..." }
+      ],
+      "metadata": {
+        "tokens_used": 150,
+        "execution_time_ms": 8000,
+        "agents_involved": ["planner", "simple-agent"]
+      }
+    }
+  ]
+}
+```
+
 Notes:
-- Excludes `LLM_PARTIAL` for cleaner chat history.
-- Returns 404 if the session is deleted.
+- `final_output` falls back to the first `LLM_OUTPUT` event if the task result is empty.
+- `turn` numbers are global (offset+index).
+- Returns 404 if the session is deleted or not owned by the requester.
+
+## Update Session Title
+
+```
+PATCH /api/v1/sessions/{sessionId}
+```
+
+Path params:
+- `sessionId` (UUID or external_id)
+
+Body:
+```json
+{ "title": "New Title" }
+```
+
+Rules:
+- Title is trimmed; control characters removed.
+- Max 60 characters (UTF-8 safe). Longer titles are rejected.
+
+Responses:
+- 200 OK with updated title
+- 400 Invalid request (empty or too long title)
+- 401 Unauthorized
+- 403 Forbidden (not the owner)
+- 404 Not Found
 
 ## Delete Session (Soft Delete)
 
@@ -83,8 +140,6 @@ Behavior:
 
 Responses:
 - 204 No Content
-- 400 Invalid `sessionId` (must be uuid)
 - 401 Unauthorized
 - 403 Forbidden (not the owner)
 - 404 Not Found
-
