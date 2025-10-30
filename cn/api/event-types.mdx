@@ -1,11 +1,11 @@
 ---
 title: "事件类型目录"
-description: "Shannon 流式事件类型的完整参考"
+description: "Shannon 流式事件类型（权威清单）"
 ---
 
 ## 概述
 
-Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件**,以提供任务执行的可见性。本文档记录了**所有 35+ 种事件类型**、它们的结构以及发生时机。
+Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件**。本文档记录平台**实际发出的 26 种事件类型**、它们的结构以及发生时机。
 
 事件提供:
 - **实时进度** - 实时跟踪任务执行
@@ -61,49 +61,40 @@ Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件
 
 ---
 
-## 事件类型快速参考
-
-按分类列出的所有事件类型完整列表:
+## 事件类型快速参考（权威）
 
 | 事件类型 | 分类 | 描述 |
 |------------|----------|-------------|
 | `WORKFLOW_STARTED` | 工作流 | 任务开始执行 |
 | `WORKFLOW_COMPLETED` | 工作流 | 任务成功完成 |
-| `WORKFLOW_FAILED` | 工作流 | 任务失败并出错 |
 | `AGENT_STARTED` | 智能体 | 智能体开始处理 |
 | `AGENT_THINKING` | 智能体 | 智能体推理/规划 |
 | `AGENT_COMPLETED` | 智能体 | 智能体成功完成 |
-| `AGENT_FAILED` | 智能体 | 智能体遇到错误 |
 | `TOOL_INVOKED` | 工具 | 调用工具 |
-| `TOOL_COMPLETED` | 工具 | 工具执行完成 |
-| `TOOL_FAILED` | 工具 | 工具执行失败 |
 | `TOOL_OBSERVATION` | 工具 | 智能体观察工具结果 |
-| `PATTERN_SELECTED` | 模式 | 选择认知模式 |
-| `TASK_DECOMPOSED` | 模式 | 任务分解为子任务 |
-| `SUBTASK_STARTED` | 模式 | 单个子任务开始 |
-| `SUBTASK_COMPLETED` | 模式 | 子任务完成 |
 | `TEAM_RECRUITED` | 团队 | 组建多智能体团队 |
 | `TEAM_RETIRED` | 团队 | 解散团队 |
 | `TEAM_STATUS` | 团队 | 团队协调更新 |
 | `DEPENDENCY_SATISFIED` | 团队 | 依赖关系已解决 |
 | `MESSAGE_SENT` | 消息 | 智能体发送消息 |
 | `MESSAGE_RECEIVED` | 消息 | 智能体接收消息 |
-| `LLM_PROMPT` | LLM | 提示词发送到 LLM |
-| `LLM_PARTIAL` | LLM | 增量 LLM 输出 |
+| `LLM_PROMPT` | LLM | 发送至 LLM 的提示 |
+| `LLM_PARTIAL` | LLM | 流式 LLM 输出 |
 | `LLM_OUTPUT` | LLM | 最终 LLM 输出 |
 | `PROGRESS` | 进度 | 通用进度更新 |
 | `DATA_PROCESSING` | 进度 | 处理/分析数据 |
 | `WAITING` | 进度 | 等待资源 |
-| `ERROR_OCCURRED` | 系统 | 系统错误 |
+| `ERROR_OCCURRED` | 系统 | 错误发生 |
 | `ERROR_RECOVERY` | 系统 | 错误恢复尝试 |
-| `BUDGET_UPDATE` | 系统 | 成本/token 更新 |
 | `APPROVAL_REQUESTED` | 系统 | 需要人工批准 |
 | `APPROVAL_DECISION` | 系统 | 批准决策已做出 |
 | `WORKSPACE_UPDATED` | 系统 | 内存/上下文已更新 |
 | `ROLE_ASSIGNED` | 系统 | 智能体角色已分配 |
 | `DELEGATION` | 系统 | 任务已委托 |
 
-**总计**: 35 种事件类型
+**总计**: 26 种事件类型
+
+注意：`WORKFLOW_FAILED`、`TASK_COMPLETED`、`TOOL_COMPLETED`、`TOOL_FAILED`、`BUDGET_UPDATE` 等事件不会由流式 API 发出。失败通过 `ERROR_OCCURRED` 表示；完成由 `WORKFLOW_COMPLETED` 表示。
 
 ---
 
@@ -167,22 +158,42 @@ Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件
 
 ---
 
-### WORKFLOW_FAILED
+## 精选示例
 
-**发出时机**: 任务失败时
+### AGENT_THINKING
 
-**数据**:
 ```json
 {
-  "type": "WORKFLOW_FAILED",
-  "message": "Workflow failed: Budget exceeded",
-  "data": {
-    "error": "BUDGET_EXCEEDED",
-    "error_message": "Task exceeded maximum cost of $0.50",
-    "duration_ms": 12000,
-    "tokens_used": 8000,
-    "cost_usd": 0.52
-  }
+  "type": "AGENT_THINKING",
+  "agent_id": "researcher",
+  "message": "Analyzing data structure...",
+  "timestamp": "2025-01-20T10:00:02Z"
+}
+```
+
+### TOOL_INVOKED / TOOL_OBSERVATION
+
+```json
+{ "type": "TOOL_INVOKED", "message": "web_search: q=\"LLM caching\"" }
+{ "type": "TOOL_OBSERVATION", "message": "web_search: 12 results" }
+```
+
+### LLM_OUTPUT
+
+```json
+{
+  "type": "LLM_OUTPUT",
+  "message": "Final summary of findings..."
+}
+```
+
+### ERROR_OCCURRED
+
+```json
+{
+  "type": "ERROR_OCCURRED",
+  "message": "Provider rate limit exceeded",
+  "data": { "error": "RATE_LIMIT", "retry_after": 30 }
 }
 ```
 
@@ -307,15 +318,15 @@ Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件
 
 ---
 
-### TOOL_COMPLETED
+### TOOL_OBSERVATION
 
-**发出时机**: 工具执行完成时
+**发出时机**: 智能体观察工具结果时
 
 **数据**:
 ```json
 {
-  "type": "TOOL_COMPLETED",
-  "message": "Tool completed: csv_loader",
+  "type": "TOOL_OBSERVATION",
+  "message": "Tool result: csv_loader",
   "data": {
     "tool_name": "csv_loader",
     "result": {
@@ -323,140 +334,20 @@ Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件
       "columns": 12,
       "sample": ["date", "product", "revenue", "..."]
     },
-    "duration_ms": 450,
-    "cached": false
+    "duration_ms": 450
   }
 }
 ```
 
 ---
 
-### TOOL_FAILED
-
-**发出时机**: 工具执行失败时
-
-**数据**:
-```json
-{
-  "type": "TOOL_FAILED",
-  "message": "Tool failed: web_search",
-  "data": {
-    "tool_name": "web_search",
-    "error": "RATE_LIMIT_EXCEEDED",
-    "error_message": "Search API rate limit reached",
-    "retry_after_seconds": 60
-  }
-}
-```
+{/* 工具失败通过系统事件 ERROR_OCCURRED 表示。 */}
 
 ---
 
 ## 模式事件
 
-特定于认知模式执行的事件。
-
-### PATTERN_SELECTED
-
-**发出时机**: 选择认知模式时
-
-**数据**:
-```json
-{
-  "type": "PATTERN_SELECTED",
-  "message": "Selected pattern: Tree-of-Thoughts",
-  "data": {
-    "pattern": "TREE_OF_THOUGHTS",
-    "reason": "Task requires exploration of multiple solution paths",
-    "complexity": 0.82,
-    "estimated_cost_usd": 0.45
-  }
-}
-```
-
-**可用模式**:
-- `CHAIN_OF_THOUGHT` - 顺序推理
-- `TREE_OF_THOUGHTS` - 分支探索
-- `REACT` - 推理 + 行动循环
-- `DEBATE` - 多视角分析
-- `REFLECTION` - 自我改进循环
-
----
-
-### TASK_DECOMPOSED
-
-**发出时机**: 任务分解为子任务时
-
-**数据**:
-```json
-{
-  "type": "TASK_DECOMPOSED",
-  "message": "Task decomposed into 4 subtasks",
-  "data": {
-    "strategy": "DAG",
-    "subtasks": [
-      {
-        "id": "subtask-1",
-        "description": "Load data",
-        "dependencies": []
-      },
-      {
-        "id": "subtask-2",
-        "description": "Calculate statistics",
-        "dependencies": ["subtask-1"]
-      },
-      {
-        "id": "subtask-3",
-        "description": "Create visualizations",
-        "dependencies": ["subtask-2"]
-      },
-      {
-        "id": "subtask-4",
-        "description": "Generate report",
-        "dependencies": ["subtask-2", "subtask-3"]
-      }
-    ]
-  }
-}
-```
-
----
-
-### SUBTASK_STARTED
-
-**发出时机**: 单个子任务开始时
-
-**数据**:
-```json
-{
-  "type": "SUBTASK_STARTED",
-  "message": "Starting subtask: Load data",
-  "data": {
-    "subtask_id": "subtask-1",
-    "description": "Load Q4 sales data",
-    "assigned_agent": "data-loader"
-  }
-}
-```
-
----
-
-### SUBTASK_COMPLETED
-
-**发出时机**: 子任务完成时
-
-**数据**:
-```json
-{
-  "type": "SUBTASK_COMPLETED",
-  "message": "Subtask completed: Load data",
-  "data": {
-    "subtask_id": "subtask-1",
-    "result": "Loaded 15,000 records",
-    "duration_ms": 2000,
-    "tokens_used": 150
-  }
-}
-```
+模式选择与任务拆解事件不属于对外公开的流式事件架构，省略不表。
 
 ---
 
@@ -560,7 +451,7 @@ Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件
 
 ## 消息事件
 
-智能体之间的通信。
+智能体之间的通信（需启用相关功能门控）。
 
 ### MESSAGE_SENT
 
@@ -629,7 +520,7 @@ Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件
 
 ### LLM_PARTIAL
 
-**发出时机**: 流式传输期间的增量 LLM 输出块
+**发出时机**: 流式传输期间的增量 LLM 输出块（通常在 UI 中被过滤）
 
 **数据**:
 ```json
@@ -638,8 +529,7 @@ Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件
   "message": "Received partial LLM output",
   "data": {
     "chunk": "Based on the analysis",
-    "chunk_index": 5,
-    "total_tokens_so_far": 50
+    "chunk_index": 5
   }
 }
 ```
@@ -774,24 +664,7 @@ Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件
 
 ---
 
-### BUDGET_UPDATE
-
-**发出时机**: 执行期间定期更新以跟踪成本
-
-**数据**:
-```json
-{
-  "type": "BUDGET_UPDATE",
-  "message": "Budget status update",
-  "data": {
-    "tokens_used": 3200,
-    "tokens_limit": 10000,
-    "cost_usd": 0.048,
-    "cost_limit_usd": 0.50,
-    "percentage_used": 9.6
-  }
-}
-```
+{/* 预算更新事件不由流式 API 发出。 */}
 
 ---
 
@@ -932,14 +805,11 @@ Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件
 
 ```json
 {"seq": 1, "type": "WORKFLOW_STARTED"}
-{"seq": 2, "type": "PATTERN_SELECTED"}
-{"seq": 3, "type": "TASK_DECOMPOSED"}
-{"seq": 4, "type": "SUBTASK_STARTED"}
-{"seq": 5, "type": "AGENT_STARTED"}
-{"seq": 6, "type": "AGENT_THINKING"}
-{"seq": 7, "type": "TOOL_INVOKED"}
-{"seq": 8, "type": "TOOL_COMPLETED"}
-{"seq": 42, "type": "WORKFLOW_COMPLETED"}
+{"seq": 2, "type": "AGENT_STARTED"}
+{"seq": 3, "type": "AGENT_THINKING"}
+{"seq": 4, "type": "TOOL_INVOKED"}
+{"seq": 5, "type": "LLM_OUTPUT"}
+{"seq": 6, "type": "WORKFLOW_COMPLETED"}
 ```
 
 **特性**:
@@ -949,36 +819,15 @@ Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件
 
 ---
 
-## 典型事件流程
-
-### 简单任务(SIMPLE 模式)
+## 典型事件流程（简化）
 
 ```
 1. WORKFLOW_STARTED
 2. AGENT_STARTED
 3. AGENT_THINKING
-4. TOOL_INVOKED (如果需要)
-5. TOOL_COMPLETED
-6. AGENT_COMPLETED
-7. WORKFLOW_COMPLETED
-```
-
-### 标准任务(STANDARD 模式)
-
-```
-1. WORKFLOW_STARTED
-2. PATTERN_SELECTED
-3. TASK_DECOMPOSED
-4. SUBTASK_STARTED (子任务 1)
-5. AGENT_STARTED
-6. AGENT_THINKING
-7. TOOL_INVOKED
-8. TOOL_COMPLETED
-9. AGENT_COMPLETED
-10. SUBTASK_COMPLETED (子任务 1)
-11. SUBTASK_STARTED (子任务 2)
-12. ... (对每个子任务重复)
-N. WORKFLOW_COMPLETED
+4. TOOL_INVOKED（可选）
+5. LLM_OUTPUT（最终答案）
+6. WORKFLOW_COMPLETED
 ```
 
 ### 复杂任务(COMPLEX 模式)
@@ -996,7 +845,7 @@ N. WORKFLOW_COMPLETED
 10. WAITING (等待依赖)
 11. DEPENDENCY_SATISFIED (解除执行阻塞)
 12. LLM_PROMPT / LLM_OUTPUT (LLM 交互)
-13. TOOL_INVOKED / TOOL_COMPLETED
+13. TOOL_INVOKED / TOOL_OBSERVATION
 14. TOOL_OBSERVATION (智能体处理结果)
 15. MESSAGE_SENT / MESSAGE_RECEIVED (智能体协调)
 16. DELEGATION (任务交接)
@@ -1019,13 +868,8 @@ total_subtasks = 0
 completed_subtasks = 0
 
 for event in client.stream_events(workflow_id):
-    if event.type == 'TASK_DECOMPOSED':
-        total_subtasks = event.data['subtasks']
-
-    elif event.type == 'SUBTASK_COMPLETED':
-        completed_subtasks += 1
-        progress = (completed_subtasks / total_subtasks) * 100
-        print(f"Progress: {progress:.1f}%")
+    if event.type == 'PROGRESS':
+        print(f"Progress: {event.message}")
 
     elif event.type == 'WORKFLOW_COMPLETED':
         print("Done!")
@@ -1037,16 +881,8 @@ for event in client.stream_events(workflow_id):
 ```python
 # 实时监控成本
 for event in client.stream_events(workflow_id):
-    if event.type == 'BUDGET_UPDATE':
-        cost = event.data['cost_usd']
-        limit = event.data['cost_limit_usd']
-
-        if cost > limit * 0.8:
-            print(f"Warning: 80% of budget used (${cost:.3f}/${limit:.2f})")
-
-    elif event.type == 'WORKFLOW_FAILED':
-        if event.data['error'] == 'BUDGET_EXCEEDED':
-            print("Task cancelled: Budget exceeded")
+    if event.type == 'ERROR_OCCURRED':
+        print(f"Error: {event.message}")
 ```
 
 ### 错误处理
@@ -1156,33 +992,7 @@ for event in client.stream_events(workflow_id, from_seq=last_seq + 1):
 
 ---
 
-## 完整事件类型参考
-
-所有 35 种事件类型都已投入生产并由 Shannon 主动发出。以下事件发出最频繁:
-
-**高频**(每个任务多次):
-- `AGENT_THINKING` - 智能体推理步骤
-- `LLM_PARTIAL` - 流式 LLM 输出
-- `DATA_PROCESSING` - 数据处理更新
-- `PROGRESS` - 进度更新
-
-**中频**(每个任务少量):
-- `TOOL_INVOKED` / `TOOL_COMPLETED` - 工具调用
-- `AGENT_STARTED` / `AGENT_COMPLETED` - 智能体生命周期
-- `SUBTASK_STARTED` / `SUBTASK_COMPLETED` - 子任务执行
-
-**低频**(每个任务一次):
-- `WORKFLOW_STARTED` / `WORKFLOW_COMPLETED` - 工作流生命周期
-- `PATTERN_SELECTED` - 模式选择
-- `TASK_DECOMPOSED` - 任务分解
-- `TEAM_RECRUITED` / `TEAM_RETIRED` - 团队管理
-
-**罕见**(仅在需要时):
-- `ERROR_OCCURRED` / `ERROR_RECOVERY` - 错误处理
-- `APPROVAL_REQUESTED` / `APPROVAL_DECISION` - 人工批准
-- `WORKFLOW_FAILED` / `AGENT_FAILED` / `TOOL_FAILED` - 失败
-
----
+{/* 为保持简洁，频率明细已移除。请参考上方权威清单。 */}
 
 ## 相关主题
 

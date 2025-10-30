@@ -16,8 +16,8 @@ pip install shannon-sdk
 ```python
 from shannon import ShannonClient
 
-# 默认值：gRPC localhost:50052，SSE http://localhost:8081
-client = ShannonClient()
+# 仅 HTTP 客户端；默认 base_url 为网关
+client = ShannonClient(base_url="http://localhost:8080")
 ```
 
 ### 2. 提交任务
@@ -58,8 +58,10 @@ if __name__ == "__main__":
 ### 幂等性
 
 ```python
-# 如果需要，使用通过网关的 HTTP 以在提交时使用幂等性
-# （幂等性是 REST 功能；SDK 通过 gRPC 提交。）
+handle = client.submit_task(
+    query="为这段文本生成摘要",
+    idempotency_key="user-123-req-456",  # 防止重复提交
+)
 ```
 
 ### 多轮对话
@@ -79,7 +81,7 @@ print(client.wait(handle2.task_id).result)
 handle = client.submit_task(query="研究量子计算的突破")
 for event in client.stream(handle.workflow_id):
     print(f"[{event.type}] {event.message}")
-    if event.type == "TASK_COMPLETED":
+    if event.type == "WORKFLOW_COMPLETED":
         break
 ```
 
@@ -108,9 +110,14 @@ Shannon 在内部选择执行模式。SDK 调用不接受 `mode` 参数。
 ### 同步
 
 ```python
+from shannon import TaskStatusEnum
+
 handle = client.submit_task(query="...")
 status = client.get_status(handle.task_id)
 print("状态：", status.status)
+
+if status.status == TaskStatusEnum.COMPLETED:
+    print("结果：", status.result)
 ```
 
 ### 使用轮询
@@ -122,7 +129,7 @@ handle = client.submit_task(query="长时间运行的任务")
 while True:
     status = client.get_status(handle.task_id)
     print("状态：", status.status)
-    if status.status in [status.status.COMPLETED, status.status.FAILED]:
+    if status.status in [TaskStatusEnum.COMPLETED, TaskStatusEnum.FAILED]:
         break
     time.sleep(2)
 ```
@@ -134,7 +141,7 @@ import asyncio
 from shannon import AsyncShannonClient
 
 async def main():
-    async with AsyncShannonClient() as client:
+    async with AsyncShannonClient(base_url="http://localhost:8080") as client:
         handle = await client.submit_task(query="分析情绪")
         result = await client.wait(handle.task_id)
         print(result.result)
@@ -244,9 +251,6 @@ print(client.wait(handle.task_id, timeout=300).result)
   </Card>
   <Card title="异步用法" icon="bolt" href="/cn/sdk/python/async-usage">
     Async/await 模式
-  </Card>
-  <Card title="流式传输" icon="stream" href="/cn/sdk/python/streaming">
-    实时事件流传输
   </Card>
   <Card title="示例" icon="code" href="/cn/sdk/python/examples">
     更多代码示例

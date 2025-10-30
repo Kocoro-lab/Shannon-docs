@@ -47,7 +47,7 @@ data: {"workflow_id":"task-123","agent_id":"planner","message":"创建了包含 
 event: AGENT_STARTED
 data: {"workflow_id":"task-123","agent_id":"research-agent","message":"正在处理查询"}
 
-event: AGENT_THINKING
+event: LLM_PROMPT
 data: {"workflow_id":"task-123","agent_id":"research-agent","message":"正在搜索信息..."}
 
 event: TOOL_INVOKED
@@ -71,7 +71,7 @@ data: {"workflow_id":"task-123","message":"最终综合结果已准备就绪"}
 ```python
 from shannon import ShannonClient
 
-client = ShannonClient(http_endpoint="http://localhost:8080")
+client = ShannonClient(base_url="http://localhost:8080")
 
 # 提交任务
 handle = client.submit_task(
@@ -99,7 +99,7 @@ Shannon 在不同类别中发出 26 种事件类型。以下是最常用的事�
 | `WORKFLOW_COMPLETED` | 工作流成功完成 | `"全部完成"` |
 | `AGENT_STARTED` | 智能体开始处理 | `"正在处理查询"` |
 | `AGENT_COMPLETED` | 智能体完成 | `"任务完成"` |
-| `AGENT_THINKING` | 智能体正在推理/规划 | `"思考：5 + 5 等于多少？"` |
+| `STATUS_UPDATE` | 状态更新/进度 | `"正在规划下一步"` |
 | `ERROR_OCCURRED` | 执行期间发生错误 | `"连接失败：超时"` |
 
 #### LLM 和工具事件
@@ -260,7 +260,7 @@ function TaskMonitor({ taskId, apiKey }) {
       'WORKFLOW_COMPLETED',
       'AGENT_STARTED',
       'AGENT_COMPLETED',
-      'AGENT_THINKING',
+      'STATUS_UPDATE',
       'PROGRESS',
       'ERROR_OCCURRED',
       'LLM_OUTPUT',
@@ -317,11 +317,11 @@ function TaskMonitor({ taskId, apiKey }) {
 
 ```python
 from shannon import ShannonClient
-from shannon.errors import StreamingError
+from shannon.errors import ShannonError, ConnectionError
 import time
 
 def robust_streaming(workflow_id, max_retries=3):
-    client = ShannonClient(http_endpoint="http://localhost:8080")
+    client = ShannonClient(base_url="http://localhost:8080")
 
     for attempt in range(max_retries):
         try:
@@ -333,7 +333,7 @@ def robust_streaming(workflow_id, max_retries=3):
                     status = client.get_status(workflow_id.replace('wf-', 'task-'))
                     return status.result
 
-        except StreamingError as e:
+        except (ShannonError, ConnectionError) as e:
             print(f"流错误（尝试 {attempt + 1}）：{e}")
             if attempt < max_retries - 1:
                 time.sleep(2 ** attempt)  # 指数退避
@@ -357,7 +357,7 @@ curl -N \
 
 ```python
 client = ShannonClient(
-    http_endpoint="http://localhost:8080",
+    base_url="http://localhost:8080",
     api_key="sk_test_123456"
 )
 
@@ -386,7 +386,7 @@ SSE 每 15 秒发送保持连接注释以防止超时：
 ```
 : keepalive
 : keepalive
-event: AGENT_THINKING
+event: LLM_PROMPT
 data: {"message":"..."}
 ```
 
@@ -420,7 +420,7 @@ async def monitor_task(client, workflow_id):
             return status.result
 
 async def monitor_all(task_ids):
-    client = AsyncShannonClient(http_endpoint="http://localhost:8080")
+    client = AsyncShannonClient(base_url="http://localhost:8080")
 
     # 并行监控所有任务
     results = await asyncio.gather(*[
@@ -462,7 +462,7 @@ for attempt in range(3):
         for event in client.stream(workflow_id):
             process_event(event)
         break
-    except StreamingError:
+    except (ShannonError, ConnectionError):
         if attempt == 2:
             raise
         time.sleep(2)

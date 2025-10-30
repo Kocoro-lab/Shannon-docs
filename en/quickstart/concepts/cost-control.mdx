@@ -5,57 +5,24 @@ description: "Managing token budgets and minimizing LLM costs in Shannon"
 
 ## Overview
 
-Shannon provides comprehensive cost control features to prevent unexpected LLM charges and optimize spending. With built-in budget enforcement and intelligent routing, you can achieve **85-95% cost savings** compared to naive implementations.
+Shannon provides comprehensive cost control features to prevent unexpected LLM charges and optimize spending. With built-in budget enforcement and intelligent routing, teams often see **significant cost reductions (60–90%)** versus naive implementations (workload‑dependent).
 
 ## Setting Budgets
 
-### Token Limits
+Budgets are configured at the platform level (not per request via REST). Use environment variables in `.env`:
 
-Limit the maximum tokens consumed per task:
+```bash
+# LLM service budget guards
+MAX_TOKENS_PER_REQUEST=10000    # Max tokens per request
+MAX_COST_PER_REQUEST=0.50       # Max cost per request (USD)
 
-```python
-client.submit_task(
-    query="Analyze market trends",
-    config={
-        "budget": {
-            "max_tokens": 5000  # Hard limit
-        }
-    }
-)
+# Apply changes
+docker compose restart
 ```
 
-When the limit is reached, the task terminates immediately with a budget error.
-
-### Cost Limits
-
-Set maximum dollar amounts:
-
-```python
-config={
-    "budget": {
-        "max_cost_usd": 0.50  # $0.50 maximum
-    }
-}
-```
-
-<Warning>
-Tasks exceeding budget limits will fail with `BUDGET_EXCEEDED` error. Always set appropriate limits for your use case.
-</Warning>
-
-### Combined Limits
-
-Use both for fine-grained control:
-
-```python
-config={
-    "budget": {
-        "max_tokens": 10000,
-        "max_cost_usd": 1.00
-    }
-}
-```
-
-The task stops when **either** limit is reached.
+<Note>
+Shannon enforces budgets during execution. When limits are reached, the system halts further spending and returns the best available result or an error depending on context.
+</Note>
 
 ## Model Tiers
 
@@ -67,20 +34,13 @@ Shannon categorizes models into tiers based on capability and cost:
 | **MEDIUM** | gpt-4o<br/>claude-sonnet | $3.00 - $15.00 | General purpose tasks |
 | **LARGE** | gpt-4<br/>claude-opus | $15.00 - $75.00 | Complex reasoning, critical tasks |
 
-### Explicit Tier Selection
+### Explicit Tier Preference
 
-Force a specific tier:
+Set a preferred default tier via environment variable:
 
-```python
-client.submit_task(
-    query="What is 2+2?",
-    config={"model_tier": "SMALL"}  # Use cheapest models
-)
+```bash
+DEFAULT_MODEL_TIER=small   # small | medium | large
 ```
-
-<Tip>
-For production, use `# Mode auto-selected` with `model_tier="SMALL"` for 90%+ cost reduction on simple queries.
-</Tip>
 
 ## Intelligent Router
 
@@ -104,16 +64,17 @@ Shannon:
   - 70% routed to gpt-4o-mini → $0.01
   - 25% routed to gpt-4o → $0.15
   - 5% routed to gpt-4 → $0.50
-Average: $0.05 per task (90% savings)
+Example average: $0.05 per task (~90% savings)
 ```
 
 ### Monitoring Router Decisions
 
+Use the dashboard or SDK status to review costs:
+
 ```python
-result = handle.wait()
-print(f"Model used: {result.metrics.token_usage.model}")
-print(f"Tier: {result.metrics.token_usage.tier}")
-print(f"Cost: ${result.metrics.token_usage.cost_usd}")
+status = client.wait(handle.task_id)
+if status.metrics:
+    print(f"Cost (USD): {status.metrics.cost_usd:.4f}")
 ```
 
 ## Response Caching
@@ -123,7 +84,7 @@ Shannon caches LLM responses to eliminate redundant API calls:
 ### Cache Strategy
 
 - **Key**: SHA256 hash of `(messages + model + parameters)`
-- **TTL**: 3600 seconds (1 hour) by default
+- **TTL**: Configurable (often ~1 hour via Redis TTL)
 - **Storage**: In-memory LRU + optional Redis for distributed caching
 - **Hit Rate**: Typical 30-50% for production workloads
 
@@ -140,11 +101,12 @@ Task 2: "What is Python?" → $0.000 (cached)
 ### Monitoring Cache Performance
 
 ```python
-result = handle.wait()
-if result.metrics.cache_hit:
-    print("Response served from cache (no LLM cost)")
-else:
-    print(f"Cache miss - cost: ${result.metrics.token_usage.cost_usd}")
+status = client.wait(handle.task_id)
+if status.metrics:
+    if status.metrics.cost_usd == 0:
+        print("Likely served from cache (no LLM cost)")
+    else:
+        print(f"Cost: ${status.metrics.cost_usd:.4f}")
 ```
 
 ## Provider Rate Limits
@@ -177,11 +139,10 @@ When approaching limits:
 ### Track Spending Per Task
 
 ```python
-result = handle.wait()
-print(f"Total tokens: {result.metrics.token_usage.total_tokens}")
-print(f"Prompt tokens: {result.metrics.token_usage.prompt_tokens}")
-print(f"Completion tokens: {result.metrics.token_usage.completion_tokens}")
-print(f"Cost: ${result.metrics.token_usage.cost_usd:.4f}")
+status = client.wait(handle.task_id)
+if status.metrics:
+    print(f"Tokens used: {status.metrics.tokens_used}")
+    print(f"Cost: ${status.metrics.cost_usd:.4f}")
 ```
 
 ### Aggregate Metrics
@@ -255,13 +216,12 @@ Review cost metrics regularly:
 import logging
 logging.basicConfig(level=logging.INFO)
 
-# Track costs
-total_cost = 0
-for task in tasks:
-    result = handle.wait()
-    cost = result.metrics.token_usage.cost_usd
-    total_cost += cost
-    print(f"Task: ${cost:.4f}, Running total: ${total_cost:.4f}")
+total_cost = 0.0
+for t in tasks:
+    st = client.wait(t.task_id)
+    if st.metrics:
+        total_cost += st.metrics.cost_usd
+        print(f"Task: ${st.metrics.cost_usd:.4f}, Running total: ${total_cost:.4f}")
 ```
 
 ### 5. Use Smaller Models First
@@ -272,17 +232,13 @@ Let the intelligent router prove when larger models are needed:
 # Let Shannon choose
 client.submit_task(query="...")  # Auto-selects tier
 
-# Or start small
-client.submit_task(
-    query="...",
-    config={"model_tier": "SMALL"}
-)
+# Model tier is selected by the platform router. No per-request model tier or budget parameters are accepted by the SDK.
 ```
 
 ## Cost Optimization Checklist
 
 <Accordion title="Optimization Checklist">
-  - [ ] Set `max_cost_usd` on all tasks
+  - [ ] Set budget env vars (`MAX_COST_PER_REQUEST`, `MAX_TOKENS_PER_REQUEST`)
   - [ ] Use `# Mode auto-selected` for straightforward queries
   - [ ] Enable response caching (default: enabled)
   - [ ] Use `model_tier="SMALL"` when appropriate
@@ -316,7 +272,7 @@ for query in simple_tasks:
         total_cost += status.metrics.cost_usd
 
 print(f"Total cost for 3 tasks: ${total_cost:.4f}")
-# Expected: ~$0.006 (90% savings vs GPT-4)
+# Example: ~$0.006 (~90% savings vs always GPT-4)
 ```
 
 ## Next Steps

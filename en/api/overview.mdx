@@ -120,8 +120,8 @@ Shannon emits 26 event types for real-time monitoring:
 
 **Core Events**:
 - `WORKFLOW_STARTED`, `WORKFLOW_COMPLETED`
-- `AGENT_STARTED`, `AGENT_COMPLETED`, `AGENT_THINKING`
-- `PROGRESS`, `DATA_PROCESSING`
+- `AGENT_STARTED`, `AGENT_COMPLETED`
+- `STATUS_UPDATE`, `DATA_PROCESSING`
 - `ERROR_OCCURRED`
 
 **LLM Events**:
@@ -130,34 +130,18 @@ Shannon emits 26 event types for real-time monitoring:
 **Tool Events**:
 - `TOOL_INVOKED`, `TOOL_OBSERVATION`
 
-See [Event Types Reference](/en/api/rest/streaming#event-types) for complete list.
+See [Event Types Reference](/en/api/rest/streaming#event-types) for the complete list.
 
-## gRPC API
+Python SDK: use the `EventType` enum for filtering and checks. See [SDK Streaming](/en/sdk/python/streaming).
 
-For performance-critical applications, use gRPC:
+## Client Access
 
-**Endpoint**: `localhost:50052`
+Use the Gateway REST API or the Python SDK (HTTP-only):
 
-**Services**:
-- `OrchestratorService` - Task submission and management
-- `StreamingService` - Real-time event streaming
-- `SessionService` - Session context management
+- REST endpoints: `http://localhost:8080/api/v1/*`
+- Python SDK: `ShannonClient(base_url="http://localhost:8080")`
 
-**Example**:
-```python
-import grpc
-from shannon.generated import orchestrator_pb2_grpc
-
-channel = grpc.insecure_channel('localhost:50052')
-stub = orchestrator_pb2_grpc.OrchestratorServiceStub(channel)
-
-request = orchestrator_pb2.SubmitTaskRequest(
-    metadata=orchestrator_pb2.TaskMetadata(user_id="user-123"),
-    query="Analyze sentiment"
-)
-
-response = stub.SubmitTask(request)
-```
+Note: gRPC services are internal and not part of the public SDK surface.
 
 ## Best Practices
 

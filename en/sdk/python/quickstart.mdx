@@ -16,8 +16,8 @@ pip install shannon-sdk
 ```python
 from shannon import ShannonClient
 
-# Defaults: gRPC localhost:50052, SSE http://localhost:8081
-client = ShannonClient()
+# HTTP-only client; default base_url is the gateway
+client = ShannonClient(base_url="http://localhost:8080")
 ```
 
 ### 2. Submit a Task
@@ -58,8 +58,10 @@ if __name__ == "__main__":
 ### Idempotency
 
 ```python
-# Use HTTP via gateway for idempotency on submit if needed
-# (Idempotency is a REST feature; SDK submits via gRPC.)
+handle = client.submit_task(
+    query="Generate a summary for ...",
+    idempotency_key="user-123-req-456",  # prevents duplicate work
+)
 ```
 
 ### Multi-Turn Conversation
@@ -79,7 +81,7 @@ print(client.wait(handle2.task_id).result)
 handle = client.submit_task(query="Research quantum computing breakthroughs")
 for event in client.stream(handle.workflow_id):
     print(f"[{event.type}] {event.message}")
-    if event.type == "TASK_COMPLETED":
+    if event.type == "WORKFLOW_COMPLETED":
         break
 ```
 
@@ -108,9 +110,14 @@ Shannon selects execution modes internally. SDK calls do not accept a `mode` par
 ### Synchronous
 
 ```python
+from shannon import TaskStatusEnum
+
 handle = client.submit_task(query="...")
 status = client.get_status(handle.task_id)
 print("Status:", status.status)
+
+if status.status == TaskStatusEnum.COMPLETED:
+    print("Result:", status.result)
 ```
 
 ### With Polling
@@ -122,7 +129,7 @@ handle = client.submit_task(query="Long running task")
 while True:
     status = client.get_status(handle.task_id)
     print("Status:", status.status)
-    if status.status in [status.status.COMPLETED, status.status.FAILED]:
+    if status.status in [TaskStatusEnum.COMPLETED, TaskStatusEnum.FAILED]:
         break
     time.sleep(2)
 ```
@@ -134,7 +141,7 @@ import asyncio
 from shannon import AsyncShannonClient
 
 async def main():
-    async with AsyncShannonClient() as client:
+    async with AsyncShannonClient(base_url="http://localhost:8080") as client:
         handle = await client.submit_task(query="Analyze sentiment")
         result = await client.wait(handle.task_id)
         print(result.result)
@@ -169,7 +176,7 @@ client = ShannonClient(api_key="sk_test_123456")
 
 ### Task Configuration
 
-Explicit per-request budget/mode settings are not yet configurable via SDK.
+The platform selects execution modes automatically; budgets are configured server-side. The SDK exposes idempotency and session control.
 
 ## Best Practices
 
@@ -195,12 +202,12 @@ except ShannonError as e:
 ### 4. Use Streaming for Long Tasks
 
 ```python
-# ✅ Good: Real-time feedback
-for event in client.stream(workflow_id):
+# ✅ Real-time feedback
+for event in client.stream(handle.workflow_id):
     update_ui(event)
 
-# ❌ Less ideal: Blocking wait
-result = handle.wait(timeout=600)
+# For simple flows: blocking wait
+result = client.wait(handle.task_id, timeout=600)
 ```
 
 ## Examples by Use Case
@@ -218,6 +225,8 @@ print(client.wait(handle.task_id).result)
 handle = client.submit_task(query="Research the top 3 cloud providers and compare pricing")
 for event in client.stream(handle.workflow_id):
     print(event.type)
+    if event.type == "WORKFLOW_COMPLETED":
+        break
 ```
 
 ### Code Generation
@@ -244,9 +253,6 @@ print(client.wait(handle.task_id, timeout=300).result)
   </Card>
   <Card title="Async Usage" icon="bolt" href="/en/sdk/python/async-usage">
     Async/await patterns
-  </Card>
-  <Card title="Streaming" icon="stream" href="/en/sdk/python/streaming">
-    Real-time event streaming
   </Card>
   <Card title="Examples" icon="code" href="/en/sdk/python/examples">
     More code examples

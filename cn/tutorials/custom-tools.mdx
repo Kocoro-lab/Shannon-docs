@@ -742,8 +742,9 @@ OPENAPI_RETRIES=2                    # 重试次数（默认：2）
 ### 健康检查
 
 ```bash
-# 检查服务健康
-curl http://localhost:8081/health | jq .
+# 检查管理服务健康
+curl http://localhost:8081/health/ready | jq .
+curl http://localhost:8081/health/live | jq .
 
 # 检查 LLM 服务状态
 docker inspect shannon-llm-service-1 --format='{{.State.Health.Status}}'

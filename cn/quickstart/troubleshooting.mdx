@@ -188,7 +188,7 @@ docker compose exec orchestrator env | grep GATEWAY_SKIP_AUTH
     from shannon import ShannonClient
 
     client = ShannonClient(
-        http_endpoint="http://localhost:8080",
+        base_url="http://localhost:8080",
         api_key="sk_test_123456"
     )
     ```
@@ -382,19 +382,7 @@ docker compose exec orchestrator env | grep MAX_COST
     docker compose restart orchestrator llm-service
     ```
 
-    **或设置每个任务的预算**：
-    ```python
-    client.submit_task(
-        query="Complex analysis",
-        config={
-            "budget": {
-                "max_cost_usd": 2.0,
-                "max_input_tokens": 50000,
-                "max_output_tokens": 10000
-            }
-        }
-    )
-    ```
+    预算由服务端环境变量控制。SDK 不支持按请求设置预算参数。
   </Accordion>
 
   <Accordion title="解决方案 2：使用更简单的执行模式">

@@ -5,57 +5,24 @@ description: "在 Shannon 中管理令牌预算和降低 LLM 成本"
 
 ## 概述
 
-Shannon 提供全面的成本控制功能，以防止意外的 LLM 费用并优化支出。通过内置的预算执行和智能路由，与简单实现相比，您可以实现 **85-95% 的成本节省**。
+Shannon 提供全面的成本控制功能，以防止意外的 LLM 费用并优化支出。通过内置的预算执行和智能路由，与简单实现相比，通常可实现 **60–90% 的成本节省**（取决于工作负载）。
 
 ## 设置预算
 
-### 令牌限制
+预算在平台级别配置（不是通过 REST 每个请求）。在 `.env` 中使用环境变量：
 
-限制每个任务消耗的最大令牌数：
+```bash
+# LLM 服务预算保护
+MAX_TOKENS_PER_REQUEST=10000    # 每次请求的最大令牌数
+MAX_COST_PER_REQUEST=0.50       # 每次请求的最大成本（美元）
 
-```python
-client.submit_task(
-    query="分析市场趋势",
-    config={
-        "budget": {
-            "max_tokens": 5000  # 硬性限制
-        }
-    }
-)
+# 应用更改
+docker compose restart
 ```
 
-当达到限制时，任务立即终止并返回预算错误。
-
-### 成本限制
-
-设置最大金额：
-
-```python
-config={
-    "budget": {
-        "max_cost_usd": 0.50  # 最多 $0.50
-    }
-}
-```
-
-<Warning>
-超过预算限制的任务将失败并显示 `BUDGET_EXCEEDED` 错误。始终为您的用例设置适当的限制。
-</Warning>
-
-### 组合限制
-
-同时使用两者进行精细控制：
-
-```python
-config={
-    "budget": {
-        "max_tokens": 10000,
-        "max_cost_usd": 1.00
-    }
-}
-```
-
-当**任一**限制达到时，任务停止。
+<Note>
+Shannon 在执行过程中强制预算限制。当达到限制时，系统会停止进一步支出，并根据上下文返回最佳可用结果或错误。
+</Note>
 
 ## 模型层级
 
@@ -67,20 +34,13 @@ Shannon 根据能力和成本将模型分为不同层级：
 | **MEDIUM** | gpt-4o<br/>claude-sonnet | $3.00 - $15.00 | 通用任务 |
 | **LARGE** | gpt-4<br/>claude-opus | $15.00 - $75.00 | 复杂推理、关键任务 |
 
-### 显式层级选择
+### 首选层级
 
-强制使用特定层级：
+通过环境变量设置默认首选层级：
 
-```python
-client.submit_task(
-    query="2+2 等于多少？",
-    config={"model_tier": "SMALL"}  # 使用最便宜的模型
-)
+```bash
+DEFAULT_MODEL_TIER=small   # small | medium | large
 ```
-
-<Tip>
-对于生产环境，使用 `# 自动选择模式` 配合 `model_tier="SMALL"` 可在简单查询上节省 90% 以上的成本。
-</Tip>
 
 ## 智能路由器
 
@@ -104,16 +64,17 @@ Shannon:
   - 70% 路由到 gpt-4o-mini → $0.01
   - 25% 路由到 gpt-4o → $0.15
   - 5% 路由到 gpt-4 → $0.50
-平均：每个任务 $0.05（节省 90%）
+示例平均：每个任务 $0.05（约 90% 节省）
 ```
 
 ### 监控路由器决策
 
+使用仪表板或 SDK 状态查看成本：
+
 ```python
-result = handle.wait()
-print(f"使用的模型：{result.metrics.token_usage.model}")
-print(f"层级：{result.metrics.token_usage.tier}")
-print(f"成本：${result.metrics.token_usage.cost_usd}")
+status = client.wait(handle.task_id)
+if status.metrics:
+    print(f"成本（USD）：{status.metrics.cost_usd:.4f}")
 ```
 
 ## 响应缓存
@@ -123,7 +84,7 @@ Shannon 缓存 LLM 响应以消除冗余 API 调用：
 ### 缓存策略
 
 - **键**：`(messages + model + parameters)` 的 SHA256 哈希
-- **TTL**：默认 3600 秒（1 小时）
+- **TTL**：可配置（通常约 1 小时，通过 Redis TTL）
 - **存储**：内存 LRU + 可选 Redis 用于分布式缓存
 - **命中率**：生产工作负载通常为 30-50%
 
@@ -140,11 +101,12 @@ Shannon 缓存 LLM 响应以消除冗余 API 调用：
 ### 监控缓存性能
 
 ```python
-result = handle.wait()
-if result.metrics.cache_hit:
-    print("从缓存提供响应（无 LLM 成本）")
-else:
-    print(f"缓存未命中 - 成本：${result.metrics.token_usage.cost_usd}")
+status = client.wait(handle.task_id)
+if status.metrics:
+    if status.metrics.cost_usd == 0:
+        print("很可能来自缓存（无 LLM 成本）")
+    else:
+        print(f"成本：${status.metrics.cost_usd:.4f}")
 ```
 
 ## 提供商速率限制
@@ -177,11 +139,10 @@ providers:
 ### 跟踪每个任务的支出
 
 ```python
-result = handle.wait()
-print(f"总令牌：{result.metrics.token_usage.total_tokens}")
-print(f"提示令牌：{result.metrics.token_usage.prompt_tokens}")
-print(f"完成令牌：{result.metrics.token_usage.completion_tokens}")
-print(f"成本：${result.metrics.token_usage.cost_usd:.4f}")
+status = client.wait(handle.task_id)
+if status.metrics:
+    print(f"使用的令牌：{status.metrics.tokens_used}")
+    print(f"成本：${status.metrics.cost_usd:.4f}")
 ```
 
 ### 聚合指标
@@ -255,13 +216,12 @@ client.submit_task(query=standard_query)  # 缓存命中
 import logging
 logging.basicConfig(level=logging.INFO)
 
-# 跟踪成本
-total_cost = 0
-for task in tasks:
-    result = handle.wait()
-    cost = result.metrics.token_usage.cost_usd
-    total_cost += cost
-    print(f"任务：${cost:.4f}，累计：${total_cost:.4f}")
+total_cost = 0.0
+for t in tasks:
+    st = client.wait(t.task_id)
+    if st.metrics:
+        total_cost += st.metrics.cost_usd
+        print(f"任务：${st.metrics.cost_usd:.4f}，累计：${total_cost:.4f}")
 ```
 
 ### 5. 首先使用较小的模型
@@ -269,14 +229,8 @@ for task in tasks:
 让智能路由器证明何时需要更大的模型：
 
 ```python
-# 让 Shannon 选择
-client.submit_task(query="...")  # 自动选择层级
-
-# 或从小开始
-client.submit_task(
-    query="...",
-    config={"model_tier": "SMALL"}
-)
+# 让 Shannon 选择（自动选择层级）
+client.submit_task(query="...")
 ```
 
 ## 成本优化清单
@@ -316,7 +270,7 @@ for query in simple_tasks:
         total_cost += status.metrics.cost_usd
 
 print(f"3 个任务的总成本：${total_cost:.4f}")
-# 预期：约 $0.006（与 GPT-4 相比节省 90%）
+# 示例：约 $0.006（与始终使用 GPT-4 相比约 90% 节省）
 ```
 
 ## 下一步

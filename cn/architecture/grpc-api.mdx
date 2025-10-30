@@ -7,6 +7,10 @@ description: "Shannon 内部 gRPC 服务的完整 Protocol Buffer 定义"
 
 Shannon 的内部架构使用 **gRPC**（HTTP/2 + Protocol Buffers）实现高性能服务间通信。本文档提供了所有 5 个服务和 27 个 RPC 方法的完整 Protocol Buffer 定义。
 
+<Note>
+公共 vs 内部 API：gRPC 服务为内部接口，不通过公共 SDK 暴露。应用集成请使用网关 REST API（`http://localhost:8080/api/v1/*`）或 Python SDK（`ShannonClient(base_url=...)`）。
+</Note>
+
 **服务**：
 - **OrchestratorService**（8 个 RPC）- 任务编排和工作流管理
 - **StreamingService**（1 个 RPC）- 实时事件流
@@ -524,9 +528,9 @@ grpcurl -plaintext -d '{
 ```json
 {"workflow_id": "wf-...", "type": "WORKFLOW_STARTED", "message": "Task started", "seq": 1}
 {"workflow_id": "wf-...", "type": "AGENT_STARTED", "agent_id": "data-loader", "seq": 2}
-{"workflow_id": "wf-...", "type": "AGENT_THINKING", "message": "Loading data...", "seq": 3}
+{"workflow_id": "wf-...", "type": "STATUS_UPDATE", "message": "Loading data...", "seq": 3}
 {"workflow_id": "wf-...", "type": "TOOL_INVOKED", "message": "Invoking csv_loader", "seq": 4}
-{"workflow_id": "wf-...", "type": "TOOL_COMPLETED", "message": "Loaded 15,000 rows", "seq": 5}
+{"workflow_id": "wf-...", "type": "TOOL_OBSERVATION", "message": "Loaded 15,000 rows", "seq": 5}
 ...
 {"workflow_id": "wf-...", "type": "WORKFLOW_COMPLETED", "message": "Task complete", "seq": 42}
 ```
@@ -536,7 +540,7 @@ grpcurl -plaintext -d '{
 # 仅工作流生命周期事件
 grpcurl -plaintext -d '{
   "workflow_id": "wf-...",
-  "types": ["WORKFLOW_STARTED", "WORKFLOW_COMPLETED", "WORKFLOW_FAILED"]
+  "types": ["WORKFLOW_STARTED", "WORKFLOW_COMPLETED", "ERROR_OCCURRED"]
 }' localhost:50052 shannon.orchestrator.StreamingService/StreamTaskExecution
 ```
 

@@ -297,14 +297,14 @@ make replay HISTORY=history.json
 
 ## Workflow Configuration
 
-Workflow behavior is configured at the platform level via environment variables:
+Workflow behavior is configured via environment variables (examples):
 
 ```bash
-# In .env file
-MAX_AGENTS_PER_TASK=5          # Maximum parallel agents
-MAX_TOKENS_PER_REQUEST=50000   # Token budget per task
-MAX_COST_PER_REQUEST=5.0       # Cost limit (USD)
-WORKFLOW_TIMEOUT_SECONDS=600   # Task timeout
+# In .env
+MAX_AGENTS_PER_TASK=5          # Max parallel agents (if enabled)
+MAX_TOKENS_PER_REQUEST=50000   # LLM token budget per request (LLM service)
+MAX_COST_PER_REQUEST=5.0       # LLM cost limit per request (USD)
+AGENT_TIMEOUT_SECONDS=600      # Agent execution timeout (orchestrator)
 ```
 
 Monitor workflow execution via streaming events:
@@ -378,8 +378,8 @@ Stream events to track workflow execution:
 
 ```python
 for event in client.stream(workflow_id):
-    if event.type == "AGENT_THINKING":
-        print(f"Agent thinking: {event.message}")
+    if event.type == "LLM_PROMPT":
+        print(f"Prompt: {event.message}")
     elif event.type == "AGENT_COMPLETED":
         print(f"Agent done: {event.agent_id}")
 ```
@@ -390,8 +390,7 @@ Prevent workflows from running indefinitely via environment variables:
 
 ```bash
 # In .env file
-WORKFLOW_TIMEOUT_SECONDS=300  # 5 minute limit
-REQUEST_TIMEOUT_SECONDS=600   # Overall request timeout
+AGENT_TIMEOUT_SECONDS=300  # 5 minute per-agent execution limit
 ```
 
 ## Next Steps

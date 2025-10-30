@@ -134,7 +134,7 @@ Agents can execute various tools:
 
 **Built-in Tools:**
 - Python code execution (WASI sandboxed)
-- Web search (Exa, Perplexity, Brave)
+- Web search (Google/Serper/Bing/Exa/Firecrawl)
 - Document retrieval
 - Mathematical calculations
 
@@ -150,7 +150,7 @@ Agents maintain two types of memory:
 
 **Session Memory:**
 - Short-term context within a conversation
-- Stored in Redis (3600s TTL)
+- Stored in Redis with configurable TTL (default 30 days)
 - Enables multi-turn dialogues
 
 **Vector Memory:**
@@ -160,16 +160,16 @@ Agents maintain two types of memory:
 
 ## Platform Configuration
 
-Shannon's behavior is configured at the platform level via environment variables:
+Shannon behavior is configured via environment variables. Common examples:
 
 ```bash
-# In .env file
-DEFAULT_MODEL_TIER=medium           # small, medium, large
-MAX_TOKENS_PER_REQUEST=10000       # Token budget per task
-MAX_COST_PER_REQUEST=0.50          # Cost limit per task (USD)
-REQUEST_TIMEOUT_SECONDS=300        # Task timeout
+# In .env (examples)
+DEFAULT_MODEL_TIER=small           # small | medium | large
+MAX_TOKENS_PER_REQUEST=10000       # Per-request token budget (LLM service)
+MAX_COST_PER_REQUEST=0.50          # Per-request cost limit (USD, LLM service)
+AGENT_TIMEOUT_SECONDS=600          # Agent execution timeout (orchestrator)
 
-# Restart services to apply changes
+# Apply changes
 docker compose restart
 ```
 
@@ -184,7 +184,7 @@ Shannon automatically selects models based on the configured tier:
 | **LARGE** | gpt-4, claude-opus | Complex reasoning, critical tasks | $$$ |
 
 <Tip>
-Shannon's intelligent router selects the most cost-effective model for each task, achieving 85-95% cost savings compared to always using premium models.
+Shannon's intelligent router selects the most cost-effective model for each task, often yielding 60–90% savings compared to always using premium models (workload‑dependent).
 </Tip>
 
 See [Configuration Guide](/en/quickstart/configuration) for all available environment variables.

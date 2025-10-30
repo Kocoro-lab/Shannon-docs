@@ -297,14 +297,14 @@ make replay HISTORY=history.json
 
 ## 工作流配置
 
-工作流行为通过环境变量在平台级别进行配置：
+工作流行为通过环境变量进行配置（示例）：
 
 ```bash
-# 在 .env 文件中
-MAX_AGENTS_PER_TASK=5          # 最大并行智能体数
-MAX_TOKENS_PER_REQUEST=50000   # 每个任务的令牌预算
-MAX_COST_PER_REQUEST=5.0       # 成本限制（美元）
-WORKFLOW_TIMEOUT_SECONDS=600   # 任务超时时间
+# 在 .env
+MAX_AGENTS_PER_TASK=5          # 最大并行智能体数（如启用）
+MAX_TOKENS_PER_REQUEST=50000   # 每次请求的令牌预算（LLM 服务）
+MAX_COST_PER_REQUEST=5.0       # 每次请求的成本限制（美元，LLM 服务）
+AGENT_TIMEOUT_SECONDS=600      # 代理执行超时（编排器）
 ```
 
 通过流式传输事件监控工作流执行：
@@ -378,10 +378,10 @@ for event in client.stream(handle.workflow_id):
 
 ```python
 for event in client.stream(workflow_id):
-    if event.type == "AGENT_THINKING":
-        print(f"智能体思考：{event.message}")
-    elif event.type == "SUBTASK_COMPLETED":
-        print(f"子任务完成：{event.message}")
+    if event.type == "LLM_PROMPT":
+        print(f"提示：{event.message}")
+    elif event.type == "STATUS_UPDATE":
+        print(f"状态更新：{event.message}")
 ```
 
 ### 4. 设置超时
@@ -389,9 +389,8 @@ for event in client.stream(workflow_id):
 通过环境变量防止工作流无限运行：
 
 ```bash
-# 在 .env 文件中
-WORKFLOW_TIMEOUT_SECONDS=300  # 5 分钟限制
-REQUEST_TIMEOUT_SECONDS=600   # 总请求超时
+# 在 .env
+AGENT_TIMEOUT_SECONDS=300  # 5 分钟限制（每个代理执行）
 ```
 
 ## 下一步

@@ -16,25 +16,29 @@ Shannon provides real-time event streaming to monitor task execution as it happe
 ```python
 from shannon import ShannonClient
 
-client = ShannonClient()  # SSE uses http://localhost:8081 by default
+client = ShannonClient()  # Streams via gateway base_url (default http://localhost:8080)
 
 handle = client.submit_task(query="Analyze market trends")
 
 for event in client.stream(handle.workflow_id):
     print(f"[{event.type}] {event.message}")
-    if event.type == "TASK_COMPLETED":
+    if event.type == "WORKFLOW_COMPLETED":
         break
 ```
 
 ## Event Types
 
 Common events you'll see:
-- `AGENT_THINKING` - Agent processing
-- `TASK_DECOMPOSED` - Task broken into subtasks
-- `SUBTASK_COMPLETED` - Subtask finished
-- `TOOL_INVOKED` - Tool execution
-- `TASK_COMPLETED` - Task finished
-- `TASK_FAILED` - Task error
+- `WORKFLOW_STARTED` - Execution started
+- `LLM_PROMPT` / `LLM_PARTIAL` / `LLM_OUTPUT` - Model activity
+- `TOOL_INVOKED` / `TOOL_OBSERVATION` - Tool usage
+- `APPROVAL_REQUESTED` / `APPROVAL_DECISION` - Human-in-the-loop
+- `ERROR_OCCURRED` - Error surfaced
+- `WORKFLOW_COMPLETED` - Execution finished
+
+<Note>
+This is a subset of available events. See the `EventType` enum in the SDK for the full list (e.g., `STATUS_UPDATE`, `ROLE_ASSIGNED`, `TEAM_RECRUITED`, `DELEGATION`).
+</Note>
 
 ## Async Streaming
 
@@ -48,28 +52,27 @@ async def stream_task():
 
         async for event in client.stream(handle.workflow_id):
             print(f"Event: {event.type}")
-            if event.type == "TASK_COMPLETED":
+            if event.type == "WORKFLOW_COMPLETED":
                 break
 
 asyncio.run(stream_task())
 ```
 
-## Progress Tracking
+## Filtering and Resume
 
-Track task progress from events:
+Filter by event types and resume from a known point:
 
 ```python
-total_subtasks = 0
-completed_subtasks = 0
+from shannon import EventType
 
-for event in client.stream(workflow_id):
-    if event.type == 'TASK_DECOMPOSED':
-        total_subtasks = event.data['subtasks']
+types = [EventType.LLM_OUTPUT, EventType.WORKFLOW_COMPLETED]
 
-    elif event.type == 'SUBTASK_COMPLETED':
-        completed_subtasks += 1
-        progress = (completed_subtasks / total_subtasks) * 100
-        print(f"Progress: {progress:.1f}%")
+last_event_id = None
+for event in client.stream(handle.workflow_id, types=types, last_event_id=last_event_id):
+    print(event.type)
+    last_event_id = event.id  # for resume later
+    if event.type == EventType.WORKFLOW_COMPLETED:
+        break
 ```
 
 ## More Examples
@@ -77,7 +80,7 @@ for event in client.stream(workflow_id):
 For more streaming examples, see:
 - [SDK Quick Start](/en/sdk/python/quickstart)
 - [Streaming Concepts](/en/quickstart/concepts/streaming)
-- [API Streaming Endpoint](/en/api/endpoints/stream-task)
+- [API Streaming Endpoint](/en/api/rest/streaming)
 
 ## Next Steps
 

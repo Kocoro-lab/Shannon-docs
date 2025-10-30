@@ -38,7 +38,7 @@ print(shannon.__version__)
 ```python
 from shannon import ShannonClient
 
-# Create client instance (defaults: gRPC localhost:50052, SSE http://localhost:8081)
+# HTTP-only client (defaults to Gateway at http://localhost:8080)
 client = ShannonClient()
 ```
 
@@ -52,15 +52,15 @@ client = ShannonClient(api_key="sk_test_123456")
 
 ### Using Environment Variables
 
-The SDK does not auto-read environment variables. Use your own config loader or pass values explicitly:
+The SDK does not auto-read environment variables. Use your own config loader and pass values explicitly:
 
 ```python
 import os
 from shannon import ShannonClient
 
 client = ShannonClient(
-    grpc_endpoint=os.getenv("SHANNON_GRPC_ENDPOINT", "localhost:50052"),
-    api_key=os.getenv("SHANNON_API_KEY")
+    base_url=os.getenv("SHANNON_BASE_URL", "http://localhost:8080"),
+    api_key=os.getenv("SHANNON_API_KEY"),
 )
 ```
 
@@ -82,19 +82,18 @@ print("Result:", final.result)
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `grpc_endpoint` | str | `localhost:50052` | gRPC endpoint (submit/status/cancel) |
-| `http_endpoint` | str | `http://localhost:8081` | Orchestrator admin endpoint for SSE |
-| `api_key` | str | None | API key for authentication |
-| `timeout` | int | 300 | Default request timeout (seconds) |
+| `base_url` | str | `http://localhost:8080` | Gateway base URL (HTTP only) |
+| `api_key` | str | None | API key sent as `X-API-Key` |
+| `bearer_token` | str | None | Alternative auth header `Authorization: Bearer` |
+| `default_timeout` | float | 30.0 | Default HTTP timeout (seconds) |
 
 ### Full Configuration
 
 ```python
 client = ShannonClient(
-    http_endpoint="http://localhost:8081",
+    base_url="http://localhost:8080",
     api_key="sk_live_123456",
-    timeout=600,
-    max_retries=5
+    default_timeout=60.0,
 )
 ```
 
@@ -107,7 +106,7 @@ from shannon import AsyncShannonClient
 import asyncio
 
 async def main():
-    async with AsyncShannonClient() as client:
+    async with AsyncShannonClient(base_url="http://localhost:8080") as client:
         handle = await client.submit_task(query="Analyze data")
         status = await client.wait(handle.task_id)
         print(status.result)
@@ -117,25 +116,9 @@ asyncio.run(main())
 
 ## Dependencies
 
-The SDK automatically installs:
+The SDK depends on a single HTTP library:
 
-- `grpcio` - gRPC support
-- `protobuf` - Protocol buffer serialization
-- `requests` - HTTP client
-- `pydantic` - Data validation
-
-### Optional Dependencies
-
-```bash
-# For async support
-pip install shannon-sdk[async]
-
-# For CLI tool
-pip install shannon-sdk[cli]
-
-# All extras
-pip install shannon-sdk[all]
-```
+- `httpx`
 
 ## CLI Tool
 
@@ -156,7 +139,7 @@ The package includes a simple CLI (`shannon`). Run `shannon --help` for usage.
     **Solution**: Verify Shannon is running
 
     ```bash
-    curl http://localhost:8080/health
+    curl http://localhost:8080/readiness
     ```
 
     If not running, start Shannon:
@@ -172,53 +155,45 @@ The package includes a simple CLI (`shannon`). Run `shannon --help` for usage.
 
     ```python
     client = ShannonClient(
-        http_endpoint="http://localhost:8080",
+        base_url="http://localhost:8080",
         api_key="sk_test_123456"  # Add API key
     )
-    ```
-  </Accordion>
-
-  <Accordion title="grpc module not found">
-    **Solution**: Install grpcio
-
-    ```bash
-    pip install grpcio grpcio-tools
     ```
   </Accordion>
 </AccordionGroup>
 
 ## Environment Variables
 
-The SDK recognizes these environment variables:
+The SDK does not auto-load env vars. These are common variables you can define and pass to the client:
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `SHANNON_ENDPOINT` | HTTP endpoint | `http://localhost:8080` |
-| `SHANNON_GRPC_ENDPOINT` | gRPC endpoint | `localhost:50052` |
+| `SHANNON_BASE_URL` | Gateway HTTP base URL | `http://localhost:8080` |
 | `SHANNON_API_KEY` | API key | `sk_test_123456` |
-| `SHANNON_TIMEOUT` | Default timeout | `300` |
-| `SHANNON_LOG_LEVEL` | Logging level | `INFO` |
+| `SHANNON_TIMEOUT` | Default timeout (seconds) | `60` |
 
-### .env File
-
-Create a `.env` file:
+### .env Example
 
 ```bash
-SHANNON_ENDPOINT=http://localhost:8080
+SHANNON_BASE_URL=http://localhost:8080
 SHANNON_API_KEY=sk_test_123456
-SHANNON_TIMEOUT=600
+SHANNON_TIMEOUT=60
 ```
 
 Load with python-dotenv:
 
 ```python
 from dotenv import load_dotenv
+import os
 from shannon import ShannonClient
 
 load_dotenv()
 
-# Client uses .env values
-client = ShannonClient()
+client = ShannonClient(
+    base_url=os.getenv("SHANNON_BASE_URL", "http://localhost:8080"),
+    api_key=os.getenv("SHANNON_API_KEY"),
+    default_timeout=float(os.getenv("SHANNON_TIMEOUT", "60")),
+)
 ```
 
 ## Logging

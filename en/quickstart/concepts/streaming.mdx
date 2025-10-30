@@ -47,7 +47,7 @@ data: {"workflow_id":"task-123","agent_id":"planner","message":"Created a plan w
 event: AGENT_STARTED
 data: {"workflow_id":"task-123","agent_id":"research-agent","message":"Processing query"}
 
-event: AGENT_THINKING
+event: LLM_PROMPT
 data: {"workflow_id":"task-123","agent_id":"research-agent","message":"Searching for information..."}
 
 event: TOOL_INVOKED
@@ -71,7 +71,7 @@ data: {"workflow_id":"task-123","message":"Final synthesized result ready"}
 ```python
 from shannon import ShannonClient
 
-client = ShannonClient(http_endpoint="http://localhost:8080")
+client = ShannonClient(base_url="http://localhost:8080")
 
 # Submit task
 handle = client.submit_task(
@@ -99,7 +99,7 @@ Shannon emits 26 event types across different categories. Here are the most comm
 | `WORKFLOW_COMPLETED` | Workflow finished successfully | `"All done"` |
 | `AGENT_STARTED` | Agent began processing | `"Processing query"` |
 | `AGENT_COMPLETED` | Agent finished | `"Task done"` |
-| `AGENT_THINKING` | Agent is reasoning/planning | `"Thinking: What is 5 + 5?"` |
+| `STATUS_UPDATE` | Status update/progress | `"Planning next step"` |
 | `ERROR_OCCURRED` | Error during execution | `"Failed to connect: timeout"` |
 
 #### LLM & Tool Events
@@ -260,7 +260,7 @@ function TaskMonitor({ taskId, apiKey }) {
       'WORKFLOW_COMPLETED',
       'AGENT_STARTED',
       'AGENT_COMPLETED',
-      'AGENT_THINKING',
+      'STATUS_UPDATE',
       'PROGRESS',
       'ERROR_OCCURRED',
       'LLM_OUTPUT',
@@ -317,11 +317,11 @@ Handle connection failures gracefully:
 
 ```python
 from shannon import ShannonClient
-from shannon.errors import StreamingError
+from shannon.errors import ShannonError, ConnectionError
 import time
 
 def robust_streaming(workflow_id, max_retries=3):
-    client = ShannonClient(http_endpoint="http://localhost:8080")
+    client = ShannonClient(base_url="http://localhost:8080")
 
     for attempt in range(max_retries):
         try:
@@ -333,7 +333,7 @@ def robust_streaming(workflow_id, max_retries=3):
                     status = client.get_status(workflow_id.replace('wf-', 'task-'))
                     return status.result
 
-        except StreamingError as e:
+        except (ShannonError, ConnectionError) as e:
             print(f"Stream error (attempt {attempt + 1}): {e}")
             if attempt < max_retries - 1:
                 time.sleep(2 ** attempt)  # Exponential backoff
@@ -357,7 +357,7 @@ curl -N \
 
 ```python
 client = ShannonClient(
-    http_endpoint="http://localhost:8080",
+    base_url="http://localhost:8080",
     api_key="sk_test_123456"
 )
 
@@ -386,7 +386,7 @@ SSE sends keepalive comments every 15 seconds to prevent timeout:
 ```
 : keepalive
 : keepalive
-event: AGENT_THINKING
+event: LLM_PROMPT
 data: {"message":"..."}
 ```
 
@@ -420,7 +420,7 @@ async def monitor_task(client, workflow_id):
             return status.result
 
 async def monitor_all(task_ids):
-    client = AsyncShannonClient(http_endpoint="http://localhost:8080")
+    client = AsyncShannonClient(base_url="http://localhost:8080")
 
     # Monitor all tasks in parallel
     results = await asyncio.gather(*[
@@ -462,7 +462,7 @@ for attempt in range(3):
         for event in client.stream(workflow_id):
             process_event(event)
         break
-    except StreamingError:
+    except (ShannonError, ConnectionError):
         if attempt == 2:
             raise
         time.sleep(2)

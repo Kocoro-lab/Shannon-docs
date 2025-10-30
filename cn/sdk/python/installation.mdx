@@ -38,7 +38,7 @@ print(shannon.__version__)
 ```python
 from shannon import ShannonClient
 
-# 创建客户端实例（默认值：gRPC localhost:50052，SSE http://localhost:8081）
+# 仅 HTTP 客户端（默认网关：http://localhost:8080）
 client = ShannonClient()
 ```
 
@@ -52,15 +52,15 @@ client = ShannonClient(api_key="sk_test_123456")
 
 ### 使用环境变量
 
-SDK 不会自动读取环境变量。使用您自己的配置加载器或显式传递值：
+SDK 不会自动读取环境变量。使用您自己的配置加载器并显式传入：
 
 ```python
 import os
 from shannon import ShannonClient
 
 client = ShannonClient(
-    grpc_endpoint=os.getenv("SHANNON_GRPC_ENDPOINT", "localhost:50052"),
-    api_key=os.getenv("SHANNON_API_KEY")
+    base_url=os.getenv("SHANNON_BASE_URL", "http://localhost:8080"),
+    api_key=os.getenv("SHANNON_API_KEY"),
 )
 ```
 
@@ -82,19 +82,18 @@ print("Result:", final.result)
 
 | 参数 | 类型 | 默认值 | 描述 |
 |-----------|------|---------|-------------|
-| `grpc_endpoint` | str | `localhost:50052` | gRPC 端点（提交/状态/取消） |
-| `http_endpoint` | str | `http://localhost:8081` | Orchestrator 管理端点，用于 SSE |
-| `api_key` | str | None | API 密钥用于身份认证 |
-| `timeout` | int | 300 | 默认请求超时时间（秒） |
+| `base_url` | str | `http://localhost:8080` | 网关 Base URL（仅 HTTP） |
+| `api_key` | str | 无 | 使用 `X-API-Key` 头部 |
+| `bearer_token` | str | 无 | `Authorization: Bearer` 头部 |
+| `default_timeout` | float | 30.0 | 默认 HTTP 超时时间（秒） |
 
 ### 完整配置
 
 ```python
 client = ShannonClient(
-    http_endpoint="http://localhost:8081",
+    base_url="http://localhost:8080",
     api_key="sk_live_123456",
-    timeout=600,
-    max_retries=5
+    default_timeout=60.0,
 )
 ```
 
@@ -107,7 +106,7 @@ from shannon import AsyncShannonClient
 import asyncio
 
 async def main():
-    async with AsyncShannonClient() as client:
+    async with AsyncShannonClient(base_url="http://localhost:8080") as client:
         handle = await client.submit_task(query="Analyze data")
         status = await client.wait(handle.task_id)
         print(status.result)
@@ -117,14 +116,9 @@ asyncio.run(main())
 
 ## 依赖项
 
-SDK 自动安装：
+SDK 依赖一个 HTTP 库：
 
-- `grpcio` - gRPC 支持
-- `protobuf` - 协议缓冲区序列化
-- `requests` - HTTP 客户端
-- `pydantic` - 数据验证
-
-### 可选依赖项
+- `httpx`
 
 ```bash
 # 用于异步支持
@@ -156,7 +150,7 @@ pip install shannon-sdk[all]
     **解决方案**：验证 Shannon 正在运行
 
     ```bash
-    curl http://localhost:8080/health
+    curl http://localhost:8080/readiness
     ```
 
     如果未运行，启动 Shannon：
@@ -172,53 +166,47 @@ pip install shannon-sdk[all]
 
     ```python
     client = ShannonClient(
-        http_endpoint="http://localhost:8080",
+        base_url="http://localhost:8080",
         api_key="sk_test_123456"  # 添加 API 密钥
     )
     ```
   </Accordion>
 
-  <Accordion title="grpc module not found">
-    **解决方案**：安装 grpcio
-
-    ```bash
-    pip install grpcio grpcio-tools
-    ```
-  </Accordion>
+  
 </AccordionGroup>
 
 ## 环境变量
 
-SDK 识别这些环境变量：
+SDK 不会自动加载环境变量。可自行定义并传递给客户端：
 
 | 变量 | 描述 | 示例 |
 |----------|-------------|---------|
-| `SHANNON_ENDPOINT` | HTTP 端点 | `http://localhost:8080` |
-| `SHANNON_GRPC_ENDPOINT` | gRPC 端点 | `localhost:50052` |
+| `SHANNON_BASE_URL` | 网关 HTTP 基础地址 | `http://localhost:8080` |
 | `SHANNON_API_KEY` | API 密钥 | `sk_test_123456` |
-| `SHANNON_TIMEOUT` | 默认超时时间 | `300` |
-| `SHANNON_LOG_LEVEL` | 日志级别 | `INFO` |
+| `SHANNON_TIMEOUT` | 默认超时（秒） | `60` |
 
-### .env 文件
-
-创建 `.env` 文件：
+### .env 示例
 
 ```bash
-SHANNON_ENDPOINT=http://localhost:8080
+SHANNON_BASE_URL=http://localhost:8080
 SHANNON_API_KEY=sk_test_123456
-SHANNON_TIMEOUT=600
+SHANNON_TIMEOUT=60
 ```
 
 使用 python-dotenv 加载：
 
 ```python
 from dotenv import load_dotenv
+import os
 from shannon import ShannonClient
 
 load_dotenv()
 
-# 客户端使用 .env 值
-client = ShannonClient()
+client = ShannonClient(
+    base_url=os.getenv("SHANNON_BASE_URL", "http://localhost:8080"),
+    api_key=os.getenv("SHANNON_API_KEY"),
+    default_timeout=float(os.getenv("SHANNON_TIMEOUT", "60")),
+)
 ```
 
 ## 日志记录

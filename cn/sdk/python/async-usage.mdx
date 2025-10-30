@@ -25,7 +25,7 @@ import asyncio
 from shannon import AsyncShannonClient
 
 async def main():
-    async with AsyncShannonClient(http_endpoint="http://localhost:8080") as client:
+async with AsyncShannonClient(base_url="http://localhost:8080") as client:
         # 异步提交任务
         handle = await client.submit_task(
             query="Analyze this data",
@@ -33,8 +33,8 @@ async def main():
         )
 
         # 获取结果
-        result = await client.get_status(handle.workflow_id)
-        print(result)
+        result = await client.get_status(handle.task_id)
+        print(result.result)
 
 asyncio.run(main())
 ```
@@ -77,9 +77,9 @@ async def stream():
         # 异步流式传输事件
         async for event in client.stream(handle.workflow_id):
             print(f"[{event.type}] {event.message}")
-
-            if event.type == "TASK_COMPLETED":
-                return event.data.get('result')
+            if event.type == "WORKFLOW_COMPLETED":
+                final = await client.get_status(handle.task_id)
+                return final.result
 ```
 
 ## 超时处理
@@ -96,7 +96,7 @@ async def with_timeout():
 
             # 带超时等待完成
             result = await asyncio.wait_for(
-                client.wait(handle.workflow_id),
+                client.wait(handle.task_id),
                 timeout=300.0
             )
 
@@ -111,10 +111,11 @@ async def with_timeout():
 ```python
 async def background_processing():
     async with AsyncShannonClient() as client:
-        # 启动后台任务
-        task = asyncio.create_task(
-            client.submit_and_wait("Long running analysis")
-        )
+        # 提交任务
+        handle = await client.submit_task(query="Long running analysis")
+
+        # 启动后台等待
+        task = asyncio.create_task(client.wait(handle.task_id))
 
         # 执行其他工作
         await do_other_work()
@@ -133,16 +134,14 @@ async def background_processing():
 async def robust_submission():
     async with AsyncShannonClient() as client:
         try:
-            handle = await client.submit_task(
-                query="Analyze data",
-                config={"retry": {"max_attempts": 3}}
-            )
-            result = await client.get_status(handle.workflow_id)
+            handle = await client.submit_task(query="Analyze data")
+            result = await client.wait(handle.task_id)
+            return result
 
         except ConnectionError:
             print("Failed to connect to Shannon")
-        except TimeoutError:
-            print("Request timed out")
+        except TaskTimeoutError:
+            print("Task timed out")
         except Exception as e:
             print(f"Error: {e}")
 ```
@@ -161,8 +160,8 @@ client = AsyncShannonClient()
 @app.post("/analyze")
 async def analyze(query: str):
     handle = await client.submit_task(query=query)
-    result = await client.get_status(handle.workflow_id)
-    return {"result": result}
+    result = await client.wait(handle.task_id)
+    return {"result": result.result}
 ```
 
 ### aiohttp 示例
@@ -176,9 +175,9 @@ async def analyze_handler(request):
 
     async with AsyncShannonClient() as client:
         handle = await client.submit_task(query=data['query'])
-        result = await client.get_status(handle.workflow_id)
+        result = await client.wait(handle.task_id)
 
-    return web.json_response({'result': result})
+    return web.json_response({'result': result.result})
 ```
 
 ## 最佳实践

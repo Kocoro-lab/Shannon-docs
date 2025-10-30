@@ -188,7 +188,7 @@ docker compose exec orchestrator env | grep GATEWAY_SKIP_AUTH
     from shannon import ShannonClient
 
     client = ShannonClient(
-        http_endpoint="http://localhost:8080",
+        base_url="http://localhost:8080",
         api_key="sk_test_123456"
     )
     ```
@@ -382,19 +382,7 @@ docker compose exec orchestrator env | grep MAX_COST
     docker compose restart orchestrator llm-service
     ```
 
-    **Or set per-task budget**:
-    ```python
-    client.submit_task(
-        query="Complex analysis",
-        config={
-            "budget": {
-                "max_cost_usd": 2.0,
-                "max_input_tokens": 50000,
-                "max_output_tokens": 10000
-            }
-        }
-    )
-    ```
+    Budgets are configured server-side via environment variables. The SDK does not accept per-request budget parameters.
   </Accordion>
 
   <Accordion title="Solution 2: Use simpler execution mode">
@@ -588,19 +576,13 @@ docker compose exec redis redis-cli KEYS "session:*"
     ```
   </Accordion>
 
-  <Accordion title="Solution 3: Using different session IDs">
-    **Verify session ID consistency**:
+  <Accordion title="Solution 3: Using consistent session IDs">
+    **Provide a stable session_id explicitly**:
     ```python
-    # First task
-    handle1 = client.submit_task("Load data")
-    session_id = handle1.session_id
-    print(f"Session: {session_id}")
+    session_id = "user-123-conversation"
 
-    # Subsequent tasks MUST use same session_id
-    handle2 = client.submit_task(
-        "Analyze data",
-        session_id=session_id  # ← Must match!
-    )
+    handle1 = client.submit_task("Load data", session_id=session_id)
+    handle2 = client.submit_task("Analyze data", session_id=session_id)
     ```
   </Accordion>
 </AccordionGroup>

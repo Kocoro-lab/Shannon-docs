@@ -65,10 +65,10 @@ curl -N http://localhost:8080/api/v1/stream/sse?workflow_id=task-dev-1730000000
 您将看到事件的实时发生：
 
 ```
-event: AGENT_THINKING
+event: LLM_PROMPT
 data: {"message":"Analyzing sentiment..."}
 
-event: TASK_COMPLETED
+event: WORKFLOW_COMPLETED
 data: {"result":"The sentiment is positive..."}
 ```
 
@@ -87,7 +87,7 @@ pip install shannon-sdk
 ```python
 from shannon import ShannonClient
 
-# gRPC 用于提交；SSE 默认使用管理端口 8081
+# HTTP 客户端（默认：http://localhost:8080）
 client = ShannonClient()
 
 handle = client.submit_task(

@@ -28,6 +28,10 @@ cd Shannon
 # Initialize configuration and generate protocol buffers
 make setup
 
+<Note>
+Tip: `make setup` is the one‑stop setup (creates `.env` and generates protobufs). If you only need the environment file, use `make setup-env`. You can also regenerate protobufs anytime with `make proto`.
+</Note>
+
 # Add your LLM API key
 echo "OPENAI_API_KEY=sk-your-key-here" >> .env
 

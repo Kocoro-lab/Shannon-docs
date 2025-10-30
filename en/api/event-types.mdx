@@ -5,7 +5,7 @@ description: "Complete reference for Shannon streaming event types"
 
 ## Overview
 
-Shannon emits **real-time events** via Server-Sent Events (SSE) to provide visibility into task execution. This document catalogs **all 35+ event types**, their structure, and when they occur.
+Shannon emits **real-time events** via Server-Sent Events (SSE) to provide visibility into task execution. This document catalogs the **26 event types** actually emitted by the platform, their structure, and when they occur.
 
 Events provide:
 - **Real-time progress** - Track task execution as it happens
@@ -63,25 +63,17 @@ Events are organized into logical categories:
 
 ## Event Type Quick Reference
 
-Complete list of all event types by category:
+Authoritative list of event types emitted by Shannon:
 
 | Event Type | Category | Description |
 |------------|----------|-------------|
 | `WORKFLOW_STARTED` | Workflow | Task begins execution |
 | `WORKFLOW_COMPLETED` | Workflow | Task completes successfully |
-| `WORKFLOW_FAILED` | Workflow | Task fails with error |
 | `AGENT_STARTED` | Agent | Agent begins processing |
 | `AGENT_THINKING` | Agent | Agent reasoning/planning |
 | `AGENT_COMPLETED` | Agent | Agent finishes successfully |
-| `AGENT_FAILED` | Agent | Agent encounters error |
 | `TOOL_INVOKED` | Tool | Tool is called |
-| `TOOL_COMPLETED` | Tool | Tool execution finishes |
-| `TOOL_FAILED` | Tool | Tool execution fails |
 | `TOOL_OBSERVATION` | Tool | Agent observes tool result |
-| `PATTERN_SELECTED` | Pattern | Cognitive pattern chosen |
-| `TASK_DECOMPOSED` | Pattern | Task broken into subtasks |
-| `SUBTASK_STARTED` | Pattern | Individual subtask begins |
-| `SUBTASK_COMPLETED` | Pattern | Subtask finishes |
 | `TEAM_RECRUITED` | Team | Multi-agent team assembled |
 | `TEAM_RETIRED` | Team | Team disbanded |
 | `TEAM_STATUS` | Team | Team coordination update |
@@ -94,16 +86,17 @@ Complete list of all event types by category:
 | `PROGRESS` | Progress | General progress update |
 | `DATA_PROCESSING` | Progress | Processing/analyzing data |
 | `WAITING` | Progress | Waiting for resources |
-| `ERROR_OCCURRED` | System | System error |
+| `ERROR_OCCURRED` | System | Error occurred |
 | `ERROR_RECOVERY` | System | Error recovery attempt |
-| `BUDGET_UPDATE` | System | Cost/token update |
 | `APPROVAL_REQUESTED` | System | Human approval needed |
 | `APPROVAL_DECISION` | System | Approval decision made |
 | `WORKSPACE_UPDATED` | System | Memory/context updated |
 | `ROLE_ASSIGNED` | System | Agent role assigned |
 | `DELEGATION` | System | Task delegated |
 
-**Total**: 35 event types
+**Total**: 26 event types
+
+Note: Events such as `WORKFLOW_FAILED`, `TASK_COMPLETED`, `TOOL_COMPLETED`, `TOOL_FAILED`, and `BUDGET_UPDATE` are not emitted by the streaming API. Failures are surfaced via `ERROR_OCCURRED`; completion is indicated by `WORKFLOW_COMPLETED`.
 
 ---
 
@@ -167,22 +160,52 @@ Events related to the overall task workflow.
 
 ---
 
-### WORKFLOW_FAILED
+## Selected Examples
 
-**Emitted**: When a task fails
+### AGENT_THINKING
 
-**Data**:
 ```json
 {
-  "type": "WORKFLOW_FAILED",
-  "message": "Workflow failed: Budget exceeded",
-  "data": {
-    "error": "BUDGET_EXCEEDED",
-    "error_message": "Task exceeded maximum cost of $0.50",
-    "duration_ms": 12000,
-    "tokens_used": 8000,
-    "cost_usd": 0.52
-  }
+  "type": "AGENT_THINKING",
+  "agent_id": "researcher",
+  "message": "Analyzing data structure...",
+  "timestamp": "2025-01-20T10:00:02Z"
+}
+```
+
+### TOOL_INVOKED / TOOL_OBSERVATION
+
+```json
+{ "type": "TOOL_INVOKED", "message": "web_search: q=\"LLM caching\"" }
+{ "type": "TOOL_OBSERVATION", "message": "web_search: 12 results" }
+```
+
+### LLM_OUTPUT
+
+```json
+{
+  "type": "LLM_OUTPUT",
+  "message": "Final summary of findings..."
+}
+```
+
+### ERROR_OCCURRED
+
+```json
+{
+  "type": "ERROR_OCCURRED",
+  "message": "Provider rate limit exceeded",
+  "data": { "error": "RATE_LIMIT", "retry_after": 30 }
+}
+```
+
+### APPROVAL_REQUESTED
+
+```json
+{
+  "type": "APPROVAL_REQUESTED",
+  "message": "Delete temporary files older than 30 days?",
+  "data": { "approval_id": "appr-456" }
 }
 ```
 
@@ -307,15 +330,15 @@ Events related to tool invocations.
 
 ---
 
-### TOOL_COMPLETED
+### TOOL_OBSERVATION
 
-**Emitted**: Tool execution finished
+**Emitted**: Agent observes a tool result
 
 **Data**:
 ```json
 {
-  "type": "TOOL_COMPLETED",
-  "message": "Tool completed: csv_loader",
+  "type": "TOOL_OBSERVATION",
+  "message": "Tool result: csv_loader",
   "data": {
     "tool_name": "csv_loader",
     "result": {
@@ -323,140 +346,20 @@ Events related to tool invocations.
       "columns": 12,
       "sample": ["date", "product", "revenue", "..."]
     },
-    "duration_ms": 450,
-    "cached": false
+    "duration_ms": 450
   }
 }
 ```
 
 ---
 
-### TOOL_FAILED
-
-**Emitted**: Tool execution failed
-
-**Data**:
-```json
-{
-  "type": "TOOL_FAILED",
-  "message": "Tool failed: web_search",
-  "data": {
-    "tool_name": "web_search",
-    "error": "RATE_LIMIT_EXCEEDED",
-    "error_message": "Search API rate limit reached",
-    "retry_after_seconds": 60
-  }
-}
-```
+{/* Tool failures are emitted as ERROR_OCCURRED in System Events. */}
 
 ---
 
 ## Pattern Events
 
-Events specific to cognitive pattern execution.
-
-### PATTERN_SELECTED
-
-**Emitted**: When a cognitive pattern is chosen
-
-**Data**:
-```json
-{
-  "type": "PATTERN_SELECTED",
-  "message": "Selected pattern: Tree-of-Thoughts",
-  "data": {
-    "pattern": "TREE_OF_THOUGHTS",
-    "reason": "Task requires exploration of multiple solution paths",
-    "complexity": 0.82,
-    "estimated_cost_usd": 0.45
-  }
-}
-```
-
-**Available Patterns**:
-- `CHAIN_OF_THOUGHT` - Sequential reasoning
-- `TREE_OF_THOUGHTS` - Branching exploration
-- `REACT` - Reasoning + Acting cycle
-- `DEBATE` - Multi-perspective analysis
-- `REFLECTION` - Self-improvement loop
-
----
-
-### TASK_DECOMPOSED
-
-**Emitted**: Task broken into subtasks
-
-**Data**:
-```json
-{
-  "type": "TASK_DECOMPOSED",
-  "message": "Task decomposed into 4 subtasks",
-  "data": {
-    "strategy": "DAG",
-    "subtasks": [
-      {
-        "id": "subtask-1",
-        "description": "Load data",
-        "dependencies": []
-      },
-      {
-        "id": "subtask-2",
-        "description": "Calculate statistics",
-        "dependencies": ["subtask-1"]
-      },
-      {
-        "id": "subtask-3",
-        "description": "Create visualizations",
-        "dependencies": ["subtask-2"]
-      },
-      {
-        "id": "subtask-4",
-        "description": "Generate report",
-        "dependencies": ["subtask-2", "subtask-3"]
-      }
-    ]
-  }
-}
-```
-
----
-
-### SUBTASK_STARTED
-
-**Emitted**: Individual subtask begins
-
-**Data**:
-```json
-{
-  "type": "SUBTASK_STARTED",
-  "message": "Starting subtask: Load data",
-  "data": {
-    "subtask_id": "subtask-1",
-    "description": "Load Q4 sales data",
-    "assigned_agent": "data-loader"
-  }
-}
-```
-
----
-
-### SUBTASK_COMPLETED
-
-**Emitted**: Subtask finishes
-
-**Data**:
-```json
-{
-  "type": "SUBTASK_COMPLETED",
-  "message": "Subtask completed: Load data",
-  "data": {
-    "subtask_id": "subtask-1",
-    "result": "Loaded 15,000 records",
-    "duration_ms": 2000,
-    "tokens_used": 150
-  }
-}
-```
+Pattern selection and decomposition events are not part of the public streaming schema and are omitted for brevity.
 
 ---
 
@@ -774,26 +677,7 @@ System-level events and errors.
 
 ---
 
-### BUDGET_UPDATE
-
-**Emitted**: Periodically during execution to track costs
-
-**Data**:
-```json
-{
-  "type": "BUDGET_UPDATE",
-  "message": "Budget status update",
-  "data": {
-    "tokens_used": 3200,
-    "tokens_limit": 10000,
-    "cost_usd": 0.048,
-    "cost_limit_usd": 0.50,
-    "percentage_used": 9.6
-  }
-}
-```
-
----
+{/* Budget updates are not emitted by the streaming API. */}
 
 ### ERROR_RECOVERY
 
@@ -932,14 +816,11 @@ Events are **strictly ordered** by sequence number (`seq`):
 
 ```json
 {"seq": 1, "type": "WORKFLOW_STARTED"}
-{"seq": 2, "type": "PATTERN_SELECTED"}
-{"seq": 3, "type": "TASK_DECOMPOSED"}
-{"seq": 4, "type": "SUBTASK_STARTED"}
-{"seq": 5, "type": "AGENT_STARTED"}
-{"seq": 6, "type": "AGENT_THINKING"}
-{"seq": 7, "type": "TOOL_INVOKED"}
-{"seq": 8, "type": "TOOL_COMPLETED"}
-{"seq": 42, "type": "WORKFLOW_COMPLETED"}
+{"seq": 2, "type": "AGENT_STARTED"}
+{"seq": 3, "type": "AGENT_THINKING"}
+{"seq": 4, "type": "TOOL_INVOKED"}
+{"seq": 5, "type": "LLM_OUTPUT"}
+{"seq": 6, "type": "WORKFLOW_COMPLETED"}
 ```
 
 **Properties**:
@@ -949,158 +830,16 @@ Events are **strictly ordered** by sequence number (`seq`):
 
 ---
 
-## Typical Event Flow
-
-### Simple Task (SIMPLE mode)
+## Typical Event Flow (Simplified)
 
 ```
 1. WORKFLOW_STARTED
 2. AGENT_STARTED
 3. AGENT_THINKING
-4. TOOL_INVOKED (if needed)
-5. TOOL_COMPLETED
-6. AGENT_COMPLETED
-7. WORKFLOW_COMPLETED
+4. TOOL_INVOKED (optional)
+5. LLM_OUTPUT (final answer)
+6. WORKFLOW_COMPLETED
 ```
-
-### Standard Task (STANDARD mode)
-
-```
-1. WORKFLOW_STARTED
-2. PATTERN_SELECTED
-3. TASK_DECOMPOSED
-4. SUBTASK_STARTED (subtask 1)
-5. AGENT_STARTED
-6. AGENT_THINKING
-7. TOOL_INVOKED
-8. TOOL_COMPLETED
-9. AGENT_COMPLETED
-10. SUBTASK_COMPLETED (subtask 1)
-11. SUBTASK_STARTED (subtask 2)
-12. ... (repeat for each subtask)
-N. WORKFLOW_COMPLETED
-```
-
-### Complex Task (COMPLEX mode)
-
-```
-1. WORKFLOW_STARTED
-2. PATTERN_SELECTED (Tree-of-Thoughts)
-3. TASK_DECOMPOSED
-4. TEAM_RECRUITED (multi-agent team)
-5. Multiple parallel SUBTASK_STARTED
-6. AGENT_THINKING (exploration phase)
-7. Multiple AGENT_STARTED (parallel agents)
-8. ROLE_ASSIGNED (agents get specialized roles)
-9. DATA_PROCESSING (agents working)
-10. WAITING (for dependencies)
-11. DEPENDENCY_SATISFIED (unblock execution)
-12. LLM_PROMPT / LLM_OUTPUT (LLM interactions)
-13. TOOL_INVOKED / TOOL_COMPLETED
-14. TOOL_OBSERVATION (agents process results)
-15. MESSAGE_SENT / MESSAGE_RECEIVED (agent coordination)
-16. DELEGATION (task hand-offs)
-17. TEAM_STATUS (progress updates)
-18. PROGRESS (overall progress)
-19. Subtasks complete in parallel
-20. TEAM_RETIRED (team disbanded)
-21. WORKFLOW_COMPLETED
-```
-
----
-
-## Streaming Best Practices
-
-### Progress Indicators
-
-```python
-# Track progress
-total_subtasks = 0
-completed_subtasks = 0
-
-for event in client.stream_events(workflow_id):
-    if event.type == 'TASK_DECOMPOSED':
-        total_subtasks = event.data['subtasks']
-
-    elif event.type == 'SUBTASK_COMPLETED':
-        completed_subtasks += 1
-        progress = (completed_subtasks / total_subtasks) * 100
-        print(f"Progress: {progress:.1f}%")
-
-    elif event.type == 'WORKFLOW_COMPLETED':
-        print("Done!")
-        break
-```
-
-### Cost Monitoring
-
-```python
-# Monitor costs in real-time
-for event in client.stream_events(workflow_id):
-    if event.type == 'BUDGET_UPDATE':
-        cost = event.data['cost_usd']
-        limit = event.data['cost_limit_usd']
-
-        if cost > limit * 0.8:
-            print(f"Warning: 80% of budget used (${cost:.3f}/${limit:.2f})")
-
-    elif event.type == 'WORKFLOW_FAILED':
-        if event.data['error'] == 'BUDGET_EXCEEDED':
-            print("Task cancelled: Budget exceeded")
-```
-
-### Error Handling
-
-```python
-# Handle errors gracefully
-for event in client.stream_events(workflow_id):
-    if event.type == 'ERROR_OCCURRED':
-        error = event.data
-
-        if error['recoverable']:
-            print(f"Recoverable error: {error['error_message']}")
-            print(f"Retry {error['retry_count']}/{error['max_retries']}")
-        else:
-            print(f"Fatal error: {error['error_message']}")
-            break
-
-    elif event.type == 'WORKFLOW_FAILED':
-        print(f"Task failed: {event.data['error_message']}")
-        break
-```
-
----
-
-## Filtering Events
-
-Filter events by type for specific use cases:
-
-```python
-# Only show user-facing events
-USER_EVENTS = {
-    'WORKFLOW_STARTED',
-    'WORKFLOW_COMPLETED',
-    'PATTERN_SELECTED',
-    'TASK_DECOMPOSED',
-    'TOOL_INVOKED',
-    'ERROR_OCCURRED',
-    'BUDGET_UPDATE'
-}
-
-for event in client.stream_events(workflow_id):
-    if event.type in USER_EVENTS:
-        print(f"[{event.type}] {event.message}")
-```
-
-```python
-# Debug mode: show everything
-for event in client.stream_events(workflow_id):
-    print(f"[{event.seq}] {event.type}: {event.message}")
-    if event.data:
-        print(f"  Data: {json.dumps(event.data, indent=2)}")
-```
-
----
 
 ## Event Persistence
 
@@ -1156,33 +895,7 @@ See [Database Schema](/en/architecture/database-schema#event-logs-table) for eve
 
 ---
 
-## Complete Event Type Reference
-
-All 35 event types are production-ready and actively emitted by Shannon. The following events are emitted most frequently:
-
-**High Frequency** (multiple per task):
-- `AGENT_THINKING` - Agent reasoning steps
-- `LLM_PARTIAL` - Streaming LLM output
-- `DATA_PROCESSING` - Data processing updates
-- `PROGRESS` - Progress updates
-
-**Medium Frequency** (few per task):
-- `TOOL_INVOKED` / `TOOL_COMPLETED` - Tool calls
-- `AGENT_STARTED` / `AGENT_COMPLETED` - Agent lifecycle
-- `SUBTASK_STARTED` / `SUBTASK_COMPLETED` - Subtask execution
-
-**Low Frequency** (once per task):
-- `WORKFLOW_STARTED` / `WORKFLOW_COMPLETED` - Workflow lifecycle
-- `PATTERN_SELECTED` - Pattern selection
-- `TASK_DECOMPOSED` - Task decomposition
-- `TEAM_RECRUITED` / `TEAM_RETIRED` - Team management
-
-**Rare** (only when needed):
-- `ERROR_OCCURRED` / `ERROR_RECOVERY` - Error handling
-- `APPROVAL_REQUESTED` / `APPROVAL_DECISION` - Human approval
-- `WORKFLOW_FAILED` / `AGENT_FAILED` / `TOOL_FAILED` - Failures
-
----
+{/* Detailed frequency breakdown removed for concision. See Quick Reference above. */}
 
 ## Related Topics
 

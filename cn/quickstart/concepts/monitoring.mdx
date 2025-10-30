@@ -62,15 +62,31 @@ Shannon 提供全面的监控和可观测性功能，以跟踪生产环境中的
 curl http://localhost:8080/health
 ```
 
-响应：
+响应（网关）：
 ```json
 {
   "status": "healthy",
-  "version": "1.0.0",
-  "services": {
-    "orchestrator": "healthy",
-    "agent_core": "healthy",
-    "llm_service": "healthy"
+  "version": "0.1.0",
+  "time": "2025-01-20T10:00:00Z",
+  "checks": {
+    "gateway": "ok"
+  }
+}
+```
+
+就绪检查（检测编排器连通性）：
+```bash
+curl http://localhost:8080/readiness
+```
+
+响应：
+```json
+{
+  "status": "ready",
+  "version": "0.1.0",
+  "time": "2025-01-20T10:00:02Z",
+  "checks": {
+    "orchestrator": "ok"
   }
 }
 ```
@@ -78,17 +94,13 @@ curl http://localhost:8080/health
 ### 组件健康
 
 ```python
-from shannon import ShannonClient
+import requests
 
-client = ShannonClient()
+health = requests.get("http://localhost:8080/health").json()
+print("网关：", health.get("status"), health.get("checks"))
 
-# 检查整体健康
-health = # 使用 REST：requests.get("http://localhost:8080/health")
-print(f"系统状态：{health.status}")
-
-# 检查特定组件
-if not health.services.agent_core.healthy:
-    print("智能体核心不健康！")
+ready = requests.get("http://localhost:8080/readiness").json()
+print("就绪：", ready.get("status"), ready.get("checks"))
 ```
 
 ## 日志
@@ -170,15 +182,23 @@ alerts:
 
 ## Prometheus 集成
 
-将指标导出到 Prometheus：
+将指标导出到 Prometheus（本地开发示例）：
 
 ```yaml
 # prometheus.yml
 scrape_configs:
-  - job_name: 'shannon'
+  - job_name: 'orchestrator'
     static_configs:
-      - targets: ['localhost:9090']
+      - targets: ['localhost:2112']   # Go Orchestrator /metrics
+
+  - job_name: 'agent_core'
+    static_configs:
+      - targets: ['localhost:2113']   # Rust Agent Core /metrics
+
+  - job_name: 'llm_service'
     metrics_path: '/metrics'
+    static_configs:
+      - targets: ['localhost:8000']   # Python LLM Service /metrics
 ```
 
 ### 可用指标
@@ -243,13 +263,7 @@ client = ShannonClient()
 
 ### 跟踪请求
 
-```bash
-# 启用请求跟踪
-export SHANNON_TRACE=true
-
-# 使用详细日志运行
-shannon-cli submit "分析数据" --verbose
-```
+通过 OpenTelemetry 使用分布式追踪或提高服务日志级别。根据您的可观测性堆栈（Jaeger/Tempo）配置导出器。
 
 ## 下一步
 

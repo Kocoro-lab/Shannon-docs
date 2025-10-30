@@ -134,7 +134,7 @@ Shannon 会根据查询复杂度自动将复杂查询分解为多智能体工作
 
 **内置工具：**
 - Python 代码执行（WASI 沙箱隔离）
-- 网络搜索（Exa、Perplexity、Brave）
+- 网络搜索（Google/Serper/Bing/Exa/Firecrawl）
 - 文档检索
 - 数学计算
 
@@ -150,7 +150,7 @@ Shannon 支持[模型上下文协议](https://modelcontextprotocol.io)进行外�
 
 **会话记忆：**
 - 对话中的短期上下文
-- 存储在 Redis 中（3600秒 TTL）
+- 存储在 Redis（TTL 可配置，默认 30 天）
 - 支持多轮对话
 
 **向量记忆：**
@@ -163,11 +163,11 @@ Shannon 支持[模型上下文协议](https://modelcontextprotocol.io)进行外�
 Shannon 的行为通过环境变量在平台级别进行配置：
 
 ```bash
-# 在 .env 文件中
-DEFAULT_MODEL_TIER=medium           # small、medium、large
-MAX_TOKENS_PER_REQUEST=10000       # 每个任务的令牌预算
-MAX_COST_PER_REQUEST=0.50          # 每个任务的成本限制（美元）
-REQUEST_TIMEOUT_SECONDS=300        # 任务超时时间
+# 在 .env（示例）
+DEFAULT_MODEL_TIER=small           # small | medium | large
+MAX_TOKENS_PER_REQUEST=10000       # 每次请求的令牌预算（LLM 服务）
+MAX_COST_PER_REQUEST=0.50          # 每次请求的成本限制（美元，LLM 服务）
+AGENT_TIMEOUT_SECONDS=600          # 代理执行超时（编排器）
 
 # 重启服务以应用更改
 docker compose restart
@@ -184,7 +184,7 @@ Shannon 根据配置的层级自动选择模型：
 | **LARGE** | gpt-4、claude-opus | 复杂推理、关键任务 | $$$ |
 
 <Tip>
-Shannon 的智能路由器为每个任务选择最具成本效益的模型，与始终使用高级模型相比，可节省 85-95% 的成本。
+Shannon 的智能路由器为每个任务选择最具成本效益的模型，通常可节省 60–90% 的成本（取决于工作负载）。
 </Tip>
 
 有关所有可用环境变量，请参阅[配置指南](/cn/quickstart/configuration)。

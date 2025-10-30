@@ -58,11 +58,12 @@ Authorization: Bearer YOUR_TOKEN
 
 #### Response
 
-**Status**: `200 OK`
+**Status**: `201 Created`
 
 **Body**:
 ```json
 {
+  "task_id": "task_01HQZX3Y9K8M2P4N5S7T9W2V",
   "workflow_id": "task_01HQZX3Y9K8M2P4N5S7T9W2V",
   "stream_url": "/api/v1/stream/sse?workflow_id=task_01HQZX3Y9K8M2P4N5S7T9W2V"
 }
@@ -97,7 +98,7 @@ async function submitAndStream(query, onEvent, onComplete, onError) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
-    const { workflow_id, stream_url } = await response.json();
+    const { task_id, workflow_id, stream_url } = await response.json();
     console.log(`Task submitted: ${workflow_id}`);
 
     // 2. Connect to SSE stream
@@ -111,7 +112,7 @@ async function submitAndStream(query, onEvent, onComplete, onError) {
       onEvent(event);
 
       // Check for completion
-      if (event.type === 'WORKFLOW_COMPLETED' || event.type === 'TASK_COMPLETED') {
+      if (event.type === 'WORKFLOW_COMPLETED') {
         eventSource.close();
         onComplete(event);
       }
@@ -173,7 +174,7 @@ function useTaskStream(apiUrl = 'http://localhost:8080') {
 
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-      const { workflow_id, stream_url } = await response.json();
+      const { task_id, workflow_id, stream_url } = await response.json();
       setWorkflowId(workflow_id);
 
       // Connect to stream
@@ -184,10 +185,10 @@ function useTaskStream(apiUrl = 'http://localhost:8080') {
         const event = JSON.parse(e.data);
         setEvents(prev => [...prev, event]);
 
-        if (event.type === 'WORKFLOW_COMPLETED' || event.type === 'TASK_COMPLETED' || event.type === 'ERROR_OCCURRED') {
-          eventSource.close();
-          setIsStreaming(false);
-        }
+      if (event.type === 'WORKFLOW_COMPLETED' || event.type === 'ERROR_OCCURRED') {
+        eventSource.close();
+        setIsStreaming(false);
+      }
       };
 
       eventSource.onerror = (err) => {
@@ -274,7 +275,7 @@ async function submitTask(query) {
 
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-    const { workflow_id, stream_url } = await response.json();
+    const { task_id, workflow_id, stream_url } = await response.json();
     workflowId.value = workflow_id;
 
     eventSource = new EventSource(`http://localhost:8080${stream_url}`);
@@ -283,7 +284,7 @@ async function submitTask(query) {
       const event = JSON.parse(e.data);
       events.value.push(event);
 
-      if (event.type === 'WORKFLOW_COMPLETED' || event.type === 'TASK_COMPLETED') {
+      if (event.type === 'WORKFLOW_COMPLETED') {
         eventSource.close();
         isStreaming.value = false;
       }
@@ -366,7 +367,7 @@ def submit_and_stream(query: str, api_key: str):
                 event = json.loads(line[5:])
                 print(f"[{event['type']}] {event.get('message', '')}")
 
-                if event['type'] in ['WORKFLOW_COMPLETED', 'TASK_COMPLETED']:
+                if event['type'] in ['WORKFLOW_COMPLETED']:
                     return event
 
 # Usage
@@ -434,7 +435,7 @@ event: TOOL_INVOKED
 data: {"workflow_id":"task_abc123","tool":"web_search","params":{"query":"Python programming"},"timestamp":"2025-10-22T10:30:02Z"}
 
 id: 4
-event: TOOL_RESULT
+event: TOOL_OBSERVATION
 data: {"workflow_id":"task_abc123","tool":"web_search","result":"...","timestamp":"2025-10-22T10:30:05Z"}
 
 id: 5
@@ -442,7 +443,7 @@ event: AGENT_COMPLETED
 data: {"workflow_id":"task_abc123","agent_id":"agent_1","result":"Python is a high-level programming language...","timestamp":"2025-10-22T10:30:06Z"}
 
 id: 6
-event: TASK_COMPLETED
+event: WORKFLOW_COMPLETED
 data: {"workflow_id":"task_abc123","status":"COMPLETED","result":"...","timestamp":"2025-10-22T10:30:07Z"}
 ```
 
@@ -551,15 +552,12 @@ Passing the API key in the query string or via an "auth" message after connect i
 |------------|-------------|------------|
 | `WORKFLOW_STARTED` | Workflow execution began | Start of task |
 | `WORKFLOW_COMPLETED` | Workflow finished successfully | End of task (success) |
-| `WORKFLOW_FAILED` | Workflow failed with error | End of task (failure) |
-| `TASK_COMPLETED` | Task result available | Final result ready |
 
 ### Agent Events
 
 | Event Type | Description | Payload Fields |
 |------------|-------------|----------------|
 | `AGENT_THINKING` | Agent reasoning/planning | `agent_id`, `message` |
-| `AGENT_PLANNING` | Agent creating execution plan | `agent_id`, `plan` |
 | `AGENT_COMPLETED` | Agent finished execution | `agent_id`, `result` |
 
 ### Tool Events
@@ -567,22 +565,39 @@ Passing the API key in the query string or via an "auth" message after connect i
 | Event Type | Description | Payload Fields |
 |------------|-------------|----------------|
 | `TOOL_INVOKED` | Tool execution started | `tool`, `params` |
-| `TOOL_RESULT` | Tool execution completed | `tool`, `result` |
-| `TOOL_ERROR` | Tool execution failed | `tool`, `error` |
+| `TOOL_OBSERVATION` | Agent observes tool result | `tool`, `result` |
 
-### Progress Events
-
-| Event Type | Description | Payload Fields |
-|------------|-------------|----------------|
-| `PARTIAL_OUTPUT` | Streaming LLM output | `text`, `is_final` |
-| `PROGRESS_UPDATE` | Progress percentage | `progress`, `message` |
-
-### Error Events
+### LLM Events
 
 | Event Type | Description | Payload Fields |
 |------------|-------------|----------------|
-| `ERROR` | General error occurred | `error`, `severity` |
-| `TIMEOUT` | Task exceeded timeout | `timeout_seconds` |
+| `LLM_PROMPT` | Prompt sent to LLM | `text` |
+| `LLM_PARTIAL` | Streaming LLM output | `text` |
+| `LLM_OUTPUT` | Final LLM output | `text` |
+
+### Progress & System Events
+
+| Event Type | Description | Payload Fields |
+|------------|-------------|----------------|
+| `PROGRESS` | Progress update | `progress`, `message` |
+| `DATA_PROCESSING` | Data processing in progress | `message` |
+| `WAITING` | Waiting for resources | `message` |
+| `ERROR_OCCURRED` | Error occurred | `error`, `severity` |
+| `ERROR_RECOVERY` | Error recovery attempt | `message` |
+| `WORKSPACE_UPDATED` | Memory/context updated | `message` |
+
+### Team & Approvals
+
+| Event Type | Description |
+|------------|-------------|
+| `TEAM_RECRUITED` | Multi-agent team assembled |
+| `TEAM_RETIRED` | Team disbanded |
+| `TEAM_STATUS` | Team coordination update |
+| `ROLE_ASSIGNED` | Agent role assigned |
+| `DELEGATION` | Task delegated |
+| `DEPENDENCY_SATISFIED` | Dependency resolved |
+| `APPROVAL_REQUESTED` | Human approval needed |
+| `APPROVAL_DECISION` | Approval decision recorded |
 
 ## Code Examples
 
@@ -611,7 +626,7 @@ def stream_task_events(task_id: str, api_key: str):
 for event in stream_task_events("task_abc123", "sk_test_123456"):
     print(f"[{event.get('type')}] {event.get('message', '')}")
 
-    if event.get('type') == 'TASK_COMPLETED':
+    if event.get('type') == 'WORKFLOW_COMPLETED':
         print("Final result:", event.get('result'))
         break
 ```
@@ -633,7 +648,7 @@ def stream_filtered_events(task_id: str, api_key: str, event_types: list):
 for event in stream_filtered_events(
     "task_abc123",
     "sk_test_123456",
-    ["AGENT_THINKING", "TOOL_INVOKED", "TOOL_RESULT"]
+    ["AGENT_THINKING", "TOOL_INVOKED", "TOOL_OBSERVATION"]
 ):
     print(f"{event['type']}: {event.get('message', event.get('tool'))}")
 ```
@@ -656,7 +671,7 @@ function streamTaskEvents(taskId, apiKey) {
     const data = JSON.parse(event.data);
     console.log(`[${data.type}] ${data.message || ''}`);
 
-    if (data.type === 'TASK_COMPLETED') {
+    if (data.type === 'WORKFLOW_COMPLETED') {
       console.log('Final result:', data.result);
       eventSource.close();
     }
@@ -699,10 +714,10 @@ function connectWebSocket(taskId, apiKey) {
       case 'TOOL_INVOKED':
         console.log(`🔧 Tool: ${data.tool}`);
         break;
-      case 'TOOL_RESULT':
+      case 'TOOL_OBSERVATION':
         console.log(`✓ Result: ${data.result}`);
         break;
-      case 'TASK_COMPLETED':
+      case 'WORKFLOW_COMPLETED':
         console.log(`✓ Done: ${data.result}`);
         ws.close();
         break;
@@ -769,7 +784,7 @@ func streamEvents(taskID, apiKey string) error {
 
             fmt.Printf("[%s] %s\n", event.Type, event.Message)
 
-            if event.Type == "TASK_COMPLETED" {
+            if event.Type == "WORKFLOW_COMPLETED" {
                 fmt.Println("✓ Task completed")
                 break
             }
@@ -809,7 +824,7 @@ curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id=$TASK_ID" \
       echo "[$(date +%T)] $TYPE: $MESSAGE"
 
       # Exit on completion
-      if [[ "$TYPE" == "TASK_COMPLETED" ]]; then
+      if [[ "$TYPE" == "WORKFLOW_COMPLETED" ]]; then
         echo ""
         echo "$JSON" | jq -r '.result'
         break
@@ -834,11 +849,11 @@ def display_progress(task_id: str, api_key: str):
             print(f"💭 {event['message']}")
         elif event_type == 'TOOL_INVOKED':
             print(f"🔧 Using tool: {event['tool']}")
-        elif event_type == 'TOOL_RESULT':
+        elif event_type == 'TOOL_OBSERVATION':
             print(f"✓ Tool completed")
-        elif event_type == 'PARTIAL_OUTPUT':
+        elif event_type == 'LLM_PARTIAL':
             print(event['text'], end='', flush=True)
-        elif event_type == 'TASK_COMPLETED':
+        elif event_type == 'WORKFLOW_COMPLETED':
             print(f"\n\n✓ Done!")
             return event['result']
 ```
@@ -860,7 +875,7 @@ def log_events_to_file(task_id: str, api_key: str, log_file: str):
             f.write(json.dumps(event) + '\n')
             f.flush()
 
-            if event.get('type') == 'TASK_COMPLETED':
+            if event.get('type') == 'WORKFLOW_COMPLETED':
                 break
 
 log_events_to_file("task_abc123", "sk_test_123456", "task_events.jsonl")
@@ -882,11 +897,11 @@ def collect_tool_metrics(task_id: str, api_key: str):
         if event.get('type') == 'TOOL_INVOKED':
             metrics['tools_invoked'] += 1
             metrics['tool_list'].append(event['tool'])
-        elif event.get('type') == 'TOOL_RESULT':
+        elif event.get('type') == 'TOOL_OBSERVATION':
             metrics['tools_succeeded'] += 1
-        elif event.get('type') == 'TOOL_ERROR':
+        elif event.get('type') == 'ERROR_OCCURRED':
             metrics['tools_failed'] += 1
-        elif event.get('type') == 'TASK_COMPLETED':
+        elif event.get('type') == 'WORKFLOW_COMPLETED':
             break
 
     return metrics
@@ -917,7 +932,7 @@ function TaskMonitor({ taskId, apiKey }) {
       const data = JSON.parse(event.data);
       setEvents(prev => [...prev, data]);
 
-      if (data.type === 'TASK_COMPLETED') {
+      if (data.type === 'WORKFLOW_COMPLETED') {
         setStatus('completed');
         eventSource.close();
       }
@@ -960,7 +975,7 @@ def stream_with_retry(task_id: str, api_key: str, max_retries: int = 3):
             for event in stream_task_events(task_id, api_key):
                 yield event
 
-                if event.get('type') == 'TASK_COMPLETED':
+                if event.get('type') == 'WORKFLOW_COMPLETED':
                     return
         except Exception as e:
             if attempt < max_retries - 1:
@@ -986,7 +1001,7 @@ def stream_with_timeout(task_id: str, api_key: str, timeout: int = 300):
     try:
         for event in stream_task_events(task_id, api_key):
             yield event
-            if event.get('type') == 'TASK_COMPLETED':
+            if event.get('type') == 'WORKFLOW_COMPLETED':
                 break
     finally:
         signal.alarm(0)  # Cancel alarm
@@ -1001,7 +1016,7 @@ def stream_specific_events(task_id: str, api_key: str, event_types: set):
         if event.get('type') in event_types:
             yield event
 
-        if event.get('type') == 'TASK_COMPLETED':
+        if event.get('type') == 'WORKFLOW_COMPLETED':
             yield event
             break
 
@@ -1009,7 +1024,7 @@ def stream_specific_events(task_id: str, api_key: str, event_types: set):
 for event in stream_specific_events(
     "task_abc123",
     "sk_test_123456",
-    {"AGENT_THINKING", "TOOL_INVOKED", "TOOL_RESULT"}
+    {"AGENT_THINKING", "TOOL_INVOKED", "TOOL_OBSERVATION"}
 ):
     print(event)
 ```

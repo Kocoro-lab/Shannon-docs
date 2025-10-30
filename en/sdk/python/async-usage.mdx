@@ -25,7 +25,7 @@ import asyncio
 from shannon import AsyncShannonClient
 
 async def main():
-    async with AsyncShannonClient(http_endpoint="http://localhost:8080") as client:
+    async with AsyncShannonClient(base_url="http://localhost:8080") as client:
         # Submit task asynchronously
         handle = await client.submit_task(
             query="Analyze this data",
@@ -33,8 +33,8 @@ async def main():
         )
 
         # Get result
-        result = await client.get_status(handle.workflow_id)
-        print(result)
+        result = await client.get_status(handle.task_id)
+        print(result.result)
 
 asyncio.run(main())
 ```
@@ -58,7 +58,7 @@ async def analyze_multiple():
 
         # Get all results
         results = await asyncio.gather(*[
-            client.get_status(h.workflow_id)
+            client.get_status(h.task_id)
             for h in handles
         ])
 
@@ -77,9 +77,10 @@ async def stream():
         # Stream events asynchronously
         async for event in client.stream(handle.workflow_id):
             print(f"[{event.type}] {event.message}")
-
-            if event.type == "TASK_COMPLETED":
-                return event.data.get('result')
+            if event.type == "WORKFLOW_COMPLETED":
+                # Fetch final result after completion
+                final = await client.get_status(handle.task_id)
+                return final.result
 ```
 
 ## Timeout Handling
@@ -96,7 +97,7 @@ async def with_timeout():
 
             # Wait for completion with timeout
             result = await asyncio.wait_for(
-                client.wait(handle.workflow_id),
+                client.wait(handle.task_id),
                 timeout=300.0
             )
 
@@ -111,10 +112,11 @@ Run tasks in background while doing other work:
 ```python
 async def background_processing():
     async with AsyncShannonClient() as client:
-        # Start background task
-        task = asyncio.create_task(
-            client.submit_and_wait("Long running analysis")
-        )
+        # Submit task
+        handle = await client.submit_task(query="Long running analysis")
+
+        # Start background wait
+        task = asyncio.create_task(client.wait(handle.task_id))
 
         # Do other work
         await do_other_work()
@@ -131,18 +133,18 @@ async def background_processing():
 
 ```python
 async def robust_submission():
+    from shannon import ConnectionError, TaskTimeoutError
+
     async with AsyncShannonClient() as client:
         try:
-            handle = await client.submit_task(
-                query="Analyze data",
-                config={"retry": {"max_attempts": 3}}
-            )
-            result = await client.get_status(handle.workflow_id)
+            handle = await client.submit_task(query="Analyze data")
+            result = await client.wait(handle.task_id)
+            return result
 
         except ConnectionError:
             print("Failed to connect to Shannon")
-        except TimeoutError:
-            print("Request timed out")
+        except TaskTimeoutError:
+            print("Task timed out")
         except Exception as e:
             print(f"Error: {e}")
 ```
@@ -161,8 +163,8 @@ client = AsyncShannonClient()
 @app.post("/analyze")
 async def analyze(query: str):
     handle = await client.submit_task(query=query)
-    result = await client.get_status(handle.workflow_id)
-    return {"result": result}
+    result = await client.wait(handle.task_id)
+    return {"result": result.result}
 ```
 
 ### aiohttp Example
@@ -176,9 +178,9 @@ async def analyze_handler(request):
 
     async with AsyncShannonClient() as client:
         handle = await client.submit_task(query=data['query'])
-        result = await client.get_status(handle.workflow_id)
+        result = await client.wait(handle.task_id)
 
-    return web.json_response({'result': result})
+    return web.json_response({'result': result.result})
 ```
 
 ## Best Practices

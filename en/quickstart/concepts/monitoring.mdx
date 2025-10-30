@@ -62,15 +62,31 @@ Monitor Shannon infrastructure:
 curl http://localhost:8080/health
 ```
 
-Response:
+Response (gateway):
 ```json
 {
   "status": "healthy",
-  "version": "1.0.0",
-  "services": {
-    "orchestrator": "healthy",
-    "agent_core": "healthy",
-    "llm_service": "healthy"
+  "version": "0.1.0",
+  "time": "2025-01-20T10:00:00Z",
+  "checks": {
+    "gateway": "ok"
+  }
+}
+```
+
+Readiness (checks orchestrator connectivity):
+```bash
+curl http://localhost:8080/readiness
+```
+
+Response:
+```json
+{
+  "status": "ready",
+  "version": "0.1.0",
+  "time": "2025-01-20T10:00:02Z",
+  "checks": {
+    "orchestrator": "ok"
   }
 }
 ```
@@ -78,17 +94,13 @@ Response:
 ### Component Health
 
 ```python
-from shannon import ShannonClient
+import requests
 
-client = ShannonClient()
+health = requests.get("http://localhost:8080/health").json()
+print("Gateway:", health.get("status"), health.get("checks"))
 
-# Check overall health
-health = # Use REST: requests.get("http://localhost:8080/health")
-print(f"System status: {health.status}")
-
-# Check specific components
-if not health.services.agent_core.healthy:
-    print("Agent core is unhealthy!")
+ready = requests.get("http://localhost:8080/readiness").json()
+print("Readiness:", ready.get("status"), ready.get("checks"))
 ```
 
 ## Logging
@@ -170,15 +182,23 @@ alerts:
 
 ## Prometheus Integration
 
-Export metrics to Prometheus:
+Export metrics to Prometheus (example scrape targets for local dev):
 
 ```yaml
 # prometheus.yml
 scrape_configs:
-  - job_name: 'shannon'
+  - job_name: 'orchestrator'
     static_configs:
-      - targets: ['localhost:9090']
+      - targets: ['localhost:2112']   # Go Orchestrator /metrics
+
+  - job_name: 'agent_core'
+    static_configs:
+      - targets: ['localhost:2113']   # Rust Agent Core /metrics
+
+  - job_name: 'llm_service'
     metrics_path: '/metrics'
+    static_configs:
+      - targets: ['localhost:8000']   # Python LLM Service /metrics
 ```
 
 ### Available Metrics
@@ -243,13 +263,7 @@ client = ShannonClient()
 
 ### Trace Requests
 
-```bash
-# Enable request tracing
-export SHANNON_TRACE=true
-
-# Run with verbose logging
-shannon-cli submit "Analyze data" --verbose
-```
+Use distributed tracing via OpenTelemetry or increase logging verbosity in services. Refer to your observability stack configuration (Jaeger/Tempo) for exporters.
 
 ## Next Steps
 

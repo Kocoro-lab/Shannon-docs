@@ -58,11 +58,12 @@ Authorization: Bearer YOUR_TOKEN
 
 #### 响应
 
-**状态**：`200 OK`
+**状态**：`201 Created`
 
 **响应体**：
 ```json
 {
+  "task_id": "task_01HQZX3Y9K8M2P4N5S7T9W2V",
   "workflow_id": "task_01HQZX3Y9K8M2P4N5S7T9W2V",
   "stream_url": "/api/v1/stream/sse?workflow_id=task_01HQZX3Y9K8M2P4N5S7T9W2V"
 }
@@ -97,7 +98,7 @@ async function submitAndStream(query, onEvent, onComplete, onError) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
-    const { workflow_id, stream_url } = await response.json();
+    const { task_id, workflow_id, stream_url } = await response.json();
     console.log(`任务已提交: ${workflow_id}`);
 
     // 2. 连接到 SSE 流
@@ -111,7 +112,7 @@ async function submitAndStream(query, onEvent, onComplete, onError) {
       onEvent(event);
 
       // 检查完成状态
-      if (event.type === 'WORKFLOW_COMPLETED' || event.type === 'TASK_COMPLETED') {
+      if (event.type === 'WORKFLOW_COMPLETED') {
         eventSource.close();
         onComplete(event);
       }
@@ -173,7 +174,7 @@ function useTaskStream(apiUrl = 'http://localhost:8080') {
 
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-      const { workflow_id, stream_url } = await response.json();
+      const { task_id, workflow_id, stream_url } = await response.json();
       setWorkflowId(workflow_id);
 
       // 连接到流
@@ -184,7 +185,7 @@ function useTaskStream(apiUrl = 'http://localhost:8080') {
         const event = JSON.parse(e.data);
         setEvents(prev => [...prev, event]);
 
-        if (event.type === 'WORKFLOW_COMPLETED' || event.type === 'TASK_COMPLETED' || event.type === 'ERROR_OCCURRED') {
+        if (event.type === 'WORKFLOW_COMPLETED' || event.type === 'ERROR_OCCURRED') {
           eventSource.close();
           setIsStreaming(false);
         }
@@ -350,6 +351,7 @@ def submit_and_stream(query: str, api_key: str):
     )
 
     data = response.json()
+    task_id = data["task_id"]
     workflow_id = data["workflow_id"]
     stream_url = data["stream_url"]
 
@@ -552,8 +554,6 @@ asyncio.run(main())
 |---------|------|---------|
 | `WORKFLOW_STARTED` | 工作流执行开始 | 任务开始 |
 | `WORKFLOW_COMPLETED` | 工作流成功完成 | 任务结束（成功） |
-| `WORKFLOW_FAILED` | 工作流失败并出错 | 任务结束（失败） |
-| `TASK_COMPLETED` | 任务结果可用 | 最终结果就绪 |
 
 ### 代理事件
 
@@ -568,22 +568,23 @@ asyncio.run(main())
 | 事件类型 | 描述 | 载荷字段 |
 |---------|------|---------|
 | `TOOL_INVOKED` | 工具执行已启动 | `tool`、`params` |
-| `TOOL_RESULT` | 工具执行已完成 | `tool`、`result` |
-| `TOOL_ERROR` | 工具执行失败 | `tool`、`error` |
+| `TOOL_OBSERVATION` | 工具结果被观察 | `tool`、`result` |
 
-### 进度事件
-
-| 事件类型 | 描述 | 载荷字段 |
-|---------|------|---------|
-| `PARTIAL_OUTPUT` | 流式 LLM 输出 | `text`、`is_final` |
-| `PROGRESS_UPDATE` | 进度百分比 | `progress`、`message` |
-
-### 错误事件
+### LLM 与进度事件
 
 | 事件类型 | 描述 | 载荷字段 |
 |---------|------|---------|
-| `ERROR` | 发生一般错误 | `error`、`severity` |
-| `TIMEOUT` | 任务超出超时 | `timeout_seconds` |
+| `LLM_PROMPT` | 发送给 LLM 的提示 | `text` |
+| `LLM_PARTIAL` | 流式 LLM 输出 | `text` |
+| `LLM_OUTPUT` | 最终 LLM 输出 | `text` |
+| `PROGRESS` | 进度更新 | `progress`、`message` |
+
+### 系统与错误事件
+
+| 事件类型 | 描述 | 载荷字段 |
+|---------|------|---------|
+| `ERROR_OCCURRED` | 发生错误 | `error`、`severity` |
+| `ERROR_RECOVERY` | 错误恢复尝试 | `message` |
 
 ## 代码示例
 
@@ -612,7 +613,7 @@ def stream_task_events(task_id: str, api_key: str):
 for event in stream_task_events("task_abc123", "sk_test_123456"):
     print(f"[{event.get('type')}] {event.get('message', '')}")
 
-    if event.get('type') == 'TASK_COMPLETED':
+    if event.get('type') == 'WORKFLOW_COMPLETED':
         print("最终结果：", event.get('result'))
         break
 ```

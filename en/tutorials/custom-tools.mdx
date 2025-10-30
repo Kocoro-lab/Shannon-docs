@@ -742,8 +742,9 @@ OPENAPI_RETRIES=2                    # Retry attempts (default: 2)
 ### Health Checks
 
 ```bash
-# Check service health
-curl http://localhost:8081/health | jq .
+# Check admin service health
+curl http://localhost:8081/health/ready | jq .
+curl http://localhost:8081/health/live | jq .
 
 # Check LLM service status
 docker inspect shannon-llm-service-1 --format='{{.State.Health.Status}}'

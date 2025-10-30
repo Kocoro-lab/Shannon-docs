@@ -249,10 +249,11 @@ make seed-api-key
 
 ```python
 import os
+from shannon import ShannonClient
 
 client = ShannonClient(
-    http_endpoint=os.environ["SHANNON_ENDPOINT"],
-    api_key=os.environ["SHANNON_API_KEY"]
+    base_url=os.environ["SHANNON_BASE_URL"],
+    api_key=os.environ["SHANNON_API_KEY"],
 )
 ```
 
