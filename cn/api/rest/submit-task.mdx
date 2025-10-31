@@ -40,6 +40,8 @@ X-API-Key: sk_test_123456
 | `query` | string | 是 | 自然语言任务描述 |
 | `session_id` | string | 否 | 多轮对话的会话标识符 |
 | `context` | object | 否 | 作为键值对的附加上下文数据 |
+| `mode` | string | 否 | 执行模式：`simple` 或 `supervisor` |
+| `model_tier` | string | 否 | 模型层级：`small`、`medium`、`large` |
 
 ### 请求体架构
 
@@ -47,12 +49,45 @@ X-API-Key: sk_test_123456
 {
   "query": "string (必需)",
   "session_id": "string (可选)",
+  "mode": "simple | supervisor (可选)",
+  "model_tier": "small | medium | large (可选)",
   "context": {
-    "key1": "value1",
-    "key2": "value2"
+    "role": "analysis",
+    "system_prompt": "你是一个简洁的助手。",
+    "prompt_params": {"profile_id": "49598h6e", "current_date": "2025-10-25"},
+    "model_tier": "large",
+    "model_override": "gpt-4.1",
+    "template": "research_summary",
+    "template_version": "1.0.0",
+    "template_name": "research_summary",
+    "disable_ai": true,
+    "history_window_size": 75,
+    "primers_count": 3,
+    "recents_count": 20,
+    "compression_trigger_ratio": 0.75,
+    "compression_target_ratio": 0.375
   }
 }
 ```
+
+### 上下文参数 (`context.*`)
+
+支持的键：
+
+- `role` — 角色预设（如 `analysis`、`research`、`writer`）
+- `system_prompt` — 覆盖角色提示；支持从 `prompt_params` 引用 `${var}`
+- `prompt_params` — 提示/工具的自定义参数
+- `model_tier` — 当顶层未提供时作为回退
+- `model_override` — 指定具体模型（如 `gpt-4.1`）
+- `template` — 模板名称（别名：`template_name`）
+- `template_version` — 模板版本
+- `disable_ai` — 仅模板模式（不回退到 AI）
+- 窗口控制：`history_window_size`、`use_case_preset`、`primers_count`、`recents_count`、`compression_trigger_ratio`、`compression_target_ratio`
+
+规则：
+- 顶层 `model_tier` 优先于 `context.model_tier`。
+- `mode` 仅支持 `simple|supervisor`。
+- `model_tier` 仅支持 `small|medium|large`。
 
 ## 响应
 
@@ -150,8 +185,46 @@ curl -X POST http://localhost:8080/api/v1/tasks \\
       "user_id": "user_12345",
       "feedback_type": "bug_report",
       "severity": "high",
-      "product": "mobile_app"
+      "product": "mobile_app",
+      "role": "analysis",
+      "model_override": "gpt-4.1"
     }
+  }'
+```
+
+### 强制层级（顶层）
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \\
+  -H "X-API-Key: sk_test_123456" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "query": "复杂分析",
+    "model_tier": "large"
+  }'
+```
+
+### 仅模板执行
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \\
+  -H "X-API-Key: sk_test_123456" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "query": "每周研究简报",
+    "context": {"template": "research_summary", "template_version": "1.0.0", "disable_ai": true}
+  }'
+```
+
+### 监督者模式（Supervisor）
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \\
+  -H "X-API-Key: sk_test_123456" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "query": "评估系统可靠性",
+    "mode": "supervisor"
   }'
 ```
 

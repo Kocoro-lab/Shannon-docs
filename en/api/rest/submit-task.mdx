@@ -40,6 +40,8 @@ X-API-Key: sk_test_123456
 | `query` | string | Yes | Natural language task description |
 | `session_id` | string | No | Session identifier for multi-turn conversations |
 | `context` | object | No | Additional context data as key-value pairs |
+| `mode` | string | No | Execution mode hint: `simple` or `supervisor` |
+| `model_tier` | string | No | Preferred tier: `small`, `medium`, or `large` |
 
 ### Request Body Schema
 
@@ -47,12 +49,45 @@ X-API-Key: sk_test_123456
 {
   "query": "string (required)",
   "session_id": "string (optional)",
+  "mode": "simple | supervisor (optional)",
+  "model_tier": "small | medium | large (optional)",
   "context": {
-    "key1": "value1",
-    "key2": "value2"
+    "role": "analysis",
+    "system_prompt": "You are a concise assistant.",
+    "prompt_params": {"profile_id": "49598h6e", "current_date": "2025-10-25"},
+    "model_tier": "large",
+    "model_override": "gpt-4.1",
+    "template": "research_summary",
+    "template_version": "1.0.0",
+    "template_name": "research_summary",
+    "disable_ai": true,
+    "history_window_size": 75,
+    "primers_count": 3,
+    "recents_count": 20,
+    "compression_trigger_ratio": 0.75,
+    "compression_target_ratio": 0.375
   }
 }
 ```
+
+### Context Parameters
+
+Recognized keys in `context`:
+
+- `role` — role preset (e.g., `analysis`, `research`, `writer`)
+- `system_prompt` — overrides role prompt; supports `${var}` from `prompt_params`
+- `prompt_params` — arbitrary parameters for prompts/tools/adapters
+- `model_tier` — fallback when top‑level not provided
+- `model_override` — specific model (e.g., `gpt-4.1`)
+- `template` — template name (alias: `template_name`)
+- `template_version` — template version
+- `disable_ai` — true to require template only (no AI fallback)
+- Advanced context window controls: `history_window_size`, `use_case_preset`, `primers_count`, `recents_count`, `compression_trigger_ratio`, `compression_target_ratio`
+
+Rules:
+- Top‑level `model_tier` overrides `context.model_tier`.
+- `mode` only accepts `simple|supervisor`.
+- `model_tier` only accepts `small|medium|large`.
 
 ## Response
 
@@ -150,8 +185,46 @@ curl -X POST http://localhost:8080/api/v1/tasks \
       "user_id": "user_12345",
       "feedback_type": "bug_report",
       "severity": "high",
-      "product": "mobile_app"
+      "product": "mobile_app",
+      "role": "analysis",
+      "model_override": "gpt-4.1"
     }
+  }'
+```
+
+### Force Tier (Top‑Level)
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Complex analysis",
+    "model_tier": "large"
+  }'
+```
+
+### Template‑Only Execution
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Weekly research briefing",
+    "context": {"template": "research_summary", "template_version": "1.0.0", "disable_ai": true}
+  }'
+```
+
+### Supervisor Mode
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Assess system reliability",
+    "mode": "supervisor"
   }'
 ```
 
