@@ -50,10 +50,8 @@ X-API-Key: sk_test_123456
 {
   "task_id": "string",
   "status": "string",
-  "response": {
-    "result": "string",
-    "metadata": {}
-  },
+  "result": "string",
+  "response": {},
   "error": "string",
   "created_at": "timestamp",
   "updated_at": "timestamp",
@@ -69,7 +67,8 @@ X-API-Key: sk_test_123456
 |------|------|------|
 | `task_id` | string | 唯一任务标识符 |
 | `status` | string | 当前任务状态 |
-| `response` | object | 任务结果（未完成时为 null） |
+| `result` | string | 原始 LLM 输出（纯文本或 JSON 字符串） |
+| `response` | object | 解析后的 JSON（仅当 `result` 可解析为 JSON 时出现） |
 | `error` | string | 错误消息（无错误时为空） |
 | `created_at` | timestamp | 任务创建时间 |
 | `updated_at` | timestamp | 最后更新时间 |
@@ -140,11 +139,7 @@ curl -X GET "http://localhost:8080/api/v1/tasks/task_01HQZX3Y9K8M2P4N5S7T9W2V" \
 {
   "task_id": "task_01HQZX3Y9K8M2P4N5S7T9W2V",
   "status": "TASK_STATUS_COMPLETED",
-  "response": {
-    "result": "法国的首都是巴黎。巴黎自 987 年以来一直是首都，位于法国的中北部。",
-    "confidence": 1.0,
-    "sources": []
-  },
+  "result": "法国的首都是巴黎。巴黎自 987 年以来一直是首都，位于法国的中北部。",
   "error": "",
   "created_at": "2025-10-22T10:30:00Z",
   "updated_at": "2025-10-22T10:30:05Z",
@@ -215,10 +210,10 @@ def get_task_status(task_id: str, api_key: str):
     return response.json()
 
 status = get_task_status("task_abc123", "sk_test_123456")
-if status:
-    print(f"状态：{status['status']}")
-    if status['status'] == 'TASK_STATUS_COMPLETED':
-        print(f"结果：{status['response']['result']}")
+    if status:
+        print(f"状态：{status['status']}")
+        if status['status'] == 'TASK_STATUS_COMPLETED':
+            print(f"结果：{status.get('result', '')}")
 ```
 
 ### Python - 轮询直到完成
@@ -242,7 +237,7 @@ def wait_for_completion(task_id: str, api_key: str, timeout: int = 300):
 
         # 检查终止状态
         if current_status == "TASK_STATUS_COMPLETED":
-            return status["response"]
+            return status.get("result", "")
         elif current_status == "TASK_STATUS_FAILED":
             raise Exception(f"任务失败：{status['error']}")
         elif current_status == "TASK_STATUS_TIMEOUT":

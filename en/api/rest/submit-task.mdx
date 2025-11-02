@@ -40,35 +40,69 @@ X-API-Key: sk_test_123456
 | `query` | string | Yes | Natural language task description |
 | `session_id` | string | No | Session identifier for multi-turn conversations |
 | `context` | object | No | Additional context data as key-value pairs |
-| `mode` | string | No | Execution mode hint: `simple` or `supervisor` |
+| `mode` | string | No | Workflow routing: `simple`, `standard`, `complex`, or `supervisor` |
 | `model_tier` | string | No | Preferred tier: `small`, `medium`, or `large` |
+| `model_override` | string | No | Specific model name (e.g., `gpt-4o`, `claude-sonnet-4-5-20250929`) |
+| `provider_override` | string | No | Force provider (e.g., `openai`, `anthropic`, `google`) |
 
 ### Request Body Schema
 
+**Example 1: General AI-powered execution**
+
 ```json
 {
-  "query": "string (required)",
-  "session_id": "string (optional)",
-  "mode": "simple | supervisor (optional)",
-  "model_tier": "small | medium | large (optional)",
-  "context": {
-    "role": "analysis",
-    "system_prompt": "You are a concise assistant.",
-    "prompt_params": {"profile_id": "49598h6e", "current_date": "2025-10-25"},
-    "model_tier": "large",
-    "model_override": "gpt-4.1",
-    "template": "research_summary",
-    "template_version": "1.0.0",
-    "template_name": "research_summary",
-    "disable_ai": true,
-    "history_window_size": 75,
-    "primers_count": 3,
-    "recents_count": 20,
-    "compression_trigger_ratio": 0.75,
-    "compression_target_ratio": 0.375
+  "query": "Analyze August website traffic trends",              // REQUIRED: Task to execute
+  "session_id": "analytics-session-123",                        // OPTIONAL: Session ID for multi-turn conversations (auto-generated if omitted)
+  "mode": "supervisor",                                         // OPTIONAL: Workflow routing - "simple", "standard", "complex", or "supervisor" (default: auto-detect)
+  "model_tier": "large",                                        // OPTIONAL: Model size - "small", "medium", or "large" (default: "small")
+  "model_override": "gpt-4o",                                   // OPTIONAL: Specific model (supports aliases like "gpt-5" → "gpt-4o")
+  "provider_override": "openai",                                // OPTIONAL: Force specific provider
+  "context": {                                                  // OPTIONAL: Execution context object
+    "role": "data_analytics",                                   // OPTIONAL: Role preset name (e.g., "analysis", "research", "writer")
+    "system_prompt": "You are a data analyst...",              // OPTIONAL: Custom system prompt (overrides role preset)
+    "prompt_params": {                                         // OPTIONAL: Arbitrary key-value pairs for prompts/tools/adapters
+      "profile_id": "49598h6e",                                // EXAMPLE: Custom parameter (passed to tools/adapters)
+      "aid": "fcb1cd29-9104-47b1-b914-31db6ba30c1a",          // EXAMPLE: Custom parameter (application ID)
+      "current_date": "2025-10-31"                             // EXAMPLE: Custom parameter (current date)
+    },
+    "history_window_size": 75,                                 // OPTIONAL: Max conversation history messages (default: 50)
+    "primers_count": 3,                                        // OPTIONAL: Number of early messages to keep (default: 5)
+    "recents_count": 20,                                       // OPTIONAL: Number of recent messages to keep (default: 15)
+    "compression_trigger_ratio": 0.75,                         // OPTIONAL: Trigger compression at 75% of window (default: 0.8)
+    "compression_target_ratio": 0.375                          // OPTIONAL: Compress to 37.5% of window (default: 0.5)
   }
 }
 ```
+
+**Example 2: Template-only execution (no AI)**
+
+```json
+{
+  "query": "Generate weekly research briefing",                 // REQUIRED: Task description
+  "session_id": "research-session-456",                        // OPTIONAL: Session ID
+  "context": {                                                  // OPTIONAL: Context object
+    "template": "research_summary",                            // OPTIONAL: Template name to use
+    "template_version": "1.0.0",                               // OPTIONAL: Template version (default: latest)
+    "disable_ai": true,                                        // OPTIONAL: Template-only mode, no AI fallback (default: false)
+    "prompt_params": {                                         // OPTIONAL: Parameters for template rendering
+      "week": "2025-W44"                                       // EXAMPLE: Custom parameter for template
+    }
+  }
+}
+```
+
+<Warning>
+**Parameter Conflicts to Avoid:**
+- Don't use both `template` and `template_name` (they're aliases - use `template` only)
+- **Don't combine `disable_ai: true` with model controls** - Gateway returns 400 error when conflicts detected:
+  - `disable_ai: true` + `model_tier` → 400
+  - `disable_ai: true` + `model_override` → 400
+  - `disable_ai: true` + `provider_override` → 400
+- Top-level parameters override context equivalents:
+  - Top-level `model_tier` overrides `context.model_tier`
+  - Top-level `model_override` overrides `context.model_override`
+  - Top-level `provider_override` overrides `context.provider_override`
+</Warning>
 
 ### Context Parameters
 
@@ -78,16 +112,23 @@ Recognized keys in `context`:
 - `system_prompt` — overrides role prompt; supports `${var}` from `prompt_params`
 - `prompt_params` — arbitrary parameters for prompts/tools/adapters
 - `model_tier` — fallback when top‑level not provided
-- `model_override` — specific model (e.g., `gpt-4.1`)
+- `model_override` — specific model (e.g., `gpt-4o`, `gpt-4o-mini`, `o1`) — supports aliases
+- `provider_override` — force provider (e.g., `openai`, `anthropic`, `google`)
 - `template` — template name (alias: `template_name`)
 - `template_version` — template version
-- `disable_ai` — true to require template only (no AI fallback)
+- `disable_ai` — true to require template only (no AI fallback) — **cannot combine with model controls**
 - Advanced context window controls: `history_window_size`, `use_case_preset`, `primers_count`, `recents_count`, `compression_trigger_ratio`, `compression_target_ratio`
 
 Rules:
-- Top‑level `model_tier` overrides `context.model_tier`.
-- `mode` only accepts `simple|supervisor`.
-- `model_tier` only accepts `small|medium|large`.
+- Top‑level parameters override context equivalents: `model_tier`, `model_override`, `provider_override`
+- `mode` accepts: `simple|standard|complex|supervisor` (default: auto-detect)
+- `model_tier` accepts: `small|medium|large`
+- **Conflict validation**: `disable_ai: true` cannot combine with `model_tier`, `model_override`, or `provider_override` (returns 400)
+
+Model Aliases:
+- `gpt-5` → `gpt-4o`
+- `o3-mini` → `gpt-4o-mini`
+- Aliases provide user-friendly names and prevent errors
 
 ## Response
 
@@ -187,7 +228,7 @@ curl -X POST http://localhost:8080/api/v1/tasks \
       "severity": "high",
       "product": "mobile_app",
       "role": "analysis",
-      "model_override": "gpt-4.1"
+      "model_override": "gpt-4o"
     }
   }'
 ```

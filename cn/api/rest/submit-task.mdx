@@ -40,35 +40,69 @@ X-API-Key: sk_test_123456
 | `query` | string | 是 | 自然语言任务描述 |
 | `session_id` | string | 否 | 多轮对话的会话标识符 |
 | `context` | object | 否 | 作为键值对的附加上下文数据 |
-| `mode` | string | 否 | 执行模式：`simple` 或 `supervisor` |
+| `mode` | string | 否 | 工作流路由：`simple`、`standard`、`complex` 或 `supervisor` |
 | `model_tier` | string | 否 | 模型层级：`small`、`medium`、`large` |
+| `model_override` | string | 否 | 指定模型名称（如 `gpt-4o`、`claude-sonnet-4-5-20250929`） |
+| `provider_override` | string | 否 | 强制指定提供商（如 `openai`、`anthropic`、`google`） |
 
 ### 请求体架构
 
+**示例 1：通用 AI 驱动执行**
+
 ```json
 {
-  "query": "string (必需)",
-  "session_id": "string (可选)",
-  "mode": "simple | supervisor (可选)",
-  "model_tier": "small | medium | large (可选)",
-  "context": {
-    "role": "analysis",
-    "system_prompt": "你是一个简洁的助手。",
-    "prompt_params": {"profile_id": "49598h6e", "current_date": "2025-10-25"},
-    "model_tier": "large",
-    "model_override": "gpt-4.1",
-    "template": "research_summary",
-    "template_version": "1.0.0",
-    "template_name": "research_summary",
-    "disable_ai": true,
-    "history_window_size": 75,
-    "primers_count": 3,
-    "recents_count": 20,
-    "compression_trigger_ratio": 0.75,
-    "compression_target_ratio": 0.375
+  "query": "分析 8 月份网站流量趋势",                             // 必需：要执行的任务
+  "session_id": "analytics-session-123",                        // 可选：多轮对话的会话 ID（若省略则自动生成）
+  "mode": "supervisor",                                         // 可选：工作流路由 - "simple"、"standard"、"complex" 或 "supervisor"（默认：自动检测）
+  "model_tier": "large",                                        // 可选：模型大小 - "small"、"medium" 或 "large"（默认："small"）
+  "model_override": "gpt-4o",                                   // 可选：指定模型（支持别名如 "gpt-5" → "gpt-4o"）
+  "provider_override": "openai",                                // 可选：强制指定提供商
+  "context": {                                                  // 可选：执行上下文对象
+    "role": "data_analytics",                                   // 可选：角色预设名称（如 "analysis"、"research"、"writer"）
+    "system_prompt": "你是专注于网站分析的数据分析师。",         // 可选：自定义系统提示（覆盖角色预设）
+    "prompt_params": {                                         // 可选：提示/工具/适配器的任意键值对
+      "profile_id": "49598h6e",                                // 示例：自定义参数（传递给工具/适配器）
+      "aid": "fcb1cd29-9104-47b1-b914-31db6ba30c1a",          // 示例：自定义参数（应用程序 ID）
+      "current_date": "2025-10-31"                             // 示例：自定义参数（当前日期）
+    },
+    "history_window_size": 75,                                 // 可选：最大对话历史消息数（默认：50）
+    "primers_count": 3,                                        // 可选：保留的早期消息数（默认：5）
+    "recents_count": 20,                                       // 可选：保留的最近消息数（默认：15）
+    "compression_trigger_ratio": 0.75,                         // 可选：在窗口的 75% 时触发压缩（默认：0.8）
+    "compression_target_ratio": 0.375                          // 可选：压缩到窗口的 37.5%（默认：0.5）
   }
 }
 ```
+
+**示例 2：仅模板执行（无 AI）**
+
+```json
+{
+  "query": "生成每周研究简报",                                    // 必需：任务描述
+  "session_id": "research-session-456",                        // 可选：会话 ID
+  "context": {                                                  // 可选：上下文对象
+    "template": "research_summary",                            // 可选：要使用的模板名称
+    "template_version": "1.0.0",                               // 可选：模板版本（默认：最新）
+    "disable_ai": true,                                        // 可选：仅模板模式，无 AI 回退（默认：false）
+    "prompt_params": {                                         // 可选：模板渲染的参数
+      "week": "2025-W44"                                       // 示例：模板的自定义参数
+    }
+  }
+}
+```
+
+<Warning>
+**避免参数冲突：**
+- 不要同时使用 `template` 和 `template_name`（它们是别名 - 仅使用 `template`）
+- **不要将 `disable_ai: true` 与模型控制参数组合使用** - 网关检测到冲突时会返回 400 错误：
+  - `disable_ai: true` + `model_tier` → 400
+  - `disable_ai: true` + `model_override` → 400
+  - `disable_ai: true` + `provider_override` → 400
+- 顶层参数会覆盖上下文中的等效参数：
+  - 顶层 `model_tier` 会覆盖 `context.model_tier`
+  - 顶层 `model_override` 会覆盖 `context.model_override`
+  - 顶层 `provider_override` 会覆盖 `context.provider_override`
+</Warning>
 
 ### 上下文参数 (`context.*`)
 
@@ -78,16 +112,23 @@ X-API-Key: sk_test_123456
 - `system_prompt` — 覆盖角色提示；支持从 `prompt_params` 引用 `${var}`
 - `prompt_params` — 提示/工具的自定义参数
 - `model_tier` — 当顶层未提供时作为回退
-- `model_override` — 指定具体模型（如 `gpt-4.1`）
+- `model_override` — 指定具体模型（如 `gpt-4o`、`gpt-4o-mini`、`o1`）- 支持别名
+- `provider_override` — 强制指定提供商（如 `openai`、`anthropic`、`google`）
 - `template` — 模板名称（别名：`template_name`）
 - `template_version` — 模板版本
-- `disable_ai` — 仅模板模式（不回退到 AI）
+- `disable_ai` — 仅模板模式（不回退到 AI）- **不能与模型控制参数组合使用**
 - 窗口控制：`history_window_size`、`use_case_preset`、`primers_count`、`recents_count`、`compression_trigger_ratio`、`compression_target_ratio`
 
 规则：
-- 顶层 `model_tier` 优先于 `context.model_tier`。
-- `mode` 仅支持 `simple|supervisor`。
-- `model_tier` 仅支持 `small|medium|large`。
+- 顶层参数会覆盖上下文中的等效参数：`model_tier`、`model_override`、`provider_override`
+- `mode` 支持：`simple|standard|complex|supervisor`（默认：自动检测）
+- `model_tier` 支持：`small|medium|large`
+- **冲突验证**：`disable_ai: true` 不能与 `model_tier`、`model_override` 或 `provider_override` 组合使用（返回 400）
+
+模型别名：
+- `gpt-5` → `gpt-4o`
+- `o3-mini` → `gpt-4o-mini`
+- 别名提供用户友好的名称并防止错误
 
 ## 响应
 
@@ -187,7 +228,7 @@ curl -X POST http://localhost:8080/api/v1/tasks \\
       "severity": "high",
       "product": "mobile_app",
       "role": "analysis",
-      "model_override": "gpt-4.1"
+      "model_override": "gpt-4o"
     }
   }'
 ```

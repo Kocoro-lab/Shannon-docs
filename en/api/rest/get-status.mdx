@@ -50,10 +50,8 @@ X-API-Key: sk_test_123456
 {
   "task_id": "string",
   "status": "string",
-  "response": {
-    "result": "string",
-    "metadata": {}
-  },
+  "result": "string",
+  "response": {},
   "error": "string",
   "created_at": "timestamp",
   "updated_at": "timestamp",
@@ -69,7 +67,8 @@ X-API-Key: sk_test_123456
 |-------|------|-------------|
 | `task_id` | string | Unique task identifier |
 | `status` | string | Current task status |
-| `response` | object | Task result (null if not completed) |
+| `result` | string | Raw LLM output (plain text or JSON string) |
+| `response` | object | Parsed JSON (only present if `result` contains valid JSON) |
 | `error` | string | Error message (empty if no error) |
 | `created_at` | timestamp | Task creation time |
 | `updated_at` | timestamp | Last update time |
@@ -139,11 +138,7 @@ curl -X GET "http://localhost:8080/api/v1/tasks/task_01HQZX3Y9K8M2P4N5S7T9W2V" \
 {
   "task_id": "task_01HQZX3Y9K8M2P4N5S7T9W2V",
   "status": "TASK_STATUS_COMPLETED",
-  "response": {
-    "result": "The capital of France is Paris. Paris has been the capital since 987 AD and is located in the north-central part of the country.",
-    "confidence": 1.0,
-    "sources": []
-  },
+  "result": "The capital of France is Paris. Paris has been the capital since 987 AD and is located in the north-central part of the country.",
   "error": "",
   "created_at": "2025-10-22T10:30:00Z",
   "updated_at": "2025-10-22T10:30:05Z",
