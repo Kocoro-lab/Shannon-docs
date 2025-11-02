@@ -109,7 +109,7 @@ SERVICE_NAME=shannon-llm-service
 OPENAI_API_KEY=sk-...
 ```
 
-**启用的模型**: GPT-4, GPT-4o, GPT-4o-mini, GPT-3.5-turbo
+**启用的模型**: GPT-5, GPT-5-mini, GPT-5-nano
 
 ### ANTHROPIC_API_KEY
 
@@ -635,21 +635,21 @@ DEFAULT_MODEL_TIER=small
 ```
 
 **层级**:
-- `small`: GPT-4o-mini, Claude Haiku (~$0.15/1M tokens)
-- `medium`: GPT-4o, Claude Sonnet (~$3-15/1M tokens)
-- `large`: GPT-4, Claude Opus (~$15-75/1M tokens)
+- `small`: GPT-5o-mini, Claude Haiku (~$0.15/1M tokens)
+- `medium`: GPT-5o, Claude Sonnet (~$3-15/1M tokens)
+- `large`: GPT-5, Claude Opus (~$15-75/1M tokens)
 
 ### COMPLEXITY_MODEL_ID
 
 **类型**: String
-**默认值**: `gpt-4o`
+**默认值**: `gpt-5`
 **服务**: Orchestrator
 **热重载**: 是
 
 用于复杂度分析的模型。
 
 ```bash
-COMPLEXITY_MODEL_ID=gpt-4o
+COMPLEXITY_MODEL_ID=gpt-5
 ```
 
 ### DECOMPOSITION_MODEL_ID

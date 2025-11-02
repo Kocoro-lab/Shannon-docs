@@ -224,12 +224,12 @@ package shannon.models
 # Only allow specific models per team
 allowed_models[user.team] contains model if {
     user.team == "cost-sensitive"
-    model in ["gpt-4o-mini", "claude-haiku"]
+    model in ["gpt-5-mini", "claude-haiku"]
 }
 
 allowed_models[user.team] contains model if {
     user.team == "premium"
-    model in ["gpt-4", "claude-opus", "gpt-4o", "claude-sonnet"]
+    model in ["gpt-5-thinking", "claude-opus", "gpt-5", "claude-sonnet"]
 }
 ```
 

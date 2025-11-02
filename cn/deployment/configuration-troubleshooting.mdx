@@ -420,7 +420,7 @@ docker compose exec orchestrator env | grep MODEL
 ```bash
 # 在 .env 中使用有效的模型 ID
 DEFAULT_MODEL_TIER=small
-COMPLEXITY_MODEL_ID=gpt-4o  # 验证此模型存在
+COMPLEXITY_MODEL_ID=gpt-5  # 验证此模型存在
 DECOMPOSITION_MODEL_ID=claude-sonnet-4-20250514
 
 # 或在 models.yaml 中配置
@@ -450,7 +450,7 @@ MAX_TOKENS_PER_REQUEST=20000  # 从 10000 提高
 docker compose restart orchestrator
 
 # 或使用更便宜的模型
-DEFAULT_MODEL_TIER=small  # 使用 GPT-4o-mini 代替 GPT-4
+DEFAULT_MODEL_TIER=small  # 使用 GPT-5o-mini 代替 GPT-5
 ```
 
 #### 预算执行未生效
@@ -522,7 +522,7 @@ docker compose restart llm-service
 **解决方案 3**: 优化模型选择
 ```bash
 # 使用更快的模型
-DEFAULT_MODEL_TIER=small  # GPT-4o-mini 比 GPT-4 快 10 倍
+DEFAULT_MODEL_TIER=small  # GPT-5o-mini 比 GPT-5 快 10 倍
 ```
 
 #### 高内存使用

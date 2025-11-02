@@ -123,8 +123,8 @@ Shannon 会根据查询复杂度自动将复杂查询分解为多智能体工作
 由语言模型驱动的决策核心：
 
 - **模型选择**：Shannon 根据任务复杂度自动选择模型
-  - 小型任务 → `gpt-4o-mini`、`claude-haiku`
-  - 复杂任务 → `gpt-4o`、`claude-opus`
+  - 小型任务 → `gpt-5-mini`、`claude-haiku`
+  - 复杂任务 → `gpt-5`、`claude-opus`
 - **上下文管理**：自动管理上下文窗口
 - **缓存**：在适用时重用之前的 LLM 响应
 
@@ -179,9 +179,9 @@ Shannon 根据配置的层级自动选择模型：
 
 | 层级 | 模型 | 用例 | 成本 |
 |------|--------|----------|------|
-| **SMALL** | gpt-4o-mini、claude-haiku | 简单查询、高容量 | $ |
-| **MEDIUM** | gpt-4o、claude-sonnet | 通用目的 | $$ |
-| **LARGE** | gpt-4、claude-opus | 复杂推理、关键任务 | $$$ |
+| **SMALL** | gpt-5-mini、claude-haiku | 简单查询、高容量 | $ |
+| **MEDIUM** | gpt-5、claude-sonnet | 通用目的 | $$ |
+| **LARGE** | gpt-5-thinking、claude-opus | 复杂推理、关键任务 | $$$ |
 
 <Tip>
 Shannon 的智能路由器为每个任务选择最具成本效益的模型，通常可节省 60–90% 的成本（取决于工作负载）。
@@ -255,7 +255,7 @@ package shannon.teams.datascience
 
 allow {
     input.team == "data-science"
-    input.model in ["gpt-4o", "claude-sonnet"]
+    input.model in ["gpt-5", "claude-sonnet"]
 }
 
 max_tokens = 50000 {

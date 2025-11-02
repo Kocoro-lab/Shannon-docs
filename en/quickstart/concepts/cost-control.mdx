@@ -30,9 +30,9 @@ Shannon categorizes models into tiers based on capability and cost:
 
 | Tier | Models | Cost per 1M tokens | Use Case |
 |------|--------|-------------------|----------|
-| **SMALL** | gpt-4o-mini<br/>claude-haiku | $0.15 - $0.25 | Simple queries, high volume |
-| **MEDIUM** | gpt-4o<br/>claude-sonnet | $3.00 - $15.00 | General purpose tasks |
-| **LARGE** | gpt-4<br/>claude-opus | $15.00 - $75.00 | Complex reasoning, critical tasks |
+| **SMALL** | gpt-5-mini<br/>claude-haiku | $0.15 - $0.25 | Simple queries, high volume |
+| **MEDIUM** | gpt-5<br/>claude-sonnet | $3.00 - $15.00 | General purpose tasks |
+| <strong>LARGE</strong> | gpt-5-thinking<br/>claude-opus | $15.00 - $75.00 | Complex reasoning, critical tasks |
 
 ### Explicit Tier Preference
 
@@ -57,13 +57,13 @@ Shannon's learning router automatically selects the cheapest model capable of ha
 
 ```python
 # Without intelligent routing
-Traditional: Always use GPT-4 → $0.50 per task
+Traditional: Always use GPT-5 → $0.50 per task
 
 # With Shannon's routing
 Shannon:
-  - 70% routed to gpt-4o-mini → $0.01
-  - 25% routed to gpt-4o → $0.15
-  - 5% routed to gpt-4 → $0.50
+  - 70% routed to gpt-5-mini → $0.01
+  - 25% routed to gpt-5 → $0.15
+  - 5% routed to gpt-5-thinking → $0.50
 Example average: $0.05 per task (~90% savings)
 ```
 
@@ -272,7 +272,7 @@ for query in simple_tasks:
         total_cost += status.metrics.cost_usd
 
 print(f"Total cost for 3 tasks: ${total_cost:.4f}")
-# Example: ~$0.006 (~90% savings vs always GPT-4)
+# Example: ~$0.006 (~90% savings vs always GPT-5)
 ```
 
 ## Next Steps

@@ -420,7 +420,7 @@ docker compose exec orchestrator env | grep MODEL
 ```bash
 # Use valid model IDs in .env
 DEFAULT_MODEL_TIER=small
-COMPLEXITY_MODEL_ID=gpt-4o  # Verify this exists
+COMPLEXITY_MODEL_ID=gpt-5  # Verify this exists
 DECOMPOSITION_MODEL_ID=claude-sonnet-4-20250514
 
 # Or configure in models.yaml
@@ -450,7 +450,7 @@ MAX_TOKENS_PER_REQUEST=20000  # Increase from 10000
 docker compose restart orchestrator
 
 # Or use cheaper models
-DEFAULT_MODEL_TIER=small  # Use GPT-4o-mini instead of GPT-4
+DEFAULT_MODEL_TIER=small  # Use GPT-5o-mini instead of GPT-5
 ```
 
 #### Budget Enforcement Not Working
@@ -522,7 +522,7 @@ docker compose restart llm-service
 **Solution 3**: Optimize model selection
 ```bash
 # Use faster models
-DEFAULT_MODEL_TIER=small  # GPT-4o-mini is 10x faster than GPT-4
+DEFAULT_MODEL_TIER=small  # GPT-5o-mini is 10x faster than GPT-5
 ```
 
 #### High Memory Usage

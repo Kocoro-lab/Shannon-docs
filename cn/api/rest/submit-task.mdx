@@ -42,7 +42,7 @@ X-API-Key: sk_test_123456
 | `context` | object | 否 | 作为键值对的附加上下文数据 |
 | `mode` | string | 否 | 工作流路由：`simple`、`standard`、`complex` 或 `supervisor` |
 | `model_tier` | string | 否 | 模型层级：`small`、`medium`、`large` |
-| `model_override` | string | 否 | 指定模型名称（如 `gpt-4o`、`claude-sonnet-4-5-20250929`） |
+| `model_override` | string | 否 | 指定模型名称（规范 ID；例如 `gpt-5`、`claude-sonnet-4-5-20250929`） |
 | `provider_override` | string | 否 | 强制指定提供商（如 `openai`、`anthropic`、`google`） |
 
 ### 请求体架构
@@ -55,7 +55,7 @@ X-API-Key: sk_test_123456
   "session_id": "analytics-session-123",                        // 可选：多轮对话的会话 ID（若省略则自动生成）
   "mode": "supervisor",                                         // 可选：工作流路由 - "simple"、"standard"、"complex" 或 "supervisor"（默认：自动检测）
   "model_tier": "large",                                        // 可选：模型大小 - "small"、"medium" 或 "large"（默认："small"）
-  "model_override": "gpt-4o",                                   // 可选：指定模型（支持别名如 "gpt-5" → "gpt-4o"）
+  "model_override": "gpt-5",                                   // 可选：指定模型（规范 ID）
   "provider_override": "openai",                                // 可选：强制指定提供商
   "context": {                                                  // 可选：执行上下文对象
     "role": "data_analytics",                                   // 可选：角色预设名称（如 "analysis"、"research"、"writer"）
@@ -112,7 +112,7 @@ X-API-Key: sk_test_123456
 - `system_prompt` — 覆盖角色提示；支持从 `prompt_params` 引用 `${var}`
 - `prompt_params` — 提示/工具的自定义参数
 - `model_tier` — 当顶层未提供时作为回退
-- `model_override` — 指定具体模型（如 `gpt-4o`、`gpt-4o-mini`、`o1`）- 支持别名
+- `model_override` — 指定具体模型（规范 ID；例如 `gpt-5`、`claude-sonnet-4-5-20250929`）
 - `provider_override` — 强制指定提供商（如 `openai`、`anthropic`、`google`）
 - `template` — 模板名称（别名：`template_name`）
 - `template_version` — 模板版本
@@ -124,11 +124,6 @@ X-API-Key: sk_test_123456
 - `mode` 支持：`simple|standard|complex|supervisor`（默认：自动检测）
 - `model_tier` 支持：`small|medium|large`
 - **冲突验证**：`disable_ai: true` 不能与 `model_tier`、`model_override` 或 `provider_override` 组合使用（返回 400）
-
-模型别名：
-- `gpt-5` → `gpt-4o`
-- `o3-mini` → `gpt-4o-mini`
-- 别名提供用户友好的名称并防止错误
 
 ## 响应
 
@@ -155,19 +150,9 @@ X-API-Key: sk_test_123456
 | 字段 | 类型 | 描述 |
 |------|------|------|
 | `task_id` | string | 唯一任务标识符（也是工作流 ID） |
-| `status` | string | 初始任务状态（通常是 `TASK_STATUS_QUEUED`） |
+| `status` | string | 提交状态（例如 `STATUS_CODE_OK`） |
 | `message` | string | 可选的状态消息 |
 | `created_at` | timestamp | 任务创建时间（ISO 8601） |
-
-### 状态值
-
-- `TASK_STATUS_UNSPECIFIED` - 状态未知
-- `TASK_STATUS_QUEUED` - 任务已排队等待执行
-- `TASK_STATUS_RUNNING` - 任务正在执行
-- `TASK_STATUS_COMPLETED` - 任务成功完成
-- `TASK_STATUS_FAILED` - 任务执行失败
-- `TASK_STATUS_CANCELLED` - 任务已被取消
-- `TASK_STATUS_TIMEOUT` - 任务超出超时
 
 ## 示例
 
@@ -186,7 +171,7 @@ curl -X POST http://localhost:8080/api/v1/tasks \\
 ```json
 {
   "task_id": "task_01HQZX3Y9K8M2P4N5S7T9W2V",
-  "status": "TASK_STATUS_QUEUED",
+  "status": "STATUS_CODE_OK",
   "message": "任务已成功提交",
   "created_at": "2025-10-22T10:30:00Z"
 }
@@ -228,7 +213,7 @@ curl -X POST http://localhost:8080/api/v1/tasks \\
       "severity": "high",
       "product": "mobile_app",
       "role": "analysis",
-      "model_override": "gpt-4o"
+      "model_override": "gpt-5"
     }
   }'
 ```

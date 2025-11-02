@@ -109,7 +109,7 @@ OpenAI API key for GPT models.
 OPENAI_API_KEY=sk-...
 ```
 
-**Models Enabled**: GPT-4, GPT-4o, GPT-4o-mini, GPT-3.5-turbo
+**Models Enabled**: GPT-5, GPT-5-mini, GPT-5-nano
 
 ### ANTHROPIC_API_KEY
 
@@ -635,21 +635,21 @@ DEFAULT_MODEL_TIER=small
 ```
 
 **Tiers**:
-- `small`: GPT-4o-mini, Claude Haiku (~$0.15/1M tokens)
-- `medium`: GPT-4o, Claude Sonnet (~$3-15/1M tokens)
-- `large`: GPT-4, Claude Opus (~$15-75/1M tokens)
+- `small`: GPT-5o-mini, Claude Haiku (~$0.15/1M tokens)
+- `medium`: GPT-5o, Claude Sonnet (~$3-15/1M tokens)
+- `large`: GPT-5, Claude Opus (~$15-75/1M tokens)
 
 ### COMPLEXITY_MODEL_ID
 
 **Type**: String
-**Default**: `gpt-4o`
+**Default**: `gpt-5`
 **Services**: Orchestrator
 **Hot-Reload**: Yes
 
 Model used for complexity analysis.
 
 ```bash
-COMPLEXITY_MODEL_ID=gpt-4o
+COMPLEXITY_MODEL_ID=gpt-5
 ```
 
 ### DECOMPOSITION_MODEL_ID

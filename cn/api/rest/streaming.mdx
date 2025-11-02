@@ -55,6 +55,9 @@ Authorization: Bearer YOUR_TOKEN
 | `query` | string | 是 | 自然语言任务描述 |
 | `session_id` | string | 否 | 多轮对话的会话标识符 |
 | `context` | object | 否 | 键值对形式的附加上下文数据 |
+| `model_tier` | string | 否 | 模型层级：`small`、`medium`、`large` |
+| `model_override` | string | 否 | 指定模型名称（规范 ID；例如 `gpt-5`） |
+| `provider_override` | string | 否 | 强制指定提供商（如 `openai`、`anthropic`、`google`） |
 
 #### 响应
 

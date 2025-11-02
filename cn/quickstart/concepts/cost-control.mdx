@@ -30,9 +30,9 @@ Shannon 根据能力和成本将模型分为不同层级：
 
 | 层级 | 模型 | 每百万令牌成本 | 用例 |
 |------|--------|-------------------|----------|
-| **SMALL** | gpt-4o-mini<br/>claude-haiku | $0.15 - $0.25 | 简单查询、高容量 |
-| **MEDIUM** | gpt-4o<br/>claude-sonnet | $3.00 - $15.00 | 通用任务 |
-| **LARGE** | gpt-4<br/>claude-opus | $15.00 - $75.00 | 复杂推理、关键任务 |
+| **SMALL** | gpt-5-mini<br/>claude-haiku | $0.15 - $0.25 | 简单查询、高容量 |
+| **MEDIUM** | gpt-5<br/>claude-sonnet | $3.00 - $15.00 | 通用任务 |
+| <strong>LARGE</strong> | gpt-5-thinking<br/>claude-opus | $15.00 - $75.00 | 复杂推理、关键任务 |
 
 ### 首选层级
 
@@ -57,13 +57,13 @@ Shannon 的学习路由器自动选择能够处理每个任务的最便宜模型
 
 ```python
 # 没有智能路由
-传统：始终使用 GPT-4 → 每个任务 $0.50
+传统：始终使用 GPT-5 → 每个任务 $0.50
 
 # 使用 Shannon 的路由
 Shannon:
-  - 70% 路由到 gpt-4o-mini → $0.01
-  - 25% 路由到 gpt-4o → $0.15
-  - 5% 路由到 gpt-4 → $0.50
+  - 70% 路由到 gpt-5-mini → $0.01
+  - 25% 路由到 gpt-5 → $0.15
+  - 5% 路由到 gpt-5-thinking → $0.50
 示例平均：每个任务 $0.05（约 90% 节省）
 ```
 
@@ -270,7 +270,7 @@ for query in simple_tasks:
         total_cost += status.metrics.cost_usd
 
 print(f"3 个任务的总成本：${total_cost:.4f}")
-# 示例：约 $0.006（与始终使用 GPT-4 相比约 90% 节省）
+# 示例：约 $0.006（与始终使用 GPT-5 相比约 90% 节省）
 ```
 
 ## 下一步

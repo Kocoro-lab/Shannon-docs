@@ -57,7 +57,15 @@ X-API-Key: sk_test_123456
   "updated_at": "timestamp",
   "query": "string",
   "session_id": "string",
-  "mode": "string"
+  "mode": "string",
+  "model_used": "string",
+  "provider": "string",
+  "usage": {
+    "total_tokens": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "estimated_cost": 0.0
+  }
 }
 ```
 
@@ -75,6 +83,9 @@ X-API-Key: sk_test_123456
 | `query` | string | Original task query |
 | `session_id` | string | Session identifier |
 | `mode` | string | Execution mode used |
+| `model_used` | string | Primary model used (e.g., `gpt-5-mini-2025-08-07`) |
+| `provider` | string | Provider name (e.g., `openai`, `anthropic`) |
+| `usage` | object | Token usage and cost: `{ total_tokens, input_tokens?, output_tokens?, estimated_cost? }` |
 
 ### Status Values
 
@@ -144,7 +155,15 @@ curl -X GET "http://localhost:8080/api/v1/tasks/task_01HQZX3Y9K8M2P4N5S7T9W2V" \
   "updated_at": "2025-10-22T10:30:05Z",
   "query": "What is the capital of France?",
   "session_id": "user-123-session",
-  "mode": "EXECUTION_MODE_SIMPLE"
+  "mode": "EXECUTION_MODE_SIMPLE",
+  "model_used": "gpt-5-mini-2025-08-07",
+  "provider": "openai",
+  "usage": {
+    "total_tokens": 300,
+    "input_tokens": 200,
+    "output_tokens": 100,
+    "estimated_cost": 0.006
+  }
 }
 ```
 
@@ -212,7 +231,7 @@ status = get_task_status("task_abc123", "sk_test_123456")
 if status:
     print(f"Status: {status['status']}")
     if status['status'] == 'TASK_STATUS_COMPLETED':
-        print(f"Result: {status['response']['result']}")
+        print(f"Result: {status['result']}")
 ```
 
 ### Python - Poll Until Completion
@@ -236,7 +255,7 @@ def wait_for_completion(task_id: str, api_key: str, timeout: int = 300):
 
         # Check if terminal state
         if current_status == "TASK_STATUS_COMPLETED":
-            return status["response"]
+            return status.get("result")
         elif current_status == "TASK_STATUS_FAILED":
             raise Exception(f"Task failed: {status['error']}")
         elif current_status == "TASK_STATUS_TIMEOUT":
@@ -280,7 +299,7 @@ async function getTaskStatus(taskId) {
     console.log('Status:', status.status);
 
     if (status.status === 'TASK_STATUS_COMPLETED') {
-      console.log('Result:', status.response.result);
+      console.log('Result:', status.result);
     } else if (status.status === 'TASK_STATUS_FAILED') {
       console.error('Error:', status.error);
     }
@@ -312,7 +331,7 @@ async function waitForCompletion(taskId, timeout = 300000) {
       { headers: { 'X-API-Key': 'sk_test_123456' } }
     );
 
-    const { status, response: result, error } = response.data;
+    const { status, result, error } = response.data;
 
     if (status === 'TASK_STATUS_COMPLETED') {
       return result;

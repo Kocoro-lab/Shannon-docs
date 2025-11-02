@@ -123,8 +123,8 @@ Shannon automatically decomposes complex queries into multi-agent workflows base
 The decision-making core powered by language models:
 
 - **Model Selection**: Shannon auto-selects models based on task complexity
-  - Small tasks → `gpt-4o-mini`, `claude-haiku`
-  - Complex tasks → `gpt-4o`, `claude-opus`
+  - Small tasks → `gpt-5-mini`, `claude-haiku`
+  - Complex tasks → `gpt-5`, `claude-opus`
 - **Context Management**: Automatically manages context windows
 - **Caching**: Reuses previous LLM responses when applicable
 
@@ -179,9 +179,9 @@ Shannon automatically selects models based on the configured tier:
 
 | Tier | Models | Use Case | Cost |
 |------|--------|----------|------|
-| **SMALL** | gpt-4o-mini, claude-haiku | Simple queries, high volume | $ |
-| **MEDIUM** | gpt-4o, claude-sonnet | General purpose | $$ |
-| **LARGE** | gpt-4, claude-opus | Complex reasoning, critical tasks | $$$ |
+| **SMALL** | gpt-5-mini, claude-haiku | Simple queries, high volume | $ |
+| **MEDIUM** | gpt-5, claude-sonnet | General purpose | $$ |
+| **LARGE** | gpt-5-thinking, claude-opus | Complex reasoning, critical tasks | $$$ |
 
 <Tip>
 Shannon's intelligent router selects the most cost-effective model for each task, often yielding 60–90% savings compared to always using premium models (workload‑dependent).
@@ -255,7 +255,7 @@ package shannon.teams.datascience
 
 allow {
     input.team == "data-science"
-    input.model in ["gpt-4o", "claude-sonnet"]
+    input.model in ["gpt-5", "claude-sonnet"]
 }
 
 max_tokens = 50000 {
