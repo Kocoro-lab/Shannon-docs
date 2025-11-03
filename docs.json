@@ -125,6 +125,12 @@
                 "pages": [
                   "en/api/rest/streaming"
                 ]
+              },
+              {
+                "group": "Models",
+                "pages": [
+                  "en/api/models/overview"
+                ]
               }
             ]
           },
@@ -168,7 +174,8 @@
                   "en/tutorials/openapi-tools",
                   "en/tutorials/vendor-adapters",
                   "en/tutorials/extending-shannon",
-                  "en/tutorials/multi-agent-systems"
+                  "en/tutorials/multi-agent-systems",
+                  "en/tutorials/model-selection"
                 ]
               }
             ]
@@ -301,6 +308,12 @@
                 "pages": [
                   "cn/api/rest/streaming"
                 ]
+              },
+              {
+                "group": "模型",
+                "pages": [
+                  "cn/api/models/overview"
+                ]
               }
             ]
           },
@@ -343,7 +356,8 @@
                   "cn/tutorials/custom-tools",
                   "cn/tutorials/vendor-adapters",
                   "cn/tutorials/extending-shannon",
-                  "cn/tutorials/multi-agent-systems"
+                  "cn/tutorials/multi-agent-systems",
+                  "cn/tutorials/model-selection"
                 ]
               }
             ]

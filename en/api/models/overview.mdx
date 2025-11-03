@@ -1,0 +1,264 @@
+---
+title: "GET /providers/models"
+description: "List available LLM models and configurations"
+---
+
+## Endpoint
+
+```
+GET http://localhost:8000/providers/models
+```
+
+## Description
+
+Returns all models currently configured in Shannon, organized by provider. This endpoint queries the Python LLM service directly and reflects the models defined in `config/models.yaml`.
+
+## Authentication
+
+**Required**: No (internal service endpoint)
+
+For production deployments, access should be restricted to internal networks only.
+
+## Request
+
+### Query Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `tier` | string | No | Filter by tier: `small`, `medium`, or `large` |
+
+### Headers
+
+None required for internal access.
+
+## Response
+
+### Success Response
+
+**Status**: `200 OK`
+
+**Body**:
+```json
+{
+  "openai": [
+    {
+      "id": "gpt-5-nano-2025-08-07",
+      "name": "gpt-5-nano-2025-08-07",
+      "tier": "small",
+      "context_window": 128000,
+      "cost_per_1k_prompt_tokens": 0.0001,
+      "cost_per_1k_completion_tokens": 0.0004,
+      "supports_tools": true,
+      "supports_streaming": true,
+      "available": true
+    }
+  ],
+  "anthropic": [
+    {
+      "id": "claude-sonnet-4-5-20250929",
+      "name": "claude-sonnet-4-5-20250929",
+      "tier": "medium",
+      "context_window": 200000,
+      "cost_per_1k_prompt_tokens": 0.003,
+      "cost_per_1k_completion_tokens": 0.015,
+      "supports_tools": true,
+      "supports_streaming": true,
+      "available": true
+    }
+  ]
+}
+```
+
+### Response Structure
+
+Response is organized by provider, with each provider returning an array of model objects:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Model identifier (canonical name) |
+| `name` | string | Display name (same as id) |
+| `tier` | string | Size tier: `small`, `medium`, or `large` |
+| `context_window` | integer | Maximum context length in tokens |
+| `cost_per_1k_prompt_tokens` | float | Cost per 1K input tokens (USD) |
+| `cost_per_1k_completion_tokens` | float | Cost per 1K output tokens (USD) |
+| `supports_tools` | boolean | Function calling support |
+| `supports_streaming` | boolean | Real-time streaming support |
+| `available` | boolean | Currently available for use |
+
+## Examples
+
+### List All Models
+
+```bash
+curl http://localhost:8000/providers/models | jq
+```
+
+### Filter by Tier
+
+```bash
+# Small models only
+curl "http://localhost:8000/providers/models?tier=small" | jq
+
+# Large models only
+curl "http://localhost:8000/providers/models?tier=large" | jq
+```
+
+### Python Example
+
+```python
+import httpx
+
+# Get all models
+response = httpx.get("http://localhost:8000/providers/models")
+models = response.json()
+
+# Print OpenAI models
+for model in models.get("openai", []):
+    print(f"{model['id']} - {model['tier']} - ${model['cost_per_1k_prompt_tokens']:.4f}/1K")
+
+# Filter small tier
+response = httpx.get("http://localhost:8000/providers/models?tier=small")
+small_models = response.json()
+```
+
+## Model Tiers
+
+Models are organized into three tiers based on capability and cost:
+
+### Small Tier (Priority for 50% of workload)
+Fast, cost-optimized models for basic tasks:
+- **OpenAI**: gpt-5-nano-2025-08-07
+- **Anthropic**: claude-haiku-4-5-20251001
+- **xAI**: grok-4-fast-non-reasoning
+- **Google**: gemini-2.5-flash-lite
+- **DeepSeek**: deepseek-chat
+
+### Medium Tier (Priority for 40% of workload)
+Balanced capability/cost models:
+- **OpenAI**: gpt-5-2025-08-07
+- **Anthropic**: claude-sonnet-4-5-20250929
+- **xAI**: grok-4
+- **Google**: gemini-2.5-flash
+- **Meta**: llama-4-scout
+
+### Large Tier (Priority for 10% of workload)
+Heavy reasoning models for complex tasks:
+- **OpenAI**: gpt-4.1-2025-04-14, gpt-5-pro-2025-10-06
+- **Anthropic**: claude-opus-4-1-20250805
+- **Google**: gemini-2.5-pro
+- **DeepSeek**: deepseek-r1
+- **xAI**: grok-4-fast-reasoning
+
+## Configuration Source
+
+Models are defined in `config/models.yaml` under `model_catalog`:
+
+```yaml
+model_catalog:
+  openai:
+    gpt-5-nano-2025-08-07:
+      model_id: gpt-5-nano-2025-08-07
+      tier: small
+      context_window: 128000
+      max_tokens: 4096
+      supports_functions: true
+      supports_streaming: true
+```
+
+Pricing is centralized under `pricing.models`:
+
+```yaml
+pricing:
+  models:
+    openai:
+      gpt-5-nano-2025-08-07:
+        input_per_1k: 0.0001
+        output_per_1k: 0.0004
+```
+
+## Use Cases
+
+**1. Discover Available Models**
+```bash
+curl http://localhost:8000/providers/models | jq 'keys'
+# ["anthropic", "openai", "google", "xai", ...]
+```
+
+**2. Check Pricing**
+```bash
+curl http://localhost:8000/providers/models | \
+  jq '.openai[] | {id, input: .cost_per_1k_prompt_tokens, output: .cost_per_1k_completion_tokens}'
+```
+
+**3. Verify API Key Configuration**
+```bash
+# If a provider returns empty array, API key may be missing
+curl http://localhost:8000/providers/models | jq '.anthropic | length'
+```
+
+**4. Build Model Selector UI**
+```javascript
+const response = await fetch('http://localhost:8000/providers/models?tier=small');
+const models = await response.json();
+
+// Populate dropdown
+Object.entries(models).forEach(([provider, modelList]) => {
+  modelList.forEach(model => {
+    dropdown.add(new Option(`${provider}: ${model.id}`, model.id));
+  });
+});
+```
+
+## Notes
+
+- **Static Configuration**: Models are loaded from `config/models.yaml`, not dynamically discovered from provider APIs
+- **Hot Reload**: Changes to `models.yaml` require service restart to take effect
+- **Empty Providers**: If a provider returns `[]`, check that the API key is set in `.env`
+- **Pricing Centralization**: All costs come from `pricing` section in YAML, ensuring consistency across Go/Rust/Python services
+- **Internal Endpoint**: This endpoint is on the LLM service (port 8000), not the Gateway API (port 8080)
+
+## Environment Variables
+
+Override model selections with environment variables:
+
+```bash
+# Stage-specific overrides
+COMPLEXITY_MODEL_ID=gpt-5-mini-2025-08-07
+DECOMPOSITION_MODEL_ID=gpt-5-2025-08-07
+DEFAULT_MODEL_TIER=small
+```
+
+See [Configuration Guide](/en/quickstart/configuration) for full list.
+
+## Troubleshooting
+
+**Empty provider arrays**
+- Verify API key is set: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.
+- Check `config/models.yaml` has entries under `model_catalog.<provider>`
+
+**Missing models**
+- Ensure `MODELS_CONFIG_PATH` points to correct file
+- Verify YAML syntax is valid
+- Check for typos in model IDs
+
+**Incorrect pricing**
+- Pricing comes from `pricing.models.<provider>` section
+- Update `config/models.yaml` and restart services
+- Verify Go/Rust services also read same config file
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="Model Selection Guide" icon="sliders" href="/en/guides/model-selection">
+    How tier routing and fallback works
+  </Card>
+  <Card title="Configuration" icon="gear" href="/en/quickstart/configuration">
+    Environment variables and config files
+  </Card>
+  <Card title="Submit Task" icon="paper-plane" href="/en/api/rest/submit-task">
+    Use model_tier or model_override
+  </Card>
+  <Card title="Centralized Pricing" icon="dollar-sign" href="https://github.com/Kocoro-lab/Shannon/blob/main/docs/centralized-pricing.md">
+    Pricing architecture details
+  </Card>
+</CardGroup>

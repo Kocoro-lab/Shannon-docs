@@ -511,10 +511,67 @@ When you submit a task:
 
 ### Idempotency Behavior
 
-- **First request**: Creates new task, caches response in Redis
-- **Duplicate requests** (same `Idempotency-Key`): Returns cached response
-- **Cache TTL**: 24 hours
-- **Cache key format**: `idempotency:{key}`
+Idempotency keys allow safe retries of task submissions without creating duplicate tasks.
+
+**How it works**:
+1. **First request** with an `Idempotency-Key`:
+   - Shannon creates the task
+   - Caches the response in Redis with 24-hour TTL
+   - Returns task ID and status
+
+2. **Duplicate requests** (same `Idempotency-Key`):
+   - Shannon detects the cached response
+   - Returns the **same task ID** without creating a new task
+   - Response is identical to the first request
+
+3. **After 24 hours**:
+   - Cache expires
+   - New request with same key creates a new task
+
+**Cache Details**:
+- **Storage**: Redis
+- **TTL**: 24 hours (86400 seconds)
+- **Key format**: `idempotency:<16-char-hash>` (SHA-256 of the idempotency key plus user ID, path, and request body)
+- **Scope**: Per authenticated user (user ID is part of the hash; when auth is disabled the hash is based on the header, path, and body)
+- **Cached responses**: Only 2xx responses are stored; cached hits include `X-Idempotency-Cached: true` and `X-Idempotency-Key: <your-key>`
+
+**Body Behavior**:
+If the request body changes, the cache key changes too, so the gateway treats it as a brand-new request. Duplicate detection only triggers when the header, user, path, and body all match.
+
+**Best Practice**: Generate a unique key per unique request body.
+
+**Example**:
+```python
+import uuid
+import httpx
+
+# Generate unique key
+idempotency_key = str(uuid.uuid4())
+
+# First request - creates task
+response1 = httpx.post(
+    "http://localhost:8080/api/v1/tasks",
+    headers={"X-API-Key": "sk_test_123456", "Idempotency-Key": idempotency_key},
+    json={"query": "Analyze Q4 sales"}
+)
+task_id_1 = response1.json()["task_id"]
+
+# Retry with same key - returns same task ID
+response2 = httpx.post(
+    "http://localhost:8080/api/v1/tasks",
+    headers={"X-API-Key": "sk_test_123456", "Idempotency-Key": idempotency_key},
+    json={"query": "Analyze Q4 sales"}
+)
+task_id_2 = response2.json()["task_id"]
+
+assert task_id_1 == task_id_2  # Same task, no duplicate
+```
+
+**When to use**:
+- Network retry logic (avoid duplicate tasks on timeout)
+- Webhook deliveries (handle duplicate webhook calls)
+- Critical operations (payments, data writes)
+- Background job queues (prevent duplicate scheduling)
 
 ### Session Management
 

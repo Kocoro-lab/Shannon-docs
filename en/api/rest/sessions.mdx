@@ -45,16 +45,45 @@ GET /api/v1/sessions/{sessionId}
 ```
 
 Path params:
-- `sessionId` (uuid)
+- `sessionId` (UUID or external_id string)
 
 Response (200): session metadata including token usage and task count.
 Errors: 401, 403, 404.
+
+### Session ID Format
+
+Shannon supports **dual-ID pattern** for sessions:
+
+1. **UUID Format** (internal): `a0c2b1e2-fd3e-4567-890a-bcdef1234567`
+2. **External ID Format** (custom strings): `"user-123-chat"`, `"analytics-session-456"`
+
+When you submit a task with a non-UUID `session_id`, Shannon:
+- Creates an internal UUID for database storage
+- Stores your custom ID in `context.external_id`
+- Accepts **either format** in all session API calls
+
+**Example**:
+```bash
+# Create session with custom ID
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -d '{"query": "Hello", "session_id": "my-chat-session"}'
+
+# Query using same custom ID
+curl http://localhost:8080/api/v1/sessions/my-chat-session \
+  -H "X-API-Key: sk_test_123456"
+```
+
+This allows natural session naming without managing UUIDs.
 
 ## Get Session History
 
 ```
 GET /api/v1/sessions/{sessionId}/history
 ```
+
+Path params:
+- `sessionId` (UUID or external_id string)
 
 Returns all tasks in the session with execution details.
 Errors: 401, 403, 404.
@@ -64,6 +93,9 @@ Errors: 401, 403, 404.
 ```
 GET /api/v1/sessions/{sessionId}/events?limit=10&offset=0
 ```
+
+Path params:
+- `sessionId` (UUID or external_id string)
 
 Returns chat history grouped by task/turn, including full events per turn (excludes `LLM_PARTIAL`).
 
@@ -132,6 +164,9 @@ Responses:
 ```
 DELETE /api/v1/sessions/{sessionId}
 ```
+
+Path params:
+- `sessionId` (UUID or external_id string)
 
 Behavior:
 - Marks the session as deleted (`deleted_at`, `deleted_by`), does not remove data.

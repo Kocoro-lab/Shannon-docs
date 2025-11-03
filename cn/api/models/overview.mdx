@@ -1,0 +1,264 @@
+---
+title: "GET /providers/models"
+description: "列出可用的 LLM 模型和配置"
+---
+
+## 端点
+
+```
+GET http://localhost:8000/providers/models
+```
+
+## 描述
+
+返回 Shannon 中当前配置的所有模型，按提供商组织。此端点直接查询 Python LLM 服务，并反映 `config/models.yaml` 中定义的模型。
+
+## 认证
+
+**必需**: 否（内部服务端点）
+
+对于生产部署，访问应仅限于内部网络。
+
+## 请求
+
+### 查询参数
+
+| 参数 | 类型 | 必需 | 描述 |
+|------|------|------|------|
+| `tier` | string | 否 | 按层级过滤：`small`、`medium` 或 `large` |
+
+### 请求头
+
+内部访问无需请求头。
+
+## 响应
+
+### 成功响应
+
+**状态码**: `200 OK`
+
+**响应体**:
+```json
+{
+  "openai": [
+    {
+      "id": "gpt-5-nano-2025-08-07",
+      "name": "gpt-5-nano-2025-08-07",
+      "tier": "small",
+      "context_window": 128000,
+      "cost_per_1k_prompt_tokens": 0.0001,
+      "cost_per_1k_completion_tokens": 0.0004,
+      "supports_tools": true,
+      "supports_streaming": true,
+      "available": true
+    }
+  ],
+  "anthropic": [
+    {
+      "id": "claude-sonnet-4-5-20250929",
+      "name": "claude-sonnet-4-5-20250929",
+      "tier": "medium",
+      "context_window": 200000,
+      "cost_per_1k_prompt_tokens": 0.003,
+      "cost_per_1k_completion_tokens": 0.015,
+      "supports_tools": true,
+      "supports_streaming": true,
+      "available": true
+    }
+  ]
+}
+```
+
+### 响应结构
+
+响应按提供商组织，每个提供商返回一个模型对象数组：
+
+| 字段 | 类型 | 描述 |
+|------|------|------|
+| `id` | string | 模型标识符（规范名称） |
+| `name` | string | 显示名称（与 id 相同） |
+| `tier` | string | 大小层级：`small`、`medium` 或 `large` |
+| `context_window` | integer | 最大上下文长度（tokens） |
+| `cost_per_1k_prompt_tokens` | float | 每 1K 输入 tokens 成本（美元） |
+| `cost_per_1k_completion_tokens` | float | 每 1K 输出 tokens 成本（美元） |
+| `supports_tools` | boolean | 支持函数调用 |
+| `supports_streaming` | boolean | 支持实时流式传输 |
+| `available` | boolean | 当前可用 |
+
+## 示例
+
+### 列出所有模型
+
+```bash
+curl http://localhost:8000/providers/models | jq
+```
+
+### 按层级过滤
+
+```bash
+# 仅小型模型
+curl "http://localhost:8000/providers/models?tier=small" | jq
+
+# 仅大型模型
+curl "http://localhost:8000/providers/models?tier=large" | jq
+```
+
+### Python 示例
+
+```python
+import httpx
+
+# 获取所有模型
+response = httpx.get("http://localhost:8000/providers/models")
+models = response.json()
+
+# 打印 OpenAI 模型
+for model in models.get("openai", []):
+    print(f"{model['id']} - {model['tier']} - ${model['cost_per_1k_prompt_tokens']:.4f}/1K")
+
+# 过滤小型层级
+response = httpx.get("http://localhost:8000/providers/models?tier=small")
+small_models = response.json()
+```
+
+## 模型层级
+
+模型根据能力和成本组织成三个层级：
+
+### 小型层级（目标工作负载的 50%）
+快速、成本优化的基础任务模型：
+- **OpenAI**: gpt-5-nano-2025-08-07
+- **Anthropic**: claude-haiku-4-5-20251001
+- **xAI**: grok-4-fast-non-reasoning
+- **Google**: gemini-2.5-flash-lite
+- **DeepSeek**: deepseek-chat
+
+### 中型层级（目标工作负载的 40%）
+平衡能力/成本的模型：
+- **OpenAI**: gpt-5-2025-08-07
+- **Anthropic**: claude-sonnet-4-5-20250929
+- **xAI**: grok-4
+- **Google**: gemini-2.5-flash
+- **Meta**: llama-4-scout
+
+### 大型层级（目标工作负载的 10%）
+用于复杂任务的重度推理模型：
+- **OpenAI**: gpt-4.1-2025-04-14, gpt-5-pro-2025-10-06
+- **Anthropic**: claude-opus-4-1-20250805
+- **Google**: gemini-2.5-pro
+- **DeepSeek**: deepseek-r1
+- **xAI**: grok-4-fast-reasoning
+
+## 配置源
+
+模型在 `config/models.yaml` 的 `model_catalog` 下定义：
+
+```yaml
+model_catalog:
+  openai:
+    gpt-5-nano-2025-08-07:
+      model_id: gpt-5-nano-2025-08-07
+      tier: small
+      context_window: 128000
+      max_tokens: 4096
+      supports_functions: true
+      supports_streaming: true
+```
+
+定价集中在 `pricing.models` 下：
+
+```yaml
+pricing:
+  models:
+    openai:
+      gpt-5-nano-2025-08-07:
+        input_per_1k: 0.0001
+        output_per_1k: 0.0004
+```
+
+## 使用场景
+
+**1. 发现可用模型**
+```bash
+curl http://localhost:8000/providers/models | jq 'keys'
+# ["anthropic", "openai", "google", "xai", ...]
+```
+
+**2. 检查定价**
+```bash
+curl http://localhost:8000/providers/models | \
+  jq '.openai[] | {id, input: .cost_per_1k_prompt_tokens, output: .cost_per_1k_completion_tokens}'
+```
+
+**3. 验证 API 密钥配置**
+```bash
+# 如果提供商返回空数组，可能缺少 API 密钥
+curl http://localhost:8000/providers/models | jq '.anthropic | length'
+```
+
+**4. 构建模型选择器 UI**
+```javascript
+const response = await fetch('http://localhost:8000/providers/models?tier=small');
+const models = await response.json();
+
+// 填充下拉列表
+Object.entries(models).forEach(([provider, modelList]) => {
+  modelList.forEach(model => {
+    dropdown.add(new Option(`${provider}: ${model.id}`, model.id));
+  });
+});
+```
+
+## 注意事项
+
+- **静态配置**: 模型从 `config/models.yaml` 加载，不是从提供商 API 动态发现
+- **热重载**: 对 `models.yaml` 的更改需要重启服务才能生效
+- **空提供商**: 如果提供商返回 `[]`，请检查 `.env` 中是否设置了 API 密钥
+- **定价集中化**: 所有成本来自 YAML 中的 `pricing` 部分，确保 Go/Rust/Python 服务之间的一致性
+- **内部端点**: 此端点在 LLM 服务（端口 8000）上，而不是网关 API（端口 8080）
+
+## 环境变量
+
+使用环境变量覆盖模型选择：
+
+```bash
+# 特定阶段覆盖
+COMPLEXITY_MODEL_ID=gpt-5-mini-2025-08-07
+DECOMPOSITION_MODEL_ID=gpt-5-2025-08-07
+DEFAULT_MODEL_TIER=small
+```
+
+查看完整列表，请参阅[配置指南](/cn/quickstart/configuration)。
+
+## 故障排除
+
+**提供商数组为空**
+- 验证 API 密钥已设置：`OPENAI_API_KEY`、`ANTHROPIC_API_KEY` 等
+- 检查 `config/models.yaml` 在 `model_catalog.<provider>` 下有条目
+
+**缺少模型**
+- 确保 `MODELS_CONFIG_PATH` 指向正确的文件
+- 验证 YAML 语法有效
+- 检查模型 ID 是否有拼写错误
+
+**定价不正确**
+- 定价来自 `pricing.models.<provider>` 部分
+- 更新 `config/models.yaml` 并重启服务
+- 验证 Go/Rust 服务也读取相同的配置文件
+
+## 相关文档
+
+<CardGroup cols={2}>
+  <Card title="模型选择指南" icon="sliders" href="/cn/tutorials/model-selection">
+    层级路由和回退工作原理
+  </Card>
+  <Card title="配置" icon="gear" href="/cn/quickstart/configuration">
+    环境变量和配置文件
+  </Card>
+  <Card title="提交任务" icon="paper-plane" href="/cn/api/rest/submit-task">
+    使用 model_tier 或 model_override
+  </Card>
+  <Card title="集中定价" icon="dollar-sign" href="https://github.com/Kocoro-lab/Shannon/blob/main/docs/centralized-pricing.md">
+    定价架构详情
+  </Card>
+</CardGroup>
