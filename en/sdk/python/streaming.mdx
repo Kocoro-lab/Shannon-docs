@@ -29,6 +29,9 @@ for e in client.stream(h.workflow_id, last_event_id=last_id):
   last_id = e.id
 ```
 
+Notes:
+- `last_event_id` accepts either a Redis stream ID (preferred) or a numeric sequence. The SDK exposes `event.id` which chooses `stream_id` when present or falls back to `seq`.
+
 ## WebSocket (optional)
 
 Requires `pip install websockets`.
@@ -53,4 +56,3 @@ for e in client.stream_ws(h.workflow_id):
 - ERROR_OCCURRED
 
 Tip: Filter using `EventType` enums or raw strings.
-

@@ -56,7 +56,7 @@ async def analyze_multiple():
 
 ## Async Streaming
 
-Stream events without blocking:
+Stream events without blocking. Tip: don’t await other client calls inside the `async for` loop — break out first, then await:
 
 ```python
 async def stream():
@@ -65,8 +65,11 @@ async def stream():
         async for e in client.stream(h.workflow_id):
             print(e.type)
             if e.type == "WORKFLOW_COMPLETED":
-                final = await client.get_status(h.task_id)
-                return final.result
+                break  # exit the loop cleanly
+
+        # Now make additional awaits safely
+        final = await client.wait(h.task_id)
+        return final.result
 ```
 
 ## Timeout Handling

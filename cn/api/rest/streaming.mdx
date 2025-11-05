@@ -404,7 +404,7 @@ X-API-Key: sk_test_123456
 |------|------|------|------|
 | `workflow_id` | string | 是 | 任务/工作流标识符 |
 | `types` | string | 否 | 逗号分隔的事件类型以筛选 |
-| `last_event_id` | string | 否 | 从特定事件 ID 恢复 |
+| `last_event_id` | string | 否 | 从特定事件 ID 恢复。支持 Redis Stream ID（如 `1700000000000-0`）或数字序号（如 `42`）。当为数字时，重放规则为 `seq > last_event_id`。 |
 
 #### 事件格式
 
@@ -1031,6 +1031,8 @@ def stream_with_resume(task_id: str, api_key: str, last_event_id: str = None):
 
     # 流式传输事件...
 ```
+
+说明：`last_event_id` 支持 Redis Stream ID（如 `1700000000000-0`）或数字序号（如 `42`）。当为数字时，重放规则为 `seq > last_event_id`。
 
 ## 比较：SSE vs WebSocket vs 轮询
 

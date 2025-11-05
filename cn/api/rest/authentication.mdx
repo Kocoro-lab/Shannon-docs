@@ -147,8 +147,10 @@ Cache-Control: max-age=300
 - 非浏览器客户端可设置 `Last-Event-ID` 请求头。
 - 浏览器 EventSource 无法设置自定义请求头；重连依赖服务端发送的 `id:` 字段自动续传。
 
+格式：事件 ID 字符串，支持 Redis Stream ID（如 `1700000000000-0`）或数字序号（如 `42`）。
+
 ```http
-Last-Event-ID: 42
+Last-Event-ID: 1700000000000-0
 ```
 
 ## 响应头

@@ -55,7 +55,7 @@ async def analyze_multiple():
 
 ## 异步流式传输
 
-非阻塞流式事件：
+非阻塞流式事件。提示：不要在 `async for` 循环内再调用其它 `await` 方法；先 `break` 退出循环，再进行后续 `await`：
 
 ```python
 async def stream():
@@ -64,8 +64,11 @@ async def stream():
         async for e in client.stream(h.workflow_id):
             print(e.type)
             if e.type == "WORKFLOW_COMPLETED":
-                final = await client.get_status(h.task_id)
-                return final.result
+                break  # 先退出循环
+
+        # 再进行后续的 await 调用
+        final = await client.wait(h.task_id)
+        return final.result
 ```
 
 ## 超时处理

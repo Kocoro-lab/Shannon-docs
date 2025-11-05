@@ -143,12 +143,12 @@ Cache-Control: max-age=300
 
 #### Last-Event-ID (SSE only)
 
-**Purpose**: Resume SSE stream from specific event
+**Purpose**: Resume SSE stream from a specific event
 **Required**: No
-**Format**: Event ID string
+**Format**: Event ID string — either a Redis stream ID (e.g., `1700000000000-0`) or a numeric sequence (e.g., `42`)
 
 ```bash
-Last-Event-ID: 42
+Last-Event-ID: 1700000000000-0
 ```
 
 Used for SSE reconnection:
@@ -156,7 +156,7 @@ Used for SSE reconnection:
 const eventSource = new EventSource(url, {
   headers: {
     'X-API-Key': 'sk_test_123456',
-    'Last-Event-ID': '42'  // Resume from event 42
+    'Last-Event-ID': '1700000000000-0'  // Resume from this stream ID (or use a numeric seq)
   }
 });
 ```

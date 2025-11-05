@@ -30,8 +30,10 @@ for event in client.stream(handle.workflow_id, types=[EventType.LLM_OUTPUT, Even
 last_id = None
 for e in client.stream(handle.workflow_id, last_event_id=last_id):
   # ...
-  last_id = e.id
+ last_id = e.id
 ```
+
+说明：`last_event_id` 可使用 Redis Stream ID（优先，例如 `1700000000000-0`）或数字序号（如 `42`）。SDK 的 `event.id` 会优先返回 `stream_id`，否则回退为 `seq`。
 ```
 
 ## WebSocket（可选）

@@ -402,7 +402,7 @@ X-API-Key: sk_test_123456
 |-----------|------|----------|-------------|
 | `workflow_id` | string | Yes | Task/workflow identifier |
 | `types` | string | No | Comma-separated event types to filter |
-| `last_event_id` | string | No | Resume from specific event ID |
+| `last_event_id` | string | No | Resume from specific event ID. Accepts a Redis stream ID (e.g., `1700000000000-0`) or a numeric sequence (e.g., `42`). When numeric, replay includes events with `seq > last_event_id`. |
 
 #### Event Format
 
@@ -1044,6 +1044,8 @@ def stream_with_resume(task_id: str, api_key: str, last_event_id: str = None):
 
     # Stream events...
 ```
+
+Note: `last_event_id` accepts either a Redis stream ID (e.g., `1700000000000-0`) or a numeric sequence (e.g., `42`). When numeric, replay includes events with `seq > last_event_id`.
 
 ## Comparison: SSE vs WebSocket vs Polling
 
