@@ -1,6 +1,6 @@
 ---
 title: "异步/等待使用"
-description: "使用 asyncio 与 Shannon Python SDK 进行并发操作"
+description: "使用 asyncio 与 Shannon Python SDK"
 ---
 
 <Note>
@@ -25,16 +25,14 @@ import asyncio
 from shannon import AsyncShannonClient
 
 async def main():
-async with AsyncShannonClient(base_url="http://localhost:8080") as client:
-        # 异步提交任务
+    async with AsyncShannonClient(base_url="http://localhost:8080") as client:
         handle = await client.submit_task(
-            query="Analyze this data",
-            # 自动选择模式
+            query="分析数据",
+            model_tier="small",
+            mode="standard",
         )
-
-        # 获取结果
-        result = await client.get_status(handle.task_id)
-        print(result.result)
+        final = await client.wait(handle.task_id)
+        print(final.result)
 
 asyncio.run(main())
 ```
@@ -46,23 +44,13 @@ asyncio.run(main())
 ```python
 async def analyze_multiple():
     async with AsyncShannonClient() as client:
-        # 并发提交任务
-        tasks = [
-            client.submit_task(query="Analyze dataset 1"),
-            client.submit_task(query="Analyze dataset 2"),
-            client.submit_task(query="Analyze dataset 3"),
-        ]
+        tasks = [client.submit_task(query=f"分析数据集 {i}") for i in range(1, 4)]
 
         # 等待所有任务完成
         handles = await asyncio.gather(*tasks)
 
-        # 获取所有结果
-        results = await asyncio.gather(*[
-            client.get_status(h.workflow_id)
-            for h in handles
-        ])
-
-        return results
+        results = await asyncio.gather(*[client.wait(h.task_id) for h in handles])
+        return [r.result for r in results]
 ```
 
 ## 异步流式传输
@@ -72,13 +60,11 @@ async def analyze_multiple():
 ```python
 async def stream():
     async with AsyncShannonClient() as client:
-        handle = await client.submit_task(query="Complex analysis")
-
-        # 异步流式传输事件
-        async for event in client.stream(handle.workflow_id):
-            print(f"[{event.type}] {event.message}")
-            if event.type == "WORKFLOW_COMPLETED":
-                final = await client.get_status(handle.task_id)
+        h = await client.submit_task(query="复杂分析")
+        async for e in client.stream(h.workflow_id):
+            print(e.type)
+            if e.type == "WORKFLOW_COMPLETED":
+                final = await client.get_status(h.task_id)
                 return final.result
 ```
 

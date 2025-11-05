@@ -488,6 +488,24 @@ curl http://localhost:6333/metrics
   </Accordion>
 </AccordionGroup>
 
+## Tokens > 0 but empty result
+
+**Symptoms**:
+- Database or logs show non‑zero completion tokens, but the final `result` text is empty.
+- Complex prompts return nothing while simple prompts work.
+
+**Cause**:
+- Some GPT‑5 chat responses return content as structured parts instead of a plain string. Older parsing could miss the text. This is fixed by routing GPT‑5 models via the Responses API and defensively normalizing content for chat responses.
+
+**Fix (Shannon ≥ 2025‑11‑05)**:
+- LLM Service routes GPT‑5 models to the Responses API and prefers `output_text` when available.
+- Chat providers normalize content by joining text parts when a list is returned.
+- If you upgraded from an older build, restart the LLM Service to clear cached empty responses.
+
+**Verify**:
+- Re‑run a long, multi‑paragraph prompt. `result` length should be > 0 and session history should include the assistant message.
+
+
 ### High Memory Usage
 
 **Symptoms**:

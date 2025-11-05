@@ -9,6 +9,22 @@ This examples collection is growing. More use cases will be added regularly.
 
 ## Basic Examples
 
+### Model Selection
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+handle = client.submit_task(
+  "Summarize this document",
+  model_tier="small",
+  # model_override="gpt-5-nano-2025-08-07",
+  # provider_override="openai",
+  mode="simple",
+)
+print(client.wait(handle.task_id).result)
+```
+
 ### Simple Question Answering
 
 ```python
@@ -28,7 +44,6 @@ print(f"Answer: {final.result}")
 # Analyze CSV data
 handle = client.submit_task(
     query="Analyze the sales trends in this CSV file",
-    # Mode auto-selected,
     context={"file_path": "/data/sales_2024.csv"}
 )
 
@@ -81,12 +96,8 @@ from shannon import AsyncShannonClient
 
 async def parallel_research(topics):
     async with AsyncShannonClient() as client:
-        # Submit all research tasks in parallel
         tasks = [
-            client.submit_task(
-                query=f"Research latest developments in {topic}",
-                # Mode auto-selected
-            )
+            client.submit_task(query=f"Research latest developments in {topic}")
             for topic in topics
         ]
 
@@ -112,10 +123,7 @@ results = asyncio.run(parallel_research(topics))
 from shannon import EventType
 
 handle = client.submit_task(query="Research cloud providers")
-for event in client.stream(
-    handle.workflow_id,
-    types=[EventType.LLM_OUTPUT, EventType.WORKFLOW_COMPLETED],
-):
+for event in client.stream(handle.workflow_id, types=[EventType.LLM_OUTPUT, EventType.WORKFLOW_COMPLETED]):
     print(event.type)
     if event.type == EventType.WORKFLOW_COMPLETED:
         break

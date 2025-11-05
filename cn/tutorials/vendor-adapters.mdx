@@ -276,6 +276,11 @@ ANALYTICS_AGENT_PRESET = {
 }
 ```
 
+> 说明：`allowed_tools` 的语义（用于 `/agent/query`）：
+> - 省略/`null` → 由角色预设决定是否启用工具
+> - `[]` → 禁用所有工具
+> - `["name", …]` → 仅允许列出的工具（名称需与已注册工具一致）
+
 在 `python/llm-service/llm_service/roles/presets.py` 中注册：
 
 ```python
@@ -398,6 +403,8 @@ MY_AGENT_PRESET = {
     "response_format": None,  # 或 {"type": "json_object"}
 }
 ```
+
+> 说明：当显式传入 `allowed_tools` 时，LLM 仅能使用所列出的工具；传入空列表 `[]` 可显式禁用工具。
 
 ## 最佳实践
 

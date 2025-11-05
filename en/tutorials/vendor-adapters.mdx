@@ -275,6 +275,11 @@ Remember: Your goal is to help users understand their data and make better decis
 }
 ```
 
+> Note: `allowed_tools` semantics for `/agent/query`:
+> - Omit/`null` → role presets may enable tools
+> - `[]` → tools disabled
+> - `["name", …]` → only these tools are available (names must match registered tools)
+
 Register in `python/llm-service/llm_service/roles/presets.py`:
 
 ```python
@@ -397,6 +402,8 @@ Remember: [key instruction]""",
     "response_format": None,  # or {"type": "json_object"}
 }
 ```
+
+> Note: When you explicitly pass `allowed_tools`, only the listed tools will be available to the LLM. Pass an empty list `[]` to disable tools.
 
 ## Best Practices
 

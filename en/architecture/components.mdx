@@ -37,6 +37,16 @@ Shannon is built as a distributed system with multiple specialized components:
 - **Technology**: Python, FastAPI, litellm
 - **Scaling**: Horizontal
 
+<Note>
+LLM Service notes:
+
+- GPT‑5 models are routed via the OpenAI Responses API, and the server prefers `output_text` when present. This avoids empty results when chat responses return structured content.
+- The `/agent/query` HTTP endpoint expects `allowed_tools`:
+  - Omit/`null`: role presets may enable tools
+  - `[]`: tools disabled
+  - `["name", …]`: only listed tools available (built‑in, OpenAPI, MCP by registry name)
+</Note>
+
 ### Dashboard (TypeScript)
 - **Port**: 2111
 - **Role**: Real-time monitoring UI

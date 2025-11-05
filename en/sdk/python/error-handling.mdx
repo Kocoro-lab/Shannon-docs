@@ -25,7 +25,7 @@ ShannonError                    # Base exception
 ```
 
 <Note>
-**Budget and Task Failure Handling**: Budget exceeded and task failures are not exceptions. Check `status.status` for `FAILED` or monitor cost via `status.metrics.cost_usd`.
+Budget and Task Failure Handling: Budget exceeded and task failures are not exceptions. For failures, check `status.status`. For token usage and cost totals, use `list_tasks()` and read `total_token_usage` from the returned task summaries.
 </Note>
 
 ## Basic Error Handling
@@ -96,7 +96,7 @@ def connect_with_retry(max_retries=3):
 
 ### Check Cost and Failures
 
-Monitor cost and handle failures via status:
+Monitor failures from status and get usage totals via `list_tasks()`:
 
 ```python
 from shannon import ShannonClient, TaskStatusEnum
@@ -105,11 +105,15 @@ client = ShannonClient()
 handle = client.submit_task(query="Analyze data")
 status = client.wait(handle.task_id)
 
-if status.metrics and status.metrics.cost_usd > 1.00:
-    print(f"High cost: ${status.metrics.cost_usd:.2f}")
-
+# Failure check
 if status.status == TaskStatusEnum.FAILED:
     print(f"Failed with error: {status.error_message}")
+
+# Usage and cost totals (from task listings)
+tasks, _ = client.list_tasks(limit=50)
+usage = next((t.total_token_usage for t in tasks if t.task_id == handle.task_id), None)
+if usage:
+    print(f"tokens={usage.total_tokens} prompt={usage.prompt_tokens} completion={usage.completion_tokens} cost=${usage.cost_usd:.6f}")
 ```
 
 ### Timeout Errors

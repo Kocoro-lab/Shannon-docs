@@ -25,7 +25,7 @@ ShannonError                    # 基础异常
 ```
 
 <Note>
-**预算和任务失败处理**：预算超出和任务失败不是异常。检查 `status.status` 是否为 `FAILED`，或通过 `status.metrics.cost_usd` 监控成本。
+预算和任务失败处理：预算超出和任务失败不是异常。失败请检查 `status.status`。令牌用量与成本合计请通过 `list_tasks()` 读取任务列表中的 `total_token_usage`。
 </Note>
 
 ## 基本错误处理
@@ -58,8 +58,6 @@ status = client.get_status(handle.task_id)
 from shannon import TaskStatusEnum
 if status.status == TaskStatusEnum.FAILED:
     print(f"任务失败：{status.error_message}")
-if status.metrics and status.metrics.cost_usd > 1.0:
-    print(f"高成本：${status.metrics.cost_usd}")
 except Exception as e:
     print(f"意外错误：{e}")
 ```
@@ -95,20 +93,24 @@ def connect_with_retry(max_retries=3):
 
 ### 成本与失败检查
 
-处理成本限制超出：
+通过状态判断失败，并使用 `list_tasks()` 获取用量与成本合计：
 
 ```python
-from shannon import ShannonClient
+from shannon import ShannonClient, TaskStatusEnum
 
 client = ShannonClient()
 handle = client.submit_task(query="Analyze data")
 status = client.wait(handle.task_id)
 
-if status.metrics and status.metrics.cost_usd > 1.00:
-    print(f"高成本：${status.metrics.cost_usd:.2f}")
-
+# 失败检查
 if status.status == TaskStatusEnum.FAILED:
     print(f"失败：{status.error_message}")
+
+# 用量与成本（从任务列表读取）
+tasks, _ = client.list_tasks(limit=50)
+usage = next((t.total_token_usage for t in tasks if t.task_id == handle.task_id), None)
+if usage:
+    print(f"tokens={usage.total_tokens} prompt={usage.prompt_tokens} completion={usage.completion_tokens} cost=${usage.cost_usd:.6f}")
 ```
 
 ### 超时错误

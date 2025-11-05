@@ -9,21 +9,45 @@ description: "使用 Python SDK 进行实时事件流式传输"
 
 ## 概述
 
-Shannon 提供实时事件流式传输，以便在任务执行时进行监控。
+推荐使用 SSE 获取简单可靠的实时更新。若环境需要 WS，可使用可选的 WebSocket 辅助方法。
 
-## 基本用法
+## SSE（推荐）
 
 ```python
-from shannon import ShannonClient
+from shannon import ShannonClient, EventType
 
 client = ShannonClient()  # 通过网关 base_url 流式（默认 http://localhost:8080）
 
-handle = client.submit_task(query="Analyze market trends")
+handle = client.submit_task(query="分析市场趋势")
+for event in client.stream(handle.workflow_id, types=[EventType.LLM_OUTPUT, EventType.WORKFLOW_COMPLETED]):
+  print(f"{event.type}: {event.message}")
+  if event.type == EventType.WORKFLOW_COMPLETED:
+    break
 
-for event in client.stream(handle.workflow_id):
-    print(f"[{event.type}] {event.message}")
-    if event.type == "WORKFLOW_COMPLETED":
-        break
+续传：
+
+```python
+last_id = None
+for e in client.stream(handle.workflow_id, last_event_id=last_id):
+  # ...
+  last_id = e.id
+```
+```
+
+## WebSocket（可选）
+
+需要：`pip install websockets`
+
+```python
+from shannon import ShannonClient
+client = ShannonClient()
+
+h = client.submit_task("通过 WS 流式")
+for e in client.stream_ws(h.workflow_id):
+  print(e.type, e.message)
+  if e.type == "WORKFLOW_COMPLETED":
+    break
+```
 ```
 
 ## 事件类型

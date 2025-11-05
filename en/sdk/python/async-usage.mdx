@@ -1,6 +1,6 @@
 ---
 title: "Async/Await Usage"
-description: "Using Shannon Python SDK with asyncio for concurrent operations"
+description: "Using Shannon Python SDK with asyncio"
 ---
 
 <Note>
@@ -9,7 +9,7 @@ Full async documentation coming soon. Basic patterns are shown below.
 
 ## Overview
 
-The Shannon Python SDK provides both synchronous and asynchronous clients for maximum flexibility. Use async operations for:
+The Shannon Python SDK provides both synchronous and asynchronous clients. Use async operations for:
 
 - Concurrent task submission
 - Non-blocking event streaming
@@ -26,15 +26,13 @@ from shannon import AsyncShannonClient
 
 async def main():
     async with AsyncShannonClient(base_url="http://localhost:8080") as client:
-        # Submit task asynchronously
         handle = await client.submit_task(
             query="Analyze this data",
-            # Mode auto-selected
+            model_tier="small",
+            mode="standard",
         )
-
-        # Get result
-        result = await client.get_status(handle.task_id)
-        print(result.result)
+        final = await client.wait(handle.task_id)
+        print(final.result)
 
 asyncio.run(main())
 ```
@@ -46,23 +44,14 @@ Submit multiple tasks simultaneously:
 ```python
 async def analyze_multiple():
     async with AsyncShannonClient() as client:
-        # Submit tasks concurrently
-        tasks = [
-            client.submit_task(query="Analyze dataset 1"),
-            client.submit_task(query="Analyze dataset 2"),
-            client.submit_task(query="Analyze dataset 3"),
-        ]
+        tasks = [client.submit_task(query=f"Analyze dataset {i}") for i in range(1, 4)]
 
         # Wait for all to complete
         handles = await asyncio.gather(*tasks)
 
         # Get all results
-        results = await asyncio.gather(*[
-            client.get_status(h.task_id)
-            for h in handles
-        ])
-
-        return results
+        results = await asyncio.gather(*[client.wait(h.task_id) for h in handles])
+        return [r.result for r in results]
 ```
 
 ## Async Streaming
@@ -72,14 +61,11 @@ Stream events without blocking:
 ```python
 async def stream():
     async with AsyncShannonClient() as client:
-        handle = await client.submit_task(query="Complex analysis")
-
-        # Stream events asynchronously
-        async for event in client.stream(handle.workflow_id):
-            print(f"[{event.type}] {event.message}")
-            if event.type == "WORKFLOW_COMPLETED":
-                # Fetch final result after completion
-                final = await client.get_status(handle.task_id)
+        h = await client.submit_task(query="Complex analysis")
+        async for e in client.stream(h.workflow_id):
+            print(e.type)
+            if e.type == "WORKFLOW_COMPLETED":
+                final = await client.get_status(h.task_id)
                 return final.result
 ```
 

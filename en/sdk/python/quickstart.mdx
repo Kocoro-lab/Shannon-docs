@@ -1,260 +1,73 @@
 ---
 title: "Python SDK Quick Start"
-description: "Get started with the Shannon Python SDK in 5 minutes"
+description: "Get started with the Shannon Python SDK in minutes"
 ---
 
-## Installation
+## Install
 
 ```bash
 pip install shannon-sdk
 ```
 
-## Your First Task
-
-### 1. Import and Initialize
+## First Task
 
 ```python
 from shannon import ShannonClient
-
-# HTTP-only client; default base_url is the gateway
 client = ShannonClient(base_url="http://localhost:8080")
-```
 
-### 2. Submit a Task
-
-```python
-handle = client.submit_task(query="What is the capital of France?")
-print("Task submitted:", handle.task_id)
-```
-
-### 3. Get Results
-
-```python
+handle = client.submit_task("What is the capital of France?")
 final = client.wait(handle.task_id, timeout=60)
-print("Result:", final.result)
+print(final.result)
 ```
 
-## Complete Example
+## Streaming (SSE)
 
 ```python
-from shannon import ShannonClient
+from shannon import ShannonClient, EventType
+client = ShannonClient()
 
-def main():
-    client = ShannonClient()
-    handle = client.submit_task(
-        query="Analyze the sentiment: Shannon makes AI agents simple!",
-    )
-    print("Task ID:", handle.task_id)
-    print("Waiting for completion...")
-    result = client.wait(handle.task_id, timeout=60)
-    print("\nResult:", result.result)
-
-if __name__ == "__main__":
-    main()
+h = client.submit_task("Research quantum computing")
+for e in client.stream(h.workflow_id, types=[EventType.LLM_OUTPUT, EventType.WORKFLOW_COMPLETED]):
+  print(e.type, e.message)
+  if e.type == EventType.WORKFLOW_COMPLETED:
+    break
 ```
 
-## Common Patterns
+## Model/Mode Selection (optional)
 
-### Idempotency
+Control cost and provider choice when submitting:
 
 ```python
 handle = client.submit_task(
-    query="Generate a summary for ...",
-    idempotency_key="user-123-req-456",  # prevents duplicate work
+  "Summarize this document",
+  model_tier="small",                # small|medium|large
+  # model_override="gpt-5-nano-2025-08-07",
+  # provider_override="openai",      # or anthropic, google, ...
+  mode="simple",                      # simple|standard|complex|supervisor
 )
+print(client.wait(handle.task_id).result)
 ```
 
-### Multi-Turn Conversation
-
-```python
-session_id = "user-123-chat"
-handle1 = client.submit_task(query="What is Python?", session_id=session_id)
-print(client.wait(handle1.task_id).result)
-
-handle2 = client.submit_task(query="What are its main advantages?", session_id=session_id)
-print(client.wait(handle2.task_id).result)
-```
-
-### Streaming Events
-
-```python
-handle = client.submit_task(query="Research quantum computing breakthroughs")
-for event in client.stream(handle.workflow_id):
-    print(f"[{event.type}] {event.message}")
-    if event.type == "WORKFLOW_COMPLETED":
-        break
-```
-
-### Error Handling
-
-```python
-from shannon.errors import ShannonError, TaskTimeoutError
-
-try:
-    handle = client.submit_task(query="Complex analysis")
-    result = client.wait(handle.task_id, timeout=120)
-    print(result.result)
-
-except TaskTimeoutError:
-    print("Task timed out")
-except ShannonError as e:
-    print(f"Shannon error: {e}")
-```
-
-## Task Modes
-
-Shannon selects execution modes internally. SDK calls do not accept a `mode` parameter.
-
-## Checking Status
-
-### Synchronous
-
-```python
-from shannon import TaskStatusEnum
-
-handle = client.submit_task(query="...")
-status = client.get_status(handle.task_id)
-print("Status:", status.status)
-
-if status.status == TaskStatusEnum.COMPLETED:
-    print("Result:", status.result)
-```
-
-### With Polling
-
-```python
-import time
-
-handle = client.submit_task(query="Long running task")
-while True:
-    status = client.get_status(handle.task_id)
-    print("Status:", status.status)
-    if status.status in [TaskStatusEnum.COMPLETED, TaskStatusEnum.FAILED]:
-        break
-    time.sleep(2)
-```
-
-## Async Usage
+## Async Version
 
 ```python
 import asyncio
 from shannon import AsyncShannonClient
 
 async def main():
-    async with AsyncShannonClient(base_url="http://localhost:8080") as client:
-        handle = await client.submit_task(query="Analyze sentiment")
-        result = await client.wait(handle.task_id)
-        print(result.result)
+  async with AsyncShannonClient(base_url="http://localhost:8080") as client:
+    h = await client.submit_task("Analyze sentiment")
+    f = await client.wait(h.task_id)
+    print(f.result)
 
 asyncio.run(main())
 ```
 
-### Multiple Tasks in Parallel
+## CLI
 
-```python
-async def analyze_multiple():
-    async with AsyncShannonClient() as client:
-        handles = await asyncio.gather(*[
-            client.submit_task(query=f"Analyze text {i}") for i in range(5)
-        ])
-        results = await asyncio.gather(*[
-            client.wait(h.task_id) for h in handles
-        ])
-        for i, result in enumerate(results):
-            print(f"Task {i}: {result.result}")
-
-asyncio.run(analyze_multiple())
+```bash
+# Submit with model selection
+python -m shannon.cli --base-url http://localhost:8080 \
+  submit "Summarize" --model-tier small --mode simple --wait
 ```
 
-## Configuration
-
-### Client Configuration
-
-```python
-client = ShannonClient(api_key="sk_test_123456")
-```
-
-### Task Configuration
-
-The platform selects execution modes automatically; budgets are configured server-side. The SDK exposes idempotency and session control.
-
-## Best Practices
-
-### 1. Prefer streaming for long tasks
-
-### 2. Use Context Managers
-
-```python
-async with AsyncShannonClient() as client:
-    handle = await client.submit_task(...)
-    status = await client.wait(handle.task_id)
-```
-
-### 3. Handle Errors
-
-```python
-try:
-    result = client.wait(handle.task_id)
-except ShannonError as e:
-    print(f"Task failed: {e}")
-```
-
-### 4. Use Streaming for Long Tasks
-
-```python
-# ✅ Real-time feedback
-for event in client.stream(handle.workflow_id):
-    update_ui(event)
-
-# For simple flows: blocking wait
-result = client.wait(handle.task_id, timeout=600)
-```
-
-## Examples by Use Case
-
-### Sentiment Analysis
-
-```python
-handle = client.submit_task(query="Analyze sentiment: The product is amazing!")
-print(client.wait(handle.task_id).result)
-```
-
-### Data Research
-
-```python
-handle = client.submit_task(query="Research the top 3 cloud providers and compare pricing")
-for event in client.stream(handle.workflow_id):
-    print(event.type)
-    if event.type == "WORKFLOW_COMPLETED":
-        break
-```
-
-### Code Generation
-
-```python
-handle = client.submit_task(query="Write a Python function to calculate Fibonacci numbers")
-print(client.wait(handle.task_id).result)
-```
-
-### Complex Analysis
-
-```python
-handle = client.submit_task(
-    query="Compare SQL vs NoSQL databases for an e-commerce platform"
-)
-print(client.wait(handle.task_id, timeout=300).result)
-```
-
-## Next Steps
-
-<CardGroup cols={2}>
-  <Card title="Streaming" icon="stream" href="/en/sdk/python/streaming">
-    Real-time event streaming
-  </Card>
-  <Card title="Async Usage" icon="bolt" href="/en/sdk/python/async-usage">
-    Async/await patterns
-  </Card>
-  <Card title="Examples" icon="code" href="/en/sdk/python/examples">
-    More code examples
-  </Card>
-</CardGroup>

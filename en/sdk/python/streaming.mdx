@@ -3,92 +3,54 @@ title: "Event Streaming"
 description: "Real-time event streaming with the Python SDK"
 ---
 
-<Note>
-Complete streaming documentation coming soon. For now, see the [Quick Start guide](/en/sdk/python/quickstart) for basic streaming examples.
-</Note>
-
 ## Overview
 
-Shannon provides real-time event streaming to monitor task execution as it happens.
+Use SSE for simple, reliable real-time updates. Optional WebSocket is available for environments that require WS.
 
-## Basic Usage
+## SSE (recommended)
+
+```python
+from shannon import ShannonClient, EventType
+client = ShannonClient()
+
+h = client.submit_task("Analyze market trends")
+for e in client.stream(h.workflow_id, types=[EventType.LLM_OUTPUT, EventType.WORKFLOW_COMPLETED]):
+  print(f"{e.type}: {e.message}")
+  if e.type == EventType.WORKFLOW_COMPLETED:
+    break
+```
+
+Resume from last event:
+
+```python
+last_id = None
+for e in client.stream(h.workflow_id, last_event_id=last_id):
+  # ...
+  last_id = e.id
+```
+
+## WebSocket (optional)
+
+Requires `pip install websockets`.
 
 ```python
 from shannon import ShannonClient
+client = ShannonClient()
 
-client = ShannonClient()  # Streams via gateway base_url (default http://localhost:8080)
-
-handle = client.submit_task(query="Analyze market trends")
-
-for event in client.stream(handle.workflow_id):
-    print(f"[{event.type}] {event.message}")
-    if event.type == "WORKFLOW_COMPLETED":
-        break
+h = client.submit_task("Stream via WS")
+for e in client.stream_ws(h.workflow_id):
+  print(e.type, e.message)
+  if e.type == "WORKFLOW_COMPLETED":
+    break
 ```
 
-## Event Types
+## Common Event Types
 
-Common events you'll see:
-- `WORKFLOW_STARTED` - Execution started
-- `LLM_PROMPT` / `LLM_PARTIAL` / `LLM_OUTPUT` - Model activity
-- `TOOL_INVOKED` / `TOOL_OBSERVATION` - Tool usage
-- `APPROVAL_REQUESTED` / `APPROVAL_DECISION` - Human-in-the-loop
-- `ERROR_OCCURRED` - Error surfaced
-- `WORKFLOW_COMPLETED` - Execution finished
+- WORKFLOW_STARTED / WORKFLOW_COMPLETED
+- LLM_PROMPT / LLM_PARTIAL / LLM_OUTPUT
+- TOOL_INVOKED / TOOL_OBSERVATION
+- APPROVAL_REQUESTED / APPROVAL_DECISION
+- ERROR_OCCURRED
 
-<Note>
-This is a subset of available events. See the `EventType` enum in the SDK for the full list (e.g., `STATUS_UPDATE`, `ROLE_ASSIGNED`, `TEAM_RECRUITED`, `DELEGATION`).
-</Note>
+Tip: Filter using `EventType` enums or raw strings.
 
-## Async Streaming
-
-```python
-import asyncio
-from shannon import AsyncShannonClient
-
-async def stream_task():
-    async with AsyncShannonClient() as client:
-        handle = await client.submit_task(query="Analyze data")
-
-        async for event in client.stream(handle.workflow_id):
-            print(f"Event: {event.type}")
-            if event.type == "WORKFLOW_COMPLETED":
-                break
-
-asyncio.run(stream_task())
-```
-
-## Filtering and Resume
-
-Filter by event types and resume from a known point:
-
-```python
-from shannon import EventType
-
-types = [EventType.LLM_OUTPUT, EventType.WORKFLOW_COMPLETED]
-
-last_event_id = None
-for event in client.stream(handle.workflow_id, types=types, last_event_id=last_event_id):
-    print(event.type)
-    last_event_id = event.id  # for resume later
-    if event.type == EventType.WORKFLOW_COMPLETED:
-        break
-```
-
-## More Examples
-
-For more streaming examples, see:
-- [SDK Quick Start](/en/sdk/python/quickstart)
-- [Streaming Concepts](/en/quickstart/concepts/streaming)
-- [API Streaming Endpoint](/en/api/rest/streaming)
-
-## Next Steps
-
-<CardGroup cols={2}>
-  <Card title="Async Usage" icon="bolt" href="/en/sdk/python/async-usage">
-    Async/await patterns
-  </Card>
-  <Card title="Examples" icon="code" href="/en/sdk/python/examples">
-    More code examples
-  </Card>
-</CardGroup>

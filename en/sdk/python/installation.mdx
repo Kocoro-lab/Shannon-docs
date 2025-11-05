@@ -3,15 +3,13 @@ title: "Python SDK Installation"
 description: "Install and configure the Shannon Python SDK"
 ---
 
-## Installation
-
-### Via pip (Recommended)
+## Install
 
 ```bash
 pip install shannon-sdk
 ```
 
-### From Source
+From source (dev):
 
 ```bash
 git clone https://github.com/Kocoro-lab/Shannon.git
@@ -19,215 +17,68 @@ cd Shannon/clients/python
 pip install -e .
 ```
 
-### Requirements
+Optional (WebSocket streaming support):
 
-- Python 3.9 or higher
-- pip or poetry for package management
-
-## Verify Installation
-
-```python
-import shannon
-print(shannon.__version__)
+```bash
+pip install websockets
 ```
 
-## Basic Setup
-
-### Import the Client
+## Quick Verify
 
 ```python
 from shannon import ShannonClient
-
-# HTTP-only client (defaults to Gateway at http://localhost:8080)
-client = ShannonClient()
+client = ShannonClient(base_url="http://localhost:8080")
+print("✓ SDK ready")
 ```
 
-### With Authentication
+## Auth
 
 ```python
 from shannon import ShannonClient
-
-client = ShannonClient(api_key="sk_test_123456")
+client = ShannonClient(
+  base_url="http://localhost:8080",
+  api_key="sk_test_123"
+)
 ```
 
-### Using Environment Variables
-
-The SDK does not auto-read environment variables. Use your own config loader and pass values explicitly:
+Env-driven:
 
 ```python
 import os
 from shannon import ShannonClient
-
 client = ShannonClient(
-    base_url=os.getenv("SHANNON_BASE_URL", "http://localhost:8080"),
-    api_key=os.getenv("SHANNON_API_KEY"),
+  base_url=os.getenv("SHANNON_BASE_URL", "http://localhost:8080"),
+  api_key=os.getenv("SHANNON_API_KEY"),
 )
 ```
 
-## Quick Example
+## Client Options
 
-```python
-from shannon import ShannonClient
-
-client = ShannonClient()
-
-handle = client.submit_task(query="What is the capital of France?")
-final = client.wait(handle.task_id, timeout=60)
-print("Result:", final.result)
-```
-
-## Configuration Options
-
-### Client Parameters
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `base_url` | str | `http://localhost:8080` | Gateway base URL (HTTP only) |
-| `api_key` | str | None | API key sent as `X-API-Key` |
-| `bearer_token` | str | None | Alternative auth header `Authorization: Bearer` |
-| `default_timeout` | float | 30.0 | Default HTTP timeout (seconds) |
-
-### Full Configuration
-
-```python
-client = ShannonClient(
-    base_url="http://localhost:8080",
-    api_key="sk_live_123456",
-    default_timeout=60.0,
-)
-```
+| Param | Type | Default | Notes |
+|------|------|---------|-------|
+| `base_url` | str | `http://localhost:8080` | Gateway HTTP URL |
+| `api_key` | str | None | Sent as `X-API-Key` |
+| `bearer_token` | str | None | Alternative `Authorization: Bearer` |
+| `default_timeout` | float | `30.0` | Seconds |
 
 ## Async Client
 
-For async applications, use `AsyncShannonClient`:
-
 ```python
-from shannon import AsyncShannonClient
 import asyncio
+from shannon import AsyncShannonClient
 
 async def main():
-    async with AsyncShannonClient(base_url="http://localhost:8080") as client:
-        handle = await client.submit_task(query="Analyze data")
-        status = await client.wait(handle.task_id)
-        print(status.result)
+  async with AsyncShannonClient(base_url="http://localhost:8080") as client:
+    h = await client.submit_task("Analyze data")
+    s = await client.wait(h.task_id)
+    print(s.result)
 
 asyncio.run(main())
 ```
 
-## Dependencies
-
-The SDK depends on a single HTTP library:
-
-- `httpx`
-
-## CLI Tool
-
-The package includes a simple CLI (`shannon`). Run `shannon --help` for usage.
-
-## Troubleshooting
-
-<AccordionGroup>
-  <Accordion title="ImportError: No module named 'shannon'">
-    **Solution**: Install the SDK
-
-    ```bash
-    pip install shannon-sdk
-    ```
-  </Accordion>
-
-  <Accordion title="Connection refused">
-    **Solution**: Verify Shannon is running
-
-    ```bash
-    curl http://localhost:8080/readiness
-    ```
-
-    If not running, start Shannon:
-
-    ```bash
-    cd Shannon
-    make dev
-    ```
-  </Accordion>
-
-  <Accordion title="Authentication error">
-    **Solution**: Check API key
-
-    ```python
-    client = ShannonClient(
-        base_url="http://localhost:8080",
-        api_key="sk_test_123456"  # Add API key
-    )
-    ```
-  </Accordion>
-</AccordionGroup>
-
-## Environment Variables
-
-The SDK does not auto-load env vars. These are common variables you can define and pass to the client:
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `SHANNON_BASE_URL` | Gateway HTTP base URL | `http://localhost:8080` |
-| `SHANNON_API_KEY` | API key | `sk_test_123456` |
-| `SHANNON_TIMEOUT` | Default timeout (seconds) | `60` |
-
-### .env Example
+## CLI
 
 ```bash
-SHANNON_BASE_URL=http://localhost:8080
-SHANNON_API_KEY=sk_test_123456
-SHANNON_TIMEOUT=60
+python -m shannon.cli --base-url http://localhost:8080 submit "What is 2+2?" --wait
 ```
 
-Load with python-dotenv:
-
-```python
-from dotenv import load_dotenv
-import os
-from shannon import ShannonClient
-
-load_dotenv()
-
-client = ShannonClient(
-    base_url=os.getenv("SHANNON_BASE_URL", "http://localhost:8080"),
-    api_key=os.getenv("SHANNON_API_KEY"),
-    default_timeout=float(os.getenv("SHANNON_TIMEOUT", "60")),
-)
-```
-
-## Logging
-
-Enable SDK logging:
-
-```python
-import logging
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger('shannon')
-```
-
-Debug mode:
-
-```python
-import logging
-
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-```
-
-## Next Steps
-
-<CardGroup cols={2}>
-  <Card title="Quick Start" icon="rocket" href="/en/sdk/python/quickstart">
-    Learn SDK basics with examples
-  </Card>
-  <Card title="Async Usage" icon="bolt" href="/en/sdk/python/async-usage">
-    Async/await patterns
-  </Card>
-  <Card title="Examples" icon="code" href="/en/sdk/python/examples">
-    Real-world code examples
-  </Card>
-</CardGroup>

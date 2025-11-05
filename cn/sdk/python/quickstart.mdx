@@ -34,6 +34,21 @@ final = client.wait(handle.task_id, timeout=60)
 print("结果：", final.result)
 ```
 
+## 模型/模式选择（可选）
+
+在提交时控制成本和提供商选择：
+
+```python
+handle = client.submit_task(
+  "为此文档生成摘要",
+  model_tier="small",                 # small|medium|large
+  # model_override="gpt-5-nano-2025-08-07",
+  # provider_override="openai",       # 或 anthropic、google 等
+  mode="simple",                       # simple|standard|complex|supervisor
+)
+print(client.wait(handle.task_id).result)
+```
+
 ## 完整示例
 
 ```python
@@ -103,7 +118,7 @@ except ShannonError as e:
 
 ## 任务模式
 
-Shannon 在内部选择执行模式。SDK 调用不接受 `mode` 参数。
+默认由平台选择，但 SDK 也支持可选的 `mode` 参数（simple/standard/complex/supervisor）。
 
 ## 检查状态
 

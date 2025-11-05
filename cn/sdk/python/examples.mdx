@@ -9,6 +9,22 @@ description: "使用 Shannon Python SDK 的实用示例"
 
 ## 基本示例
 
+### 模型选择
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+handle = client.submit_task(
+  "为此文档生成摘要",
+  model_tier="small",
+  # model_override="gpt-5-nano-2025-08-07",
+  # provider_override="openai",
+  mode="simple",
+)
+print(client.wait(handle.task_id).result)
+```
+
 ### 简单问答
 
 ```python
@@ -28,7 +44,6 @@ print(f"答案：{final.result}")
 # 分析 CSV 数据
 handle = client.submit_task(
     query="分析此 CSV 文件中的销售趋势",
-    # 模式自动选择,
     context={"file_path": "/data/sales_2024.csv"}
 )
 
@@ -82,13 +97,7 @@ from shannon import AsyncShannonClient
 async def parallel_research(topics):
     async with AsyncShannonClient() as client:
         # 并行提交所有研究任务
-        tasks = [
-            client.submit_task(
-                query=f"研究 {topic} 的最新发展",
-                # 模式自动选择
-            )
-            for topic in topics
-        ]
+        tasks = [client.submit_task(query=f"研究 {topic} 的最新发展") for topic in topics]
 
         # 等待所有句柄
         handles = await asyncio.gather(*tasks)
@@ -112,10 +121,7 @@ results = asyncio.run(parallel_research(topics))
 from shannon import EventType
 
 handle = client.submit_task(query="研究云服务商")
-for event in client.stream(
-    handle.workflow_id,
-    types=[EventType.LLM_OUTPUT, EventType.WORKFLOW_COMPLETED],
-):
+for event in client.stream(handle.workflow_id, types=[EventType.LLM_OUTPUT, EventType.WORKFLOW_COMPLETED]):
     print(event.type)
     if event.type == EventType.WORKFLOW_COMPLETED:
         break
