@@ -147,10 +147,19 @@ from fastapi import FastAPI
 from shannon import AsyncShannonClient
 
 app = FastAPI()
-client = AsyncShannonClient()
+
+@app.on_event("startup")
+async def startup():
+    app.state.client = AsyncShannonClient()
+
+@app.on_event("shutdown")
+async def shutdown():
+    # Ensure underlying HTTP client is closed
+    await app.state.client.close()
 
 @app.post("/analyze")
 async def analyze(query: str):
+    client = app.state.client
     handle = await client.submit_task(query=query)
     result = await client.wait(handle.task_id)
     return {"result": result.result}
