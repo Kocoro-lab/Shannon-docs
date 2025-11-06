@@ -41,17 +41,28 @@ print(f"答案：{final.result}")
 ### 数据分析
 
 ```python
-# 分析 CSV 数据
+from shannon import ShannonClient
+
+client = ShannonClient()
+
+# 贴近真实的数据分析
 handle = client.submit_task(
-    query="分析此 CSV 文件中的销售趋势",
-    context={"file_path": "/data/sales_2024.csv"}
+    query=(
+        "给定以下销售数据，请计算：\n"
+        "1. 各产品的总营收\n"
+        "2. 环比增长百分比\n"
+        "3. 返回总营收 Top 3\n\n"
+        "数据：\n"
+        "ProductA: Jan=$10000, Feb=$12000\n"
+        "ProductB: Jan=$8000, Feb=$9500\n"
+        "ProductC: Jan=$15000, Feb=$14000\n"
+        "ProductD: Jan=$5000, Feb=$6000\n\n"
+        "格式：JSON 数组 [{product, revenue, mom_growth_pct}]"
+    )
 )
 
-# 流式传输进度
-for event in client.stream(handle.workflow_id):
-    print(f"[{event.type}] {event.message}")
-    if event.type == "WORKFLOW_COMPLETED":
-        break
+result = client.wait(handle.task_id)
+print(result.result)
 ```
 
 ## 高级示例

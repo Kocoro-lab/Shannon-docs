@@ -41,20 +41,28 @@ print(f"Answer: {final.result}")
 ### Data Analysis
 
 ```python
-# Analyze CSV data (structured output)
+from shannon import ShannonClient
+
+client = ShannonClient()
+
+# Realistic data analysis
 handle = client.submit_task(
     query=(
-        "From the CSV at /data/sales_2024.csv, return the top 3 products by revenue "
-        "with month-over-month growth. Output JSON array: [{product, revenue, mom_growth_pct}] sorted desc."
-    ),
-    context={"file_path": "/data/sales_2024.csv"}
+        "Given the sales data below, calculate:\n"
+        "1. Total revenue per product\n"
+        "2. Month-over-month growth percentage\n"
+        "3. Return top 3 by total revenue\n\n"
+        "Data:\n"
+        "ProductA: Jan=$10000, Feb=$12000\n"
+        "ProductB: Jan=$8000, Feb=$9500\n"
+        "ProductC: Jan=$15000, Feb=$14000\n"
+        "ProductD: Jan=$5000, Feb=$6000\n\n"
+        "Format: JSON array [{product, revenue, mom_growth_pct}]"
+    )
 )
 
-# Stream progress
-for event in client.stream(handle.workflow_id):
-    print(f"[{event.type}] {event.message}")
-    if event.type == "WORKFLOW_COMPLETED":
-        break
+result = client.wait(handle.task_id)
+print(result.result)
 ```
 
 ## Advanced Examples
