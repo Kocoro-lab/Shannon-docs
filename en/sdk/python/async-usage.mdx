@@ -74,22 +74,25 @@ asyncio.run(main())
 Stream events without blocking. Tip: don’t await other client calls inside the `async for` loop — break out first, then await:
 
 ```python
-async def stream():
-    async with AsyncShannonClient() as client:
-        h = await client.submit_task(
-            query=(
-                "Draft a ~120-word executive summary of three recent AI milestones. "
-                "Stream partial output."
-            )
-        )
-        async for e in client.stream(h.workflow_id):
-            print(e.type)
-            if e.type == "WORKFLOW_COMPLETED":
-                break  # exit the loop cleanly
+import asyncio
+from shannon import AsyncShannonClient
 
-        # Now make additional awaits safely
+async def main():
+    async with AsyncShannonClient() as client:
+        # Submit task
+        h = await client.submit_task(query="What is the capital of France?")
+
+        # Stream events
+        async for e in client.stream(h.workflow_id):
+            print(f"{e.type}: {e.message[:50]}")
+            if e.type == "WORKFLOW_COMPLETED":
+                break  # Exit loop cleanly first
+
+        # Now safe to await
         final = await client.wait(h.task_id)
-        return final.result
+        print(f"\nFinal result: {final.result}")
+
+asyncio.run(main())
 ```
 
 ## Timeout Handling
@@ -123,51 +126,53 @@ async def with_timeout():
 Run tasks in background while doing other work:
 
 ```python
-async def background_processing():
+import asyncio
+from shannon import AsyncShannonClient
+
+async def main():
     async with AsyncShannonClient() as client:
         # Submit task
-        handle = await client.submit_task(
-            query=(
-                "Generate a ~500-word report on quarterly revenue drivers and risks. Output: Markdown."
-            )
-        )
+        handle = await client.submit_task(query="Generate a ~500-word report on quarterly revenue drivers and risks. Output: Markdown.")
 
-        # Start background wait
+        # Start background wait (doesn't block)
         task = asyncio.create_task(client.wait(handle.task_id))
 
-        # Do other work
-        await do_other_work()
+        # Do other work while task runs
+        print("Processing in background...")
+        await asyncio.sleep(2)  # Your other async work here
 
-        # Check if done
+        # Check status
         if not task.done():
             print("Still processing...")
 
-        # Wait for result when needed
+        # Get result when needed
         result = await task
+        print(f"Result: {result.result}")
+
+asyncio.run(main())
 ```
 
 ## Error Handling
 
 ```python
-async def robust_submission():
-    from shannon import ConnectionError, TaskTimeoutError
+import asyncio
+from shannon import AsyncShannonClient, ConnectionError, TaskTimeoutError
 
+async def main():
     async with AsyncShannonClient() as client:
         try:
-            handle = await client.submit_task(
-                query=(
-                    "Summarize the paragraph into a 2-sentence abstract for executives."
-                )
-            )
+            handle = await client.submit_task(query="What is AI?")
             result = await client.wait(handle.task_id)
-            return result
+            print(f"Result: {result.result}")
 
         except ConnectionError:
             print("Failed to connect to Shannon")
         except TaskTimeoutError:
             print("Task timed out")
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"Unexpected error: {e}")
+
+asyncio.run(main())
 ```
 
 ## Integration with Web Frameworks
@@ -175,19 +180,19 @@ async def robust_submission():
 ### FastAPI Example
 
 ```python
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from shannon import AsyncShannonClient
 
-app = FastAPI()
-
-@app.on_event("startup")
-async def startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: create client
     app.state.client = AsyncShannonClient()
-
-@app.on_event("shutdown")
-async def shutdown():
-    # Ensure underlying HTTP client is closed
+    yield
+    # Shutdown: close client
     await app.state.client.close()
+
+app = FastAPI(lifespan=lifespan)
 
 @app.post("/analyze")
 async def analyze(query: str):
@@ -197,20 +202,17 @@ async def analyze(query: str):
     return {"result": result.result}
 ```
 
-### aiohttp Example
+To test:
 
-```python
-from aiohttp import web
-from shannon import AsyncShannonClient
+```bash
+# Install FastAPI and uvicorn
+pip install fastapi uvicorn
 
-async def analyze_handler(request):
-    data = await request.json()
+# Run server
+uvicorn your_file:app --reload
 
-    async with AsyncShannonClient() as client:
-        handle = await client.submit_task(query=data['query'])
-        result = await client.wait(handle.task_id)
-
-    return web.json_response({'result': result.result})
+# Test endpoint
+curl -X POST "http://127.0.0.1:8000/analyze?query=What+is+AI?"
 ```
 
 ## Best Practices

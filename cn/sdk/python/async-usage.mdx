@@ -42,15 +42,28 @@ asyncio.run(main())
 同时提交多个任务：
 
 ```python
-async def analyze_multiple():
-    async with AsyncShannonClient() as client:
-        tasks = [client.submit_task(query=f"分析数据集 {i}") for i in range(1, 4)]
+import asyncio
+from shannon import AsyncShannonClient
 
-        # 等待所有任务完成
+async def main():
+    async with AsyncShannonClient() as client:
+        # 并发提交多个任务
+        tasks = [
+            client.submit_task(query="5+5 等于多少？"),
+            client.submit_task(query="10*2 等于多少？"),
+            client.submit_task(query="100/4 等于多少？"),
+        ]
+
+        # 等待所有提交完成
         handles = await asyncio.gather(*tasks)
 
+        # 获取所有结果
         results = await asyncio.gather(*[client.wait(h.task_id) for h in handles])
-        return [r.result for r in results]
+
+        for i, r in enumerate(results, 1):
+            print(f"任务 {i}: {r.result}")
+
+asyncio.run(main())
 ```
 
 ## 异步流式传输
@@ -58,17 +71,25 @@ async def analyze_multiple():
 非阻塞流式事件。提示：不要在 `async for` 循环内再调用其它 `await` 方法；先 `break` 退出循环，再进行后续 `await`：
 
 ```python
-async def stream():
-    async with AsyncShannonClient() as client:
-        h = await client.submit_task(query="复杂分析")
-        async for e in client.stream(h.workflow_id):
-            print(e.type)
-            if e.type == "WORKFLOW_COMPLETED":
-                break  # 先退出循环
+import asyncio
+from shannon import AsyncShannonClient
 
-        # 再进行后续的 await 调用
+async def main():
+    async with AsyncShannonClient() as client:
+        # 提交任务
+        h = await client.submit_task(query="法国的首都是哪里？")
+
+        # 流式读取事件
+        async for e in client.stream(h.workflow_id):
+            print(f"{e.type}: {e.message[:50]}")
+            if e.type == "WORKFLOW_COMPLETED":
+                break  # 先干净地退出循环
+
+        # 现在再进行 await 是安全的
         final = await client.wait(h.task_id)
-        return final.result
+        print(f"\n最终结果：{final.result}")
+
+asyncio.run(main())
 ```
 
 ## 超时处理
@@ -98,41 +119,53 @@ async def with_timeout():
 在执行其他工作时在后台运行任务：
 
 ```python
-async def background_processing():
+import asyncio
+from shannon import AsyncShannonClient
+
+async def main():
     async with AsyncShannonClient() as client:
         # 提交任务
-        handle = await client.submit_task(query="Long running analysis")
+        handle = await client.submit_task(query="生成一篇约 500 字的季度营收驱动与风险报告。输出：Markdown。")
 
-        # 启动后台等待
+        # 启动后台等待（不阻塞）
         task = asyncio.create_task(client.wait(handle.task_id))
 
-        # 执行其他工作
-        await do_other_work()
+        # 在任务运行时执行其他工作
+        print("在后台处理…")
+        await asyncio.sleep(2)  # 这里放你的其他异步工作
 
-        # 检查是否完成
+        # 检查状态
         if not task.done():
-            print("Still processing...")
+            print("仍在处理…")
 
-        # 需要时等待结果
+        # 需要时获取结果
         result = await task
+        print(f"结果：{result.result}")
+
+asyncio.run(main())
 ```
 
 ## 错误处理
 
 ```python
-async def robust_submission():
+import asyncio
+from shannon import AsyncShannonClient, ConnectionError, TaskTimeoutError
+
+async def main():
     async with AsyncShannonClient() as client:
         try:
-            handle = await client.submit_task(query="Analyze data")
+            handle = await client.submit_task(query="什么是 AI？")
             result = await client.wait(handle.task_id)
-            return result
+            print(f"结果：{result.result}")
 
         except ConnectionError:
-            print("Failed to connect to Shannon")
+            print("无法连接到 Shannon")
         except TaskTimeoutError:
-            print("Task timed out")
+            print("任务超时")
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"未预期的错误：{e}")
+
+asyncio.run(main())
 ```
 
 ## 与 Web 框架集成
@@ -140,19 +173,19 @@ async def robust_submission():
 ### FastAPI 示例
 
 ```python
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from shannon import AsyncShannonClient
 
-app = FastAPI()
-
-@app.on_event("startup")
-async def startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 启动：创建客户端
     app.state.client = AsyncShannonClient()
-
-@app.on_event("shutdown")
-async def shutdown():
-    # 确保底层 HTTP 客户端被正常关闭
+    yield
+    # 关闭：释放客户端
     await app.state.client.close()
+
+app = FastAPI(lifespan=lifespan)
 
 @app.post("/analyze")
 async def analyze(query: str):
@@ -162,20 +195,17 @@ async def analyze(query: str):
     return {"result": result.result}
 ```
 
-### aiohttp 示例
+测试方法：
 
-```python
-from aiohttp import web
-from shannon import AsyncShannonClient
+```bash
+# 安装 FastAPI 与 uvicorn
+pip install fastapi uvicorn
 
-async def analyze_handler(request):
-    data = await request.json()
+# 启动服务
+uvicorn your_file:app --reload
 
-    async with AsyncShannonClient() as client:
-        handle = await client.submit_task(query=data['query'])
-        result = await client.wait(handle.task_id)
-
-    return web.json_response({'result': result.result})
+# 测试接口
+curl -X POST "http://127.0.0.1:8000/analyze?query=What+is+AI?"
 ```
 
 ## 最佳实践
