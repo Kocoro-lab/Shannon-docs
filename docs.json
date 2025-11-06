@@ -174,7 +174,6 @@
                   "en/tutorials/openapi-tools",
                   "en/tutorials/vendor-adapters",
                   "en/tutorials/extending-shannon",
-                  "en/tutorials/multi-agent-systems",
                   "en/tutorials/model-selection"
                 ]
               }
@@ -218,7 +217,6 @@
                 "pages": [
                   "en/architecture/overview",
                   "en/architecture/components",
-                  "en/architecture/data-flow",
                   "en/architecture/grpc-api",
                   "en/architecture/database-schema"
                 ]
@@ -356,7 +354,6 @@
                   "cn/tutorials/custom-tools",
                   "cn/tutorials/vendor-adapters",
                   "cn/tutorials/extending-shannon",
-                  "cn/tutorials/multi-agent-systems",
                   "cn/tutorials/model-selection"
                 ]
               }
@@ -400,7 +397,6 @@
                 "pages": [
                   "cn/architecture/overview",
                   "cn/architecture/components",
-                  "cn/architecture/data-flow",
                   "cn/architecture/grpc-api",
                   "cn/architecture/database-schema"
                 ]

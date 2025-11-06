@@ -248,72 +248,176 @@ if __name__ == "__main__":
 
 完整事件类型列表参见[事件类型目录](/cn/api/event-types)。
 
+<Note>
+<b>可用事件类型</b>
+
+- `LLM_OUTPUT` — 最终 LLM 响应
+- `LLM_PARTIAL` — 实时流式 token
+- `WORKFLOW_COMPLETED` — 任务完成
+- `AGENT_THINKING` — 代理推理/思考
+- `AGENT_STARTED` — 代理开始工作
+- `AGENT_COMPLETED` — 代理完成工作
+- `PROGRESS` — 进度更新
+- `ERROR_OCCURRED` — 错误
+
+<b>常见过滤组合</b>
+
+- 仅最终输出：`types=[EventType.LLM_OUTPUT, EventType.WORKFLOW_COMPLETED]`
+- 实时流式输出：`types=[EventType.LLM_PARTIAL, EventType.WORKFLOW_COMPLETED]`
+- 监控代理生命周期：`types=[EventType.AGENT_STARTED, EventType.AGENT_COMPLETED]`
+- 全部（不加过滤）：`types=None`（或省略该参数）
+</Note>
+
 ## 真实用例
 
-{/* 移除了使用不受支持会话 API 的示例 */}
-
-### 代码审查助手
-
-```python
-def automated_code_review(file_path, language="python"):
-    client = ShannonClient()
-
-    with open(file_path, 'r') as f:
-        code = f.read()
-
-    handle = client.submit_task(
-        query=f"检查此 {language} 代码的错误、安全问题和改进",
-        # 模式自动选择,
-        context={"code": code}
-    )
-
-    # 追踪进度
-    for event in client.stream(handle.workflow_id):
-        print(f"[{event.type}] {event.message}")
-        if event.type == "WORKFLOW_COMPLETED":
-            break
-
-    return client.wait(handle.task_id)
-
-# 使用它
-review = automated_code_review("app.py")
-print(review)
-```
-
-{/* 移除了冗长的研究助手示例以保持简洁 */}
+{/* 本节示例已移除以保持页面简洁。 */}
 
 ## 错误处理示例
 
 ```python
-from shannon import ShannonClient, ShannonError, ConnectionError, TaskTimeoutError
-import time
+#!/usr/bin/env python3
+"""带重试逻辑的错误处理示例"""
 
-def robust_task_submission(query, max_retries=3):
+import time
+from shannon import ShannonClient, ConnectionError, TaskTimeoutError, ShannonError
+
+def robust_task_submission(query: str, max_retries: int = 3):
+    """
+    使用重试逻辑提交任务，并包含全面的错误处理。
+
+    参数：
+        query: 任务查询内容
+        max_retries: 可重试错误的最大重试次数
+
+    返回：
+        TaskStatus 对象；若所有尝试均失败则返回 None
+    """
     client = ShannonClient()
 
     for attempt in range(max_retries):
         try:
-            # 提交任务
-            handle = client.submit_task(query=query)  # 模式自动选择
+            print(f"\n[尝试 {attempt + 1}/{max_retries}] 正在提交任务…")
 
-            # 等待超时
+            # 提交任务
+            handle = client.submit_task(query=query)
+            print(f"✅ 已提交任务：{handle.task_id}")
+
+            # 带超时等待结果
+            print("⏳ 等待结果（300s 超时）…")
             result = client.wait(handle.task_id, timeout=300)
 
+            print("✅ 任务成功完成")
             return result
 
-        except ConnectionError:
+        except ConnectionError as e:
+            # 可恢复：指数退避后重试
+            wait_time = 2 ** attempt  # 1s, 2s, 4s
+            print(f"❌ 连接错误：{e}")
+
             if attempt < max_retries - 1:
-                time.sleep(2 ** attempt)  # 指数退避
-                continue
+                print(f"⏳ {wait_time} 秒后重试…")
+                time.sleep(wait_time)
+            else:
+                print(f"❌ 已达最大重试次数（{max_retries}），放弃。")
+                raise
+
+        except TaskTimeoutError as e:
+            # 终止：任务耗时过长
+            print(f"❌ 任务超时：{e}")
+            print("⚠️  超过 300 秒限制，不再重试。")
             raise
 
-        except TaskTimeoutError:
-            print("任务超时")
-            raise
         except ShannonError as e:
-            print(f"Shannon 错误：{e}")
+            # 终止：API 级错误
+            print(f"❌ Shannon API 错误：{e}")
+            print("⚠️  遇到 API 错误，不再重试。")
             raise
+
+        except Exception as e:
+            # 未预期错误
+            print(f"❌ 未预期错误：{type(e).__name__}: {e}")
+            raise
+
+    return None
+
+
+def main():
+    print("=" * 60)
+    print("错误处理示例")
+    print("=" * 60)
+
+    # 示例 1：正常执行
+    print("\n📝 示例 1：正常执行")
+    print("-" * 60)
+    try:
+        result = robust_task_submission("2+2 等于多少？")
+        if result:
+            print(f"\n最终结果：{result.result}")
+    except Exception as e:
+        print(f"\n⚠️  失败：{e}")
+
+    # 示例 2：超时场景（演示不重试）
+    print("\n\n📝 示例 2：超时场景")
+    print("-" * 60)
+    print("提示：此处演示超时处理")
+    try:
+        result = robust_task_submission(
+            "分析一个复杂数据集…（模拟耗时较长的任务）"
+        )
+        if result:
+            print(f"\n最终结果：{result.result}")
+    except TaskTimeoutError:
+        print("\n⚠️  任务超时——不重试（预期行为）")
+    except Exception as e:
+        print(f"\n⚠️  错误：{e}")
+
+    # 示例 3：简单的 try/except 模式
+    print("\n\n📝 示例 3：简单的 try/except 模式")
+    print("-" * 60)
+    client = ShannonClient()
+    try:
+        handle = client.submit_task(query="法国的首都是哪里？")
+        result = client.wait(handle.task_id)
+        print(f"✅ 成功：{result.result}")
+    except ConnectionError:
+        print("❌ 网络问题——请检查 Shannon 服务")
+    except TaskTimeoutError:
+        print("❌ 任务耗时过长")
+    except ShannonError as e:
+        print(f"❌ API 错误：{e}")
+    except Exception as e:
+        print(f"❌ 未预期错误：{e}")
+
+    print("\n" + "=" * 60)
+    print("✅ 错误处理示例完成！")
+    print("=" * 60)
+
+
+if __name__ == "__main__":
+    main()
 ```
+
+运行方法：
+
+```bash
+# 确保 Shannon 已运行
+make dev
+
+# 运行示例
+python3 error_handling.py
+```
+
+何时使用重试：
+
+- 网络不稳定
+- 临时性服务问题
+- 对可靠性有要求的生产系统
+
+不建议重试：
+
+- 超时（任务本身过于复杂/耗时）
+- API 错误（参数无效等）
+- 认证失败
 
 ## 后续步骤
 

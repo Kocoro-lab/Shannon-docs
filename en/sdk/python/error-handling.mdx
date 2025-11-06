@@ -317,3 +317,139 @@ except Exception as e:
     Async error patterns
   </Card>
 </CardGroup>
+## Complete Retry Example
+
+```python
+#!/usr/bin/env python3
+"""Error handling with retry logic example"""
+
+import time
+from shannon import ShannonClient, ConnectionError, TaskTimeoutError, ShannonError
+
+def robust_task_submission(query: str, max_retries: int = 3):
+    """
+    Submit a task with retry logic and comprehensive error handling.
+
+    Args:
+        query: The task query
+        max_retries: Maximum retry attempts for recoverable errors
+
+    Returns:
+        TaskStatus object or None if all attempts fail
+    """
+    client = ShannonClient()
+
+    for attempt in range(max_retries):
+        try:
+            print(f"\n[Attempt {attempt + 1}/{max_retries}] Submitting task...")
+            handle = client.submit_task(query=query)
+            print(f"✅ Task submitted: {handle.task_id}")
+            print("⏳ Waiting for result (300s timeout)...")
+            result = client.wait(handle.task_id, timeout=300)
+            print("✅ Task completed successfully")
+            return result
+
+        except ConnectionError as e:
+            wait_time = 2 ** attempt  # 1s, 2s, 4s
+            print(f"❌ Connection error: {e}")
+            if attempt < max_retries - 1:
+                print(f"⏳ Retrying in {wait_time} seconds...")
+                time.sleep(wait_time)
+            else:
+                print(f"❌ Max retries ({max_retries}) reached. Giving up.")
+                raise
+
+        except TaskTimeoutError as e:
+            print(f"❌ Task timeout error: {e}")
+            print("⚠️  Task exceeded 300 second limit. Not retrying.")
+            raise
+
+        except ShannonError as e:
+            print(f"❌ Shannon API error: {e}")
+            print("⚠️  API error encountered. Not retrying.")
+            raise
+
+        except Exception as e:
+            print(f"❌ Unexpected error: {type(e).__name__}: {e}")
+            raise
+
+    return None
+
+
+def main():
+    print("=" * 60)
+    print("Error Handling Examples")
+    print("=" * 60)
+
+    # Example 1: Normal execution
+    print("\n📝 Example 1: Normal execution")
+    print("-" * 60)
+    try:
+        result = robust_task_submission("What is 2+2?")
+        if result:
+            print(f"\nFinal result: {result.result}")
+    except Exception as e:
+        print(f"\n⚠️  Failed: {e}")
+
+    # Example 2: Timeout scenario (fail fast)
+    print("\n\n📝 Example 2: Timeout scenario")
+    print("-" * 60)
+    print("Note: This demonstrates timeout handling")
+    try:
+        result = robust_task_submission(
+            "Analyze this complex dataset... (simulated long task)"
+        )
+        if result:
+            print(f"\nFinal result: {result.result}")
+    except TaskTimeoutError:
+        print("\n⚠️  Task timeout - no retry attempted (expected behavior)")
+    except Exception as e:
+        print(f"\n⚠️  Error: {e}")
+
+    # Example 3: Simple try/catch pattern
+    print("\n\n📝 Example 3: Simple try-catch pattern")
+    print("-" * 60)
+    client = ShannonClient()
+    try:
+        handle = client.submit_task(query="What is the capital of France?")
+        result = client.wait(handle.task_id)
+        print(f"✅ Success: {result.result}")
+    except ConnectionError:
+        print("❌ Network issue - check Shannon service")
+    except TaskTimeoutError:
+        print("❌ Task took too long")
+    except ShannonError as e:
+        print(f"❌ API error: {e}")
+    except Exception as e:
+        print(f"❌ Unexpected error: {e}")
+
+    print("\n" + "=" * 60)
+    print("✅ Error handling examples completed!")
+    print("=" * 60)
+
+
+if __name__ == "__main__":
+    main()
+```
+
+To run:
+
+```bash
+# Ensure Shannon is running
+make dev
+
+# Run the example
+python3 error_handling.py
+```
+
+When to use retry logic:
+
+- Network instability
+- Transient service issues
+- Production systems requiring resilience
+
+When NOT to retry:
+
+- Timeouts (task is too complex)
+- API errors (invalid parameters)
+- Authentication failures

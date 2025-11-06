@@ -248,72 +248,29 @@ if __name__ == "__main__":
 
 See the full list of event types in the [Event Types Catalog](/en/api/event-types).
 
-## Real-World Use Cases
+<Note>
+<b>Available event types</b>
 
-{/* Removed outdated customer support bot example (used unsupported session APIs). */}
+- `LLM_OUTPUT` — LLM responses
+- `LLM_PARTIAL` — streaming tokens
+- `WORKFLOW_COMPLETED` — task finished
+- `AGENT_THINKING` — agent reasoning
+- `AGENT_STARTED` — agent begins work
+- `AGENT_COMPLETED` — agent finishes
+- `PROGRESS` — progress updates
+- `ERROR_OCCURRED` — errors
 
-### Code Review Assistant
+<b>Common filters</b>
 
-```python
-def automated_code_review(file_path, language="python"):
-    client = ShannonClient()
-
-    with open(file_path, 'r') as f:
-        code = f.read()
-
-    handle = client.submit_task(
-        query=f"Review this {language} code for bugs, security issues, and improvements",
-        # Mode auto-selected,
-        context={"code": code}
-    )
-
-    # Track progress (generic)
-    for event in client.stream(handle.workflow_id):
-        print(f"[{event.type}] {event.message}")
-        if event.type == "WORKFLOW_COMPLETED":
-            break
-
-    return client.wait(handle.task_id)
-
-# Use it
-review = automated_code_review("app.py")
-print(review)
-```
-
-{/* Removed verbose research assistant example for brevity. */}
+- Only final outputs: `types=[EventType.LLM_OUTPUT, EventType.WORKFLOW_COMPLETED]`
+- Real-time streaming: `types=[EventType.LLM_PARTIAL, EventType.WORKFLOW_COMPLETED]`
+- Monitor agents: `types=[EventType.AGENT_STARTED, EventType.AGENT_COMPLETED]`
+- Everything (no filter): `types=None` (or omit the parameter)
+</Note>
 
 ## Error Handling Examples
 
-```python
-from shannon import ShannonClient, ShannonError, ConnectionError, TaskTimeoutError
-import time
-
-def robust_task_submission(query, max_retries=3):
-    client = ShannonClient()
-
-    for attempt in range(max_retries):
-        try:
-            # Submit task
-            handle = client.submit_task(query=query)  # Mode auto-selected
-
-            # Wait with timeout
-            result = client.wait(handle.task_id, timeout=300)
-
-            return result
-
-        except ConnectionError:
-            if attempt < max_retries - 1:
-                time.sleep(2 ** attempt)  # Exponential backoff
-                continue
-            raise
-
-        except TaskTimeoutError:
-            print("Task timed out")
-            raise
-        except ShannonError as e:
-            print(f"Shannon error: {e}")
-            raise
-```
+See the dedicated page for complete patterns and a full retry-logic example: [Error Handling](/en/sdk/python/error-handling).
 
 ## Next Steps
 
