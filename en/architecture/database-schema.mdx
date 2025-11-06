@@ -6,8 +6,8 @@ description: "Complete PostgreSQL database schema reference for Shannon"
 ## Overview
 
 Shannon uses PostgreSQL with pgvector extension for persistent storage. The database is organized into two schemas:
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
+- `auth` - Authentication, multi-tenancy, and security
+- `public` - Core application tables (tasks, agents, sessions)
 
 **Total Tables**: 18 tables
 **Extensions**: uuid-ossp, pg_trgm, btree_gin, pgcrypto
@@ -81,13 +81,7 @@ Shannon uses PostgreSQL with pgvector extension for persistent storage. The data
 | metadata | JSONB | DEFAULT '{}' | Additional tenant data |
 
 **Indexes**:
-- `idx_sessions_user_id` ON (user_id)
-- `idx_sessions_tenant_id` ON (tenant_id)
-- `idx_sessions_expires_at` ON (expires_at)
-- `idx_sessions_external_id` ON ((context->>'external_id')) WHERE context->>'external_id' IS NOT NULL
-- `idx_sessions_user_external_id` UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
-- `idx_sessions_not_deleted` ON (id) WHERE deleted_at IS NULL
-
+- Primary key on `slug` (UNIQUE)
 
 **Example**:
 ```sql
@@ -125,13 +119,9 @@ WHERE monthly_token_usage > token_limit * 0.8;
 | metadata | JSONB | DEFAULT '{}' | Additional user data |
 
 **Indexes**:
-- `idx_sessions_user_id` ON (user_id)
-- `idx_sessions_tenant_id` ON (tenant_id)
-- `idx_sessions_expires_at` ON (expires_at)
-- `idx_sessions_external_id` ON ((context->>'external_id')) WHERE context->>'external_id' IS NOT NULL
-- `idx_sessions_user_external_id` UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
-- `idx_sessions_not_deleted` ON (id) WHERE deleted_at IS NULL
-
+- `idx_users_email` ON (email)
+- `idx_users_username` ON (username)
+- `idx_users_tenant_id` ON (tenant_id)
 
 **Example**:
 ```sql
@@ -171,18 +161,13 @@ WHERE last_login < NOW() - INTERVAL '90 days'
 | metadata | JSONB | DEFAULT '{}' | Additional key data |
 
 **Indexes**:
-- `idx_sessions_user_id` ON (user_id)
-- `idx_sessions_tenant_id` ON (tenant_id)
-- `idx_sessions_expires_at` ON (expires_at)
-- `idx_sessions_external_id` ON ((context->>'external_id')) WHERE context->>'external_id' IS NOT NULL
-- `idx_sessions_user_external_id` UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
-- `idx_sessions_not_deleted` ON (id) WHERE deleted_at IS NULL
-
+- `idx_api_keys_tenant_id` ON (tenant_id)
+- `idx_api_keys_key_prefix` ON (key_prefix)
 
 **Default Scopes**:
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
+- `tasks:run`: Allow task execution
+- `tasks:read`: Allow reading task status and results
+- `sessions:manage`: Allow managing sessions
 
 **Example**:
 ```sql
@@ -224,13 +209,8 @@ WHERE expires_at BETWEEN NOW() AND NOW() + INTERVAL '7 days'
 | created_at | TIMESTAMP | DEFAULT NOW() | Creation time |
 
 **Indexes**:
-- `idx_sessions_user_id` ON (user_id)
-- `idx_sessions_tenant_id` ON (tenant_id)
-- `idx_sessions_expires_at` ON (expires_at)
-- `idx_sessions_external_id` ON ((context->>'external_id')) WHERE context->>'external_id' IS NOT NULL
-- `idx_sessions_user_external_id` UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
-- `idx_sessions_not_deleted` ON (id) WHERE deleted_at IS NULL
-
+- `idx_refresh_tokens_user_id` ON (user_id)
+- `idx_refresh_tokens_token_hash` ON (token_hash)
 
 **Example**:
 ```sql
@@ -261,19 +241,16 @@ WHERE expires_at < NOW() - INTERVAL '7 days';
 | created_at | TIMESTAMP | DEFAULT NOW() | Event time |
 
 **Indexes**:
-- `idx_sessions_user_id` ON (user_id)
-- `idx_sessions_tenant_id` ON (tenant_id)
-- `idx_sessions_expires_at` ON (expires_at)
-- `idx_sessions_external_id` ON ((context->>'external_id')) WHERE context->>'external_id' IS NOT NULL
-- `idx_sessions_user_external_id` UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
-- `idx_sessions_not_deleted` ON (id) WHERE deleted_at IS NULL
-
+- `idx_audit_logs_user_id` ON (user_id)
+- `idx_audit_logs_tenant_id` ON (tenant_id)
+- `idx_audit_logs_event_type` ON (event_type)
+- `idx_audit_logs_created_at` ON (created_at)
 
 **Event Types**:
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
+- `login` - User login
+- `logout` - User logout
+- `api_key_created` - API key generation
+- `permission_changed` - Role/permission modification
 
 **Example**:
 ```sql
@@ -313,8 +290,6 @@ HAVING COUNT(*) > 5;
 - `idx_users_tenant_id` ON (tenant_id)
 - `idx_users_external_id` ON (external_id)
 
-
-
 **Note**: This table exists for backward compatibility. New code should use `auth.users`.
 
 ### sessions
@@ -332,6 +307,8 @@ HAVING COUNT(*) > 5;
 | created_at | TIMESTAMPTZ | DEFAULT NOW() | Session start |
 | updated_at | TIMESTAMPTZ | DEFAULT NOW() | Last activity |
 | expires_at | TIMESTAMPTZ | | Expiration time |
+| deleted_at | TIMESTAMPTZ | DEFAULT NULL | Soft delete timestamp |
+| deleted_by | UUID | DEFAULT NULL | User who deleted session |
 
 **Indexes**:
 - `idx_sessions_user_id` ON (user_id)
@@ -340,9 +317,11 @@ HAVING COUNT(*) > 5;
 - `idx_sessions_external_id` ON ((context->>'external_id')) WHERE context->>'external_id' IS NOT NULL
 - `idx_sessions_user_external_id` UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
 - `idx_sessions_not_deleted` ON (id) WHERE deleted_at IS NULL
+- `idx_sessions_deleted_at` ON (deleted_at) WHERE deleted_at IS NOT NULL
 
-
-External IDs (non-UUID session IDs) are stored in `context->>'external_id'` to enable dual-ID lookups.
+**Notes**:
+- External IDs (non-UUID session IDs) are stored in `context->>'external_id'` to enable dual-ID lookups
+- Soft delete support via `deleted_at` column - sessions with non-NULL `deleted_at` are considered deleted
 
 **Example**:
 ```sql
@@ -394,19 +373,18 @@ WHERE created_at > NOW() - INTERVAL '24 hours';
 | created_at | TIMESTAMPTZ | DEFAULT NOW() | Record creation |
 
 **Indexes**:
-- `idx_sessions_user_id` ON (user_id)
-- `idx_sessions_tenant_id` ON (tenant_id)
-- `idx_sessions_expires_at` ON (expires_at)
-- `idx_sessions_external_id` ON ((context->>'external_id')) WHERE context->>'external_id' IS NOT NULL
-- `idx_sessions_user_external_id` UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
-- `idx_sessions_not_deleted` ON (id) WHERE deleted_at IS NULL
-
+- `idx_task_user_session` ON (user_id, session_id)
+- `idx_task_created_at` ON (created_at DESC)
+- `idx_task_status` ON (status)
+- `idx_task_workflow_id` ON (workflow_id)
+- `idx_task_executions_tenant_id` ON (tenant_id)
+- `idx_task_executions_session_id` ON (session_id)
 
 **Status Values**:
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
+- `RUNNING` - Task in progress
+- `COMPLETED` - Task finished successfully
+- `FAILED` - Task failed with error
+- `CANCELLED` - Task cancelled by user
 
 **Example**:
 ```sql
@@ -464,24 +442,20 @@ ORDER BY total_cost DESC;
 | completed_at | TIMESTAMPTZ | | Completion time |
 
 **Indexes**:
-- `idx_sessions_user_id` ON (user_id)
-- `idx_sessions_tenant_id` ON (tenant_id)
-- `idx_sessions_expires_at` ON (expires_at)
-- `idx_sessions_external_id` ON ((context->>'external_id')) WHERE context->>'external_id' IS NOT NULL
-- `idx_sessions_user_external_id` UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
-- `idx_sessions_not_deleted` ON (id) WHERE deleted_at IS NULL
-
+- `idx_agent_task_execution` ON (task_execution_id)
+- `idx_agent_created_at` ON (created_at DESC)
+- `idx_agent_state` ON (state)
 
 **State Values**:
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
+- `IDLE` - Agent idle
+- `ANALYZING` - Analyzing input
+- `PLANNING` - Planning execution
+- `RETRIEVING` - Retrieving information
+- `EXECUTING` - Executing task
+- `VALIDATING` - Validating results
+- `SYNTHESIZING` - Synthesizing response
+- `COMPLETED` - Execution complete
+- `FAILED` - Execution failed
 
 **Example**:
 ```sql
@@ -527,20 +501,17 @@ ORDER BY execution_count DESC;
 | executed_at | TIMESTAMPTZ | DEFAULT NOW() | Execution time |
 
 **Indexes**:
-- `idx_sessions_user_id` ON (user_id)
-- `idx_sessions_tenant_id` ON (tenant_id)
-- `idx_sessions_expires_at` ON (expires_at)
-- `idx_sessions_external_id` ON ((context->>'external_id')) WHERE context->>'external_id' IS NOT NULL
-- `idx_sessions_user_external_id` UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
-- `idx_sessions_not_deleted` ON (id) WHERE deleted_at IS NULL
-
+- `idx_tool_name` ON (tool_name)
+- `idx_tool_executed_at` ON (executed_at DESC)
+- `idx_tool_task_execution` ON (task_execution_id)
+- `idx_tool_success` ON (success)
 
 **Tool Categories**:
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
+- `search` - Search and lookup tools
+- `calculation` - Mathematical and computational tools
+- `file` - File system operations
+- `api` - API calls and integrations
+- `code` - Code execution and analysis
 
 **Example**:
 ```sql
@@ -593,19 +564,19 @@ ORDER BY avg_ms DESC;
 | created_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Record creation |
 
 **Indexes**:
-- `idx_sessions_user_id` ON (user_id)
-- `idx_sessions_tenant_id` ON (tenant_id)
-- `idx_sessions_expires_at` ON (expires_at)
-- `idx_sessions_external_id` ON ((context->>'external_id')) WHERE context->>'external_id' IS NOT NULL
-- `idx_sessions_user_external_id` UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
-- `idx_sessions_not_deleted` ON (id) WHERE deleted_at IS NULL
-
+- `idx_event_logs_workflow_id` ON (workflow_id)
+- `idx_event_logs_task_id` ON (task_id)
+- `idx_event_logs_type` ON (type)
+- `idx_event_logs_ts` ON (timestamp DESC)
+- `idx_event_logs_seq` ON (workflow_id, seq)
+- `idx_event_logs_workflow_ts` ON (workflow_id, timestamp DESC)
+- `uq_event_logs_wf_type_seq` UNIQUE ON (workflow_id, type, seq) WHERE seq IS NOT NULL
 
 **Event Types**:
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
+- `task.started` - Task execution started
+- `task.completed` - Task execution completed
+- `agent.thinking` - Agent processing
+- `tool.called` - Tool invocation
 
 **Example**:
 ```sql
@@ -644,13 +615,10 @@ ORDER BY hour DESC, event_count DESC;
 | created_at | TIMESTAMPTZ | DEFAULT NOW() | Record time |
 
 **Indexes**:
-- `idx_sessions_user_id` ON (user_id)
-- `idx_sessions_tenant_id` ON (tenant_id)
-- `idx_sessions_expires_at` ON (expires_at)
-- `idx_sessions_external_id` ON ((context->>'external_id')) WHERE context->>'external_id' IS NOT NULL
-- `idx_sessions_user_external_id` UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
-- `idx_sessions_not_deleted` ON (id) WHERE deleted_at IS NULL
-
+- `idx_token_usage_user_id` ON (user_id)
+- `idx_token_usage_created_at` ON (created_at DESC)
+- `idx_token_usage_provider_model` ON (provider, model)
+- `idx_token_usage_task_id` ON (task_id)
 
 **Example**:
 ```sql
@@ -699,13 +667,8 @@ ORDER BY date;
 | created_at | TIMESTAMPTZ | DEFAULT NOW() | Record time |
 
 **Indexes**:
-- `idx_sessions_user_id` ON (user_id)
-- `idx_sessions_tenant_id` ON (tenant_id)
-- `idx_sessions_expires_at` ON (expires_at)
-- `idx_sessions_external_id` ON ((context->>'external_id')) WHERE context->>'external_id' IS NOT NULL
-- `idx_sessions_user_external_id` UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
-- `idx_sessions_not_deleted` ON (id) WHERE deleted_at IS NULL
-
+- `idx_usage_daily_user_date` ON (user_id, date)
+- `idx_usage_daily_date` ON (date DESC)
 
 **Unique Constraint**: (user_id, date)
 
@@ -876,10 +839,10 @@ ORDER BY total DESC;
 ### 1. Indexing
 
 **Always use indexes for**:
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
+- Foreign key columns (user_id, tenant_id, task_execution_id, etc.)
+- Frequently filtered columns (status, created_at, expires_at)
+- JSONB queries (context->>'external_id')
+- Time-based queries (created_at DESC)
 
 **Current index coverage**: Excellent (all foreign keys and common queries indexed)
 
@@ -896,10 +859,10 @@ CREATE TABLE task_executions_2025_10 PARTITION OF task_executions
 ### 3. Data Retention
 
 **Recommended policies**:
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
+- `event_logs`: 90 days (high volume, archivable)
+- `task_executions`: 1 year (archive older)
+- `audit_logs`: 2 years (compliance)
+- `token_usage`: Aggregate to daily, archive raw data after 90 days
 
 **Cleanup script**:
 ```sql
