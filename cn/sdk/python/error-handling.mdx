@@ -15,13 +15,19 @@ Shannon Python SDK 提供全面的错误处理以帮助您构建强大的应用�
 
 ```python
 ShannonError                    # 基础异常
-├── ConnectionError             # 网络/连接问题
+├── ConnectionError             # 网络/连接问题（SDK 自定义异常）
 ├── AuthenticationError         # API 密钥/身份验证问题
-├── ValidationError            # 无效参数
-├── TaskNotFoundError          # 任务不存在
-├── SessionNotFoundError       # 会话不存在
-├── TaskTimeoutError           # 任务超出超时
-└── ConnectionError            # 包括 HTTP 429 速率限制
+├── PermissionDeniedError       # 权限不足/禁止访问
+├── ValidationError             # 无效参数
+├── RateLimitError              # 速率限制/请求过多
+├── ServerError                 # 上游 5xx 服务器错误
+├── TaskNotFoundError           # 任务不存在
+├── TaskTimeoutError            # 任务超出超时
+├── TaskCancelledError          # 任务被取消
+├── SessionNotFoundError        # 会话不存在
+├── SessionExpiredError         # 会话已过期
+├── TemplateError               # 模板/路由相关错误
+└── TemplateNotFoundError       # 模板不存在
 ```
 
 <Note>
@@ -33,7 +39,17 @@ ShannonError                    # 基础异常
 ### Try-Catch 模式
 
 ```python
-from shannon import ShannonClient, ShannonError
+from shannon import (
+    ShannonClient,
+    ShannonError,
+    AuthenticationError,
+    PermissionDeniedError,
+    ConnectionError,
+    RateLimitError,
+    ServerError,
+    TaskTimeoutError,
+    TaskStatusEnum,
+)
 
 client = ShannonClient(base_url="http://localhost:8080")
 
@@ -48,6 +64,12 @@ except ConnectionError:
     print("无法连接到 Shannon 服务器")
 except AuthenticationError:
     print("无效的 API 凭证")
+except PermissionDeniedError:
+    print("权限不足")
+except RateLimitError:
+    print("触发速率限制，请降低频率或加入退避")
+except ServerError:
+    print("服务器错误（5xx），稍后再试")
 except TaskTimeoutError:
     print("任务超出超时限制")
 except ShannonError as e:
@@ -102,15 +124,20 @@ client = ShannonClient()
 handle = client.submit_task(query="Analyze data")
 status = client.wait(handle.task_id)
 
-# 失败检查
+# 失败检查（TaskStatus 返回的是枚举）
 if status.status == TaskStatusEnum.FAILED:
     print(f"失败：{status.error_message}")
 
 # 用量与成本（从任务列表读取）
 tasks, _ = client.list_tasks(limit=50)
-usage = next((t.total_token_usage for t in tasks if t.task_id == handle.task_id), None)
+summary = next((t for t in tasks if t.task_id == handle.task_id), None)
+usage = summary.total_token_usage if summary else None
 if usage:
     print(f"tokens={usage.total_tokens} prompt={usage.prompt_tokens} completion={usage.completion_tokens} cost=${usage.cost_usd:.6f}")
+
+# 注意：TaskSummary.status 是字符串
+if summary and summary.status == "FAILED":
+    print("列表摘要指示失败")
 ```
 
 ### 超时错误
@@ -141,7 +168,7 @@ async def with_timeout_handling():
 优雅地处理 API 速率限制：
 
 ```python
-from shannon import ShannonClient
+from shannon import ShannonClient, ConnectionError
 import time
 
 def handle_rate_limits(queries):
@@ -157,12 +184,17 @@ def handle_rate_limits(queries):
                 break  # 成功，移到下一个
 
             except ConnectionError:
-                # 等待速率限制重置
-        # 指数退避等待
-        time.sleep(1)
+                # 速率限制或瞬时网络错误
+                print(f"触发速率限制/暂时性错误，{backoff}s 后重试…")
+                time.sleep(backoff)
+                backoff = min(backoff * 2, 30)
 
     return results
 ```
+
+<Note>
+导入说明：`from shannon import ConnectionError` 指的是 SDK 的异常类型（不是 Python 内置的 `ConnectionError`）。速率限制与断路器等高级模式属于参考实现，请根据生产环境验证与调整。
+</Note>
 
 ## 验证错误
 

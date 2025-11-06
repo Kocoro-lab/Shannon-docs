@@ -15,13 +15,19 @@ The Shannon Python SDK provides comprehensive error handling to help you build r
 
 ```python
 ShannonError                    # Base exception
-├── ConnectionError             # Network/connection issues
+├── ConnectionError             # Network/connection issues (SDK-specific)
 ├── AuthenticationError         # API key/auth problems
+├── PermissionDeniedError       # Forbidden / authorization failure
 ├── ValidationError             # Invalid parameters
-├── TaskNotFoundError          # Task doesn't exist
-├── SessionNotFoundError       # Session doesn't exist
-├── TaskTimeoutError           # Task exceeded timeout
-└── TaskCancelledError         # Task was cancelled
+├── RateLimitError              # Too many requests / throttled
+├── ServerError                 # Upstream 5xx server error
+├── TaskNotFoundError           # Task doesn't exist
+├── TaskTimeoutError            # Task exceeded timeout
+├── TaskCancelledError          # Task was cancelled
+├── SessionNotFoundError        # Session doesn't exist
+├── SessionExpiredError         # Session expired
+├── TemplateError               # Template/route errors
+└── TemplateNotFoundError       # Template not found
 ```
 
 <Note>
@@ -57,6 +63,12 @@ except ConnectionError:
     print("Could not connect to Shannon server")
 except AuthenticationError:
     print("Invalid API credentials")
+except PermissionDeniedError:
+    print("Forbidden: insufficient permissions")
+except RateLimitError:
+    print("Rate limited: slow down or add backoff")
+except ServerError:
+    print("Server error (5xx): try again later")
 except TaskTimeoutError:
     print("Task exceeded timeout limit")
 except ShannonError as e:
@@ -105,15 +117,20 @@ client = ShannonClient()
 handle = client.submit_task(query="Analyze data")
 status = client.wait(handle.task_id)
 
-# Failure check
+# Failure check (TaskStatus returns enum)
 if status.status == TaskStatusEnum.FAILED:
     print(f"Failed with error: {status.error_message}")
 
 # Usage and cost totals (from task listings)
 tasks, _ = client.list_tasks(limit=50)
-usage = next((t.total_token_usage for t in tasks if t.task_id == handle.task_id), None)
+summary = next((t for t in tasks if t.task_id == handle.task_id), None)
+usage = summary.total_token_usage if summary else None
 if usage:
     print(f"tokens={usage.total_tokens} prompt={usage.prompt_tokens} completion={usage.completion_tokens} cost=${usage.cost_usd:.6f}")
+
+# Note: status on TaskSummary is a string
+if summary and summary.status == "FAILED":
+    print("Summary indicates failure")
 ```
 
 ### Timeout Errors
@@ -127,18 +144,23 @@ from shannon import AsyncShannonClient, TaskTimeoutError
 async def with_timeout_handling():
     async with AsyncShannonClient() as client:
         try:
+            # asyncio.TimeoutError comes from wait_for wrappers (client-side)
             handle = await asyncio.wait_for(
                 client.submit_task(query="Complex analysis"),
                 timeout=10.0,
             )
-            result = await asyncio.wait_for(client.wait(handle.task_id), timeout=60.0)
+            # TaskTimeoutError comes from Shannon if the task exceeded its own timeout
+            result = await asyncio.wait_for(
+                client.wait(handle.task_id),
+                timeout=60.0,
+            )
             return result
 
         except asyncio.TimeoutError:
-            print("Operation timed out")
+            print("Operation timed out (client-side asyncio timeout)")
             return None
         except TaskTimeoutError:
-            print("Task timed out")
+            print("Task timed out (Shannon reported timeout)")
             return None
 ```
 
@@ -163,12 +185,17 @@ def handle_rate_limits(queries):
                 results.append(result)
                 break  # Success, move to next
             except ConnectionError:
+                # Rate limited or transient network error
                 print(f"Rate limited or transient error, retrying in {backoff}s...")
                 time.sleep(backoff)
                 backoff = min(backoff * 2, 30)
 
     return results
 ```
+
+<Note>
+Import clarity: `from shannon import ConnectionError` refers to the SDK's exception (not Python's built‑in `ConnectionError`). Advanced patterns such as rate limiting backoff and circuit breakers are reference implementations — validate in your environment.
+</Note>
 
 ## Validation Errors
 
