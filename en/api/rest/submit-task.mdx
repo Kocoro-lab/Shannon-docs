@@ -59,7 +59,7 @@ X-API-Key: sk_test_123456
   "provider_override": "openai",                                // OPTIONAL: Force specific provider
   "context": {                                                  // OPTIONAL: Execution context object
     "role": "data_analytics",                                   // OPTIONAL: Role preset name (e.g., "analysis", "research", "writer")
-    "system_prompt": "You are a data analyst...",              // OPTIONAL: Custom system prompt (overrides role preset)
+    "system_prompt": "You are a data analyst specializing in website analytics.",              // OPTIONAL: Custom system prompt (overrides role preset)
     "prompt_params": {                                         // OPTIONAL: Arbitrary key-value pairs for prompts/tools/adapters
       "profile_id": "49598h6e",                                // EXAMPLE: Custom parameter (passed to tools/adapters)
       "aid": "fcb1cd29-9104-47b1-b914-31db6ba30c1a",          // EXAMPLE: Custom parameter (application ID)
@@ -104,14 +104,26 @@ X-API-Key: sk_test_123456
   - Top-level `provider_override` overrides `context.provider_override`
 </Warning>
 
-### Context Parameters
+### Context Parameters (`context.*`)
 
-Recognized keys in `context`:
+Recognized keys:
 
 - `role` — role preset (e.g., `analysis`, `research`, `writer`)
 - `system_prompt` — overrides role prompt; supports `${var}` from `prompt_params`
 - `prompt_params` — arbitrary parameters for prompts/tools/adapters
 - `model_tier` — fallback when top‑level not provided
+- `model_override` — specific model name (canonical; e.g., `gpt-5`, `claude-sonnet-4-5-20250929`)
+- `provider_override` — force provider (e.g., `openai`, `anthropic`, `google`)
+- `template` — template name (alias: `template_name`)
+- `template_version` — template version
+- `disable_ai` — template-only mode (no AI fallback) - **cannot be combined with model controls**
+- Window controls: `history_window_size`, `use_case_preset`, `primers_count`, `recents_count`, `compression_trigger_ratio`, `compression_target_ratio`
+
+Rules:
+- Top-level parameters override context equivalents: `model_tier`, `model_override`, `provider_override`
+- `mode` supports: `simple|standard|complex|supervisor` (default: auto-detect)
+- `model_tier` supports: `small|medium|large`
+- **Conflict validation**: `disable_ai: true` cannot be combined with `model_tier`, `model_override`, or `provider_override` (returns 400)
 
 ## Response
 
