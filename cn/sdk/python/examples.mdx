@@ -70,73 +70,183 @@ print(result.result)
 ### 多步工作流（带 session_id）
 
 ```python
+"""多步工作流示例（Shannon SDK）"""
 from shannon import ShannonClient
 
-def complex_analysis():
+def main():
     client = ShannonClient()
-    session_id = "quarterly-analysis"
+    session_id = "quarterly-analysis-demo"
 
-    # 第 1 步：加载数据
-    load_handle = client.submit_task(
-        query="从数据库加载 Q4 财务数据",
-        session_id=session_id,
+    print("=" * 60)
+    print("多步工作流示例")
+    print("=" * 60)
+
+    # 第 1 步：初始数据查询
+    print("\n[步骤 1] 加载 Q4 数据...")
+    h1 = client.submit_task(
+        query="1000 + 500 等于多少？其中 1000 表示 Q4 营收，500 表示支出。",
+        session_id=session_id
     )
-    client.wait(load_handle.task_id)
+    result1 = client.wait(h1.task_id)
+    print(f"结果：{result1.result}")
 
-    # 第 2 步：分析趋势（继承第 1 步上下文）
-    analyze_handle = client.submit_task(
-        query="识别前 3 个收入趋势",
-        session_id=session_id,
+    # 第 2 步：基于上一结果的分析
+    print("\n[步骤 2] 分析趋势...")
+    h2 = client.submit_task(
+        query="基于你刚刚计算的 Q4 数字，利润率（百分比）是多少？",
+        session_id=session_id
     )
-    trends = client.wait(analyze_handle.task_id)
+    result2 = client.wait(h2.task_id)
+    print(f"结果：{result2.result}")
 
-    # 第 3 步：生成报告
-    report_handle = client.submit_task(
-        query="创建带有可视化的执行摘要",
-        session_id=session_id,
+    # 第 3 步：汇总
+    print("\n[步骤 3] 生成管理摘要...")
+    h3 = client.submit_task(
+        query="用两句话总结 Q4 财务分析。",
+        session_id=session_id
     )
+    result3 = client.wait(h3.task_id)
+    print(f"结果：{result3.result}")
 
-    return client.wait(report_handle.task_id)
+    print("\n" + "=" * 60)
+    print("✅ 多步工作流完成！")
+    print(f"会话 ID: {session_id}")
+    print("=" * 60)
+
+if __name__ == "__main__":
+    main()
 ```
 
 ### 并行处理
 
 ```python
+"""并行处理示例（Shannon SDK）"""
 import asyncio
 from shannon import AsyncShannonClient
 
-async def parallel_research(topics):
+async def main():
+    print("=" * 60)
+    print("并行处理示例")
+    print("=" * 60)
+
     async with AsyncShannonClient() as client:
-        # 并行提交所有研究任务
-        tasks = [client.submit_task(query=f"研究 {topic} 的最新发展") for topic in topics]
+        # 并行处理的主题
+        topics = ["AI", "量子计算", "生物技术"]
 
-        # 等待所有句柄
+        print(f"\n[步骤 1] 并行提交 {len(topics)} 个任务…")
+
+        # 非阻塞并发提交
+        tasks = [
+            client.submit_task(
+                query=f"用一句话概述 {topic} 及其主要应用。"
+            )
+            for topic in topics
+        ]
+
+        # 等待所有提交完成
         handles = await asyncio.gather(*tasks)
+        print(f"✅ 已提交 {len(handles)} 个任务")
 
-        # 收集所有结果
-        results = await asyncio.gather(*[
-            client.wait(h.task_id)
-            for h in handles
-        ])
+        print("\n[步骤 2] 并行等待所有结果…")
 
-        return dict(zip(topics, results))
+        # 并行等待所有结果
+        results = await asyncio.gather(
+            *[client.wait(h.task_id) for h in handles]
+        )
+        print(f"✅ 已完成 {len(results)} 个任务")
 
-# 使用它
-topics = ["AI", "量子计算", "生物技术"]
-results = asyncio.run(parallel_research(topics))
+        print("\n[步骤 3] 结果：")
+        print("-" * 60)
+
+        # 展示结果
+        for topic, result in zip(topics, results):
+            print(f"\n📌 {topic}:")
+            print(f"   {result.result}")
+
+            # 如有可用，安全访问元数据
+            metadata = []
+            if hasattr(result, 'metadata') and result.metadata:
+                model = result.metadata.get('model_used') or result.metadata.get('model')
+                if model:
+                    metadata.append(f"Model: {model}")
+                tokens = result.metadata.get('total_tokens')
+                if tokens:
+                    metadata.append(f"Tokens: {tokens}")
+
+            if metadata:
+                print(f"   ({', '.join(metadata)})")
+
+        print("\n" + "=" * 60)
+        print("✅ 并行处理完成！")
+        print(f"共并行处理 {len(topics)} 个主题")
+        print("=" * 60)
+
+if __name__ == "__main__":
+    asyncio.run(main())
 ```
 
 ### 带过滤的流式
 
 ```python
-from shannon import EventType
+"""带过滤器的流式传输示例"""
+from shannon import ShannonClient, EventType
 
-handle = client.submit_task(query="研究云服务商")
-for event in client.stream(handle.workflow_id, types=[EventType.LLM_OUTPUT, EventType.WORKFLOW_COMPLETED]):
-    print(event.type)
-    if event.type == EventType.WORKFLOW_COMPLETED:
-        break
+def main():
+    print("=" * 60)
+    print("带过滤器的流式传输示例")
+    print("=" * 60)
+
+    client = ShannonClient()
+
+    print("\n[步骤 1] 提交任务…")
+    handle = client.submit_task(
+        query=(
+            "用 3 句话比较 AWS、Azure 与 GCP 的定价模式。"
+            "在生成时以流式方式输出。"
+        )
+    )
+    print(f"✅ 已提交任务：{handle.task_id}")
+
+    print("\n[步骤 2] 使用过滤器流式传输 [LLM_OUTPUT, WORKFLOW_COMPLETED]…")
+    print("-" * 60)
+
+    event_count = 0
+    llm_outputs = []
+
+    # 仅流式 LLM_OUTPUT 和 WORKFLOW_COMPLETED
+    for event in client.stream(
+        handle.workflow_id,
+        types=[EventType.LLM_OUTPUT, EventType.WORKFLOW_COMPLETED]
+    ):
+        event_count += 1
+        print(f"[{event_count}] {event.type}")
+
+        if event.type == EventType.LLM_OUTPUT:
+            print(f"    内容: {event.message[:80]}…")
+            llm_outputs.append(event.message)
+
+        if event.type == EventType.WORKFLOW_COMPLETED:
+            print(f"    状态: {event.message}")
+            break
+
+    print("\n" + "-" * 60)
+    print(f"✅ 收到 {event_count} 条过滤后的事件")
+    print(f"✅ 捕获 {len(llm_outputs)} 条 LLM 输出")
+
+    print("\n[步骤 3] 完整结果：")
+    print("-" * 60)
+    final = client.wait(handle.task_id)
+    print(final.result)
+
+    print("\n" + "=" * 60)
+    print("✅ 带过滤器的流式传输完成！")
+    print("=" * 60)
+
+if __name__ == "__main__":
+    main()
 ```
+
+完整事件类型列表参见[事件类型目录](/cn/api/event-types)。
 
 ## 真实用例
 

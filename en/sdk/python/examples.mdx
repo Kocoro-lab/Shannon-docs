@@ -70,85 +70,183 @@ print(result.result)
 ### Multi-Step Workflow
 
 ```python
+"""Multi-step workflow example with Shannon SDK"""
 from shannon import ShannonClient
 
-def complex_analysis():
+def main():
     client = ShannonClient()
-    session_id = "quarterly-analysis"
+    session_id = "quarterly-analysis-demo"
 
-    # Step 1: Load data
-    load_handle = client.submit_task(
-        query="Load Q4 financial data from database",
-        session_id=session_id,
+    print("=" * 60)
+    print("Multi-Step Workflow Example")
+    print("=" * 60)
+
+    # Step 1: Initial data query
+    print("\n[Step 1] Loading Q4 data...")
+    h1 = client.submit_task(
+        query="What is 1000 + 500? This represents Q4 revenue (1000) and expenses (500).",
+        session_id=session_id
     )
-    client.wait(load_handle.task_id)
+    result1 = client.wait(h1.task_id)
+    print(f"Result: {result1.result}")
 
-    # Step 2: Analyze trends (has context from step 1)
-    analyze_handle = client.submit_task(
-        query="Identify top 3 revenue trends",
-        session_id=session_id,
+    # Step 2: Analysis based on previous context
+    print("\n[Step 2] Analyzing trends...")
+    h2 = client.submit_task(
+        query="Based on the Q4 numbers you just calculated, what is the profit margin percentage?",
+        session_id=session_id
     )
-    trends = client.wait(analyze_handle.task_id)
+    result2 = client.wait(h2.task_id)
+    print(f"Result: {result2.result}")
 
-    # Step 3: Generate report
-    report_handle = client.submit_task(
-        query="Create executive summary with visualizations",
-        session_id=session_id,
+    # Step 3: Summary using all previous context
+    print("\n[Step 3] Creating executive summary...")
+    h3 = client.submit_task(
+        query="Summarize the Q4 financial analysis in 2 sentences.",
+        session_id=session_id
     )
+    result3 = client.wait(h3.task_id)
+    print(f"Result: {result3.result}")
 
-    return client.wait(report_handle.task_id)
+    print("\n" + "=" * 60)
+    print("✅ Multi-step workflow completed!")
+    print(f"Session ID: {session_id}")
+    print("=" * 60)
+
+if __name__ == "__main__":
+    main()
 ```
 
 ### Parallel Processing
 
 ```python
+"""Parallel processing example with Shannon SDK"""
 import asyncio
 from shannon import AsyncShannonClient
 
-async def parallel_research(topics):
+async def main():
+    print("=" * 60)
+    print("Parallel Processing Example")
+    print("=" * 60)
+
     async with AsyncShannonClient() as client:
+        # Topics to process in parallel
+        topics = ["AI", "Quantum Computing", "Biotechnology"]
+
+        print(f"\n[Step 1] Submitting {len(topics)} tasks in parallel...")
+
+        # Submit all tasks concurrently (non-blocking)
         tasks = [
             client.submit_task(
-                query=(
-                    f"For {topic}, provide one-sentence definition and one real-world example. "
-                    "Output JSON {definition, example}."
-                )
+                query=f"Give a one-sentence summary of {topic} and its main application."
             )
             for topic in topics
         ]
 
-        # Wait for all handles
+        # Wait for all submissions to complete
         handles = await asyncio.gather(*tasks)
+        print(f"✅ All {len(handles)} tasks submitted")
 
-        # Collect all results
-        results = await asyncio.gather(*[
-            client.wait(h.task_id)
-            for h in handles
-        ])
+        print("\n[Step 2] Waiting for all results...")
 
-        return dict(zip(topics, results))
+        # Wait for all tasks to complete in parallel
+        results = await asyncio.gather(
+            *[client.wait(h.task_id) for h in handles]
+        )
+        print(f"✅ All {len(results)} tasks completed")
 
-# Use it
-topics = ["AI", "Quantum Computing", "Biotechnology"]
-results = asyncio.run(parallel_research(topics))
+        print("\n[Step 3] Results:")
+        print("-" * 60)
+
+        # Display results
+        for topic, result in zip(topics, results):
+            print(f"\n📌 {topic}:")
+            print(f"   {result.result}")
+
+            # Safely access metadata if available
+            metadata = []
+            if hasattr(result, 'metadata') and result.metadata:
+                model = result.metadata.get('model_used') or result.metadata.get('model')
+                if model:
+                    metadata.append(f"Model: {model}")
+                tokens = result.metadata.get('total_tokens')
+                if tokens:
+                    metadata.append(f"Tokens: {tokens}")
+
+            if metadata:
+                print(f"   ({', '.join(metadata)})")
+
+        print("\n" + "=" * 60)
+        print("✅ Parallel processing completed!")
+        print(f"Processed {len(topics)} topics concurrently")
+        print("=" * 60)
+
+if __name__ == "__main__":
+    asyncio.run(main())
 ```
 
 ### Streaming with filters
 
 ```python
-from shannon import EventType
+"""Streaming with event filters example"""
+from shannon import ShannonClient, EventType
 
-handle = client.submit_task(
-    query=(
-        "Compare AWS, Azure, and GCP pricing models in ~120 words. "
-        "Stream partial output; end with a 'Conclusion:' line."
+def main():
+    print("=" * 60)
+    print("Streaming with Filters Example")
+    print("=" * 60)
+
+    client = ShannonClient()
+
+    print("\n[Step 1] Submitting task...")
+    handle = client.submit_task(
+        query=(
+            "Compare AWS, Azure, and GCP pricing models in 3 sentences. "
+            "Stream the output as you generate it."
+        )
     )
-)
-for event in client.stream(handle.workflow_id, types=[EventType.LLM_OUTPUT, EventType.WORKFLOW_COMPLETED]):
-    print(event.type)
-    if event.type == EventType.WORKFLOW_COMPLETED:
-        break
+    print(f"✅ Task submitted: {handle.task_id}")
+
+    print("\n[Step 2] Streaming with filters [LLM_OUTPUT, WORKFLOW_COMPLETED]...")
+    print("-" * 60)
+
+    event_count = 0
+    llm_outputs = []
+
+    # Stream only LLM_OUTPUT and WORKFLOW_COMPLETED events
+    for event in client.stream(
+        handle.workflow_id,
+        types=[EventType.LLM_OUTPUT, EventType.WORKFLOW_COMPLETED]
+    ):
+        event_count += 1
+        print(f"[{event_count}] {event.type}")
+
+        if event.type == EventType.LLM_OUTPUT:
+            print(f"    Content: {event.message[:80]}...")
+            llm_outputs.append(event.message)
+
+        if event.type == EventType.WORKFLOW_COMPLETED:
+            print(f"    Status: {event.message}")
+            break
+
+    print("\n" + "-" * 60)
+    print(f"✅ Received {event_count} filtered events")
+    print(f"✅ Captured {len(llm_outputs)} LLM outputs")
+
+    print("\n[Step 3] Full result:")
+    print("-" * 60)
+    final = client.wait(handle.task_id)
+    print(final.result)
+
+    print("\n" + "=" * 60)
+    print("✅ Streaming with filters completed!")
+    print("=" * 60)
+
+if __name__ == "__main__":
+    main()
 ```
+
+See the full list of event types in the [Event Types Catalog](/en/api/event-types).
 
 ## Real-World Use Cases
 
