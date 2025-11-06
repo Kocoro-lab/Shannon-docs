@@ -16,7 +16,7 @@ from shannon import ShannonClient
 
 client = ShannonClient(base_url="http://localhost:8080")
 handle = client.submit_task(
-  "Summarize this document",
+  "Summarize the paragraph into three bullet points focusing on revenue trends. Output: Markdown list.",
   model_tier="small",
   # model_override="gpt-5-nano-2025-08-07",
   # provider_override="openai",
@@ -41,9 +41,12 @@ print(f"Answer: {final.result}")
 ### Data Analysis
 
 ```python
-# Analyze CSV data
+# Analyze CSV data (structured output)
 handle = client.submit_task(
-    query="Analyze the sales trends in this CSV file",
+    query=(
+        "From the CSV at /data/sales_2024.csv, return the top 3 products by revenue "
+        "with month-over-month growth. Output JSON array: [{product, revenue, mom_growth_pct}] sorted desc."
+    ),
     context={"file_path": "/data/sales_2024.csv"}
 )
 
@@ -97,7 +100,12 @@ from shannon import AsyncShannonClient
 async def parallel_research(topics):
     async with AsyncShannonClient() as client:
         tasks = [
-            client.submit_task(query=f"Research latest developments in {topic}")
+            client.submit_task(
+                query=(
+                    f"For {topic}, provide one-sentence definition and one real-world example. "
+                    "Output JSON {definition, example}."
+                )
+            )
             for topic in topics
         ]
 
@@ -122,7 +130,12 @@ results = asyncio.run(parallel_research(topics))
 ```python
 from shannon import EventType
 
-handle = client.submit_task(query="Research cloud providers")
+handle = client.submit_task(
+    query=(
+        "Compare AWS, Azure, and GCP pricing models in ~120 words. "
+        "Stream partial output; end with a 'Conclusion:' line."
+    )
+)
 for event in client.stream(handle.workflow_id, types=[EventType.LLM_OUTPUT, EventType.WORKFLOW_COMPLETED]):
     print(event.type)
     if event.type == EventType.WORKFLOW_COMPLETED:

@@ -40,7 +40,7 @@ print("结果：", final.result)
 
 ```python
 handle = client.submit_task(
-  "为此文档生成摘要",
+  "将这段文字总结为 3 条要点，聚焦营收趋势。输出：Markdown 列表。",
   model_tier="small",                 # small|medium|large
   # model_override="gpt-5-nano-2025-08-07",
   # provider_override="openai",       # 或 anthropic、google 等
@@ -93,7 +93,7 @@ print(client.wait(handle2.task_id).result)
 ### 流式事件
 
 ```python
-handle = client.submit_task(query="研究量子计算的突破")
+handle = client.submit_task(query="撰写一段约 120 字的量子计算近期里程碑摘要（Markdown），最后一行以‘结论：’开头。")
 for event in client.stream(handle.workflow_id):
     print(f"[{event.type}] {event.message}")
     if event.type == "WORKFLOW_COMPLETED":

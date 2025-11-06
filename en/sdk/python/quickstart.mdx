@@ -15,7 +15,7 @@ pip install shannon-sdk
 from shannon import ShannonClient
 client = ShannonClient(base_url="http://localhost:8080")
 
-handle = client.submit_task("What is the capital of France?")
+handle = client.submit_task("Return the capital of France as a single word.")
 final = client.wait(handle.task_id, timeout=60)
 print(final.result)
 ```
@@ -26,7 +26,9 @@ print(final.result)
 from shannon import ShannonClient, EventType
 client = ShannonClient()
 
-h = client.submit_task("Research quantum computing")
+h = client.submit_task(
+  "Draft a ~120-word executive summary of three recent quantum computing milestones. Output as a Markdown paragraph."
+)
 for e in client.stream(h.workflow_id, types=[EventType.LLM_OUTPUT, EventType.WORKFLOW_COMPLETED]):
   print(e.type, e.message)
   if e.type == EventType.WORKFLOW_COMPLETED:
@@ -39,7 +41,7 @@ Control cost and provider choice when submitting:
 
 ```python
 handle = client.submit_task(
-  "Summarize this document",
+  "Summarize the paragraph into three bullet points focusing on revenue trends. Output: Markdown list.",
   model_tier="small",                # small|medium|large
   # model_override="gpt-5-nano-2025-08-07",
   # provider_override="openai",      # or anthropic, google, ...
@@ -56,7 +58,9 @@ from shannon import AsyncShannonClient
 
 async def main():
   async with AsyncShannonClient(base_url="http://localhost:8080") as client:
-    h = await client.submit_task("Analyze sentiment")
+    h = await client.submit_task(
+      "Classify sentiment (positive|neutral|negative) for: 'I love this product!'. Return JSON {label, score}."
+    )
     f = await client.wait(h.task_id)
     print(f.result)
 
@@ -70,4 +74,3 @@ asyncio.run(main())
 python -m shannon.cli --base-url http://localhost:8080 \
   submit "Summarize" --model-tier small --mode simple --wait
 ```
-

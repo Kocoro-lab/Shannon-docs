@@ -27,7 +27,10 @@ from shannon import AsyncShannonClient
 async def main():
     async with AsyncShannonClient(base_url="http://localhost:8080") as client:
         handle = await client.submit_task(
-            query="Analyze this data",
+            query=(
+                "Summarize the paragraph into 3 bullet points focusing on revenue trends. "
+                "Output: Markdown list."
+            ),
             model_tier="small",
             mode="standard",
         )
@@ -44,7 +47,15 @@ Submit multiple tasks simultaneously:
 ```python
 async def analyze_multiple():
     async with AsyncShannonClient() as client:
-        tasks = [client.submit_task(query=f"Analyze dataset {i}") for i in range(1, 4)]
+        tasks = [
+            client.submit_task(
+                query=(
+                    f"For dataset {i}, compute mean and median of the 'price' column. "
+                    "Return JSON {mean, median}."
+                )
+            )
+            for i in range(1, 4)
+        ]
 
         # Wait for all to complete
         handles = await asyncio.gather(*tasks)
@@ -61,7 +72,12 @@ Stream events without blocking. Tip: don’t await other client calls inside the
 ```python
 async def stream():
     async with AsyncShannonClient() as client:
-        h = await client.submit_task(query="Complex analysis")
+        h = await client.submit_task(
+            query=(
+                "Draft a ~120-word executive summary of three recent AI milestones. "
+                "Stream partial output."
+            )
+        )
         async for e in client.stream(h.workflow_id):
             print(e.type)
             if e.type == "WORKFLOW_COMPLETED":
@@ -80,7 +96,11 @@ async def with_timeout():
         try:
             # Submit with timeout
             handle = await asyncio.wait_for(
-                client.submit_task(query="Analyze data"),
+                client.submit_task(
+                    query=(
+                        "Extract the top 3 insights from the paragraph and return a Markdown bullet list."
+                    )
+                ),
                 timeout=30.0
             )
 
@@ -102,7 +122,11 @@ Run tasks in background while doing other work:
 async def background_processing():
     async with AsyncShannonClient() as client:
         # Submit task
-        handle = await client.submit_task(query="Long running analysis")
+        handle = await client.submit_task(
+            query=(
+                "Generate a ~500-word report on quarterly revenue drivers and risks. Output: Markdown."
+            )
+        )
 
         # Start background wait
         task = asyncio.create_task(client.wait(handle.task_id))
@@ -126,7 +150,11 @@ async def robust_submission():
 
     async with AsyncShannonClient() as client:
         try:
-            handle = await client.submit_task(query="Analyze data")
+            handle = await client.submit_task(
+                query=(
+                    "Summarize the paragraph into a 2-sentence abstract for executives."
+                )
+            )
             result = await client.wait(handle.task_id)
             return result
 

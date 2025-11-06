@@ -18,7 +18,7 @@ from shannon import ShannonClient, EventType
 
 client = ShannonClient()  # 通过网关 base_url 流式（默认 http://localhost:8080）
 
-handle = client.submit_task(query="分析市场趋势")
+handle = client.submit_task(query="撰写一段约 120 字的 Q4 营收驱动与风险摘要（Markdown），最后一行以‘结论：’开头。")
 for event in client.stream(handle.workflow_id, types=[EventType.LLM_OUTPUT, EventType.WORKFLOW_COMPLETED]):
   print(f"{event.type}: {event.message}")
   if event.type == EventType.WORKFLOW_COMPLETED:
@@ -44,7 +44,7 @@ for e in client.stream(handle.workflow_id, last_event_id=last_id):
 from shannon import ShannonClient
 client = ShannonClient()
 
-h = client.submit_task("通过 WS 流式")
+h = client.submit_task("通过 WS 流式输出一段约 120 字的可再生能源政策影响简报。")
 for e in client.stream_ws(h.workflow_id):
   print(e.type, e.message)
   if e.type == "WORKFLOW_COMPLETED":
@@ -74,7 +74,7 @@ from shannon import AsyncShannonClient
 
 async def stream_task():
     async with AsyncShannonClient() as client:
-        handle = await client.submit_task(query="Analyze data")
+        handle = await client.submit_task(query="将下段文字总结为 3 条要点，聚焦营收趋势；输出 Markdown 列表。")
 
         async for event in client.stream(handle.workflow_id):
             print(f"Event: {event.type}")

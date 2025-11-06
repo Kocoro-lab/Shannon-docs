@@ -13,7 +13,9 @@ Use SSE for simple, reliable real-time updates. Optional WebSocket is available 
 from shannon import ShannonClient, EventType
 client = ShannonClient()
 
-h = client.submit_task("Analyze market trends")
+h = client.submit_task(
+  "Draft a ~120-word executive summary of Q4 revenue drivers and risks. Stream partial output; end the last line with 'Conclusion:'."
+)
 for e in client.stream(h.workflow_id, types=[EventType.LLM_OUTPUT, EventType.WORKFLOW_COMPLETED]):
   print(f"{e.type}: {e.message}")
   if e.type == EventType.WORKFLOW_COMPLETED:
@@ -40,7 +42,9 @@ Requires `pip install websockets`.
 from shannon import ShannonClient
 client = ShannonClient()
 
-h = client.submit_task("Stream via WS")
+h = client.submit_task(
+  "Produce a ~120-word brief on recent renewable energy policy changes and their impact on costs. Stream partial output."
+)
 for e in client.stream_ws(h.workflow_id):
   print(e.type, e.message)
   if e.type == "WORKFLOW_COMPLETED":
