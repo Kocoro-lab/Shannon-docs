@@ -197,6 +197,16 @@ Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件
 }
 ```
 
+### APPROVAL_REQUESTED
+
+```json
+{
+  "type": "APPROVAL_REQUESTED",
+  "message": "Delete temporary files older than 30 days?",
+  "data": { "approval_id": "appr-456" }
+}
+```
+
 **常见错误类型**:
 - `BUDGET_EXCEEDED` - 达到成本/token 限制
 - `TIMEOUT` - 执行超时
@@ -451,7 +461,7 @@ Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件
 
 ## 消息事件
 
-智能体之间的通信（需启用相关功能门控）。
+智能体之间的通信。
 
 ### MESSAGE_SENT
 
@@ -520,7 +530,7 @@ Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件
 
 ### LLM_PARTIAL
 
-**发出时机**: 流式传输期间的增量 LLM 输出块（通常在 UI 中被过滤）
+**发出时机**: 流式传输期间的增量 LLM 输出块
 
 **数据**:
 ```json
@@ -529,7 +539,8 @@ Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件
   "message": "Received partial LLM output",
   "data": {
     "chunk": "Based on the analysis",
-    "chunk_index": 5
+    "chunk_index": 5,
+    "total_tokens_so_far": 50
   }
 }
 ```
@@ -829,114 +840,6 @@ Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件
 5. LLM_OUTPUT（最终答案）
 6. WORKFLOW_COMPLETED
 ```
-
-### 复杂任务(COMPLEX 模式)
-
-```
-1. WORKFLOW_STARTED
-2. PATTERN_SELECTED (Tree-of-Thoughts)
-3. TASK_DECOMPOSED
-4. TEAM_RECRUITED (多智能体团队)
-5. 多个并行的 SUBTASK_STARTED
-6. AGENT_THINKING (探索阶段)
-7. 多个 AGENT_STARTED (并行智能体)
-8. ROLE_ASSIGNED (智能体获得专门角色)
-9. DATA_PROCESSING (智能体工作中)
-10. WAITING (等待依赖)
-11. DEPENDENCY_SATISFIED (解除执行阻塞)
-12. LLM_PROMPT / LLM_OUTPUT (LLM 交互)
-13. TOOL_INVOKED / TOOL_OBSERVATION
-14. TOOL_OBSERVATION (智能体处理结果)
-15. MESSAGE_SENT / MESSAGE_RECEIVED (智能体协调)
-16. DELEGATION (任务交接)
-17. TEAM_STATUS (进度更新)
-18. PROGRESS (整体进度)
-19. 子任务并行完成
-20. TEAM_RETIRED (团队解散)
-21. WORKFLOW_COMPLETED
-```
-
----
-
-## 流式传输最佳实践
-
-### 进度指示器
-
-```python
-# 跟踪进度
-total_subtasks = 0
-completed_subtasks = 0
-
-for event in client.stream_events(workflow_id):
-    if event.type == 'PROGRESS':
-        print(f"Progress: {event.message}")
-
-    elif event.type == 'WORKFLOW_COMPLETED':
-        print("Done!")
-        break
-```
-
-### 成本监控
-
-```python
-# 实时监控成本
-for event in client.stream_events(workflow_id):
-    if event.type == 'ERROR_OCCURRED':
-        print(f"Error: {event.message}")
-```
-
-### 错误处理
-
-```python
-# 优雅地处理错误
-for event in client.stream_events(workflow_id):
-    if event.type == 'ERROR_OCCURRED':
-        error = event.data
-
-        if error['recoverable']:
-            print(f"Recoverable error: {error['error_message']}")
-            print(f"Retry {error['retry_count']}/{error['max_retries']}")
-        else:
-            print(f"Fatal error: {error['error_message']}")
-            break
-
-    elif event.type == 'WORKFLOW_FAILED':
-        print(f"Task failed: {event.data['error_message']}")
-        break
-```
-
----
-
-## 过滤事件
-
-按类型过滤事件以用于特定用例:
-
-```python
-# 仅显示面向用户的事件
-USER_EVENTS = {
-    'WORKFLOW_STARTED',
-    'WORKFLOW_COMPLETED',
-    'PATTERN_SELECTED',
-    'TASK_DECOMPOSED',
-    'TOOL_INVOKED',
-    'ERROR_OCCURRED',
-    'BUDGET_UPDATE'
-}
-
-for event in client.stream_events(workflow_id):
-    if event.type in USER_EVENTS:
-        print(f"[{event.type}] {event.message}")
-```
-
-```python
-# 调试模式: 显示所有内容
-for event in client.stream_events(workflow_id):
-    print(f"[{event.seq}] {event.type}: {event.message}")
-    if event.data:
-        print(f"  Data: {json.dumps(event.data, indent=2)}")
-```
-
----
 
 ## 事件持久化
 

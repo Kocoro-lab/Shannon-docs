@@ -141,16 +141,24 @@ Cache-Control: no-cache
 Cache-Control: max-age=300
 ```
 
-#### Last-Event-ID（仅 SSE）
+#### Last-Event-ID (SSE only)
 
-用途：从特定事件恢复流。
-- 非浏览器客户端可设置 `Last-Event-ID` 请求头。
-- 浏览器 EventSource 无法设置自定义请求头；重连依赖服务端发送的 `id:` 字段自动续传。
+**Purpose**: Resume SSE stream from a specific event
+**Required**: No
+**Format**: Event ID string — either a Redis stream ID (e.g., `1700000000000-0`) or a numeric sequence (e.g., `42`)
 
-格式：事件 ID 字符串，支持 Redis Stream ID（如 `1700000000000-0`）或数字序号（如 `42`）。
-
-```http
+```bash
 Last-Event-ID: 1700000000000-0
+```
+
+Used for SSE reconnection:
+```javascript
+const eventSource = new EventSource(url, {
+  headers: {
+    'X-API-Key': 'sk_test_123456',
+    'Last-Event-ID': '1700000000000-0'  // Resume from this stream ID (or use a numeric seq)
+  }
+});
 ```
 
 ## 响应头

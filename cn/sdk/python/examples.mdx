@@ -16,7 +16,7 @@ from shannon import ShannonClient
 
 client = ShannonClient(base_url="http://localhost:8080")
 handle = client.submit_task(
-  "为此文档生成摘要",
+  "将段落总结为三个重点关注收入趋势的要点。输出：Markdown 列表。",
   model_tier="small",
   # model_override="gpt-5-nano-2025-08-07",
   # provider_override="openai",

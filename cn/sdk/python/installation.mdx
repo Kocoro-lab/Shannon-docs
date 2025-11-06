@@ -5,13 +5,11 @@ description: "安装和配置 Shannon Python SDK"
 
 ## 安装
 
-### 通过 pip（推荐）
-
 ```bash
 pip install shannon-sdk
 ```
 
-### 从源代码安装
+从源代码安装（开发）：
 
 ```bash
 git clone https://github.com/Kocoro-lab/Shannon.git
@@ -19,234 +17,67 @@ cd Shannon/clients/python
 pip install -e .
 ```
 
-### 可选（WebSocket 流）
+可选（WebSocket 流支持）：
 
 ```bash
 pip install websockets
 ```
 
-### 要求
-
-- Python 3.9 或更高版本
-- pip 或 poetry 用于包管理
-
-## 验证安装
-
-```python
-import shannon
-print(shannon.__version__)
-```
-
-## 基本设置
-
-### 导入客户端
+## 快速验证
 
 ```python
 from shannon import ShannonClient
-
-# 仅 HTTP 客户端（默认网关：http://localhost:8080）
-client = ShannonClient()
+client = ShannonClient(base_url="http://localhost:8080")
+print("✓ SDK ready")
 ```
 
-### 使用身份认证
+## 认证
 
 ```python
 from shannon import ShannonClient
-
-client = ShannonClient(api_key="sk_test_123456")
+client = ShannonClient(
+  base_url="http://localhost:8080",
+  api_key="sk_test_123"
+)
 ```
 
-### 使用环境变量
-
-SDK 不会自动读取环境变量。使用您自己的配置加载器并显式传入：
+通过环境变量驱动：
 
 ```python
 import os
 from shannon import ShannonClient
-
 client = ShannonClient(
-    base_url=os.getenv("SHANNON_BASE_URL", "http://localhost:8080"),
-    api_key=os.getenv("SHANNON_API_KEY"),
+  base_url=os.getenv("SHANNON_BASE_URL", "http://localhost:8080"),
+  api_key=os.getenv("SHANNON_API_KEY"),
 )
 ```
 
-## 快速示例
+## 客户端选项
 
-```python
-from shannon import ShannonClient
-
-client = ShannonClient()
-
-handle = client.submit_task(query="What is the capital of France?")
-final = client.wait(handle.task_id, timeout=60)
-print("Result:", final.result)
-```
-
-## 配置选项
-
-### 客户端参数
-
-| 参数 | 类型 | 默认值 | 描述 |
-|-----------|------|---------|-------------|
-| `base_url` | str | `http://localhost:8080` | 网关 Base URL（仅 HTTP） |
-| `api_key` | str | 无 | 使用 `X-API-Key` 头部 |
-| `bearer_token` | str | 无 | `Authorization: Bearer` 头部 |
-| `default_timeout` | float | 30.0 | 默认 HTTP 超时时间（秒） |
-
-### 完整配置
-
-```python
-client = ShannonClient(
-    base_url="http://localhost:8080",
-    api_key="sk_live_123456",
-    default_timeout=60.0,
-)
-```
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|---------|-------|
+| `base_url` | str | `http://localhost:8080` | 网关 HTTP URL |
+| `api_key` | str | None | 作为 `X-API-Key` 发送 |
+| `bearer_token` | str | None | 备选的 `Authorization: Bearer` |
+| `default_timeout` | float | `30.0` | 秒 |
 
 ## 异步客户端
 
-对于异步应用，使用 `AsyncShannonClient`：
-
 ```python
-from shannon import AsyncShannonClient
 import asyncio
+from shannon import AsyncShannonClient
 
 async def main():
-    async with AsyncShannonClient(base_url="http://localhost:8080") as client:
-        handle = await client.submit_task(query="Analyze data")
-        status = await client.wait(handle.task_id)
-        print(status.result)
+  async with AsyncShannonClient(base_url="http://localhost:8080") as client:
+    h = await client.submit_task("分析数据")
+    s = await client.wait(h.task_id)
+    print(s.result)
 
 asyncio.run(main())
 ```
 
-## 依赖项
-
-SDK 依赖一个 HTTP 库：
-
-- `httpx`
+## CLI
 
 ```bash
-# 用于异步支持
-pip install shannon-sdk[async]
-
-# 用于 CLI 工具
-pip install shannon-sdk[cli]
-
-# 所有扩展
-pip install shannon-sdk[all]
+python -m shannon.cli --base-url http://localhost:8080 submit "2+2 等于多少？" --wait
 ```
-
-## CLI 工具
-
-该包包含一个简单的 CLI（`shannon`）。运行 `shannon --help` 查看用法。
-
-## 故障排除
-
-<AccordionGroup>
-  <Accordion title="ImportError: No module named 'shannon'">
-    **解决方案**：安装 SDK
-
-    ```bash
-    pip install shannon-sdk
-    ```
-  </Accordion>
-
-  <Accordion title="Connection refused">
-    **解决方案**：验证 Shannon 正在运行
-
-    ```bash
-    curl http://localhost:8080/readiness
-    ```
-
-    如果未运行，启动 Shannon：
-
-    ```bash
-    cd Shannon
-    make dev
-    ```
-  </Accordion>
-
-  <Accordion title="Authentication error">
-    **解决方案**：检查 API 密钥
-
-    ```python
-    client = ShannonClient(
-        base_url="http://localhost:8080",
-        api_key="sk_test_123456"  # 添加 API 密钥
-    )
-    ```
-  </Accordion>
-
-  
-</AccordionGroup>
-
-## 环境变量
-
-SDK 不会自动加载环境变量。可自行定义并传递给客户端：
-
-| 变量 | 描述 | 示例 |
-|----------|-------------|---------|
-| `SHANNON_BASE_URL` | 网关 HTTP 基础地址 | `http://localhost:8080` |
-| `SHANNON_API_KEY` | API 密钥 | `sk_test_123456` |
-| `SHANNON_TIMEOUT` | 默认超时（秒） | `60` |
-
-### .env 示例
-
-```bash
-SHANNON_BASE_URL=http://localhost:8080
-SHANNON_API_KEY=sk_test_123456
-SHANNON_TIMEOUT=60
-```
-
-使用 python-dotenv 加载：
-
-```python
-from dotenv import load_dotenv
-import os
-from shannon import ShannonClient
-
-load_dotenv()
-
-client = ShannonClient(
-    base_url=os.getenv("SHANNON_BASE_URL", "http://localhost:8080"),
-    api_key=os.getenv("SHANNON_API_KEY"),
-    default_timeout=float(os.getenv("SHANNON_TIMEOUT", "60")),
-)
-```
-
-## 日志记录
-
-启用 SDK 日志记录：
-
-```python
-import logging
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger('shannon')
-```
-
-调试模式：
-
-```python
-import logging
-
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-```
-
-## 下一步
-
-<CardGroup cols={2}>
-  <Card title="快速入门" icon="rocket" href="/cn/sdk/python/quickstart">
-    通过示例学习 SDK 基础
-  </Card>
-  <Card title="异步使用" icon="bolt" href="/cn/sdk/python/async-usage">
-    异步/等待模式
-  </Card>
-  <Card title="示例" icon="code" href="/cn/sdk/python/examples">
-    实际代码示例
-  </Card>
-</CardGroup>

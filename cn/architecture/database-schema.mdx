@@ -6,8 +6,8 @@ description: "Shannon 的完整 PostgreSQL 数据库模式参考"
 ## 概览
 
 Shannon 使用 PostgreSQL 及 pgvector 扩展进行持久化存储。数据库组织为两个模式:
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
+- `auth`: 认证、多租户、API 密钥和安全审计日志。
+- `public`: 核心应用数据,包括任务、会话和使用指标。
 
 **总表数**: 18 张表
 **扩展**: uuid-ossp, pg_trgm, btree_gin, pgcrypto
@@ -81,7 +81,7 @@ Shannon 使用 PostgreSQL 及 pgvector 扩展进行持久化存储。数据库�
 | metadata | JSONB | DEFAULT '{}' | 额外租户数据 |
 
 **索引**:
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
+- `idx_tenants_slug` ON (slug)
 
 **示例**:
 ```sql
@@ -119,8 +119,9 @@ WHERE monthly_token_usage > token_limit * 0.8;
 | metadata | JSONB | DEFAULT '{}' | 额外用户数据 |
 
 **索引**:
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
+- `idx_users_email` ON (email)
+- `idx_users_username` ON (username)
+- `idx_users_tenant_id` ON (tenant_id)
 
 **示例**:
 ```sql
@@ -160,13 +161,13 @@ WHERE last_login < NOW() - INTERVAL '90 days'
 | metadata | JSONB | DEFAULT '{}' | 额外密钥数据 |
 
 **索引**:
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
+- `idx_api_keys_key_hash` ON (key_hash)
+- `idx_api_keys_user_id` ON (user_id)
 
 **默认作用域**:
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
+- `tasks:run`: 允许执行任务
+- `tasks:read`: 允许读取任务状态和结果
+- `sessions:manage`: 允许管理会话
 
 **示例**:
 ```sql
@@ -208,8 +209,9 @@ WHERE expires_at BETWEEN NOW() AND NOW() + INTERVAL '7 days'
 | created_at | TIMESTAMP | DEFAULT NOW() | 创建时间 |
 
 **索引**:
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
+- `idx_refresh_tokens_token_hash` ON (token_hash)
+- `idx_refresh_tokens_user_id` ON (user_id)
+- `idx_refresh_tokens_expires_at` ON (expires_at)
 
 **示例**:
 ```sql
@@ -240,16 +242,16 @@ WHERE expires_at < NOW() - INTERVAL '7 days';
 | created_at | TIMESTAMP | DEFAULT NOW() | 事件时间 |
 
 **索引**:
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
+- `idx_audit_logs_event_type` ON (event_type)
+- `idx_audit_logs_user_id` ON (user_id)
+- `idx_audit_logs_tenant_id` ON (tenant_id)
+- `idx_audit_logs_created_at` ON (created_at)
 
 **事件类型**:
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
+- `login_success`: 用户成功登录
+- `login_failed`: 用户登录失败
+- `password_change`: 密码已更改
+- `api_key_created`: API 密钥已创建
 
 **示例**:
 ```sql
@@ -369,18 +371,18 @@ WHERE created_at > NOW() - INTERVAL '24 hours';
 | created_at | TIMESTAMPTZ | DEFAULT NOW() | 记录创建时间 |
 
 **索引**:
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
+- `idx_task_executions_workflow_id` ON (workflow_id)
+- `idx_task_executions_user_id` ON (user_id)
+- `idx_task_executions_session_id` ON (session_id)
+- `idx_task_executions_status` ON (status)
+- `idx_task_executions_started_at` ON (started_at)
+- `idx_task_executions_tenant_id_started_at` ON (tenant_id, started_at)
 
 **状态值**:
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
+- `PENDING`: 任务已创建但尚未开始
+- `RUNNING`: 任务正在进行中
+- `COMPLETED`: 任务成功完成
+- `FAILED`: 任务失败
 
 **示例**:
 ```sql
@@ -438,20 +440,20 @@ ORDER BY total_cost DESC;
 | completed_at | TIMESTAMPTZ | | 完成时间 |
 
 **索引**:
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
+- `idx_agent_executions_task_id` ON (task_execution_id)
+- `idx_agent_executions_agent_id` ON (agent_id)
+- `idx_agent_executions_created_at` ON (created_at)
 
 **状态值**:
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
+- `PLANNING`: 代理正在规划其行动
+- `EXECUTING_TOOL`: 代理正在执行一个工具
+- `WAITING_FOR_TOOL`: 代理正在等待工具结果
+- `THINKING`: 代理正在处理信息
+- `RESPONDING`: 代理正在生成响应
+- `ASKING_FOR_HELP`: 代理需要人工干预
+- `VALIDATING`: 代理正在验证其输出
+- `COMPLETED`: 代理执行完成
+- `FAILED`: 代理执行失败
 
 **示例**:
 ```sql
@@ -497,17 +499,17 @@ ORDER BY execution_count DESC;
 | executed_at | TIMESTAMPTZ | DEFAULT NOW() | 执行时间 |
 
 **索引**:
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
+- `idx_tool_executions_agent_id` ON (agent_execution_id)
+- `idx_tool_executions_task_id` ON (task_execution_id)
+- `idx_tool_executions_tool_name` ON (tool_name)
+- `idx_tool_executions_executed_at` ON (executed_at)
 
 **工具类别**:
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
+- `DATA_ANALYSIS`: 数据分析工具
+- `FILE_SYSTEM`: 文件系统操作
+- `WEB_SEARCH`: 网页搜索功能
+- `CODE_EXECUTION`: 代码执行环境
+- `CUSTOM`: 用户定义的工具
 
 **示例**:
 ```sql
@@ -560,19 +562,19 @@ ORDER BY avg_ms DESC;
 | created_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | 记录创建时间 |
 
 **索引**:
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
+- `idx_event_logs_workflow_id` ON (workflow_id)
+- `idx_event_logs_task_id` ON (task_id)
+- `idx_event_logs_type` ON (type)
+- `idx_event_logs_agent_id` ON (agent_id)
+- `idx_event_logs_timestamp` ON (timestamp)
+- `idx_event_logs_stream_id` ON (stream_id)
+- `idx_event_logs_payload_gin` USING GIN (payload)
 
 **事件类型**:
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
+- `task_started`
+- `agent_started`
+- `tool_invoked`
+- `task_completed`
 
 **示例**:
 ```sql
@@ -611,10 +613,10 @@ ORDER BY hour DESC, event_count DESC;
 | created_at | TIMESTAMPTZ | DEFAULT NOW() | 记录时间 |
 
 **索引**:
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
+- `idx_token_usage_user_id` ON (user_id)
+- `idx_token_usage_task_id` ON (task_id)
+- `idx_token_usage_provider_model` ON (provider, model)
+- `idx_token_usage_created_at` ON (created_at)
 
 **示例**:
 ```sql
@@ -663,8 +665,8 @@ ORDER BY date;
 | created_at | TIMESTAMPTZ | DEFAULT NOW() | 记录时间 |
 
 **索引**:
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
+- `idx_usage_daily_aggregates_user_date` UNIQUE ON (user_id, date)
+- `idx_usage_daily_aggregates_date` ON (date)
 
 **唯一约束**: (user_id, date)
 
@@ -835,10 +837,10 @@ ORDER BY total DESC;
 ### 1. 索引
 
 **始终为以下内容使用索引**:
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
+- 外键 (`user_id`, `tenant_id` 等)
+- WHERE 子句中使用的高基数列 (`status`, `mode`)。
+- 时间序列数据 (`created_at`, `started_at`)。
+- 使用 GIN 索引的 JSONB 列。
 
 **当前索引覆盖率**: 优秀(所有外键和常见查询都已建立索引)
 
@@ -855,10 +857,10 @@ CREATE TABLE task_executions_2025_10 PARTITION OF task_executions
 ### 3. 数据保留
 
 **推荐策略**:
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
--  UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
+- `event_logs`: 保留 90 天。
+- `task_executions`: 保留 1 年,归档旧记录。
+- `audit_logs`: 保留 2 年。
+- `refresh_tokens`: 每周清除过期/已撤销的令牌。
 
 **清理脚本**:
 ```sql

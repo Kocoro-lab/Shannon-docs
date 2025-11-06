@@ -507,6 +507,22 @@ curl -X POST http://localhost:8080/api/v1/tasks \
 4. 用户通过 API 批准/拒绝
 5. 工作流继续或终止
 
+**网关端点（推荐）：**
+
+```bash
+curl -X POST "http://localhost:8080/api/v1/approvals/decision"   -H "X-API-Key: YOUR_API_KEY"   -H "Content-Type: application/json"   -d '{
+    "workflow_id": "<workflow-id>",
+    "approval_id": "<approval-id>",
+    "approved": true,
+    "feedback": "批准执行"
+  }'
+```
+
+<Note>
+位于 `http://localhost:8081/approvals/decision` 的旧版管理端点已弃用。请改用网关端点。
+</Note>
+
+
 **批准门在执行前在路由器中强制执行。**
 
 ## 特性标志与配置

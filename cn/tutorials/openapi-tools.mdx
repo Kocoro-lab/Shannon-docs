@@ -1,0 +1,580 @@
+---
+title: "OpenAPI 工具"
+description: "在 Shannon 中配置 OpenAPI 3.x 工具的完整参考"
+---
+
+## 概述
+
+Shannon 可以从 OpenAPI 3.x 规范自动生成工具，允许您无需编写代码即可集成任何 REST API。OpenAPI 加载器：
+
+- ✅ 解析 OpenAPI 3.0/3.1 规范
+- ✅ 每个操作生成一个工具
+- ✅ 处理身份验证（Bearer、API 密钥、Basic）
+- ✅ 支持路径/查询/头部参数
+- ✅ 包括断路器和速率限制
+- ✅ 根据模式验证请求
+- ✅ 本地解析 `$ref` 引用
+
+<Tip>
+**快速入门**：有关分步说明，请参阅[添加自定义工具指南](/cn/tutorials/custom-tools#adding-openapi-tools)。
+</Tip>
+
+## 配置参考
+
+### 基本配置
+
+```yaml
+# config/shannon.yaml 或 config/overlays/shannon.myvendor.yaml
+openapi_tools:
+  tool_collection_name:
+    enabled: true | false                   # 启用/禁用此工具集
+    spec_path: string                       # OpenAPI 规范文件的路径
+    spec_url: string                        # 或：用于获取规范的 URL
+    spec_inline: string                     # 或：内联 YAML/JSON 规范
+
+    auth_type: none | api_key | bearer | basic
+    auth_config: object                     # 身份验证配置（见下文）
+
+    category: string                        # 工具类别（例如，“analytics”、“data”）
+    base_cost_per_use: float               # 每个操作的估计成本（美元）
+    rate_limit: integer                     # 每分钟请求数（默认值：30）
+    timeout_seconds: float                  # 请求超时（默认值：30）
+    max_response_bytes: integer             # 最大响应大小（默认值：10MB）
+
+    operations: [string]                    # 可选：按 operationId 筛选
+    tags: [string]                          # 可选：按标签筛选
+    base_url: string                        # 可选：覆盖规范的基本 URL
+```
+
+### 字段说明
+
+| 字段 | 类型 | 必需 | 默认值 | 描述 |
+|-------|------|----------|---------|-------------|
+| `enabled` | boolean | 是 | - | 启用此工具集 |
+| `spec_path` | string | spec_* 之一 | - | OpenAPI 规范的本地文件路径 |
+| `spec_url` | string | spec_* 之一 | - | 用于获取规范的 URL（支持相对服务器 URL）|
+| `spec_inline` | string | spec_* 之一 | - | 内联 YAML/JSON 规范内容 |
+| `auth_type` | enum | 是 | `none` | 身份验证方法 |
+| `auth_config` | object | 如果 auth ≠ none | `{}` | 身份验证配置（因类型而异）|
+| `category` | string | 否 | `"api"` | 用于组织的工具类别 |
+| `base_cost_per_use`| float | 否 | `0.001` | 每次调用的估计成本（美元）|
+| `rate_limit` | integer | 否 | `30` | 每个工具每分钟的最大请求数 |
+| `timeout_seconds` | float | 否 | `30.0` | HTTP 请求超时 |
+| `max_response_bytes`| integer | 否 | `10485760`| 最大响应大小（10MB）|
+| `operations` | array[string] | 否 | 全部 | 筛选到特定的 operationIds |
+| `tags` | array[string] | 否 | 全部 | 按标签筛选操作 |
+| `base_url` | string | 否 | 来自规范 | 覆盖 API 基本 URL |
+
+## 身份验证类型
+
+### 无身份验证
+
+```yaml
+openapi_tools:
+  public_api:
+    enabled: true
+    spec_url: https://api.example.com/openapi.json
+    auth_type: none
+```
+
+### Bearer 令牌
+
+使用者：GitHub、GitLab、大多数现代 API
+
+```yaml
+openapi_tools:
+  github_api:
+    enabled: true
+    spec_url: https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.json
+    auth_type: bearer
+    auth_config:
+      token: "${GITHUB_TOKEN}"              # 来自环境变量
+      # 或：
+      # token: "ghp_xxxxxxxxxxxxx"          # 硬编码（不推荐）
+```
+
+**环境变量**：
+```bash
+GITHUB_TOKEN=ghp_your_token_here
+```
+
+**发送的头部**：
+```
+Authorization: Bearer ghp_your_token_here
+```
+
+### 头部中的 API 密钥
+
+使用者：OpenAI、Anthropic、许多 SaaS API
+
+```yaml
+openapi_tools:
+  openai_api:
+    enabled: true
+    spec_url: https://raw.githubusercontent.com/openai/openai-openapi/master/openapi.yaml
+    auth_type: api_key
+    auth_config:
+      api_key_name: Authorization                # 头部名称
+      api_key_location: header                   # "header" 或 "query"
+      api_key_value: "Bearer ${OPENAI_API_KEY}"  # 带前缀的值
+```
+
+**环境变量**：
+```bash
+OPENAI_API_KEY=sk-your-key-here
+```
+
+**发送的头部**：
+```
+Authorization: Bearer sk-your-key-here
+```
+
+### 查询参数中的 API 密钥
+
+使用者：OpenWeather、一些旧版 API
+
+```yaml
+openapi_tools:
+  weather_api:
+    enabled: true
+    spec_url: https://api.openweathermap.org/data/3.0/openapi.json
+    auth_type: api_key
+    auth_config:
+      api_key_name: appid                   # 查询参数名称
+      api_key_location: query               # "query" 而不是 "header"
+      api_key_value: "${OPENWEATHER_KEY}"
+```
+
+**请求 URL**：
+```
+GET https://api.openweathermap.org/data/3.0/weather?appid=your_key_here&q=London
+```
+
+### 基本身份验证
+
+使用者：旧版 API、内部服务
+
+```yaml
+openapi_tools:
+  legacy_api:
+    enabled: true
+    spec_path: config/openapi_specs/legacy_api.yaml
+    auth_type: basic
+    auth_config:
+      username: "${API_USERNAME}"
+      password: "${API_PASSWORD}"
+```
+
+**环境变量**：
+```bash
+API_USERNAME=admin
+API_PASSWORD=secret123
+```
+
+**发送的头部**：
+```
+Authorization: Basic YWRtaW46c2VjcmV0MTIz
+```
+
+### 自定义头部
+
+用于特定于供应商的身份验证：
+
+```yaml
+openapi_tools:
+  custom_api:
+    enabled: true
+    spec_url: https://api.custom.com/v1/openapi.json
+    auth_type: api_key
+    auth_config:
+      vendor: myvendor                      # 触发供应商适配器
+      api_key_name: X-API-Key
+      api_key_location: header
+      api_key_value: "${CUSTOM_API_KEY}"
+      extra_headers:
+        X-Account-ID: "{{body.account_id}}"  # 从请求正文中动态获取
+        X-User-ID: "${CUSTOM_USER_ID}"       # 从环境中静态获取
+        X-Timestamp: "{{timestamp}}"          # 动态模板
+```
+
+<Note>
+**动态头部模板**：
+- `"${ENV_VAR}"` - 从环境解析
+- `"{{body.field}}"` - 在运行时从请求正文解析
+- 静态字符串 - 按原样使用
+</Note>
+
+## 高级功能
+
+### 操作筛选
+
+**按 operationId**（推荐）：
+```yaml
+openapi_tools:
+  petstore:
+    spec_url: https://petstore3.swagger.io/api/v3/openapi.json
+    operations:
+      - getPetById              # 仅为此操作生成工具
+      - findPetsByStatus
+      - addPet
+```
+
+**按标签**：
+```yaml
+openapi_tools:
+  petstore:
+    spec_url: https://petstore3.swagger.io/api/v3/openapi.json
+    tags:
+      - pet                     # 仅标记为 "pet" 的操作
+      - user
+```
+
+### 基本 URL 覆盖
+
+覆盖规范中的基本 URL：
+
+```yaml
+openapi_tools:
+  api_staging:
+    spec_url: https://api.example.com/openapi.json
+    base_url: https://staging-api.example.com  # 使用暂存环境
+```
+
+**用例**：
+- 针对暂存/开发环境进行测试
+- 内部代理或网关
+- 本地开发
+
+### 速率限制
+
+保护外部 API 免于过载：
+
+```yaml
+openapi_tools:
+  expensive_api:
+    spec_url: https://expensive.api.com/openapi.json
+    rate_limit: 10              # 每分钟仅 10 个请求
+    timeout_seconds: 60         # 慢速操作的 60 秒超时
+```
+
+**每个工具的限制**：从规范生成的每个操作都继承此限制。
+
+**行为**：
+- 通过令牌桶算法强制执行
+- 在所有工具实例之间共享（单个 Shannon 实例）
+- 如果超过限制则返回错误
+
+### 断路器
+
+自动故障保护：
+
+**配置**（通过环境）：
+```bash
+# 断路器在 5 次故障后打开
+# 在允许重试前保持打开 60 秒
+#（这些是默认值，尚不能按工具配置）
+```
+
+**状态**：
+1. **关闭**（正常）：所有请求通过
+2. **打开**（失败）：所有请求立即被拒绝
+3. **半开**（测试）：允许一个试探性请求
+
+**行为**：
+- 连续 5 次故障后 → 打开电路
+- 电路保持打开 60 秒
+- 然后允许一个试探性请求（半开）
+- 成功 → 关闭电路
+- 失败 → 再次打开 60 秒
+
+### 响应大小限制
+
+防止内存耗尽：
+
+```yaml
+openapi_tools:
+  api_with_large_responses:
+    spec_url: https://api.example.com/openapi.json
+    max_response_bytes: 52428800  # 50MB 限制
+```
+
+**行为**：
+- 大于限制的响应将被截断
+- 返回带有截断标记的错误
+
+## 故障排除
+
+### 工具未注册
+
+**症状**：工具未出现在 `/tools/list` 中
+
+**调试**：
+```bash
+# 1. 检查规范是否有效
+curl -X POST http://localhost:8000/tools/openapi/validate \
+  -H "Content-Type: application/json" \
+  -d '{"spec_url": "https://api.example.com/openapi.json"}'
+
+# 2. 检查日志
+docker logs shannon-llm-service-1 | grep -i "openapi"
+
+# 3. 验证启用标志
+grep -A 5 "my_tool" config/shannon.yaml | grep enabled
+```
+
+**常见原因**：
+- 配置中 `enabled: false`
+- OpenAPI 规范无效
+- 域不在 `OPENAPI_ALLOWED_DOMAINS` 中
+- 规范获取超时
+- 循环的 `$ref` 引用
+
+### 域验证错误
+
+**症状**：`URL host 'example.com' not in allowed domains`
+
+**修复**：
+```bash
+# 开发环境：允许所有
+OPENAPI_ALLOWED_DOMAINS=*
+
+# 生产环境：特定域
+OPENAPI_ALLOWED_DOMAINS=api.github.com,api.example.com,api.partner.com
+```
+
+**在 docker-compose.yml 中**：
+```yaml
+services:
+  llm-service:
+    environment:
+      - OPENAPI_ALLOWED_DOMAINS=api.example.com
+```
+
+### 规范获取超时
+
+**症状**：`Failed to fetch OpenAPI spec: timeout`
+
+**修复**：
+```bash
+# 增加超时（默认值：30 秒）
+OPENAPI_FETCH_TIMEOUT=60
+
+# 或使用本地规范文件
+openapi_tools:
+  my_api:
+    spec_path: config/openapi_specs/my_api.yaml  # 本地文件
+```
+
+### 断路器触发
+
+**症状**：`Circuit breaker open for https://api.example.com`
+
+**调试**：
+```bash
+# 检查最近的错误
+docker logs shannon-llm-service-1 --tail 100 | grep -i "circuit\|failure"
+```
+
+**修复**：
+- 等待 60 秒以自动恢复
+- 修复潜在的 API 问题
+- 如果 API 较慢，增加超时：
+  ```yaml
+  timeout_seconds: 60
+  ```
+
+### 超过速率限制
+
+**症状**：`Rate limit exceeded for tool my_tool`
+
+**修复**：
+```yaml
+# 增加限制
+openapi_tools:
+  my_api:
+    rate_limit: 120  # 每分钟 120 个请求
+```
+
+### 身份验证失败
+
+**症状**：`401 Unauthorized` 或 `403 Forbidden`
+
+**调试**：
+```bash
+# 检查环境变量
+env | grep API_KEY
+
+# 手动测试令牌
+curl -H "Authorization: Bearer $YOUR_TOKEN" https://api.example.com/endpoint
+```
+
+**常见原因**：
+- 未设置环境变量
+- 令牌已过期
+- 错误的身份验证类型（应为 `bearer` 而不是 `api_key`）
+- API 密钥身份验证缺少 `Bearer` 前缀
+
+## 示例
+
+### 示例 1：GitHub API
+
+```yaml
+openapi_tools:
+  github:
+    enabled: true
+    spec_url: https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.json
+    auth_type: bearer
+    auth_config:
+      token: "${GITHUB_TOKEN}"
+    category: development
+    rate_limit: 60
+    operations:
+      - repos/get
+      - repos/list-for-user
+      - issues/list-for-repo
+```
+
+**用法**：
+```bash
+./scripts/submit_task.sh "List all repositories for user octocat"
+```
+
+### 示例 2：OpenWeather API
+
+```yaml
+openapi_tools:
+  openweather:
+    enabled: true
+    spec_url: https://api.openweathermap.org/data/3.0/openapi.json
+    auth_type: api_key
+    auth_config:
+      api_key_name: appid
+      api_key_location: query
+      api_key_value: "${OPENWEATHER_API_KEY}"
+    category: data
+    rate_limit: 60
+```
+
+**用法**：
+```bash
+./scripts/submit_task.sh "What's the weather forecast for Tokyo?"
+```
+
+### 示例 3：带供应商适配器的内部 API
+
+```yaml
+openapi_tools:
+  internal_analytics:
+    enabled: true
+    spec_path: config/openapi_specs/internal_analytics.yaml
+    auth_type: bearer
+    auth_config:
+      vendor: mycompany                     # 触发供应商适配器
+      token: "${ANALYTICS_API_TOKEN}"
+      extra_headers:
+        X-Tenant-ID: "{{body.tenant_id}}"
+    category: analytics
+    base_cost_per_use: 0.005
+```
+
+**供应商适配器** (`python/llm-service/llm_service/tools/vendor_adapters/mycompany.py`)：
+```python
+class MyCompanyAdapter:
+    def transform_body(self, body, operation_id, prompt_params):
+        # 添加租户上下文
+        if prompt_params and "tenant_id" in prompt_params:
+            body["tenant_id"] = prompt_params["tenant_id"]
+
+        # 转换指标名称
+        if "metrics" in body:
+            body["metrics"] = [f"myco:{m}" for m in body["metrics"]]
+
+        return body
+```
+
+## 安全最佳实践
+
+<AccordionGroup>
+  <Accordion title="切勿硬编码机密">
+    ```yaml
+    # ❌ 错误
+    auth_config:
+      token: "sk-1234567890"
+
+    # ✅ 正确
+    auth_config:
+      token: "${API_TOKEN}"
+    ```
+  </Accordion>
+
+  <Accordion title="使用域白名单">
+    ```bash
+    # 生产环境
+    OPENAPI_ALLOWED_DOMAINS=api.trusted.com,api.partner.com
+
+    # 而不是：OPENAPI_ALLOWED_DOMAINS=*
+    ```
+  </Accordion>
+
+  <Accordion title="设置适当的速率限制">
+    ```yaml
+    rate_limit: 60  # 与您的 API 提供商的限制匹配
+    ```
+  </Accordion>
+
+  <Accordion title="使用 HTTPS">
+    - Shannon 自动将外部 API 的 HTTP 升级到 HTTPS
+    - 允许在开发中使用 localhost/127.0.0.1 上的 HTTP
+  </Accordion>
+
+  <Accordion title="限制响应大小">
+    ```yaml
+    max_response_bytes: 10485760  # 默认 10MB
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## 另请参阅
+
+<CardGroup cols={2}>
+  <Card title="添加自定义工具" icon="wrench" href="/cn/tutorials/custom-tools">
+    完整的工具集成指南
+  </Card>
+  <Card title="供应商适配器" icon="plug" href="/cn/tutorials/vendor-adapters">
+    特定领域的集成
+  </Card>
+  <Card title="扩展 Shannon" icon="code-branch" href="/cn/tutorials/extending-shannon">
+    其他扩展方法
+  </Card>
+  <Card title="OpenAPI 测试" icon="flask" href="https://github.com/Kocoro-lab/Shannon/tree/main/python/llm-service/tests">
+    测试示例和验证
+  </Card>
+</CardGroup>
+
+## 快速参考
+
+```bash
+# 验证规范
+curl -X POST http://localhost:8000/tools/openapi/validate \
+  -d '{"spec_url": "https://api.example.com/openapi.json"}' | jq .
+
+# 列出已注册的工具
+curl http://localhost:8000/tools/list | jq .
+
+# 获取工具模式
+curl http://localhost:8000/tools/myTool/schema | jq .
+
+# 执行工具
+curl -X POST http://localhost:8000/tools/execute \
+  -d '{"tool_name":"myTool","parameters":{...}}' | jq .
+
+# 通过工作流测试
+./scripts/submit_task.sh "Your query using the tool"
+```
+
+<Tip>
+**需要帮助？**
+- 报告问题：[GitHub Issues](https://github.com/Kocoro-lab/Shannon/issues)
+- 社区：[Discord](https://discord.gg/NB7C2fMcQR)
+- 示例：`tests/e2e/06_openapi_petstore_test.sh`
+</Tip>

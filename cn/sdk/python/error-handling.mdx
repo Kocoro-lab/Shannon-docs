@@ -54,18 +54,20 @@ from shannon import (
 client = ShannonClient(base_url="http://localhost:8080")
 
 try:
-    handle = client.submit_task(
-        query="分析此数据",
-        # 模式自动选择
-    )
-    status = client.wait(handle.task_id)
+    handle = client.submit_task(query="分析此数据")
+    status = client.wait(handle.task_id, timeout=120)
+
+    if status.status == TaskStatusEnum.FAILED:
+        print(f"任务失败：{status.error_message}")
+    else:
+        print("结果：", status.result)
 
 except ConnectionError:
     print("无法连接到 Shannon 服务器")
 except AuthenticationError:
     print("无效的 API 凭证")
 except PermissionDeniedError:
-    print("权限不足")
+    print("禁止访问：权限不足")
 except RateLimitError:
     print("触发速率限制，请降低频率或加入退避")
 except ServerError:
@@ -74,12 +76,6 @@ except TaskTimeoutError:
     print("任务超出超时限制")
 except ShannonError as e:
     print(f"Shannon 错误：{e}")
-
-# 检查预算/失败状态
-status = client.get_status(handle.task_id)
-from shannon import TaskStatusEnum
-if status.status == TaskStatusEnum.FAILED:
-    print(f"任务失败：{status.error_message}")
 except Exception as e:
     print(f"意外错误：{e}")
 ```
@@ -126,7 +122,7 @@ status = client.wait(handle.task_id)
 
 # 失败检查（TaskStatus 返回的是枚举）
 if status.status == TaskStatusEnum.FAILED:
-    print(f"失败：{status.error_message}")
+    print(f"失败并出现错误：{status.error_message}")
 
 # 用量与成本（从任务列表读取）
 tasks, _ = client.list_tasks(limit=50)
@@ -145,21 +141,26 @@ if summary and summary.status == "FAILED":
 处理长时间运行的操作：
 
 ```python
-from shannon import ShannonClient, TimeoutError
 import asyncio
+from shannon import AsyncShannonClient, TaskTimeoutError
 
 async def with_timeout_handling():
     async with AsyncShannonClient() as client:
         try:
+            # asyncio.TimeoutError 来自 wait_for 包装器（客户端）
             handle = await asyncio.wait_for(
                 client.submit_task(query="复杂分析"),
                 timeout=10.0,
             )
+            # TaskTimeoutError 来自 Shannon，如果任务超出了自己的超时
             result = await asyncio.wait_for(client.wait(handle.task_id), timeout=60.0)
             return result
 
         except asyncio.TimeoutError:
-            print("操作超时")
+            print("操作超时（客户端 asyncio 超时）")
+            return None
+        except TaskTimeoutError:
+            print("任务超时（Shannon 报告超时）")
             return None
 ```
 
@@ -226,6 +227,10 @@ def handle_task_failure(query):
     try:
         handle = client.submit_task(query=query)
         status = client.wait(handle.task_id, timeout=120)
+
+        if status.status == TaskStatusEnum.FAILED:
+            print(f"任务失败：{status.error_message}")
+            return None
         return status
     except TaskTimeoutError:
         print("任务超时；请考虑增加超时或简化请求。")

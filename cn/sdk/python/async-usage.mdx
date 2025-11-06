@@ -27,7 +27,10 @@ from shannon import AsyncShannonClient
 async def main():
     async with AsyncShannonClient(base_url="http://localhost:8080") as client:
         handle = await client.submit_task(
-            query="分析数据",
+            query=(
+                "将段落总结为 3 个重点关注收入趋势的要点。"
+                "输出：Markdown 列表。"
+            ),
             model_tier="small",
             mode="standard",
         )
@@ -100,7 +103,11 @@ async def with_timeout():
         try:
             # 带超时的提交
             handle = await asyncio.wait_for(
-                client.submit_task(query="Analyze data"),
+                client.submit_task(
+                    query=(
+                        "从段落中提取前 3 个见解，并返回 Markdown 项目符号列表。"
+                    )
+                ),
                 timeout=30.0
             )
 

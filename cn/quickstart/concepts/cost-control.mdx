@@ -5,7 +5,7 @@ description: "在 Shannon 中管理令牌预算和降低 LLM 成本"
 
 ## 概述
 
-Shannon 提供全面的成本控制功能，以防止意外的 LLM 费用并优化支出。通过内置的预算执行和智能路由，与简单实现相比，通常可实现 **60–90% 的成本节省**（取决于工作负载）。
+Shannon 提供全面的成本控制功能，以防止意外的 LLM 费用并优化支出。通过内置的预算执行和智能路由，与简单实现相比，通常可实现 **显著的成本降低（60–90%）**（取决于工作负载）。
 
 ## 设置预算
 
@@ -34,9 +34,9 @@ Shannon 根据能力和成本将模型分为不同层级：
 | **MEDIUM** | gpt-5<br/>claude-sonnet | $3.00 - $15.00 | 通用任务 |
 | <strong>LARGE</strong> | gpt-5-thinking<br/>claude-opus | $15.00 - $75.00 | 复杂推理、关键任务 |
 
-### 首选层级
+### 显式层级偏好
 
-通过环境变量设置默认首选层级：
+通过环境变量设置首选的默认层级：
 
 ```bash
 DEFAULT_MODEL_TIER=small   # small | medium | large
@@ -168,7 +168,7 @@ client.submit_task(query="...")
 # ✅ 好：预算保护
 client.submit_task(
     query="...",
-    # 通过 .env 配置预算
+    # 通过 .env 配置预算}
 )
 ```
 
@@ -229,8 +229,10 @@ for t in tasks:
 让智能路由器证明何时需要更大的模型：
 
 ```python
-# 让 Shannon 选择（自动选择层级）
-client.submit_task(query="...")
+# 让 Shannon 选择
+client.submit_task(query="...")  # 自动选择层级
+
+# 模型层级由平台路由器选择。SDK 不接受每个请求的模型层级或预算参数。
 ```
 
 ## 成本优化清单
@@ -292,7 +294,3 @@ print(f"3 个任务的总成本：${total_cost:.4f}")
 
 
 ---
-
-## 参与翻译
-
-如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。

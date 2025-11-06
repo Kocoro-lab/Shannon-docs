@@ -244,7 +244,7 @@ Temporal 工作流由活动组成 - 离散的工作单元：
 | **DecomposeTask** | 分析任务并创建子任务 |
 | **ExecuteAgent** | 运行单个智能体任务 |
 | **SynthesizeResults** | 组合多个智能体的输出 |
-| **UpdateSessionResult** | 持久化会话状态 |
+| **UpdateSessionResult** | 持久化会话状态并附加助手消息到会话历史（修复 2025-11-05） |
 | **RecordQuery** | 存储到向量记忆 |
 | **FetchSessionMemory** | 检索相关上下文 |
 
@@ -380,8 +380,8 @@ for event in client.stream(handle.workflow_id):
 for event in client.stream(workflow_id):
     if event.type == "LLM_PROMPT":
         print(f"提示：{event.message}")
-    elif event.type == "STATUS_UPDATE":
-        print(f"状态更新：{event.message}")
+    elif event.type == "AGENT_COMPLETED":
+        print(f"智能体已完成：{event.agent_id}")
 ```
 
 ### 4. 设置超时
@@ -412,7 +412,3 @@ AGENT_TIMEOUT_SECONDS=300  # 5 分钟限制（每个代理执行）
 
 
 ---
-
-## 参与翻译
-
-如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。

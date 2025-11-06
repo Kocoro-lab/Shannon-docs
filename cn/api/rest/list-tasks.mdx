@@ -169,8 +169,6 @@ curl -X GET "http://localhost:8080/api/v1/tasks?status=FAILED" \
 ### 按会话筛选
 
 ```bash
-> 注意：`session_id` 支持 UUID 或 `external_id`。
-
 curl -X GET "http://localhost:8080/api/v1/tasks?session_id=user-123-chat" \
   -H "X-API-Key: sk_test_123456"
 ```
@@ -571,7 +569,7 @@ for page in range(3):
 
 ```python
 # ✅ 好 - 服务器端筛选
-running = httpx.get(..., params={"status": "RUNNING"})
+running = httpx.get(...)
 
 # ❌ 不好 - 客户端筛选
 all_tasks = httpx.get(...)
@@ -623,7 +621,3 @@ def get_cached_tasks():
 
 
 ---
-
-## 参与翻译
-
-如果您想帮助翻译此文档，请访问我们的 [GitHub 仓库](https://github.com/Kocoro-lab/Shannon)。

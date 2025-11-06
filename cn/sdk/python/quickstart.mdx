@@ -9,29 +9,30 @@ description: "5 分钟内开始使用 Shannon Python SDK"
 pip install shannon-sdk
 ```
 
-## 您的第一个任务
-
-### 1. 导入和初始化
+## 第一个任务
 
 ```python
 from shannon import ShannonClient
-
-# 仅 HTTP 客户端；默认 base_url 为网关
 client = ShannonClient(base_url="http://localhost:8080")
-```
 
-### 2. 提交任务
-
-```python
-handle = client.submit_task(query="法国的首都是什么？")
-print("任务已提交：", handle.task_id)
-```
-
-### 3. 获取结果
-
-```python
+handle = client.submit_task("以单个词返回法国的首都。")
 final = client.wait(handle.task_id, timeout=60)
-print("结果：", final.result)
+print(final.result)
+```
+
+## 流式传输 (SSE)
+
+```python
+from shannon import ShannonClient, EventType
+client = ShannonClient()
+
+h = client.submit_task(
+  "起草一份约 120 字的关于近期三个量子计算里程碑的执行摘要。以 Markdown 段落格式输出。"
+)
+for e in client.stream(h.workflow_id, types=[EventType.LLM_OUTPUT, EventType.WORKFLOW_COMPLETED]):
+  print(e.type, e.message)
+  if e.type == EventType.WORKFLOW_COMPLETED:
+    break
 ```
 
 ## 模型/模式选择（可选）
@@ -40,234 +41,36 @@ print("结果：", final.result)
 
 ```python
 handle = client.submit_task(
-  "将这段文字总结为 3 条要点，聚焦营收趋势。输出：Markdown 列表。",
-  model_tier="small",                 # small|medium|large
+  "将段落总结为三个重点关注收入趋势的要点。输出：Markdown 列表。",
+  model_tier="small",                # small|medium|large
   # model_override="gpt-5-nano-2025-08-07",
-  # provider_override="openai",       # 或 anthropic、google 等
-  mode="simple",                       # simple|standard|complex|supervisor
+  # provider_override="openai",      # 或 anthropic、google 等
+  mode="simple",                      # simple|standard|complex|supervisor
 )
 print(client.wait(handle.task_id).result)
 ```
 
-## 完整示例
-
-```python
-from shannon import ShannonClient
-
-def main():
-    client = ShannonClient()
-    handle = client.submit_task(
-        query="分析情绪：Shannon 让 AI 代理变得简单！",
-    )
-    print("任务 ID：", handle.task_id)
-    print("等待完成...")
-    result = client.wait(handle.task_id, timeout=60)
-    print("\n结果：", result.result)
-
-if __name__ == "__main__":
-    main()
-```
-
-## 常见模式
-
-### 幂等性
-
-```python
-handle = client.submit_task(
-    query="为这段文本生成摘要",
-    idempotency_key="user-123-req-456",  # 防止重复提交
-)
-```
-
-### 多轮对话
-
-```python
-session_id = "user-123-chat"
-handle1 = client.submit_task(query="Python 是什么？", session_id=session_id)
-print(client.wait(handle1.task_id).result)
-
-handle2 = client.submit_task(query="它的主要优点是什么？", session_id=session_id)
-print(client.wait(handle2.task_id).result)
-```
-
-### 流式事件
-
-```python
-handle = client.submit_task(query="撰写一段约 120 字的量子计算近期里程碑摘要（Markdown），最后一行以‘结论：’开头。")
-for event in client.stream(handle.workflow_id):
-    print(f"[{event.type}] {event.message}")
-    if event.type == "WORKFLOW_COMPLETED":
-        break
-```
-
-### 错误处理
-
-```python
-from shannon.errors import ShannonError, TaskTimeoutError
-
-try:
-    handle = client.submit_task(query="复杂分析")
-    result = client.wait(handle.task_id, timeout=120)
-    print(result.result)
-
-except TaskTimeoutError:
-    print("任务超时")
-except ShannonError as e:
-    print(f"Shannon 错误：{e}")
-```
-
-## 任务模式
-
-默认由平台选择，但 SDK 也支持可选的 `mode` 参数（simple/standard/complex/supervisor）。
-
-## 检查状态
-
-### 同步
-
-```python
-from shannon import TaskStatusEnum
-
-handle = client.submit_task(query="...")
-status = client.get_status(handle.task_id)
-print("状态：", status.status)
-
-if status.status == TaskStatusEnum.COMPLETED:
-    print("结果：", status.result)
-```
-
-### 使用轮询
-
-```python
-import time
-
-handle = client.submit_task(query="长时间运行的任务")
-while True:
-    status = client.get_status(handle.task_id)
-    print("状态：", status.status)
-    if status.status in [TaskStatusEnum.COMPLETED, TaskStatusEnum.FAILED]:
-        break
-    time.sleep(2)
-```
-
-## 异步用法
+## 异步版本
 
 ```python
 import asyncio
 from shannon import AsyncShannonClient
 
 async def main():
-    async with AsyncShannonClient(base_url="http://localhost:8080") as client:
-        handle = await client.submit_task(query="分析情绪")
-        result = await client.wait(handle.task_id)
-        print(result.result)
+  async with AsyncShannonClient(base_url="http://localhost:8080") as client:
+    h = await client.submit_task(
+      "对“我喜欢这个产品！”进行情感分类（positive|neutral|negative）。返回 JSON {label, score}。"
+    )
+    f = await client.wait(h.task_id)
+    print(f.result)
 
 asyncio.run(main())
 ```
 
-### 并行执行多个任务
+## CLI
 
-```python
-async def analyze_multiple():
-    async with AsyncShannonClient() as client:
-        handles = await asyncio.gather(*[
-            client.submit_task(query=f"分析文本 {i}") for i in range(5)
-        ])
-        results = await asyncio.gather(*[
-            client.wait(h.task_id) for h in handles
-        ])
-        for i, result in enumerate(results):
-            print(f"任务 {i}：{result.result}")
-
-asyncio.run(analyze_multiple())
+```bash
+# 使用模型选择提交
+python -m shannon.cli --base-url http://localhost:8080 \
+  submit "总结" --model-tier small --mode simple --wait
 ```
-
-## 配置
-
-### 客户端配置
-
-```python
-client = ShannonClient(api_key="sk_test_123456")
-```
-
-### 任务配置
-
-通过 SDK 尚无法配置显式的预算/模式设置。
-
-## 最佳实践
-
-### 1. 对长任务使用流式传输
-
-### 2. 使用上下文管理器
-
-```python
-async with AsyncShannonClient() as client:
-    handle = await client.submit_task(...)
-    status = await client.wait(handle.task_id)
-```
-
-### 3. 处理错误
-
-```python
-try:
-    result = client.wait(handle.task_id)
-except ShannonError as e:
-    print(f"任务失败：{e}")
-```
-
-### 4. 对长任务使用流式传输
-
-```python
-# ✅ 好：实时反馈
-for event in client.stream(workflow_id):
-    update_ui(event)
-
-# ❌ 较不理想：阻塞等待
-result = handle.wait(timeout=600)
-```
-
-## 按用例的示例
-
-### 情绪分析
-
-```python
-handle = client.submit_task(query="分析情绪：产品太棒了！")
-print(client.wait(handle.task_id).result)
-```
-
-### 数据研究
-
-```python
-handle = client.submit_task(query="研究前 3 个云提供商并比较定价")
-for event in client.stream(handle.workflow_id):
-    print(event.type)
-```
-
-### 代码生成
-
-```python
-handle = client.submit_task(query="编写 Python 函数以计算斐波那契数列")
-print(client.wait(handle.task_id).result)
-```
-
-### 复杂分析
-
-```python
-handle = client.submit_task(
-    query="比较 SQL 和 NoSQL 数据库用于电子商务平台"
-)
-print(client.wait(handle.task_id, timeout=300).result)
-```
-
-## 后续步骤
-
-<CardGroup cols={2}>
-  <Card title="流式传输" icon="stream" href="/cn/sdk/python/streaming">
-    实时事件流传输
-  </Card>
-  <Card title="异步用法" icon="bolt" href="/cn/sdk/python/async-usage">
-    Async/await 模式
-  </Card>
-  <Card title="示例" icon="code" href="/cn/sdk/python/examples">
-    更多代码示例
-  </Card>
-</CardGroup>

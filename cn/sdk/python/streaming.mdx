@@ -3,8 +3,6 @@ title: "事件流式传输"
 description: "使用 Python SDK 进行实时事件流式传输"
 ---
 
- 
-
 ## 概述
 
 推荐使用 SSE 获取简单可靠的实时更新。若环境需要 WS，可使用可选的 WebSocket 辅助方法。
@@ -13,106 +11,52 @@ description: "使用 Python SDK 进行实时事件流式传输"
 
 ```python
 from shannon import ShannonClient, EventType
+client = ShannonClient()
 
-client = ShannonClient()  # 通过网关 base_url 流式（默认 http://localhost:8080）
-
-handle = client.submit_task(query="撰写一段约 120 字的 Q4 营收驱动与风险摘要（Markdown），最后一行以‘结论：’开头。")
-for event in client.stream(handle.workflow_id, types=[EventType.LLM_OUTPUT, EventType.WORKFLOW_COMPLETED]):
-  print(f"{event.type}: {event.message}")
-  if event.type == EventType.WORKFLOW_COMPLETED:
+h = client.submit_task(
+  "起草一份约 120 字的关于 Q4 营收驱动与风险的执行摘要。流式传输部分输出；最后一行以‘结论：’结尾。"
+)
+for e in client.stream(h.workflow_id, types=[EventType.LLM_OUTPUT, EventType.WORKFLOW_COMPLETED]):
+  print(f"{e.type}: {e.message}")
+  if e.type == EventType.WORKFLOW_COMPLETED:
     break
+```
 
-续传：
+从上一个事件恢复：
 
 ```python
 last_id = None
-for e in client.stream(handle.workflow_id, last_event_id=last_id):
+for e in client.stream(h.workflow_id, last_event_id=last_id):
   # ...
- last_id = e.id
+  last_id = e.id
 ```
 
-说明：`last_event_id` 可使用 Redis Stream ID（优先，例如 `1700000000000-0`）或数字序号（如 `42`）。SDK 的 `event.id` 会优先返回 `stream_id`，否则回退为 `seq`。
-```
+注意：
+- `last_event_id` 接受 Redis 流 ID（优先）或数字序号。SDK 的 `event.id` 会在存在时选择 `stream_id`，否则回退到 `seq`。
 
 ## WebSocket（可选）
 
-需要：`pip install websockets`
+需要 `pip install websockets`。
 
 ```python
 from shannon import ShannonClient
 client = ShannonClient()
 
-h = client.submit_task("通过 WS 流式输出一段约 120 字的可再生能源政策影响简报。")
+h = client.submit_task(
+  "生成一份约 120 字的关于近期可再生能源政策变化及其对成本影响的简报。流式传输部分输出。"
+)
 for e in client.stream_ws(h.workflow_id):
   print(e.type, e.message)
   if e.type == "WORKFLOW_COMPLETED":
     break
 ```
-```
 
-## 事件类型
+## 常见事件类型
 
-常见事件：
-- `WORKFLOW_STARTED` - 开始执行
-- `LLM_PROMPT` / `LLM_PARTIAL` / `LLM_OUTPUT` - 模型活动
-- `TOOL_INVOKED` / `TOOL_OBSERVATION` - 工具调用
-- `APPROVAL_REQUESTED` / `APPROVAL_DECISION` - 人在回路
-- `ERROR_OCCURRED` - 错误
-- `WORKFLOW_COMPLETED` - 执行完成
+- WORKFLOW_STARTED / WORKFLOW_COMPLETED
+- LLM_PROMPT / LLM_PARTIAL / LLM_OUTPUT
+- TOOL_INVOKED / TOOL_OBSERVATION
+- APPROVAL_REQUESTED / APPROVAL_DECISION
+- ERROR_OCCURRED
 
-<Note>
-此处仅列出常见事件。完整事件类型请参考 SDK 的 `EventType` 枚举（例如 `STATUS_UPDATE`、`ROLE_ASSIGNED`、`TEAM_RECRUITED`、`DELEGATION`）。
-</Note>
-
-## 异步流式传输
-
-```python
-import asyncio
-from shannon import AsyncShannonClient
-
-async def stream_task():
-    async with AsyncShannonClient() as client:
-        handle = await client.submit_task(query="将下段文字总结为 3 条要点，聚焦营收趋势；输出 Markdown 列表。")
-
-        async for event in client.stream(handle.workflow_id):
-            print(f"Event: {event.type}")
-            if event.type == "WORKFLOW_COMPLETED":
-                break
-
-asyncio.run(stream_task())
-```
-
-## 过滤与续传
-
-按事件类型过滤，并从已知位置续传：
-
-```python
-from shannon import EventType
-
-types = [EventType.LLM_OUTPUT, EventType.WORKFLOW_COMPLETED]
-
-last_event_id = None
-for event in client.stream(handle.workflow_id, types=types, last_event_id=last_event_id):
-    print(event.type)
-    last_event_id = event.id
-    if event.type == EventType.WORKFLOW_COMPLETED:
-        break
-```
-
-## 更多示例
-
-更多流式传输示例，请参阅：
-- [SDK 快速入门](/cn/sdk/python/quickstart)
-- [流式传输概念](/cn/quickstart/concepts/streaming)
-- [API 流式传输端点](/cn/api/rest/streaming)
-
-## 下一步
-
-<CardGroup cols={2}>
-  <Card title="异步使用" icon="bolt" href="/cn/sdk/python/async-usage">
-    异步/等待模式
-  </Card>
-  <Card title="示例" icon="code" href="/cn/sdk/python/examples">
-    更多代码示例
-  </Card>
-</CardGroup>
+提示：使用 `EventType` 枚举或原始字符串进行过滤。

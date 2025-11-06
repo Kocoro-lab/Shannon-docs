@@ -216,14 +216,13 @@ def get_vendor_adapter(name: str):
 openapi_tools:
   datainsight_analytics:
     enabled: true
-    spec_url: file:///app/config/openapi_specs/datainsight_api.yaml
+    spec_path: config/openapi_specs/datainsight_api.yaml
     auth_type: bearer
     auth_config:
       vendor: datainsight  # 这会触发适配器加载
       token: "${DATAINSIGHT_API_TOKEN}"
-      # extra_headers 仅支持静态值和环境变量解析
-      # 不支持从请求体动态模板化
       extra_headers:
+        X-Account-ID: "{{body.account_id}}"  # 从请求正文中动态获取
         X-User-ID: "${DATAINSIGHT_USER_ID}"   # 从环境变量静态获取
     category: analytics
     base_cost_per_use: 0.002

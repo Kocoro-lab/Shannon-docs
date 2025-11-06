@@ -287,7 +287,7 @@ async function submitTask(query) {
       const event = JSON.parse(e.data);
       events.value.push(event);
 
-      if (event.type === 'WORKFLOW_COMPLETED' || event.type === 'TASK_COMPLETED') {
+      if (event.type === 'WORKFLOW_COMPLETED') {
         eventSource.close();
         isStreaming.value = false;
       }
@@ -354,7 +354,6 @@ def submit_and_stream(query: str, api_key: str):
     )
 
     data = response.json()
-    task_id = data["task_id"]
     workflow_id = data["workflow_id"]
     stream_url = data["stream_url"]
 
@@ -372,7 +371,7 @@ def submit_and_stream(query: str, api_key: str):
                 event = json.loads(line[5:])
                 print(f"[{event['type']}] {event.get('message', '')}")
 
-                if event['type'] in ['WORKFLOW_COMPLETED', 'TASK_COMPLETED']:
+                if event['type'] in ['WORKFLOW_COMPLETED']:
                     return event
 
 # 使用示例
@@ -440,7 +439,7 @@ event: TOOL_INVOKED
 data: {"workflow_id":"task_abc123","tool":"web_search","params":{"query":"Python 编程"},"timestamp":"2025-10-22T10:30:02Z"}
 
 id: 4
-event: TOOL_RESULT
+event: TOOL_OBSERVATION
 data: {"workflow_id":"task_abc123","tool":"web_search","result":"...","timestamp":"2025-10-22T10:30:05Z"}
 
 id: 5
@@ -448,7 +447,7 @@ event: AGENT_COMPLETED
 data: {"workflow_id":"task_abc123","agent_id":"agent_1","result":"Python 是一种高级编程语言...","timestamp":"2025-10-22T10:30:06Z"}
 
 id: 6
-event: TASK_COMPLETED
+event: WORKFLOW_COMPLETED
 data: {"workflow_id":"task_abc123","status":"COMPLETED","result":"...","timestamp":"2025-10-22T10:30:07Z"}
 ```
 
@@ -563,7 +562,6 @@ asyncio.run(main())
 | 事件类型 | 描述 | 载荷字段 |
 |---------|------|---------|
 | `AGENT_THINKING` | 代理推理/规划 | `agent_id`、`message` |
-| `AGENT_PLANNING` | 代理创建执行计划 | `agent_id`、`plan` |
 | `AGENT_COMPLETED` | 代理完成执行 | `agent_id`、`result` |
 
 ### 工具事件
@@ -571,23 +569,39 @@ asyncio.run(main())
 | 事件类型 | 描述 | 载荷字段 |
 |---------|------|---------|
 | `TOOL_INVOKED` | 工具执行已启动 | `tool`、`params` |
-| `TOOL_OBSERVATION` | 工具结果被观察 | `tool`、`result` |
+| `TOOL_OBSERVATION` | 代理观察工具结果 | `tool`、`result` |
 
-### LLM 与进度事件
+### LLM 事件
 
 | 事件类型 | 描述 | 载荷字段 |
 |---------|------|---------|
 | `LLM_PROMPT` | 发送给 LLM 的提示 | `text` |
 | `LLM_PARTIAL` | 流式 LLM 输出 | `text` |
 | `LLM_OUTPUT` | 最终 LLM 输出 | `text` |
-| `PROGRESS` | 进度更新 | `progress`、`message` |
 
-### 系统与错误事件
+### 进度与系统事件
 
 | 事件类型 | 描述 | 载荷字段 |
 |---------|------|---------|
+| `PROGRESS` | 进度更新 | `progress`、`message` |
+| `DATA_PROCESSING` | 数据处理中 | `message` |
+| `WAITING` | 等待资源 | `message` |
 | `ERROR_OCCURRED` | 发生错误 | `error`、`severity` |
 | `ERROR_RECOVERY` | 错误恢复尝试 | `message` |
+| `WORKSPACE_UPDATED` | 内存/上下文已更新 | `message` |
+
+### 团队与审批
+
+| 事件类型 | 描述 |
+|------------|-------------|
+| `TEAM_RECRUITED` | 组建多智能体团队 |
+| `TEAM_RETIRED` | 解散团队 |
+| `TEAM_STATUS` | 团队协调更新 |
+| `ROLE_ASSIGNED` | 分配代理角色 |
+| `DELEGATION` | 任务已委托 |
+| `DEPENDENCY_SATISFIED` | 依赖已解决 |
+| `APPROVAL_REQUESTED` | 需要人工批准 |
+| `APPROVAL_DECISION` | 审批决策已记录 |
 
 ## 代码示例
 
@@ -638,7 +652,7 @@ def stream_filtered_events(task_id: str, api_key: str, event_types: list):
 for event in stream_filtered_events(
     "task_abc123",
     "sk_test_123456",
-    ["AGENT_THINKING", "TOOL_INVOKED", "TOOL_RESULT"]
+    ["AGENT_THINKING", "TOOL_INVOKED", "TOOL_OBSERVATION"]
 ):
     print(f"{event['type']}：{event.get('message', event.get('tool'))}")
 ```
@@ -661,7 +675,7 @@ function streamTaskEvents(taskId, apiKey) {
     const data = JSON.parse(event.data);
     console.log(`[${data.type}] ${data.message || ''}`);
 
-    if (data.type === 'TASK_COMPLETED') {
+    if (data.type === 'WORKFLOW_COMPLETED') {
       console.log('最终结果：', data.result);
       eventSource.close();
     }
@@ -704,10 +718,10 @@ function connectWebSocket(taskId, apiKey) {
       case 'TOOL_INVOKED':
         console.log(`🔧 工具：${data.tool}`);
         break;
-      case 'TOOL_RESULT':
+      case 'TOOL_OBSERVATION':
         console.log(`✓ 结果：${data.result}`);
         break;
-      case 'TASK_COMPLETED':
+      case 'WORKFLOW_COMPLETED':
         console.log(`✓ 完成：${data.result}`);
         ws.close();
         break;
@@ -774,7 +788,7 @@ func streamEvents(taskID, apiKey string) error {
 
             fmt.Printf("[%s] %s\n", event.Type, event.Message)
 
-            if event.Type == "TASK_COMPLETED" {
+            if event.Type == "WORKFLOW_COMPLETED" {
                 fmt.Println("✓ 任务完成")
                 break
             }
@@ -814,7 +828,7 @@ curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id=$TASK_ID" \\
       echo "[$(date +%T)] $TYPE：$MESSAGE"
 
       # 完成时退出
-      if [[ "$TYPE" == "TASK_COMPLETED" ]]; then
+      if [[ "$TYPE" == "WORKFLOW_COMPLETED" ]]; then
         echo ""
         echo "$JSON" | jq -r '.result'
         break
@@ -839,11 +853,11 @@ def display_progress(task_id: str, api_key: str):
             print(f"💭 {event['message']}")
         elif event_type == 'TOOL_INVOKED':
             print(f"🔧 使用工具：{event['tool']}")
-        elif event_type == 'TOOL_RESULT':
+        elif event_type == 'TOOL_OBSERVATION':
             print(f"✓ 工具已完成")
-        elif event_type == 'PARTIAL_OUTPUT':
+        elif event_type == 'LLM_PARTIAL':
             print(event['text'], end='', flush=True)
-        elif event_type == 'TASK_COMPLETED':
+        elif event_type == 'WORKFLOW_COMPLETED':
             print(f"\n\n✓ 完成！")
             return event['result']
 ```
@@ -865,7 +879,7 @@ def log_events_to_file(task_id: str, api_key: str, log_file: str):
             f.write(json.dumps(event) + '\n')
             f.flush()
 
-            if event.get('type') == 'TASK_COMPLETED':
+            if event.get('type') == 'WORKFLOW_COMPLETED':
                 break
 
 log_events_to_file("task_abc123", "sk_test_123456", "task_events.jsonl")
@@ -887,11 +901,11 @@ def collect_tool_metrics(task_id: str, api_key: str):
         if event.get('type') == 'TOOL_INVOKED':
             metrics['tools_invoked'] += 1
             metrics['tool_list'].append(event['tool'])
-        elif event.get('type') == 'TOOL_RESULT':
+        elif event.get('type') == 'TOOL_OBSERVATION':
             metrics['tools_succeeded'] += 1
-        elif event.get('type') == 'TOOL_ERROR':
+        elif event.get('type') == 'ERROR_OCCURRED':
             metrics['tools_failed'] += 1
-        elif event.get('type') == 'TASK_COMPLETED':
+        elif event.get('type') == 'WORKFLOW_COMPLETED':
             break
 
     return metrics
@@ -922,7 +936,7 @@ function TaskMonitor({ taskId, apiKey }) {
       const data = JSON.parse(event.data);
       setEvents(prev => [...prev, data]);
 
-      if (data.type === 'TASK_COMPLETED') {
+      if (data.type === 'WORKFLOW_COMPLETED') {
         setStatus('completed');
         eventSource.close();
       }
@@ -965,7 +979,7 @@ def stream_with_retry(task_id: str, api_key: str, max_retries: int = 3):
             for event in stream_task_events(task_id, api_key):
                 yield event
 
-                if event.get('type') == 'TASK_COMPLETED':
+                if event.get('type') == 'WORKFLOW_COMPLETED':
                     return
         except Exception as e:
             if attempt < max_retries - 1:
@@ -991,7 +1005,7 @@ def stream_with_timeout(task_id: str, api_key: str, timeout: int = 300):
     try:
         for event in stream_task_events(task_id, api_key):
             yield event
-            if event.get('type') == 'TASK_COMPLETED':
+            if event.get('type') == 'WORKFLOW_COMPLETED':
                 break
     finally:
         signal.alarm(0)  # 取消闹钟
@@ -1006,7 +1020,7 @@ def stream_specific_events(task_id: str, api_key: str, event_types: set):
         if event.get('type') in event_types:
             yield event
 
-        if event.get('type') == 'TASK_COMPLETED':
+        if event.get('type') == 'WORKFLOW_COMPLETED':
             yield event
             break
 
@@ -1014,7 +1028,7 @@ def stream_specific_events(task_id: str, api_key: str, event_types: set):
 for event in stream_specific_events(
     "task_abc123",
     "sk_test_123456",
-    {"AGENT_THINKING", "TOOL_INVOKED", "TOOL_RESULT"}
+    {"AGENT_THINKING", "TOOL_INVOKED", "TOOL_OBSERVATION"}
 ):
     print(event)
 ```

@@ -37,6 +37,16 @@ Shannon 作为分布式系统构建，包含多个专业化组件：
 - **技术栈**: Python, FastAPI, litellm
 - **扩展方式**: 水平扩展
 
+<Note>
+LLM Service 注意事项:
+
+- GPT‑5 模型通过 OpenAI Responses API 进行路由，服务器优先使用 `output_text`（如果存在）。这可以避免聊天响应返回结构化内容时出现空结果。
+- `/agent/query` HTTP 端点需要 `allowed_tools`:
+  - 忽略/`null`: 角色预设可能会启用工具
+  - `[]`: 禁用工具
+  - `["name", …]`: 只有列出的工具可用（内置、OpenAPI、按注册表名称的 MCP）
+</Note>
+
 ### Dashboard (TypeScript)
 - **端口**: 2111
 - **角色**: 实时监控界面
