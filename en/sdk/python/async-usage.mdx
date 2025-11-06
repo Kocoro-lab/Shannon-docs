@@ -45,24 +45,28 @@ asyncio.run(main())
 Submit multiple tasks simultaneously:
 
 ```python
-async def analyze_multiple():
+import asyncio
+from shannon import AsyncShannonClient
+
+async def main():
     async with AsyncShannonClient() as client:
+        # Submit multiple tasks concurrently
         tasks = [
-            client.submit_task(
-                query=(
-                    f"For dataset {i}, compute mean and median of the 'price' column. "
-                    "Return JSON {mean, median}."
-                )
-            )
-            for i in range(1, 4)
+            client.submit_task(query="What is 5+5?"),
+            client.submit_task(query="What is 10*2?"),
+            client.submit_task(query="What is 100/4?"),
         ]
 
-        # Wait for all to complete
+        # Wait for all submissions
         handles = await asyncio.gather(*tasks)
 
         # Get all results
         results = await asyncio.gather(*[client.wait(h.task_id) for h in handles])
-        return [r.result for r in results]
+
+        for i, r in enumerate(results, 1):
+            print(f"Task {i}: {r.result}")
+
+asyncio.run(main())
 ```
 
 ## Async Streaming
