@@ -1,20 +1,273 @@
 ---
-title: "Research Assistant Tutorial"
-description: "Build a multi-source research agent"
+title: Build a Deep Research Assistant
+description: Use Shannon’s research workflow to run multi‑agent deep research with citations, verification, language matching, and strategy presets.
 ---
 
-## Coming Soon - Phase 4
+# Deep Research Assistant
 
-This tutorial will guide you through building a comprehensive research assistant agent that:
+This tutorial shows how to run Shannon’s deep research flow end to end:
 
-- Searches multiple sources (web, documents, databases)
-- Analyzes and synthesizes information
-- Provides cited summaries
-- Maintains research context across sessions
+- Inline citations with a complete Sources section
+- Claim verification with confidence scores and conflict detection
+- Language matching (respond in the user’s language)
+- Strategy presets (quick/standard/deep/academic) with safe overrides
 
-**Estimated availability**: Phase 4 (Month 3)
+## Prerequisites
 
-For now, see:
-- [Quick Start](/quickstart) - Get Shannon running
-- [Core Concepts](/en/quickstart/concepts/agents) - Understand agent fundamentals
-- [Python SDK Examples](/en/sdk/python/examples) - Code patterns
+- Shannon stack running (Docker Compose)
+- Gateway reachable at `http://localhost:8080`
+- Optional: API key if auth is enabled
+
+---
+
+## Quick Start (HTTP)
+
+```bash
+# Submit a research task (default “standard” strategy)
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Latest breakthroughs in quantum error correction",
+    "context": { "force_research": true }
+  }'
+
+# Submit and get a ready-to-use SSE stream URL (recommended)
+# Tip: include force_research to route to ResearchWorkflow (otherwise router may select Supervisor)
+curl -s -X POST http://localhost:8080/api/v1/tasks/stream \
+  -H "Content-Type: application/json" \
+  -d '{
+        "query": "What are the main transformer architecture trends in 2025?",
+        "context": { "force_research": true }
+      }' | jq
+```
+
+### Stream Events (SSE)
+
+```bash
+# After the /tasks/stream call, use "stream_url" from the response:
+curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id=task-..."
+```
+
+Watch for:
+- `LLM_OUTPUT`: final synthesis text
+- `DATA_PROCESSING`: progress/usage
+- `WORKFLOW_COMPLETED`: completion
+
+---
+
+## Strategy Presets
+
+Choose a preset and optional overrides. The Gateway validates and maps these to workflow context — workflows remain deterministic.
+
+```bash
+# Quick strategy
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What is quantum computing?",
+    "research_strategy": "quick"
+  }'
+
+# Deep strategy with override
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Compare LangChain and AutoGen frameworks",
+    "research_strategy": "deep",
+    "max_iterations": 12
+  }'
+
+# Academic strategy
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Latest research on transformer architectures",
+    "research_strategy": "academic"
+  }'
+```
+
+Presets: `quick` | `standard` | `deep` | `academic`
+
+Overrides:
+- `max_iterations` (1..50)
+- `max_concurrent_agents` (1..20)
+
+Flags:
+- `enable_verification` (bool)
+- `report_mode` (bool)
+
+#### Notes
+- If no preset is provided, the workflow defaults to a conservative `standard` profile.
+- Presets seed `enable_verification` and `report_mode` only if they are not already set in context.
+- The file `config/research_strategies.yaml` documents reference presets for the Gateway; it is not read by workflows (determinism).
+
+---
+
+## Python SDK
+
+### CLI
+
+```bash
+python -m shannon.cli --base-url http://localhost:8080 \
+  submit "Latest quantum computing breakthroughs" \
+  --research-strategy deep --max-iterations 12 --enable-verification --report-mode
+```
+
+### Programmatic
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+handle = client.submit_task(
+    "Compare LangChain and AutoGen frameworks",
+    context={
+        "research_strategy": "deep",
+        "max_iterations": 12,
+        "enable_verification": True,
+        "report_mode": True,
+    },
+)
+final = client.wait(handle.task_id)
+print(final.result)
+client.close()
+```
+
+---
+
+## Response Format
+
+Typical status payloads returned by `GET /api/v1/tasks/{id}` include the synthesized result, metadata (citations, verification), model/provider, and timestamps.
+
+```json
+{
+  "task_id": "task-00000000-0000-0000-0000-000000000000",
+  "status": "TASK_STATUS_COMPLETED",
+  "result": "... final synthesis text ...",
+  "metadata": {
+    "citations": [
+      {
+        "url": "https://example.com/article",
+        "title": "Source Title",
+        "source": "example.com",
+        "quality_score": 0.92,
+        "credibility_score": 0.85
+      }
+    ],
+    "verification": {
+      "total_claims": 10,
+      "overall_confidence": 0.78,
+      "supported_claims": 7,
+      "unsupported_claims": [
+        "Claim text lacking sufficient evidence ..."
+      ],
+      "claim_details": [
+        {
+          "claim": "Concrete claim text ...",
+          "confidence": 0.81,
+          "supporting_citations": [1, 3],
+          "conflicting_citations": []
+        }
+      ]
+    }
+  },
+  "created_at": "2025-11-07T12:00:00Z",
+  "updated_at": "2025-11-07T12:02:00Z",
+  "usage": {
+    "input_tokens": 1234,
+    "output_tokens": 5678,
+    "total_tokens": 6912
+  },
+  "model_used": "gpt-5-2025-08-07",
+  "provider": "openai"
+}
+```
+
+Notes:
+- `result` is the final synthesized markdown/text.
+- `metadata.citations` lists collected sources (all are included in the Sources section of the result).
+- `metadata.verification` appears when verification is enabled and completed.
+- `metadata.verification.conflicts` appears only when conflicts are detected between sources.
+- `created_at` / `updated_at` are task timestamps.
+- `usage` may be included to summarize token usage.
+- `model_used` and `provider` reflect the model/provider chosen during synthesis.
+
+---
+
+## Feature Highlights
+
+### Citations
+- Minimum inline citations enforced (default 6; clamped by available; floor 3)
+- Sources section always lists all collected citations with labels:
+  - “Used inline” vs “Additional source”
+- URL and DOI‑based deduplication
+
+### Verification
+- Extracts factual claims from the synthesis
+- Cross‑references claims to citations and computes confidence (weighted by credibility)
+- Flags conflicts and unsupported claims
+- Runs after synthesis and before reflection; workflow continues on failure
+
+### Language Matching
+- Detects the user’s query language (heuristic)
+- Synthesis responds in the same language
+- Generic instruction ensures robustness across languages
+
+---
+
+## Tips
+
+- Set `context.force_research=true` to route to ResearchWorkflow during testing
+- Use strategy presets to control depth and concurrency
+- Monitor SSE for progress and token usage
+
+## Troubleshooting
+
+- Invalid `web_search` `search_type`: sanitized (falls back to `auto`)
+- Duplicate citations across domains: handled via DOI normalization where possible
+- If output language defaults to English, confirm query language and version ≥ v3.1
+
+## Availability
+
+- Citations: enabled (gated internally by `citations_v1`)
+- Verification: enabled (gated internally by `verification_v1`)
+- Language matching: available in current releases (introduced in v3.1)
+- Strategy presets: available in current releases (introduced in v3.2)
+
+---
+
+## Response Format
+
+When polling task status (GET `/api/v1/tasks/{id}`), the response typically includes the synthesized result and metadata (citations, verification, usage, model):
+
+```json
+{
+  "task_id": "task-xxx",
+  "status": "TASK_STATUS_COMPLETED",
+  "result": "...",
+  "metadata": {
+    "citations": [
+      {
+        "url": "https://example.com",
+        "title": "Source Title",
+        "credibility": 0.85,
+        "quality_score": 0.92
+      }
+    ],
+    "verification": {
+      "total_claims": 10,
+      "overall_confidence": 0.78,
+      "claims": [
+        /* per-claim details: claim text, confidence, supporting/conflicting citations */
+      ]
+    }
+  },
+  "model_used": "gpt-5-2025-08-07",
+  "provider": "openai"
+}
+```
+
+Notes:
+- For streaming, the LLM content appears in `LLM_OUTPUT` events. Use the status endpoint for the final structured payload.
+- `metadata.citations` reflects collected sources; Sources section in the text lists all with “Used inline”/“Additional source”.
+- `metadata.verification` appears when verification is enabled and executed.

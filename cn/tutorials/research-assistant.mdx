@@ -1,20 +1,237 @@
 ---
-title: "研究助手教程"
-description: "构建一个多源研究代理"
+title: 构建深度研究助手
+description: 使用 Shannon 的研究工作流运行多智能体深度研究，涵盖引用、校验、语言匹配与策略预设。
 ---
 
-## 即将推出 - 第四阶段
+# 深度研究助手
 
-本教程将指导你构建一个全面的研究助手代理，它可以：
+本文档演示如何端到端运行 Shannon 的深度研究流程：
 
-- 搜索多个来源（网络、文档、数据库）
-- 分析和综合信息
-- 提供引用的摘要
-- 跨会话维护研究上下文
+- 内联引用，并在“参考来源（Sources）”中完整罗列所有收集到的来源
+- 论断（事实性陈述）校验：为每条论断匹配证据并计算置信度，发现冲突与未支撑项
+- 语言匹配：回答语言与用户输入语言一致
+- 策略预设：`quick` / `standard` / `deep` / `academic`，并支持安全的覆盖项
 
-**预计发布时间**：第四阶段（第 3 个月）
+## 先决条件
 
-现在，请查看：
-- [快速开始](/quickstart) - 运行 Shannon
-- [核心概念](/cn/quickstart/concepts/agents) - 了解代理基础知识
-- [Python SDK 示例](/cn/sdk/python/examples) - 代码模式
+- 已启动的 Shannon 本地环境（Docker Compose）
+- Gateway 可通过 `http://localhost:8080` 访问
+- （可选）若开启鉴权，请准备 API Key
+
+---
+
+## 快速开始（HTTP）
+
+```bash
+# 提交研究任务（默认使用 “standard” 预设）
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "量子差错校正的最新突破",
+    "context": { "force_research": true }
+  }'
+
+# 一步提交并返回可用的 SSE 流式地址（推荐）
+# 提示：加入 force_research 可路由到 ResearchWorkflow（否则可能走 Supervisor）
+curl -s -X POST http://localhost:8080/api/v1/tasks/stream \
+  -H "Content-Type: application/json" \
+  -d '{
+        "query": "2025 年 Transformer 架构的主要趋势是什么？",
+        "context": { "force_research": true }
+      }' | jq
+```
+
+### SSE 事件
+
+```bash
+# 使用 /tasks/stream 返回的 "stream_url" 连接 SSE
+curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id=task-..."
+```
+
+关注以下事件类型：
+- `LLM_OUTPUT`：最终综合文本
+- `DATA_PROCESSING`：进度/用量
+- `WORKFLOW_COMPLETED`：工作流完成
+
+---
+
+## 策略预设
+
+选择一个预设，并按需提供覆盖项。Gateway 会验证并映射到工作流上下文；工作流保持确定性（不读取文件）。
+
+```bash
+# Quick 预设
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "什么是量子计算？",
+    "research_strategy": "quick"
+  }'
+
+# Deep 预设，附加迭代次数覆盖
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "对比 LangChain 与 AutoGen 框架",
+    "research_strategy": "deep",
+    "max_iterations": 12
+  }'
+
+# Academic 预设
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Transformer 架构的最新研究进展",
+    "research_strategy": "academic"
+  }'
+```
+
+预设：`quick` | `standard` | `deep` | `academic`
+
+覆盖项：
+- `max_iterations`（1..50）
+- `max_concurrent_agents`（1..20）
+
+标志：
+- `enable_verification`（布尔）
+- `report_mode`（布尔）
+
+#### 说明
+- 若未提供预设，默认回退为稳健的 `standard` 配置。
+- 预设仅在上下文未显式设置时，才会注入 `enable_verification` 与 `report_mode`。
+- `config/research_strategies.yaml` 仅作为 Gateway 的参考文档；工作流不会读取（保持可重放的确定性）。
+
+---
+
+## Python SDK
+
+### CLI
+
+```bash
+python -m shannon.cli --base-url http://localhost:8080 \
+  submit "量子计算的最新突破" \
+  --research-strategy deep --max-iterations 12 --enable-verification --report-mode
+```
+
+### 编程方式（Programmatic）
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+handle = client.submit_task(
+    "对比 LangChain 与 AutoGen 框架",
+    context={
+        "force_research": True,
+        "research_strategy": "deep",
+        "max_iterations": 12,
+        "enable_verification": True,
+        "report_mode": True,
+        # 可选："max_concurrent_agents": 5,
+    },
+)
+final = client.wait(handle.task_id)
+print(final.result)
+client.close()
+```
+
+---
+
+## 响应格式
+
+`GET /api/v1/tasks/{id}` 返回的典型负载包含最终结果、元数据（引用、校验）、模型/提供商信息等。
+
+```json
+{
+  "task_id": "task-00000000-0000-0000-0000-000000000000",
+  "status": "TASK_STATUS_COMPLETED",
+  "result": "... 最终综合文本 ...",
+  "metadata": {
+    "citations": [
+      {
+        "url": "https://example.com/article",
+        "title": "来源标题",
+        "source": "example.com",
+        "quality_score": 0.92,
+        "credibility_score": 0.85
+      }
+    ],
+    "verification": {
+      "total_claims": 10,
+      "overall_confidence": 0.78,
+      "supported_claims": 7,
+      "unsupported_claims": [
+        "缺乏充分证据的论断 …"
+      ],
+      "claim_details": [
+        {
+          "claim": "具体论断文本 …",
+          "confidence": 0.81,
+          "supporting_citations": [1, 3],
+          "conflicting_citations": []
+        }
+      ]
+    }
+  },
+  "created_at": "2025-11-07T12:00:00Z",
+  "updated_at": "2025-11-07T12:02:00Z",
+  "usage": {
+    "input_tokens": 1234,
+    "output_tokens": 5678,
+    "total_tokens": 6912
+  },
+  "model_used": "gpt-5-2025-08-07",
+  "provider": "openai"
+}
+```
+
+说明：
+- `result` 为最终综合的 Markdown/文本。
+- `metadata.citations` 列出所有收集到的来源（结果的 Sources 部分亦完整呈现）。
+- `metadata.verification` 在启用且成功执行校验时出现。
+- `metadata.verification.conflicts` 仅在检测到来源冲突时出现。
+- `created_at` / `updated_at` 为任务时间戳。
+- `usage`（若返回）为 Token 用量汇总。
+- `model_used` 与 `provider` 反映综合阶段实际使用的模型/提供商。
+
+---
+
+## 功能亮点
+
+### 引用
+- 强制最少内联引用（默认 6；按可用来源上限收紧；最低 3）
+- “Sources” 末尾完整列出所有收集到的来源，并标注：
+  - “Used inline”（已在正文引用） vs “Additional source”（额外来源）
+- 基于 URL 与 DOI 的去重
+
+### 校验（Verification）
+- 从综合结果中抽取事实性陈述（论断）
+- 为每条论断匹配来源并计算置信度（按可信度加权）
+- 标注冲突与未支撑的论断
+- 在综合之后、反思之前执行；失败时不阻断流程
+
+### 语言匹配
+- 根据用户查询做轻量的语言检测
+- 综合结果使用相同语言回答
+- 使用通用指令，兼容多语言场景
+
+---
+
+## 提示
+
+- 测试时可设置 `context.force_research=true` 路由到 ResearchWorkflow
+- 使用策略预设控制研究深度与并发
+- 通过 SSE 监控进度与 Token 用量
+
+## 故障排查
+
+- `web_search` 的 `search_type` 无效：已做容错，回退为 `auto`
+- 跨域重复来源：已通过 DOI 归一在一定程度上规避
+- 若输出语言回落为英文，请确认查询语言与版本（≥ v3.1）
+
+## 可用性
+
+- 引用：已启用（内部门控 `citations_v1`）
+- 校验：已启用（内部门控 `verification_v1`）
+- 语言匹配：当前版本可用（自 v3.1 起）
+- 策略预设：当前版本可用（自 v3.2 起）
