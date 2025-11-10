@@ -163,7 +163,6 @@
                 "group": "Building Agents",
                 "pages": [
                   "en/tutorials/research-assistant",
-                  "en/tutorials/code-review-bot",
                   "en/tutorials/data-analysis"
                 ]
               },
@@ -344,7 +343,6 @@
                 "group": "构建智能体",
                 "pages": [
                   "cn/tutorials/research-assistant",
-                  "cn/tutorials/code-review-bot",
                   "cn/tutorials/data-analysis"
                 ]
               },

@@ -1,24 +1,64 @@
 ---
-title: Build a Deep Research Assistant
-description: Use Shannon’s research workflow to run multi‑agent deep research with citations, verification, language matching, and strategy presets.
+title: "Build a Deep Research Agent"
+description: "Use Shannon's ResearchWorkflow to build SOTA multi-agent deep research with memory, entity filtering, gap filling, citations, verification, and adaptive patterns."
 ---
 
-# Deep Research Assistant
+# Deep Research Agent
 
-This tutorial shows how to run Shannon’s deep research flow end to end:
+This tutorial shows how to use Shannon's **ResearchWorkflow** for comprehensive, citation-backed research reports.
 
-- Inline citations with a complete Sources section
-- Claim verification with confidence scores and conflict detection
-- Language matching (respond in the user’s language)
-- Strategy presets (quick/standard/deep/academic) with safe overrides
+## What You'll Learn
+
+- **Multi-stage workflow**: Memory retrieval → Refine → Decompose → Execute → Citations → Gap Filling → Synthesis → Verification
+- **Adaptive patterns**: React, Parallel, and Hybrid execution based on complexity
+- **Advanced features**: Entity filtering, gap-filling, context compression, react-per-task mode
+- **Quality controls**: Citation requirements, coverage enforcement, claim verification
+- **Language matching**: Automatically responds in the user's query language
 
 ## Prerequisites
 
 - Shannon stack running (Docker Compose)
 - Gateway reachable at `http://localhost:8080`
-- Optional: API key if auth is enabled
+- Auth defaults:
+  - Docker Compose: authentication is disabled by default (`GATEWAY_SKIP_AUTH=1`).
+  - Local builds: authentication is enabled by default. Set `GATEWAY_SKIP_AUTH=1` to disable auth, or include an API key header `-H "X-API-Key: $API_KEY"`.
 
----
+## Workflow Architecture
+
+The ResearchWorkflow combines multiple stages to produce high-quality, cited research:
+
+```mermaid
+flowchart TD
+    A[User Query] --> B[Memory Retrieval]
+    B --> C{Session > 20 messages?}
+    C -->|Yes| D[Context Compression]
+    C -->|No| E[Query Refinement]
+    D --> E
+    E --> F[Decomposition]
+    F --> G{Execution Pattern}
+    G -->|Complexity < 0.5| H[React Pattern]
+    G -->|No Dependencies| I[Parallel Pattern]
+    G -->|Has Dependencies| J[Hybrid Pattern]
+    G -->|Complexity > 0.7 + Deep| K[React Per Task]
+    H --> L[Entity Filtering]
+    I --> L
+    J --> L
+    K --> L
+    L --> M[Citation Collection]
+    M --> N[Gap Filling]
+    N --> O[Synthesis]
+    O --> P[Reflection]
+    P --> Q{Verification Enabled?}
+    Q -->|Yes| R[Verification]
+    Q -->|No| S[Final Report]
+    R --> S
+```
+
+**Key Features:**
+- **Memory-aware**: Uses conversation history for contextual research
+- **Entity-focused**: Filters results when entity is detected (e.g., specific company/product)
+- **Self-correcting**: Gap filling ensures comprehensive coverage
+- **Quality-enforced**: Per-area coverage validation (≥600 chars, ≥2 citations per section)
 
 ## Quick Start (HTTP)
 
@@ -53,55 +93,142 @@ Watch for:
 - `DATA_PROCESSING`: progress/usage
 - `WORKFLOW_COMPLETED`: completion
 
----
+## Execution Patterns
 
-## Strategy Presets
+Shannon selects the optimal execution pattern based on task complexity and dependencies:
 
-Choose a preset and optional overrides. The Gateway validates and maps these to workflow context — workflows remain deterministic.
+### React Pattern (complexity < 0.5)
+Iterative reason→act→observe loop for simpler research.
 
 ```bash
-# Quick strategy
+# Example: Basic conceptual query triggers React
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
   -d '{
     "query": "What is quantum computing?",
+    "context": { "force_research": true }
+  }'
+```
+
+**Behavior**: Single agent performs iterative reasoning, web searches, and observation cycles (default 5 iterations).
+
+---
+
+### Parallel Pattern (no dependencies)
+Concurrent subtask execution for multi-faceted research.
+
+```bash
+# Example: Multi-aspect comparison triggers Parallel
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Compare LangChain and AutoGen frameworks: architecture, pricing, community, performance",
+    "context": { "force_research": true }
+  }'
+```
+
+**Behavior**: Decomposition creates independent subtasks (e.g., "Analyze LangChain architecture", "Analyze AutoGen pricing"), executed concurrently with web_search injection for citations.
+
+---
+
+### Hybrid Pattern (has dependencies)
+Topological sort + fan-in/fan-out for sequential research with dependencies.
+
+```bash
+# Example: Query with logical dependencies triggers Hybrid
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Analyze company X market strategy, then evaluate competitive response, then forecast next moves",
+    "context": { "force_research": true }
+  }'
+```
+
+**Behavior**: Executes subtasks in dependency order, passing previous results downstream.
+
+---
+
+### React Per Task (deep research mode)
+Mini ReAct loops per subtask for high-complexity research.
+
+**Trigger conditions:**
+1. Manual: `context.react_per_task = true`
+2. Auto-enable: complexity > 0.7 AND strategy in `{deep, academic}`
+
+```bash
+# Example: Enable react_per_task for iterative per-area research
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Comprehensive analysis of transformer architecture evolution 2017-2025",
+    "context": {
+      "force_research": true,
+      "react_per_task": true,
+      "react_max_iterations": 6
+    },
+    "research_strategy": "deep"
+  }'
+```
+
+**Behavior**: Each parallel subtask runs its own ReAct loop (reason→act→observe), enabling iterative exploration per research area. More thorough but higher token cost.
+
+---
+
+## Strategy Presets
+
+Presets provide opinionated defaults for different research depths. The Gateway validates and maps these to workflow context.
+
+```bash
+# Quick strategy (minimal iterations)
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What is quantum error correction?",
+    "context": { "force_research": true },
     "research_strategy": "quick"
   }'
 
-# Deep strategy with override
+# Deep strategy with overrides
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
   -d '{
     "query": "Compare LangChain and AutoGen frameworks",
+    "context": {
+      "force_research": true,
+      "react_per_task": true,
+      "react_max_iterations": 6
+    },
     "research_strategy": "deep",
-    "max_iterations": 12
+    "max_iterations": 12,
+    "enable_verification": true
   }'
 
-# Academic strategy
+# Academic strategy (auto-enables react_per_task for complexity > 0.7)
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
   -d '{
-    "query": "Latest research on transformer architectures",
+    "query": "Survey of attention mechanisms in modern NLP architectures",
+    "context": { "force_research": true },
     "research_strategy": "academic"
   }'
 ```
 
-Presets: `quick` | `standard` | `deep` | `academic`
+**Available Presets**: `quick` | `standard` | `deep` | `academic`
 
-Overrides:
-- `max_iterations` (1..50)
-- `max_concurrent_agents` (1..20)
+**Core Parameters**:
+- `max_iterations` (1–50): Controls main React loop depth
+- `max_concurrent_agents` (1–20): Parallel task concurrency limit (ResearchWorkflow currently uses a fixed concurrency of 5)
+- `react_max_iterations` (2–8, default 5): Controls ReAct loop depth per task
 
-Flags:
-- `enable_verification` (bool)
-- `report_mode` (bool)
+**Advanced Flags**:
+- `react_per_task` (bool): Enable mini ReAct loops per subtask (auto-enabled for complexity > 0.7 + deep/academic)
+- `enable_verification` (bool): Enable claim verification against citations
+- `report_mode` (bool): Formatting hint. ResearchWorkflow sets `synthesis_style: comprehensive` internally for final reports.
+- `budget_agent_max` (int): Optional per-agent token budget with enforcement
 
-#### Notes
-- If no preset is provided, the workflow defaults to a conservative `standard` profile.
-- Presets seed `enable_verification` and `report_mode` only if they are not already set in context.
-- The file `config/research_strategies.yaml` documents reference presets for the Gateway; it is not read by workflows (determinism).
-
----
+<Note>
+**Default preset**: `standard` (if not specified). Presets seed flags only if not already set in context. The Gateway accepts top‑level `research_strategy` on both `/api/v1/tasks` and `/api/v1/tasks/stream` and maps it into context. Preset defaults are loaded from `config/research_strategies.yaml`.
+</Note>
 
 ## Python SDK
 
@@ -110,6 +237,7 @@ Flags:
 ```bash
 python -m shannon.cli --base-url http://localhost:8080 \
   submit "Latest quantum computing breakthroughs" \
+  --force-research \
   --research-strategy deep --max-iterations 12 --enable-verification --report-mode
 ```
 
@@ -122,6 +250,7 @@ client = ShannonClient(base_url="http://localhost:8080")
 handle = client.submit_task(
     "Compare LangChain and AutoGen frameworks",
     context={
+        "force_research": True,
         "research_strategy": "deep",
         "max_iterations": 12,
         "enable_verification": True,
@@ -132,8 +261,6 @@ final = client.wait(handle.task_id)
 print(final.result)
 client.close()
 ```
-
----
 
 ## Response Format
 
@@ -187,87 +314,258 @@ Notes:
 - `result` is the final synthesized markdown/text.
 - `metadata.citations` lists collected sources (all are included in the Sources section of the result).
 - `metadata.verification` appears when verification is enabled and completed.
-- `metadata.verification.conflicts` appears only when conflicts are detected between sources.
-- `created_at` / `updated_at` are task timestamps.
-- `usage` may be included to summarize token usage.
+- In Gateway status responses, `created_at` / `updated_at` reflect response time; authoritative run timing and totals are persisted in the database (events/timeline).
+- `usage` summarizes token usage and may include cost. Gateway status may expose `estimated_cost`; workflow metadata may include `cost_usd`.
 - `model_used` and `provider` reflect the model/provider chosen during synthesis.
 
+## Advanced Features
+
+### Memory Retrieval
+
+**Hierarchical Memory** (priority):
+
+- Combines recent (last 5 messages) + semantic (top 5 relevant, similarity ≥ 0.75)
+- Enables coherent multi-turn research with conversation context
+- Fallback: Session memory (last 20 messages)
+
+**Context Compression**:
+
+- Auto-triggers for sessions >20 messages
+- LLM summarizes conversation (target: 37.5% of window)
+- Prevents context window overflow in long conversations
+
 ---
 
-## Feature Highlights
+### Entity Filtering
+
+When a specific entity is detected (e.g., company "Acme Analytics"):
+
+**Query Refinement**:
+
+- Detects canonical name, exact search queries, official domains, disambiguation terms
+- Example: `canonical_name: "Acme Analytics"`, `official_domains: ["acme.com"]`
+
+**Citation Filtering**:
+
+- Scoring: domain match +0.6, alias in URL +0.4, text match +0.4
+- Threshold: 0.3 (any single match passes)
+- Safety floor: minKeep=8 (backfilled by quality × credibility)
+- Official domains always preserved (bypass threshold)
+
+**Result Pruning**:
+
+- Filters off-entity tool results (e.g., removes "Mind Inc" when searching for "Acme Mind")
+- Keeps reasoning-only outputs; prunes off-entity tool-driven results
+
+---
+
+### Gap Filling
+
+**Auto-detection** (max 2 iterations):
+
+- Missing section headings (`### Area Name`)
+- Gap indicator phrases ("limited information", "insufficient data")
+- Low citation density (< 2 inline citations per section)
+
+**Resolution**:
+
+1. Build targeted queries: `"Find detailed information about: <area>"`
+2. Execute focused ReAct loops (max 3 iterations per gap)
+3. Re-collect citations (global deduplication with original citations)
+4. Re-synthesize with combined evidence using large tier
+
+<Accordion title="Example Gap Scenario">
+```text
+Query: "Analyze company X market strategy, competitive landscape, and leadership"
+
+Initial synthesis coverage:
+- Market strategy: ✓ 800 chars, 3 citations
+- Competitive landscape: ✓ 650 chars, 2 citations
+- Leadership: ✗ 200 chars, 0 citations  ← Gap detected
+
+Gap filling triggers:
+1. Targeted query: "Find detailed information about: company X leadership"
+2. ReAct loop executes focused search
+3. Re-synthesize with combined evidence
+```
+</Accordion>
 
 ### Citations
-- Minimum inline citations enforced (default 6; clamped by available; floor 3)
-- Sources section always lists all collected citations with labels:
-  - “Used inline” vs “Additional source”
-- URL and DOI‑based deduplication
+
+**Collection**:
+
+- Extracted from `web_search` and `web_fetch` tool outputs
+- URL/DOI normalization and deduplication
+- Scoring: quality (recency + completeness) × credibility (domain reputation)
+- Diversity enforcement (max 3 per domain)
+
+**Enforcement**:
+
+- Minimum 6 inline citations per report (clamped by available, floor 3)
+- Per-area requirement: ≥2 inline citations per section
+- Sources section lists all collected citations:
+  - "Used inline" (cited in text)
+  - "Additional source" (collected but not cited)
+
+---
+
+### Synthesis Continuation
+
+**Trigger**: Model stops early with incomplete output
+
+**Detection** (`looksComplete` validation):
+
+1. Must end with sentence punctuation (`.`, `!`, `?`, `。`)
+2. No dangling conjunctions (`and, but, however, therefore...`)
+3. Every research area has subsection with ≥600 chars and ≥2 citations
+
+**Continuation**:
+
+- Adaptive margin: min(25% of effective_max_completion, 300 tokens)
+- Prompt: "Continue from last sentence; maintain headings and citation style"
+- Uses large tier for quality (gpt-4.1/opus)
+
+---
 
 ### Verification
-- Extracts factual claims from the synthesis
-- Cross‑references claims to citations and computes confidence (weighted by credibility)
+
+**Claim Extraction**:
+
+- Identifies factual assertions from synthesis
+- Cross-references against collected citations
+
+**Confidence Scoring**:
+
+- Weighted by citation credibility
 - Flags conflicts and unsupported claims
-- Runs after synthesis and before reflection; workflow continues on failure
+- Per-claim details: supporting/conflicting citations
 
-### Language Matching
-- Detects the user’s query language (heuristic)
-- Synthesis responds in the same language
-- Generic instruction ensures robustness across languages
-
----
-
-## Tips
-
-- Set `context.force_research=true` to route to ResearchWorkflow during testing
-- Use strategy presets to control depth and concurrency
-- Monitor SSE for progress and token usage
-
-## Troubleshooting
-
-- Invalid `web_search` `search_type`: sanitized (falls back to `auto`)
-- Duplicate citations across domains: handled via DOI normalization where possible
-- If output language defaults to English, confirm query language and version ≥ v3.1
-
-## Availability
-
-- Citations: enabled (gated internally by `citations_v1`)
-- Verification: enabled (gated internally by `verification_v1`)
-- Language matching: available in current releases (introduced in v3.1)
-- Strategy presets: available in current releases (introduced in v3.2)
-
----
-
-## Response Format
-
-When polling task status (GET `/api/v1/tasks/{id}`), the response typically includes the synthesized result and metadata (citations, verification, usage, model):
+**Example output**:
 
 ```json
 {
-  "task_id": "task-xxx",
-  "status": "TASK_STATUS_COMPLETED",
-  "result": "...",
-  "metadata": {
-    "citations": [
+  "verification": {
+    "total_claims": 10,
+    "overall_confidence": 0.78,
+    "supported_claims": 7,
+    "unsupported_claims": ["Claim lacking evidence..."],
+    "claim_details": [
       {
-        "url": "https://example.com",
-        "title": "Source Title",
-        "credibility": 0.85,
-        "quality_score": 0.92
+        "claim": "Transformer architecture introduced in 2017",
+        "confidence": 0.95,
+        "supporting_citations": [1, 3],
+        "conflicting_citations": []
       }
-    ],
-    "verification": {
-      "total_claims": 10,
-      "overall_confidence": 0.78,
-      "claims": [
-        /* per-claim details: claim text, confidence, supporting/conflicting citations */
-      ]
-    }
-  },
-  "model_used": "gpt-5-2025-08-07",
-  "provider": "openai"
+    ]
+  }
 }
 ```
 
-Notes:
-- For streaming, the LLM content appears in `LLM_OUTPUT` events. Use the status endpoint for the final structured payload.
-- `metadata.citations` reflects collected sources; Sources section in the text lists all with “Used inline”/“Additional source”.
-- `metadata.verification` appears when verification is enabled and executed.
+**Enable**: Set `enable_verification: true` in context.
+
+---
+
+### Language Matching
+
+- Detects user query language (heuristic)
+- Synthesis responds in the same language
+- Supports English, Chinese, Japanese, Korean, Arabic, Russian, Spanish, French, German (heuristic‑based)
+- Generic instructions ensure robustness across languages
+
+## Behavior Guarantees
+
+<CardGroup cols={2}>
+  <Card title="Memory" icon="database">
+    Hierarchical memory (recent + semantic) injected when available
+  </Card>
+  <Card title="Compression" icon="compress">
+    Automatic for sessions over 20 messages to prevent context overflow
+  </Card>
+  <Card title="Coverage" icon="check-circle">
+    Each research area has dedicated subsection with minimum 600 chars and 2 citations
+  </Card>
+  <Card title="Gap Filling" icon="search">
+    Auto-detects and re-searches undercovered areas (max 2 iterations)
+  </Card>
+  <Card title="Language" icon="globe">
+    Response matches user query language
+  </Card>
+  <Card title="Cost" icon="dollar-sign">
+    Token usage and cost are aggregated and persisted; per-agent budgets enforced when configured
+  </Card>
+  <Card title="Continuation" icon="refresh-cw">
+    Triggers only when synthesis is incomplete and capacity nearly exhausted
+  </Card>
+  <Card title="Entity Focus" icon="filter">
+    When entity detected, filters citations and prunes off-entity results
+  </Card>
+</CardGroup>
+
+## Tips & Best Practices
+
+<Tabs>
+  <Tab title="Getting Started">
+
+  - Set `context.force_research=true` to ensure routing to ResearchWorkflow
+  - Start with `standard` preset, adjust based on results
+  - Monitor SSE for progress and token usage
+
+  </Tab>
+  <Tab title="Optimization">
+
+  - Use `quick` preset for simple queries (saves tokens)
+  - Use `deep` or `academic` for comprehensive research (auto-enables react_per_task at high complexity)
+  - Set `budget_agent_max` to enforce per-agent token limits
+  - Enable `react_per_task` manually for iterative per-area exploration
+
+  </Tab>
+  <Tab title="Multi-turn Research">
+
+  - Use sessions to enable memory retrieval
+  - Context compression activates automatically for long conversations
+  - Follow-up queries benefit from hierarchical memory (recent + semantic)
+
+  </Tab>
+</Tabs>
+
+## Troubleshooting
+
+<Warning>
+**Common Issues**:
+- **Language defaults to English**: Ensure the query clearly uses the target language
+- **Missing citations**: Check if the `web_search` tool is available; research workflows auto‑inject `web_search`
+- **Incomplete coverage**: Gap filling should auto‑trigger; ensure `gap_filling_v1` is enabled
+- **High token usage**: Enable `budget_agent_max` or use `quick` preset; disable `react_per_task`
+</Warning>
+
+**Validation**:
+
+- Invalid `web_search` `search_type`: Sanitized (falls back to `auto`)
+- Duplicate citations: Handled via URL/DOI normalization
+- Entity detection: Performed during refinement when present in the query
+
+**Version Gates** (internal feature flags):
+
+- Memory retrieval: `memory_retrieval_v1`
+- Session memory fallback: `session_memory_v1`
+- Context compression: `context_compress_v1`
+- Gap filling: `gap_filling_v1`
+
+## Next Steps
+
+<CardGroup cols={3}>
+  <Card title="API Reference" icon="book" href="/api/rest/tasks">
+    REST API Documentation
+  </Card>
+  <Card title="Custom Tools" icon="wrench" href="/tutorials/custom-tools">
+    Adding Custom Tools
+  </Card>
+  <Card title="Vendor Adapters" icon="plug" href="/tutorials/vendor-adapters">
+    Vendor-specific Integrations
+  </Card>
+</CardGroup>
+
+**Related Resources**:
+- GitHub: https://github.com/Kocoro-lab/Shannon
+- Discord: https://discord.gg/NB7C2fMcQR
+- Company: https://kocoro.ai
