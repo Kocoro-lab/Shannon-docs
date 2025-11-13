@@ -215,16 +215,28 @@ curl -X POST http://localhost:8080/api/v1/tasks \
 
 **Available Presets**: `quick` | `standard` | `deep` | `academic`
 
+| Strategy | react_max_iterations | max_concurrent_agents | verification | gap_filling |
+|----------|---------------------|----------------------|--------------|-------------|
+| quick | 2 | 3 | ✗ | ✗ |
+| standard | 3 | 5 | ✓ | ✓ (max_gaps: 3) |
+| deep | 4 | 6 | ✓ | ✓ (max_gaps: 5) |
+| academic | 5 | 8 | ✓ | ✓ (max_gaps: 10) |
+
 **Core Parameters**:
-- `max_iterations` (1–50): Controls main React loop depth
-- `max_concurrent_agents` (1–20): Parallel task concurrency limit (ResearchWorkflow currently uses a fixed concurrency of 5)
+- `max_iterations` (1–50): Prerequisite parameter that enables `react_max_iterations` to take effect (must be set for react_max_iterations to work)
+- `max_concurrent_agents` (1–20): Controls maximum concurrency for parallel subtasks (only applies when multiple subtasks are executed)
 - `react_max_iterations` (2–8, default 5): Controls ReAct loop depth per task
 
 **Advanced Flags**:
 - `react_per_task` (bool): Enable mini ReAct loops per subtask (auto-enabled for complexity > 0.7 + deep/academic)
 - `enable_verification` (bool): Enable claim verification against citations
-- `report_mode` (bool): Formatting hint. ResearchWorkflow sets `synthesis_style: comprehensive` internally for final reports.
 - `budget_agent_max` (int): Optional per-agent token budget with enforcement
+
+**Gap Filling Configuration**:
+- `gap_filling_enabled` (bool): Enable/disable gap filling
+- `gap_filling_max_gaps` (1–10): Maximum number of gaps to detect
+- `gap_filling_max_iterations` (1–3): Maximum retry iterations per gap
+- `gap_filling_check_citations` (bool): Check citation density as gap indicator
 
 <Note>
 **Default preset**: `standard` (if not specified). Presets seed flags only if not already set in context. The Gateway accepts top‑level `research_strategy` on both `/api/v1/tasks` and `/api/v1/tasks/stream` and maps it into context. Preset defaults are loaded from `config/research_strategies.yaml`.
@@ -238,7 +250,7 @@ curl -X POST http://localhost:8080/api/v1/tasks \
 python -m shannon.cli --base-url http://localhost:8080 \
   submit "Latest quantum computing breakthroughs" \
   --force-research \
-  --research-strategy deep --max-iterations 12 --enable-verification --report-mode
+  --research-strategy deep --max-iterations 12 --enable-verification
 ```
 
 ### Programmatic
@@ -252,9 +264,8 @@ handle = client.submit_task(
     context={
         "force_research": True,
         "research_strategy": "deep",
-        "max_iterations": 12,
+        "react_max_iterations": 6,
         "enable_verification": True,
-        "report_mode": True,
     },
 )
 final = client.wait(handle.task_id)
