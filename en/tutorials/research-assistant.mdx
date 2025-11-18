@@ -199,7 +199,6 @@ curl -X POST http://localhost:8080/api/v1/tasks \
       "react_max_iterations": 6
     },
     "research_strategy": "deep",
-    "max_iterations": 12,
     "enable_verification": true
   }'
 
@@ -218,14 +217,13 @@ curl -X POST http://localhost:8080/api/v1/tasks \
 | Strategy | react_max_iterations | max_concurrent_agents | verification | gap_filling |
 |----------|---------------------|----------------------|--------------|-------------|
 | quick | 2 | 3 | ✗ | ✗ |
-| standard | 3 | 5 | ✓ | ✓ (max_gaps: 3) |
-| deep | 4 | 6 | ✓ | ✓ (max_gaps: 5) |
-| academic | 5 | 8 | ✓ | ✓ (max_gaps: 10) |
+| standard | 3 | 5 | ✓ | ✓ (max_gaps: 3, max_iterations: 2) |
+| deep | 4 | 6 | ✓ | ✓ (max_gaps: 2, max_iterations: 2) |
+| academic | 5 | 8 | ✓ | ✓ (max_gaps: 3, max_iterations: 2) |
 
 **Core Parameters**:
-- `max_iterations` (1–50): Prerequisite parameter that enables `react_max_iterations` to take effect (must be set for react_max_iterations to work)
 - `max_concurrent_agents` (1–20): Controls maximum concurrency for parallel subtasks (only applies when multiple subtasks are executed)
-- `react_max_iterations` (2–8, default 5): Controls ReAct loop depth per task
+- `react_max_iterations` (2–8, default 5): Controls ReAct loop depth per task (independent parameter, no prerequisites)
 
 **Advanced Flags**:
 - `react_per_task` (bool): Enable mini ReAct loops per subtask (auto-enabled for complexity > 0.7 + deep/academic)
@@ -234,8 +232,8 @@ curl -X POST http://localhost:8080/api/v1/tasks \
 
 **Gap Filling Configuration**:
 - `gap_filling_enabled` (bool): Enable/disable gap filling
-- `gap_filling_max_gaps` (1–10): Maximum number of gaps to detect
-- `gap_filling_max_iterations` (1–3): Maximum retry iterations per gap
+- `gap_filling_max_gaps` (1–20): Maximum number of gaps to detect
+- `gap_filling_max_iterations` (1–5): Maximum retry iterations per gap
 - `gap_filling_check_citations` (bool): Check citation density as gap indicator
 
 <Note>
@@ -250,7 +248,7 @@ curl -X POST http://localhost:8080/api/v1/tasks \
 python -m shannon.cli --base-url http://localhost:8080 \
   submit "Latest quantum computing breakthroughs" \
   --force-research \
-  --research-strategy deep --max-iterations 12 --enable-verification
+  --research-strategy deep --enable-verification
 ```
 
 ### Programmatic
@@ -314,7 +312,8 @@ Typical status payloads returned by `GET /api/v1/tasks/{id}` include the synthes
   "usage": {
     "input_tokens": 1234,
     "output_tokens": 5678,
-    "total_tokens": 6912
+    "total_tokens": 6912,
+    "estimated_cost": 0.0234
   },
   "model_used": "gpt-5-2025-08-07",
   "provider": "openai"

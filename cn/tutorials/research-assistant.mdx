@@ -199,7 +199,6 @@ curl -X POST http://localhost:8080/api/v1/tasks \
       "react_max_iterations": 6
     },
     "research_strategy": "deep",
-    "max_iterations": 12,
     "enable_verification": true
   }'
 
@@ -218,14 +217,13 @@ curl -X POST http://localhost:8080/api/v1/tasks \
 | 策略 | react_max_iterations | max_concurrent_agents | verification | gap_filling |
 |------|---------------------|----------------------|--------------|-------------|
 | quick | 2 | 3 | ✗ | ✗ |
-| standard | 3 | 5 | ✓ | ✓ (max_gaps: 3) |
-| deep | 4 | 6 | ✓ | ✓ (max_gaps: 5) |
-| academic | 5 | 8 | ✓ | ✓ (max_gaps: 10) |
+| standard | 3 | 5 | ✓ | ✓ (max_gaps: 3, max_iterations: 2) |
+| deep | 4 | 6 | ✓ | ✓ (max_gaps: 2, max_iterations: 2) |
+| academic | 5 | 8 | ✓ | ✓ (max_gaps: 3, max_iterations: 2) |
 
 **核心参数**：
-- `max_iterations`（1–50）：用于触发 react_max_iterations 的前置参数（必须设置以使 react_max_iterations 生效）
 - `max_concurrent_agents`（1–20）：控制并行子任务的最大并发数（仅在多子任务执行时生效）
-- `react_max_iterations`（2–8，默认 5）：按任务 ReAct 循环的迭代深度
+- `react_max_iterations`（2–8，默认 5）：按任务 ReAct 循环的迭代深度（独立参数，无前置要求）
 
 **进阶开关**：
 - `react_per_task`（布尔）：为每个子任务启用小型 ReAct 循环（复杂度 > 0.7 且 deep/academic 时自动启用）
@@ -234,8 +232,8 @@ curl -X POST http://localhost:8080/api/v1/tasks \
 
 **缺口补全配置**：
 - `gap_filling_enabled`（布尔）：启用/禁用缺口补全
-- `gap_filling_max_gaps`（1–10）：最多检测多少个缺口
-- `gap_filling_max_iterations`（1–3）：每个缺口的最大重试次数
+- `gap_filling_max_gaps`（1–20）：最多检测多少个缺口
+- `gap_filling_max_iterations`（1–5）：每个缺口的最大重试次数
 - `gap_filling_check_citations`（布尔）：检查引用密度作为缺口指标
 
 <Note>
@@ -250,7 +248,7 @@ curl -X POST http://localhost:8080/api/v1/tasks \
 python -m shannon.cli --base-url http://localhost:8080 \
   submit "Latest quantum computing breakthroughs" \
   --force-research \
-  --research-strategy deep --max-iterations 12 --enable-verification
+  --research-strategy deep --enable-verification
 ```
 
 ### 编程方式
@@ -314,7 +312,8 @@ client.close()
   "usage": {
     "input_tokens": 1234,
     "output_tokens": 5678,
-    "total_tokens": 6912
+    "total_tokens": 6912,
+    "estimated_cost": 0.0234
   },
   "model_used": "gpt-5-2025-08-07",
   "provider": "openai"
