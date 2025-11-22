@@ -554,6 +554,44 @@ Passing the API key in the query string or via an "auth" message after connect i
 }
 ```
 
+## OpenAI-Compatible Streaming Format
+
+Shannon's SSE streaming uses an **OpenAI-compatible format** for usage metadata and event structure, enabling seamless integration with OpenAI-based tooling while maintaining Shannon's comprehensive event taxonomy.
+
+### Usage Metadata Format
+
+All LLM providers return usage data in OpenAI's standard structure:
+
+```json
+{
+  "type": "LLM_OUTPUT",
+  "data": {
+    "output": "Response text...",
+    "model": "gpt-5-nano-2025-08-07",
+    "provider": "openai",
+    "usage": {
+      "total_tokens": 350,
+      "input_tokens": 200,
+      "output_tokens": 150
+    },
+    "cost_usd": 0.0105
+  }
+}
+```
+
+**Compatibility Matrix:**
+
+| Provider | Usage Metadata | Stream Options |
+|----------|----------------|----------------|
+| OpenAI | ✅ Full support | `stream_options: {"include_usage": true}` |
+| Anthropic | ✅ Full support | Final streaming chunk |
+| Google | ✅ Full support | Final streaming chunk |
+| Groq | ✅ Full support | Final streaming chunk |
+| xAI | ⚠️ Limited | Available only in unary mode |
+| OpenAI-compatible | ⚠️ Graceful degradation | Depends on endpoint support |
+
+**Note**: Shannon automatically handles providers that don't support `stream_options` parameter with graceful degradation—streaming works but usage metadata may be unavailable during streaming.
+
 ## Event Types
 
 ### Core Events
