@@ -5,7 +5,7 @@ description: "Shannon 流式事件类型（权威清单）"
 
 ## 概述
 
-Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件**。本文档记录平台**实际发出的 26 种事件类型**、它们的结构以及发生时机。
+Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件**。本文档记录平台**实际发出的 27 种事件类型**、它们的结构以及发生时机。
 
 事件提供:
 - **实时进度** - 实时跟踪任务执行
@@ -91,8 +91,9 @@ Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件
 | `WORKSPACE_UPDATED` | 系统 | 内存/上下文已更新 |
 | `ROLE_ASSIGNED` | 系统 | 智能体角色已分配 |
 | `DELEGATION` | 系统 | 任务已委托 |
+| `BUDGET_THRESHOLD` | 系统 | Token 预算阈值已达到 |
 
-**总计**: 26 种事件类型
+**总计**: 27 种事件类型
 
 注意：`WORKFLOW_FAILED`、`TOOL_COMPLETED`、`TOOL_FAILED`、`BUDGET_UPDATE` 等事件不会由流式 API 发出。失败通过 `ERROR_OCCURRED` 表示；完成由 `WORKFLOW_COMPLETED` 表示。
 
@@ -344,10 +345,19 @@ Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件
       "columns": 12,
       "sample": ["date", "product", "revenue", "..."]
     },
-    "duration_ms": 450
+    "duration_ms": 450,
+    "truncated": false
   }
 }
 ```
+
+**字段**:
+- `tool_name`: 被调用的工具名称
+- `result`: 工具输出（结构化数据或文本）
+- `duration_ms`: 工具执行时间
+- `truncated`: 结果是否被截断（如果 > 2000 字符则为 true）
+
+**注意**: 大型工具结果会自动截断至 2000 字符（带 UTF-8 安全处理），以防止流式连接过载。`truncated` 字段指示是否发生截断。完整结果始终在任务完成响应中可用。
 
 ---
 
@@ -559,12 +569,27 @@ Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件
   "data": {
     "output": "Analysis complete. Revenue increased 15% YoY...",
     "model": "gpt-5",
+    "provider": "openai",
     "tokens_used": 350,
+    "input_tokens": 200,
+    "output_tokens": 150,
     "cost_usd": 0.0105,
     "duration_ms": 2000
   }
 }
 ```
+
+**字段**:
+- `output`: 完整的 LLM 响应文本
+- `model`: 使用的模型（规范名称）
+- `provider`: LLM 提供商（openai、anthropic、google、xai 等）
+- `tokens_used`: 总 token 数（输入 + 输出）
+- `input_tokens`: 输入/提示 token 数
+- `output_tokens`: 生成的 token 数
+- `cost_usd`: 估计成本（美元）
+- `duration_ms`: 请求持续时间（毫秒）
+
+**注意**: 使用元数据（token 和成本）现在可用于所有提供商，包括 OpenAI、Anthropic、Google、Groq、xAI 和 OpenAI 兼容端点。
 
 ---
 
@@ -810,6 +835,38 @@ Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件
 
 ---
 
+### BUDGET_THRESHOLD
+
+**发出时机**: Token 预算达到警告阈值（通常为限制的 80%）
+
+**数据**:
+```json
+{
+  "type": "BUDGET_THRESHOLD",
+  "message": "Budget threshold reached: 80%",
+  "data": {
+    "threshold_percentage": 80,
+    "tokens_used": 8000,
+    "tokens_limit": 10000,
+    "tokens_remaining": 2000,
+    "cost_usd": 0.24,
+    "estimated_cost_at_limit": 0.30
+  }
+}
+```
+
+**字段**:
+- `threshold_percentage`: 警告阈值（例如 80）
+- `tokens_used`: 目前累计消耗的 token 数
+- `tokens_limit`: 任务允许的最大 token 数
+- `tokens_remaining`: 达到限制前剩余的 token 数
+- `cost_usd`: 当前成本（美元）
+- `estimated_cost_at_limit`: 达到限制时的预计成本
+
+**用途**: 监控此事件可在触发硬性预算限制之前警告用户，允许优雅降级或提前终止决策。
+
+---
+
 ## 事件排序
 
 事件按序列号(`seq`)**严格排序**:
@@ -885,11 +942,13 @@ for event in client.stream_events(workflow_id, from_seq=last_seq + 1):
 
 ### 事件保留期
 
-| 存储 | 保留期 | 用途 |
-|---------|-----------------|---------|
-| Redis | 1 小时 | 实时流式传输 |
-| PostgreSQL | 90 天(默认) | 历史查询 |
-| 归档 | 1 年以上(可选) | 长期审计 |
+| 存储 | 保留期 | 用途 | 事件类型 |
+|---------|-----------------|---------|-------------|
+| Redis | 24 小时 | 实时流式传输 | 所有事件 |
+| PostgreSQL | 90 天(默认) | 历史查询 | 仅关键事件* |
+| 归档 | 1 年以上(可选) | 长期审计 | 可配置 |
+
+**PostgreSQL 选择性持久化**: 为优化数据库性能，仅关键事件会持久化到 PostgreSQL，包括：`WORKFLOW_COMPLETED`、`AGENT_COMPLETED`、`TOOL_INVOKED`、`LLM_OUTPUT` 和 `ERROR_OCCURRED`。临时事件如 `LLM_PARTIAL`、`HEARTBEAT` 和 `AGENT_THINKING` 会从数据库写入中排除（减少约 92% 的写入负载），但仍可通过实时 SSE 流式传输和 Redis 缓存完全获取。
 
 有关事件存储详情,请参见[数据库模式](/cn/architecture/database-schema#event-logs-table)。
 

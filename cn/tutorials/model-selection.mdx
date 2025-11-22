@@ -69,8 +69,11 @@ model_tiers:
         model: claude-haiku-4-5-20251001
         priority: 2  # OpenAI 失败时的回退
       - provider: xai
+        model: grok-3-mini
+        priority: 3  # xAI 默认小型模型
+      - provider: xai
         model: grok-4-fast-non-reasoning
-        priority: 3  # 第二回退
+        priority: 4  # 备选快速模型
 ```
 
 **回退行为**:
@@ -124,7 +127,7 @@ curl -X POST http://localhost:8080/api/v1/tasks \
   }'
 ```
 
-使用大型层级 → `gpt-4.1-2025-04-14`（大型层级中的优先级 1）
+使用大型层级 → `gpt-5.1-2025-11-01`（大型层级中的优先级 1）
 
 ### 覆盖到特定模型
 
@@ -172,7 +175,7 @@ task = client.tasks.submit(
 # 强制模型
 task = client.tasks.submit(
     query="研究任务",
-    model_override="gpt-5-2025-08-07"
+    model_override="gpt-5.1-2025-11-01"
 )
 
 # 强制提供商 + 层级
@@ -293,7 +296,8 @@ docker compose -f deploy/compose/docker-compose.yml logs orchestrator | grep "Mo
 查找：
 - `"Model selected: gpt-5-nano-2025-08-07 (small tier, priority 1)"`
 - `"Falling back to priority 2: claude-haiku-4-5-20251001"`
-- `"Tier override: user requested large → using gpt-4.1-2025-04-14"`
+- `"Falling back to priority 3: grok-3-mini (xAI)"`
+- `"Tier override: user requested large → using gpt-5.1-2025-11-01"`
 
 ## 配置
 

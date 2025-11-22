@@ -93,8 +93,9 @@ Authoritative list of event types emitted by Shannon:
 | `WORKSPACE_UPDATED` | System | Memory/context updated |
 | `ROLE_ASSIGNED` | System | Agent role assigned |
 | `DELEGATION` | System | Task delegated |
+| `BUDGET_THRESHOLD` | System | Token budget threshold reached |
 
-**Total**: 26 event types
+**Total**: 27 event types
 
 Note: Events such as `WORKFLOW_FAILED`, `TASK_COMPLETED`, `TOOL_COMPLETED`, `TOOL_FAILED`, and `BUDGET_UPDATE` are not emitted by the streaming API. Failures are surfaced via `ERROR_OCCURRED`; completion is indicated by `WORKFLOW_COMPLETED`.
 
@@ -346,10 +347,19 @@ Events related to tool invocations.
       "columns": 12,
       "sample": ["date", "product", "revenue", "..."]
     },
-    "duration_ms": 450
+    "duration_ms": 450,
+    "truncated": false
   }
 }
 ```
+
+**Fields**:
+- `tool_name`: Name of the tool that was invoked
+- `result`: Tool output (structured data or text)
+- `duration_ms`: Tool execution time
+- `truncated`: Whether result was truncated (true if > 2000 chars)
+
+**Note**: Large tool results are automatically truncated to 2000 characters with UTF-8 safety to prevent overwhelming the streaming connection. The `truncated` field indicates if this occurred. Full results are always available in the task completion response.
 
 ---
 
@@ -561,12 +571,27 @@ Language model interaction events for debugging and monitoring.
   "data": {
     "output": "Analysis complete. Revenue increased 15% YoY...",
     "model": "gpt-5",
+    "provider": "openai",
     "tokens_used": 350,
+    "input_tokens": 200,
+    "output_tokens": 150,
     "cost_usd": 0.0105,
     "duration_ms": 2000
   }
 }
 ```
+
+**Fields**:
+- `output`: Complete LLM response text
+- `model`: Model used (canonical name)
+- `provider`: LLM provider (openai, anthropic, google, xai, etc.)
+- `tokens_used`: Total tokens (input + output)
+- `input_tokens`: Input/prompt tokens
+- `output_tokens`: Generated tokens
+- `cost_usd`: Estimated cost in USD
+- `duration_ms`: Request duration in milliseconds
+
+**Note**: Usage metadata (tokens and cost) is now available for all providers including OpenAI, Anthropic, Google, Groq, xAI, and OpenAI-compatible endpoints.
 
 ---
 
@@ -810,6 +835,38 @@ System-level events and errors.
 
 ---
 
+### BUDGET_THRESHOLD
+
+**Emitted**: Token budget reaches a warning threshold (typically 80% of limit)
+
+**Data**:
+```json
+{
+  "type": "BUDGET_THRESHOLD",
+  "message": "Budget threshold reached: 80%",
+  "data": {
+    "threshold_percentage": 80,
+    "tokens_used": 8000,
+    "tokens_limit": 10000,
+    "tokens_remaining": 2000,
+    "cost_usd": 0.24,
+    "estimated_cost_at_limit": 0.30
+  }
+}
+```
+
+**Fields**:
+- `threshold_percentage`: Warning threshold (e.g., 80)
+- `tokens_used`: Cumulative tokens consumed so far
+- `tokens_limit`: Maximum allowed tokens for task
+- `tokens_remaining`: Tokens left before limit
+- `cost_usd`: Current cost in USD
+- `estimated_cost_at_limit`: Projected cost if limit is reached
+
+**Usage**: Monitor this event to warn users before hitting hard budget limits, allowing graceful degradation or early termination decisions.
+
+---
+
 ## Event Ordering
 
 Events are **strictly ordered** by sequence number (`seq`):
@@ -885,11 +942,13 @@ for event in client.stream_events(workflow_id, from_seq=last_seq + 1):
 
 ### Event Retention
 
-| Storage | Retention Period | Purpose |
-|---------|-----------------|---------|
-| Redis | 1 hour | Real-time streaming |
-| PostgreSQL | 90 days (default) | Historical queries |
-| Archival | 1+ years (optional) | Long-term audit |
+| Storage | Retention Period | Purpose | Event Types |
+|---------|-----------------|---------|-------------|
+| Redis | 24 hours | Real-time streaming | All events |
+| PostgreSQL | 90 days (default) | Historical queries | Critical events only* |
+| Archival | 1+ years (optional) | Long-term audit | Configurable |
+
+**PostgreSQL Selective Persistence**: To optimize database performance, only critical events are persisted to PostgreSQL, including: `WORKFLOW_COMPLETED`, `AGENT_COMPLETED`, `TOOL_INVOKED`, `LLM_OUTPUT`, and `ERROR_OCCURRED`. Ephemeral events like `LLM_PARTIAL`, `HEARTBEAT`, and `AGENT_THINKING` are excluded from database writes (reducing write load by ~92%) but remain fully available via real-time SSE streaming and Redis cache.
 
 See [Database Schema](/en/architecture/database-schema#event-logs-table) for event storage details.
 

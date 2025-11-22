@@ -8,12 +8,19 @@ description: "Real-time event streaming via SSE and WebSocket"
 Shannon provides real-time event streaming through Server-Sent Events (SSE) and WebSocket protocols. Use streaming to monitor task execution, display progress, and receive results as they're generated.
 
 <Warning>
-Authentication: Streaming endpoints require the same headers as other APIs.
+**Authentication**: Streaming endpoints require the same headers as other APIs.
 Browsers cannot send custom headers with EventSource.
 - Development: set `GATEWAY_SKIP_AUTH=1`.
 - Production: proxy SSE via your backend and inject `X-API-Key` or Bearer headers.
 Do not pass API keys in URL query parameters.
 </Warning>
+
+<Note>
+**Streaming Limits**:
+- **Timeout**: Streams automatically close after 5 minutes of inactivity
+- **Buffer Size**: Maximum 1MB buffered data per connection
+- **Usage Metadata**: Token counts and costs now available for all LLM providers (OpenAI, Anthropic, Google, Groq, xAI)
+</Note>
 
 ## Endpoints
 
@@ -599,6 +606,7 @@ Passing the API key in the query string or via an "auth" message after connect i
 | `ROLE_ASSIGNED` | Agent role assigned |
 | `DELEGATION` | Task delegated |
 | `DEPENDENCY_SATISFIED` | Dependency resolved |
+| `BUDGET_THRESHOLD` | Token budget threshold reached |
 | `APPROVAL_REQUESTED` | Human approval needed |
 | `APPROVAL_DECISION` | Approval decision recorded |
 
@@ -1082,9 +1090,16 @@ Note: `last_event_id` accepts either a Redis stream ID (e.g., `1700000000000-0`)
 ## Notes
 
 <Tip>
-**Event Retention**: Events are stored in Redis for 24 hours. Use `last_event_id` to resume streaming if connection drops.
+**Event Retention**:
+- **Redis**: All events stored for 24 hours (real-time streaming)
+- **PostgreSQL**: Critical events stored for 90 days (historical queries)
+- Use `last_event_id` to resume streaming if connection drops
 </Tip>
 
 <Warning>
-**Connection Limits**: Maximum 100 concurrent streaming connections per API key. Consider multiplexing multiple workflows over a single WebSocket.
+**Connection Limits**:
+- Maximum 100 concurrent streaming connections per API key
+- 5-minute inactivity timeout (automatic connection close)
+- 1MB buffer size limit per connection
+- Consider multiplexing multiple workflows over a single WebSocket
 </Warning>

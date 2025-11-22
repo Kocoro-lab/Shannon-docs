@@ -69,8 +69,11 @@ model_tiers:
         model: claude-haiku-4-5-20251001
         priority: 2  # Fallback if OpenAI fails
       - provider: xai
+        model: grok-3-mini
+        priority: 3  # Default small tier model for xAI
+      - provider: xai
         model: grok-4-fast-non-reasoning
-        priority: 3  # Second fallback
+        priority: 4  # Alternative fast model
 ```
 
 **Fallback Behavior**:
@@ -111,7 +114,7 @@ curl -X POST http://localhost:8080/api/v1/tasks \
   -d '{"query": "What is 2+2?"}'
 ```
 
-Shannon analyzes complexity → Selects small tier → Uses `gpt-5-nano-2025-08-07` (priority 1)
+Shannon analyzes complexity → Selects small tier → Uses `gpt-5-nano-2025-08-07` (priority 1 in small tier)
 
 ### Force Specific Tier
 
@@ -124,7 +127,7 @@ curl -X POST http://localhost:8080/api/v1/tasks \
   }'
 ```
 
-Uses large tier → `gpt-4.1-2025-04-14` (priority 1 in large tier)
+Uses large tier → `gpt-5.1-2025-11-01` (priority 1 in large tier)
 
 ### Override to Specific Model
 
@@ -172,7 +175,7 @@ task = client.tasks.submit(
 # Force model
 task = client.tasks.submit(
     query="Research task",
-    model_override="gpt-5-2025-08-07"
+    model_override="gpt-5.1-2025-11-01"
 )
 
 # Force provider + tier
@@ -293,7 +296,8 @@ docker compose -f deploy/compose/docker-compose.yml logs orchestrator | grep "Mo
 Look for:
 - `"Model selected: gpt-5-nano-2025-08-07 (small tier, priority 1)"`
 - `"Falling back to priority 2: claude-haiku-4-5-20251001"`
-- `"Tier override: user requested large → using gpt-4.1-2025-04-14"`
+- `"Falling back to priority 3: grok-3-mini (xAI)"`
+- `"Tier override: user requested large → using gpt-5.1-2025-11-01"`
 
 ## Configuration
 
@@ -334,13 +338,14 @@ selection_strategy:
 
 ### Issue: Specific model not used
 
-**Symptoms**: Request `model_override: "gpt-5-pro"` but gets different model
+**Symptoms**: Request `model_override: "gpt-5.1-2025-11-01"` but gets different model
 
 **Solutions**:
 1. Verify model is in `config/models.yaml` under `model_catalog`
-2. Check API key for provider is set in `.env`
+2. Check API key for provider is set in `.env` (e.g., `OPENAI_API_KEY`, `XAI_API_KEY`)
 3. Verify model ID uses canonical name (not alias)
 4. Check orchestrator logs for fallback messages
+5. Ensure the model is available in your API plan (e.g., GPT-5.1 requires appropriate tier)
 
 ### Issue: High costs
 
