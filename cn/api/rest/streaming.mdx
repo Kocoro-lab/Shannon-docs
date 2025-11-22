@@ -8,12 +8,19 @@ description: "通过 SSE 和 WebSocket 实时事件流传输"
 Shannon 通过 Server-Sent Events (SSE) 和 WebSocket 协议提供实时事件流传输。使用流式传输来监控任务执行、显示进度并在生成时接收结果。
 
 <Warning>
-认证：流式端点与其他 API 使用相同的认证请求头。
+**认证**：流式端点与其他 API 使用相同的认证请求头。
 浏览器 EventSource 无法携带自定义请求头。
 - 开发环境：设置 `GATEWAY_SKIP_AUTH=1`。
 - 生产环境：通过后端代理转发 SSE，并注入 `X-API-Key` 或 Bearer 头。
 不要通过 URL 查询参数传递 API 密钥。
 </Warning>
+
+<Note>
+**流式传输限制**：
+- **超时**：流在 5 分钟无活动后自动关闭
+- **缓冲区大小**：每个连接最大 1MB 缓冲数据
+- **使用元数据**：现在所有 LLM 提供商（OpenAI、Anthropic、Google、Groq、xAI）都可获取 token 计数和成本
+</Note>
 
 ## 端点
 
@@ -1083,9 +1090,16 @@ def stream_with_resume(task_id: str, api_key: str, last_event_id: str = None):
 ## 注意
 
 <Tip>
-**事件保留**：事件存储在 Redis 中 24 小时。如果连接断开，使用 `last_event_id` 恢复流式传输。
+**事件保留**：
+- **Redis**：所有事件存储 24 小时（实时流式传输）
+- **PostgreSQL**：关键事件存储 90 天（历史查询）
+- 如果连接断开，使用 `last_event_id` 恢复流式传输
 </Tip>
 
 <Warning>
-**连接限制**：每个 API 密钥最多 100 个并发流式传输连接。考虑在单个 WebSocket 上多路复用多个工作流。
+**连接限制**：
+- 每个 API 密钥最多 100 个并发流式传输连接
+- 5 分钟无活动超时（自动关闭连接）
+- 每个连接 1MB 缓冲区大小限制
+- 考虑在单个 WebSocket 上多路复用多个工作流
 </Warning>
