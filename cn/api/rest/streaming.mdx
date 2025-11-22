@@ -555,6 +555,44 @@ asyncio.run(main())
 }
 ```
 
+## OpenAI 兼容的流式传输格式
+
+Shannon 的 SSE 流式传输使用 **OpenAI 兼容格式** 处理使用元数据和事件结构，可与基于 OpenAI 的工具无缝集成，同时保持 Shannon 的综合事件分类体系。
+
+### 使用元数据格式
+
+所有 LLM 提供商以 OpenAI 标准结构返回使用数据：
+
+```json
+{
+  "type": "LLM_OUTPUT",
+  "data": {
+    "output": "响应文本...",
+    "model": "gpt-5-nano-2025-08-07",
+    "provider": "openai",
+    "usage": {
+      "total_tokens": 350,
+      "input_tokens": 200,
+      "output_tokens": 150
+    },
+    "cost_usd": 0.0105
+  }
+}
+```
+
+**兼容性矩阵：**
+
+| 提供商 | 使用元数据 | 流式选项 |
+|----------|----------------|----------------|
+| OpenAI | ✅ 完全支持 | `stream_options: {"include_usage": true}` |
+| Anthropic | ✅ 完全支持 | 最终流式块 |
+| Google | ✅ 完全支持 | 最终流式块 |
+| Groq | ✅ 完全支持 | 最终流式块 |
+| xAI | ⚠️ 有限支持 | 仅在一元模式下可用 |
+| OpenAI 兼容端点 | ⚠️ 优雅降级 | 取决于端点支持 |
+
+**注意**: Shannon 自动处理不支持 `stream_options` 参数的提供商，进行优雅降级——流式传输可工作，但使用元数据在流式传输期间可能不可用。
+
 ## 事件类型
 
 ### 核心事件

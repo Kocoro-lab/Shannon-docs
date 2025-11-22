@@ -570,9 +570,11 @@ Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件
     "output": "Analysis complete. Revenue increased 15% YoY...",
     "model": "gpt-5",
     "provider": "openai",
-    "tokens_used": 350,
-    "input_tokens": 200,
-    "output_tokens": 150,
+    "usage": {
+      "total_tokens": 350,
+      "input_tokens": 200,
+      "output_tokens": 150
+    },
     "cost_usd": 0.0105,
     "duration_ms": 2000
   }
@@ -583,13 +585,14 @@ Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件
 - `output`: 完整的 LLM 响应文本
 - `model`: 使用的模型（规范名称）
 - `provider`: LLM 提供商（openai、anthropic、google、xai 等）
-- `tokens_used`: 总 token 数（输入 + 输出）
-- `input_tokens`: 输入/提示 token 数
-- `output_tokens`: 生成的 token 数
+- `usage`: OpenAI 兼容的使用对象，包含：
+  - `total_tokens`: 总 token 数（输入 + 输出）
+  - `input_tokens`: 输入/提示 token 数
+  - `output_tokens`: 生成的 token 数
 - `cost_usd`: 估计成本（美元）
 - `duration_ms`: 请求持续时间（毫秒）
 
-**注意**: 使用元数据（token 和成本）现在可用于所有提供商，包括 OpenAI、Anthropic、Google、Groq、xAI 和 OpenAI 兼容端点。
+**注意**: 使用元数据遵循 OpenAI 的标准格式，现在可用于所有提供商，包括 OpenAI、Anthropic、Google、Groq、xAI 和 OpenAI 兼容端点。`usage` 对象结构与 OpenAI 的流式响应格式匹配，实现无缝集成。
 
 ---
 

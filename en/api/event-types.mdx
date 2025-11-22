@@ -572,9 +572,11 @@ Language model interaction events for debugging and monitoring.
     "output": "Analysis complete. Revenue increased 15% YoY...",
     "model": "gpt-5",
     "provider": "openai",
-    "tokens_used": 350,
-    "input_tokens": 200,
-    "output_tokens": 150,
+    "usage": {
+      "total_tokens": 350,
+      "input_tokens": 200,
+      "output_tokens": 150
+    },
     "cost_usd": 0.0105,
     "duration_ms": 2000
   }
@@ -585,13 +587,14 @@ Language model interaction events for debugging and monitoring.
 - `output`: Complete LLM response text
 - `model`: Model used (canonical name)
 - `provider`: LLM provider (openai, anthropic, google, xai, etc.)
-- `tokens_used`: Total tokens (input + output)
-- `input_tokens`: Input/prompt tokens
-- `output_tokens`: Generated tokens
+- `usage`: OpenAI-compatible usage object containing:
+  - `total_tokens`: Total tokens (input + output)
+  - `input_tokens`: Input/prompt tokens
+  - `output_tokens`: Generated tokens
 - `cost_usd`: Estimated cost in USD
 - `duration_ms`: Request duration in milliseconds
 
-**Note**: Usage metadata (tokens and cost) is now available for all providers including OpenAI, Anthropic, Google, Groq, xAI, and OpenAI-compatible endpoints.
+**Note**: Usage metadata follows OpenAI's standard format and is now available for all providers including OpenAI, Anthropic, Google, Groq, xAI, and OpenAI-compatible endpoints. The `usage` object structure matches OpenAI's streaming response format for seamless integration.
 
 ---
 
