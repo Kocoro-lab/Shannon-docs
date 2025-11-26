@@ -1,0 +1,647 @@
+---
+title: "工作流模板"
+description: "使用 Shannon 的模板系统创建确定性、零令牌消耗的工作流"
+---
+
+## 概述
+
+Shannon 的模板系统支持为常见模式创建**确定性、零令牌消耗的工作流**。模板在 YAML 中定义结构化工作流，无需 AI 分解即可执行，为可重复任务提供显著的成本节省。
+
+<CardGroup cols={2}>
+  <Card title="零令牌成本" icon="coins">
+    模板绕过 LLM 调用进行工作流路由
+  </Card>
+  <Card title="确定性执行" icon="route">
+    可预测、可重复的工作流行为
+  </Card>
+  <Card title="预算控制" icon="gauge">
+    每节点令牌限制与自动降级
+  </Card>
+  <Card title="DAG 支持" icon="diagram-project">
+    带依赖管理的并行执行
+  </Card>
+</CardGroup>
+
+## 何时使用模板
+
+**使用模板的场景：**
+- 工作流可重复且结构已知
+- 希望消除分解令牌成本
+- 需要可预测的执行顺序
+- 需要按工作流阶段进行预算控制
+
+**使用 AI 分解的场景：**
+- 任务结构未知或可变
+- 需要对工作流设计进行复杂推理
+- 一次性或高度动态的任务
+
+## 模板结构
+
+模板是具有以下结构的 YAML 文件：
+
+```yaml
+name: "workflow_name"
+version: "1.0.0"
+description: "此工作流的功能描述"
+
+defaults:
+  model_tier: "medium"        # small | medium | large
+  budget_agent_max: 6000      # 总令牌预算
+  require_approval: false     # 人工审批门控
+
+nodes:
+  - id: "step_1"
+    type: "simple"            # 节点类型
+    strategy: "react"         # 执行策略
+    tools_allowlist:          # 允许的工具
+      - "web_search"
+    budget_max: 1500          # 每节点令牌限制
+    depends_on: []            # 依赖项
+
+  - id: "step_2"
+    type: "cognitive"
+    strategy: "chain_of_thought"
+    budget_max: 2000
+    depends_on: ["step_1"]
+
+edges:
+  - from: "step_1"
+    to: "step_2"
+```
+
+### 核心字段
+
+| 字段 | 类型 | 必需 | 描述 |
+|------|------|------|------|
+| `name` | string | 是 | 唯一工作流标识符 |
+| `version` | string | 是 | 语义版本（如 "1.0.0"） |
+| `description` | string | 否 | 人类可读的描述 |
+| `defaults` | object | 否 | 所有节点的全局设置 |
+| `nodes` | array | 是 | 工作流执行单元 |
+| `edges` | array | 否 | 显式依赖连接 |
+
+### 默认设置
+
+```yaml
+defaults:
+  model_tier: "medium"        # 所有节点的模型大小
+  budget_agent_max: 6000      # 总工作流令牌预算
+  require_approval: false     # 执行前需要人工审批
+```
+
+## 节点类型
+
+Shannon 支持四种节点类型以适应不同的执行模式：
+
+### Simple 节点
+
+单任务执行，直接调用工具。
+
+```yaml
+- id: "fetch_data"
+  type: "simple"
+  strategy: "react"
+  tools_allowlist:
+    - "web_search"
+  budget_max: 1000
+  depends_on: []
+```
+
+**适用于：** 数据获取、简单转换、基于工具的操作。
+
+### Cognitive 节点
+
+复杂推理，多步骤分析。
+
+```yaml
+- id: "analyze"
+  type: "cognitive"
+  strategy: "chain_of_thought"
+  budget_max: 2500
+  depends_on: ["fetch_data"]
+  degrade_to: "react"         # 预算超出时的回退策略
+  retries: 1
+```
+
+**适用于：** 分析、推理、综合任务。
+
+### DAG 节点
+
+带内部任务依赖的并行执行。
+
+```yaml
+- id: "parallel_analysis"
+  type: "dag"
+  budget_max: 5000
+  depends_on: ["understand"]
+  metadata:
+    tasks:
+      - id: "collect"
+        tools_allowlist: ["web_search"]
+        depends_on: []
+      - id: "quantitative"
+        tools_allowlist: ["calculator"]
+        depends_on: ["collect"]
+      - id: "qualitative"
+        tools_allowlist: []
+        depends_on: ["collect"]
+      - id: "cross_validate"
+        depends_on: ["quantitative", "qualitative"]
+```
+
+**适用于：** 并行处理、扇出/扇入模式。
+
+### Supervisor 节点
+
+分层任务分解和协调。
+
+```yaml
+- id: "orchestrate"
+  type: "supervisor"
+  strategy: "reflection"
+  budget_max: 3000
+  depends_on: ["parallel_analysis"]
+```
+
+**适用于：** 结果聚合、质量控制、综合。
+
+## 执行策略
+
+策略定义节点如何处理任务：
+
+| 策略 | 令牌范围 | 描述 |
+|------|----------|------|
+| `react` | ~500-1500 | 基于工具的推理与动作循环 |
+| `chain_of_thought` | ~1500-3000 | 顺序逐步推理 |
+| `tree_of_thoughts` | ~3000-8000 | 探索多个推理分支 |
+| `reflection` | ~1000-2000 | 自我评估和改进 |
+| `debate` | ~2000-4000 | 多角度分析 |
+
+### 自动降级
+
+当达到预算限制时，策略会自动降级：
+
+```
+tree_of_thoughts → chain_of_thought → react
+```
+
+配置显式降级：
+
+```yaml
+- id: "explore"
+  type: "cognitive"
+  strategy: "tree_of_thoughts"
+  budget_max: 2500
+  degrade_to: "chain_of_thought"  # 回退策略
+  retries: 1                       # 降级时的重试次数
+```
+
+## 创建模板
+
+<Steps>
+  <Step title="创建模板文件">
+    在 `config/workflows/examples/` 或自定义目录中创建 YAML 文件：
+
+```yaml
+# config/workflows/examples/my_workflow.yaml
+name: "my_workflow"
+version: "1.0.0"
+description: "自定义分析工作流"
+
+defaults:
+  model_tier: "medium"
+  budget_agent_max: 5000
+  require_approval: false
+
+nodes:
+  - id: "intake"
+    type: "simple"
+    strategy: "react"
+    tools_allowlist:
+      - "web_search"
+    budget_max: 1500
+    depends_on: []
+
+  - id: "analyze"
+    type: "cognitive"
+    strategy: "chain_of_thought"
+    budget_max: 2000
+    depends_on: ["intake"]
+
+  - id: "synthesize"
+    type: "cognitive"
+    strategy: "reflection"
+    budget_max: 1500
+    depends_on: ["analyze"]
+
+edges:
+  - from: "intake"
+    to: "analyze"
+  - from: "analyze"
+    to: "synthesize"
+```
+  </Step>
+
+  <Step title="注册模板目录">
+    模板在启动时通过 `InitTemplateRegistry` 加载：
+
+```go
+// 在 orchestrator 初始化中
+registry := templates.InitTemplateRegistry(
+    "./config/workflows/builtin",
+    "./config/workflows/examples",  // 您的模板
+)
+
+// 验证所有模板
+if err := registry.Finalize(); err != nil {
+    log.Fatal(err)
+}
+```
+  </Step>
+
+  <Step title="重启服务">
+```bash
+docker compose -f deploy/compose/docker-compose.yml up -d --force-recreate orchestrator
+```
+  </Step>
+
+  <Step title="列出可用模板">
+    通过 gRPC：
+
+```bash
+grpcurl -plaintext -d '{}' localhost:50052 \
+  shannon.orchestrator.OrchestratorService/ListTemplates
+```
+  </Step>
+</Steps>
+
+## 使用模板
+
+### 通过 HTTP Gateway
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "分析当前 AI 市场趋势",
+    "context": {
+      "template": "my_workflow",
+      "template_version": "1.0.0"
+    }
+  }'
+```
+
+### 通过 gRPC
+
+```bash
+grpcurl -plaintext -d '{
+  "query": "分析当前 AI 市场趋势",
+  "context": {
+    "template": "my_workflow",
+    "template_version": "1.0.0",
+    "disable_ai": true
+  }
+}' localhost:50052 shannon.orchestrator.OrchestratorService/SubmitTask
+```
+
+<Note>
+设置 `disable_ai: true` 可强制仅使用模板执行，不进行 AI 回退。
+</Note>
+
+### 通过 Python SDK
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+handle = client.submit_task(
+    "分析当前 AI 市场趋势",
+    context={
+        "template": "my_workflow",
+        "template_version": "1.0.0",
+    },
+)
+result = client.wait(handle.task_id)
+print(result.result)
+```
+
+## 模板示例
+
+### 简单分析工作流
+
+用于快速摘要的两阶段管道：
+
+```yaml
+name: "simple_analysis"
+version: "1.0.0"
+description: "用于简短摘要的快速摘要工作流"
+
+defaults:
+  model_tier: "medium"
+  budget_agent_max: 3000
+  require_approval: false
+
+nodes:
+  - id: "intake"
+    type: "simple"
+    strategy: "react"
+    budget_max: 1000
+    depends_on: []
+
+  - id: "summarize"
+    type: "cognitive"
+    strategy: "chain_of_thought"
+    budget_max: 1200
+    depends_on: ["intake"]
+
+edges:
+  - from: "intake"
+    to: "summarize"
+```
+
+### 研究摘要工作流
+
+带渐进推理的四阶段研究管道：
+
+```yaml
+name: "research_summary"
+version: "1.0.0"
+description: "多阶段研究工作流"
+
+defaults:
+  model_tier: "medium"
+  budget_agent_max: 6000
+  require_approval: false
+
+nodes:
+  - id: "discover"
+    type: "simple"
+    strategy: "react"
+    tools_allowlist:
+      - "web_search"
+    budget_max: 1500
+    depends_on: []
+
+  - id: "reason"
+    type: "cognitive"
+    strategy: "chain_of_thought"
+    budget_max: 1500
+    depends_on: ["discover"]
+
+  - id: "explore"
+    type: "cognitive"
+    strategy: "tree_of_thoughts"
+    budget_max: 2500
+    degrade_to: "chain_of_thought"
+    retries: 1
+    depends_on: ["reason"]
+
+  - id: "finalize"
+    type: "cognitive"
+    strategy: "reflection"
+    budget_max: 1000
+    depends_on: ["explore"]
+
+edges:
+  - from: "discover"
+    to: "reason"
+  - from: "reason"
+    to: "explore"
+  - from: "explore"
+    to: "finalize"
+```
+
+### 并行 DAG 工作流
+
+带并行执行分支的复杂工作流：
+
+```yaml
+name: "parallel_analysis"
+version: "1.0.0"
+description: "带收敛的并行分析"
+
+defaults:
+  model_tier: "medium"
+  budget_agent_max: 8000
+  require_approval: false
+
+nodes:
+  - id: "understand"
+    type: "simple"
+    strategy: "react"
+    budget_max: 1000
+    depends_on: []
+
+  - id: "parallel_analysis"
+    type: "dag"
+    budget_max: 5000
+    depends_on: ["understand"]
+    metadata:
+      tasks:
+        - id: "collect"
+          tools_allowlist: ["web_search"]
+          depends_on: []
+        - id: "quantitative"
+          tools_allowlist: ["calculator"]
+          depends_on: ["collect"]
+        - id: "qualitative"
+          tools_allowlist: []
+          depends_on: ["collect"]
+        - id: "cross_validate"
+          depends_on: ["quantitative", "qualitative"]
+
+  - id: "report"
+    type: "cognitive"
+    strategy: "reflection"
+    budget_max: 2000
+    degrade_to: "chain_of_thought"
+    depends_on: ["parallel_analysis"]
+
+edges:
+  - from: "understand"
+    to: "parallel_analysis"
+  - from: "parallel_analysis"
+    to: "report"
+```
+
+## 模板继承
+
+模板可以使用 `extends` 从父模板继承：
+
+```yaml
+# base_research.yaml
+name: "base_research"
+version: "1.0.0"
+
+defaults:
+  model_tier: "medium"
+  budget_agent_max: 5000
+  require_approval: false
+```
+
+```yaml
+# advanced_research.yaml
+name: "advanced_research"
+version: "1.0.0"
+extends: ["base_research"]    # 继承所有默认值
+
+defaults:
+  budget_agent_max: 10000     # 覆盖特定值
+
+nodes:
+  # ... 额外节点
+```
+
+多个父模板按顺序应用，派生模板的值优先。
+
+## 验证
+
+模板在加载时会进行以下验证：
+
+- YAML 语法正确性
+- 必需字段存在
+- DAG 无环（无循环依赖）
+- 预算层级（节点预算 ≤ 代理预算）
+- 工具注册表存在
+- 变量引用解析
+
+```go
+registry := templates.InitTemplateRegistry("./templates")
+
+// 验证所有模板
+if err := registry.Finalize(); err != nil {
+    log.Fatalf("模板验证失败: %v", err)
+}
+```
+
+## 最佳实践
+
+<AccordionGroup>
+  <Accordion title="保持节点小而专注">
+    每个节点应只做好一件事：
+
+```yaml
+# 好：专注的节点
+- id: "search"
+  type: "simple"
+  strategy: "react"
+  tools_allowlist: ["web_search"]
+
+- id: "analyze"
+  type: "cognitive"
+  strategy: "chain_of_thought"
+```
+  </Accordion>
+
+  <Accordion title="显式允许工具列表">
+    限制每个节点的工具以提高安全性和可预测性：
+
+```yaml
+# 好：显式允许列表
+tools_allowlist:
+  - "web_search"
+  - "calculator"
+
+# 差：允许所有工具
+# tools_allowlist: ["*"]
+```
+  </Accordion>
+
+  <Accordion title="使用预算降级">
+    配置回退策略以控制成本：
+
+```yaml
+- id: "explore"
+  strategy: "tree_of_thoughts"
+  budget_max: 2500
+  degrade_to: "chain_of_thought"
+  retries: 1
+```
+  </Accordion>
+
+  <Accordion title="使用继承实现通用模式">
+    将共享默认值提取到基础模板中：
+
+```yaml
+extends: ["base_research"]
+defaults:
+  budget_agent_max: 8000  # 只覆盖需要更改的内容
+```
+  </Accordion>
+
+  <Accordion title="版本化您的模板">
+    使用语义版本控制并在请求中指定版本：
+
+```yaml
+name: "my_workflow"
+version: "1.0.0"  # 在破坏性更改时递增
+```
+
+```json
+{
+  "context": {
+    "template": "my_workflow",
+    "template_version": "1.0.0"
+  }
+}
+```
+  </Accordion>
+</AccordionGroup>
+
+## 故障排除
+
+<AccordionGroup>
+  <Accordion title="模板未找到">
+    **症状：** `template 'my_workflow' not found`
+
+    **解决方案：**
+    1. 检查模板文件是否存在于已注册的目录中
+    2. 验证 YAML 语法：`yamllint config/workflows/examples/my_workflow.yaml`
+    3. 重启 orchestrator 以重新加载模板
+    4. 检查 orchestrator 日志中的加载错误
+  </Accordion>
+
+  <Accordion title="验证错误">
+    **症状：** `Template validation failed: circular dependency`
+
+    **解决方案：**
+    1. 检查 `depends_on` 字段是否有循环
+    2. 确保 DAG 节点具有无环任务依赖
+    3. 检查 `edges` 是否创建了循环
+  </Accordion>
+
+  <Accordion title="预算超出">
+    **症状：** 节点执行提前停止或意外降级
+
+    **解决方案：**
+    1. 增加受影响节点的 `budget_max`
+    2. 配置 `degrade_to` 以实现优雅回退
+    3. 检查总预算与节点预算之和
+  </Accordion>
+
+  <Accordion title="工具不可用">
+    **症状：** `tool 'my_tool' not registered`
+
+    **解决方案：**
+    1. 验证工具已在工具注册表中注册
+    2. 检查 `tools_allowlist` 中的工具名称拼写
+    3. 确保 LLM 服务已加载该工具
+  </Accordion>
+</AccordionGroup>
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="自定义工具" icon="wrench" href="/cn/tutorials/custom-tools">
+    为您的模板添加工具
+  </Card>
+  <Card title="扩展 Shannon" icon="puzzle-piece" href="/cn/tutorials/extending-shannon">
+    其他扩展方法
+  </Card>
+  <Card title="配置" icon="gear" href="/cn/quickstart/configuration">
+    环境和 YAML 配置
+  </Card>
+  <Card title="架构" icon="sitemap" href="/cn/architecture/overview">
+    了解 Shannon 的设计
+  </Card>
+</CardGroup>
