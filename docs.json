@@ -162,8 +162,7 @@
               {
                 "group": "Building Agents",
                 "pages": [
-                  "en/tutorials/research-assistant",
-                  "en/tutorials/data-analysis"
+                  "en/tutorials/research-assistant"
                 ]
               },
               {
@@ -172,6 +171,7 @@
                   "en/tutorials/custom-tools",
                   "en/tutorials/openapi-tools",
                   "en/tutorials/vendor-adapters",
+                  "en/tutorials/templates",
                   "en/tutorials/extending-shannon",
                   "en/tutorials/model-selection"
                 ]
@@ -342,8 +342,7 @@
               {
                 "group": "构建智能体",
                 "pages": [
-                  "cn/tutorials/research-assistant",
-                  "cn/tutorials/data-analysis"
+                  "cn/tutorials/research-assistant"
                 ]
               },
               {
@@ -351,6 +350,7 @@
                 "pages": [
                   "cn/tutorials/custom-tools",
                   "cn/tutorials/vendor-adapters",
+                  "cn/tutorials/templates",
                   "cn/tutorials/extending-shannon",
                   "cn/tutorials/model-selection"
                 ]

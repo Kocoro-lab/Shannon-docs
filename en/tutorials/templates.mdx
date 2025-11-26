@@ -1,0 +1,647 @@
+---
+title: "Workflow Templates"
+description: "Create deterministic, zero-token workflows using Shannon's template system"
+---
+
+## Overview
+
+Shannon's template system enables **deterministic, zero-token workflows** for common patterns. Templates define structured workflows in YAML that execute without AI decomposition, providing significant cost savings for repeatable tasks.
+
+<CardGroup cols={2}>
+  <Card title="Zero Token Cost" icon="coins">
+    Templates bypass LLM calls for workflow routing
+  </Card>
+  <Card title="Deterministic Execution" icon="route">
+    Predictable, repeatable workflow behavior
+  </Card>
+  <Card title="Budget Control" icon="gauge">
+    Per-node token limits with automatic degradation
+  </Card>
+  <Card title="DAG Support" icon="diagram-project">
+    Parallel execution with dependency management
+  </Card>
+</CardGroup>
+
+## When to Use Templates
+
+**Use templates when:**
+- Workflows are repeatable with known structure
+- You want to eliminate decomposition token costs
+- Predictable execution order is required
+- Budget control per workflow stage is needed
+
+**Use AI decomposition when:**
+- Task structure is unknown or variable
+- Complex reasoning about workflow design is needed
+- One-off or highly dynamic tasks
+
+## Template Structure
+
+Templates are YAML files with this structure:
+
+```yaml
+name: "workflow_name"
+version: "1.0.0"
+description: "What this workflow does"
+
+defaults:
+  model_tier: "medium"        # small | medium | large
+  budget_agent_max: 6000      # Total token budget
+  require_approval: false     # Human approval gate
+
+nodes:
+  - id: "step_1"
+    type: "simple"            # Node type
+    strategy: "react"         # Execution strategy
+    tools_allowlist:          # Permitted tools
+      - "web_search"
+    budget_max: 1500          # Per-node token limit
+    depends_on: []            # Dependencies
+
+  - id: "step_2"
+    type: "cognitive"
+    strategy: "chain_of_thought"
+    budget_max: 2000
+    depends_on: ["step_1"]
+
+edges:
+  - from: "step_1"
+    to: "step_2"
+```
+
+### Core Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Unique workflow identifier |
+| `version` | string | Yes | Semantic version (e.g., "1.0.0") |
+| `description` | string | No | Human-readable description |
+| `defaults` | object | No | Global settings for all nodes |
+| `nodes` | array | Yes | Workflow execution units |
+| `edges` | array | No | Explicit dependency connections |
+
+### Default Settings
+
+```yaml
+defaults:
+  model_tier: "medium"        # Model size for all nodes
+  budget_agent_max: 6000      # Total workflow token budget
+  require_approval: false     # Require human approval before execution
+```
+
+## Node Types
+
+Shannon supports four node types for different execution patterns:
+
+### Simple Nodes
+
+Single-task execution with direct tool invocation.
+
+```yaml
+- id: "fetch_data"
+  type: "simple"
+  strategy: "react"
+  tools_allowlist:
+    - "web_search"
+  budget_max: 1000
+  depends_on: []
+```
+
+**Use for:** Data fetching, simple transformations, tool-based operations.
+
+### Cognitive Nodes
+
+Complex reasoning with multi-step analysis.
+
+```yaml
+- id: "analyze"
+  type: "cognitive"
+  strategy: "chain_of_thought"
+  budget_max: 2500
+  depends_on: ["fetch_data"]
+  degrade_to: "react"         # Fallback if budget exceeded
+  retries: 1
+```
+
+**Use for:** Analysis, reasoning, synthesis tasks.
+
+### DAG Nodes
+
+Parallel execution with internal task dependencies.
+
+```yaml
+- id: "parallel_analysis"
+  type: "dag"
+  budget_max: 5000
+  depends_on: ["understand"]
+  metadata:
+    tasks:
+      - id: "collect"
+        tools_allowlist: ["web_search"]
+        depends_on: []
+      - id: "quantitative"
+        tools_allowlist: ["calculator"]
+        depends_on: ["collect"]
+      - id: "qualitative"
+        tools_allowlist: []
+        depends_on: ["collect"]
+      - id: "cross_validate"
+        depends_on: ["quantitative", "qualitative"]
+```
+
+**Use for:** Parallel processing, fan-out/fan-in patterns.
+
+### Supervisor Nodes
+
+Hierarchical task decomposition and coordination.
+
+```yaml
+- id: "orchestrate"
+  type: "supervisor"
+  strategy: "reflection"
+  budget_max: 3000
+  depends_on: ["parallel_analysis"]
+```
+
+**Use for:** Result aggregation, quality control, synthesis.
+
+## Execution Strategies
+
+Strategies define how nodes process tasks:
+
+| Strategy | Token Range | Description |
+|----------|-------------|-------------|
+| `react` | ~500-1500 | Tool-based reasoning with action cycles |
+| `chain_of_thought` | ~1500-3000 | Sequential step-by-step reasoning |
+| `tree_of_thoughts` | ~3000-8000 | Explores multiple reasoning branches |
+| `reflection` | ~1000-2000 | Self-evaluation and refinement |
+| `debate` | ~2000-4000 | Multi-perspective analysis |
+
+### Automatic Degradation
+
+When budget constraints are reached, strategies degrade automatically:
+
+```
+tree_of_thoughts → chain_of_thought → react
+```
+
+Configure explicit degradation:
+
+```yaml
+- id: "explore"
+  type: "cognitive"
+  strategy: "tree_of_thoughts"
+  budget_max: 2500
+  degrade_to: "chain_of_thought"  # Fallback strategy
+  retries: 1                       # Retry count on degradation
+```
+
+## Creating Templates
+
+<Steps>
+  <Step title="Create Template File">
+    Create a YAML file in `config/workflows/examples/` or your custom directory:
+
+```yaml
+# config/workflows/examples/my_workflow.yaml
+name: "my_workflow"
+version: "1.0.0"
+description: "Custom analysis workflow"
+
+defaults:
+  model_tier: "medium"
+  budget_agent_max: 5000
+  require_approval: false
+
+nodes:
+  - id: "intake"
+    type: "simple"
+    strategy: "react"
+    tools_allowlist:
+      - "web_search"
+    budget_max: 1500
+    depends_on: []
+
+  - id: "analyze"
+    type: "cognitive"
+    strategy: "chain_of_thought"
+    budget_max: 2000
+    depends_on: ["intake"]
+
+  - id: "synthesize"
+    type: "cognitive"
+    strategy: "reflection"
+    budget_max: 1500
+    depends_on: ["analyze"]
+
+edges:
+  - from: "intake"
+    to: "analyze"
+  - from: "analyze"
+    to: "synthesize"
+```
+  </Step>
+
+  <Step title="Register Template Directory">
+    Templates are loaded at startup via `InitTemplateRegistry`:
+
+```go
+// In orchestrator initialization
+registry := templates.InitTemplateRegistry(
+    "./config/workflows/builtin",
+    "./config/workflows/examples",  // Your templates
+)
+
+// Validate all templates
+if err := registry.Finalize(); err != nil {
+    log.Fatal(err)
+}
+```
+  </Step>
+
+  <Step title="Restart Services">
+```bash
+docker compose -f deploy/compose/docker-compose.yml up -d --force-recreate orchestrator
+```
+  </Step>
+
+  <Step title="List Available Templates">
+    Via gRPC:
+
+```bash
+grpcurl -plaintext -d '{}' localhost:50052 \
+  shannon.orchestrator.OrchestratorService/ListTemplates
+```
+  </Step>
+</Steps>
+
+## Using Templates
+
+### Via HTTP Gateway
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Analyze the current AI market trends",
+    "context": {
+      "template": "my_workflow",
+      "template_version": "1.0.0"
+    }
+  }'
+```
+
+### Via gRPC
+
+```bash
+grpcurl -plaintext -d '{
+  "query": "Analyze the current AI market trends",
+  "context": {
+    "template": "my_workflow",
+    "template_version": "1.0.0",
+    "disable_ai": true
+  }
+}' localhost:50052 shannon.orchestrator.OrchestratorService/SubmitTask
+```
+
+<Note>
+Set `disable_ai: true` to enforce template-only execution without AI fallback.
+</Note>
+
+### Via Python SDK
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+handle = client.submit_task(
+    "Analyze the current AI market trends",
+    context={
+        "template": "my_workflow",
+        "template_version": "1.0.0",
+    },
+)
+result = client.wait(handle.task_id)
+print(result.result)
+```
+
+## Template Examples
+
+### Simple Analysis Workflow
+
+Two-stage pipeline for quick summarization:
+
+```yaml
+name: "simple_analysis"
+version: "1.0.0"
+description: "Quick summarization workflow for short briefs"
+
+defaults:
+  model_tier: "medium"
+  budget_agent_max: 3000
+  require_approval: false
+
+nodes:
+  - id: "intake"
+    type: "simple"
+    strategy: "react"
+    budget_max: 1000
+    depends_on: []
+
+  - id: "summarize"
+    type: "cognitive"
+    strategy: "chain_of_thought"
+    budget_max: 1200
+    depends_on: ["intake"]
+
+edges:
+  - from: "intake"
+    to: "summarize"
+```
+
+### Research Summary Workflow
+
+Four-stage research pipeline with progressive reasoning:
+
+```yaml
+name: "research_summary"
+version: "1.0.0"
+description: "Multi-stage research workflow"
+
+defaults:
+  model_tier: "medium"
+  budget_agent_max: 6000
+  require_approval: false
+
+nodes:
+  - id: "discover"
+    type: "simple"
+    strategy: "react"
+    tools_allowlist:
+      - "web_search"
+    budget_max: 1500
+    depends_on: []
+
+  - id: "reason"
+    type: "cognitive"
+    strategy: "chain_of_thought"
+    budget_max: 1500
+    depends_on: ["discover"]
+
+  - id: "explore"
+    type: "cognitive"
+    strategy: "tree_of_thoughts"
+    budget_max: 2500
+    degrade_to: "chain_of_thought"
+    retries: 1
+    depends_on: ["reason"]
+
+  - id: "finalize"
+    type: "cognitive"
+    strategy: "reflection"
+    budget_max: 1000
+    depends_on: ["explore"]
+
+edges:
+  - from: "discover"
+    to: "reason"
+  - from: "reason"
+    to: "explore"
+  - from: "explore"
+    to: "finalize"
+```
+
+### Parallel DAG Workflow
+
+Complex workflow with parallel execution branches:
+
+```yaml
+name: "parallel_analysis"
+version: "1.0.0"
+description: "Parallel analysis with convergence"
+
+defaults:
+  model_tier: "medium"
+  budget_agent_max: 8000
+  require_approval: false
+
+nodes:
+  - id: "understand"
+    type: "simple"
+    strategy: "react"
+    budget_max: 1000
+    depends_on: []
+
+  - id: "parallel_analysis"
+    type: "dag"
+    budget_max: 5000
+    depends_on: ["understand"]
+    metadata:
+      tasks:
+        - id: "collect"
+          tools_allowlist: ["web_search"]
+          depends_on: []
+        - id: "quantitative"
+          tools_allowlist: ["calculator"]
+          depends_on: ["collect"]
+        - id: "qualitative"
+          tools_allowlist: []
+          depends_on: ["collect"]
+        - id: "cross_validate"
+          depends_on: ["quantitative", "qualitative"]
+
+  - id: "report"
+    type: "cognitive"
+    strategy: "reflection"
+    budget_max: 2000
+    degrade_to: "chain_of_thought"
+    depends_on: ["parallel_analysis"]
+
+edges:
+  - from: "understand"
+    to: "parallel_analysis"
+  - from: "parallel_analysis"
+    to: "report"
+```
+
+## Template Inheritance
+
+Templates can inherit from parent templates using `extends`:
+
+```yaml
+# base_research.yaml
+name: "base_research"
+version: "1.0.0"
+
+defaults:
+  model_tier: "medium"
+  budget_agent_max: 5000
+  require_approval: false
+```
+
+```yaml
+# advanced_research.yaml
+name: "advanced_research"
+version: "1.0.0"
+extends: ["base_research"]    # Inherits all defaults
+
+defaults:
+  budget_agent_max: 10000     # Override specific values
+
+nodes:
+  # ... additional nodes
+```
+
+Multiple parents are applied in order, with the derived template's values taking precedence.
+
+## Validation
+
+Templates are validated at load time for:
+
+- YAML syntax correctness
+- Required field presence
+- DAG acyclicity (no circular dependencies)
+- Budget hierarchy (node budgets ≤ agent budget)
+- Tool registry existence
+- Variable reference resolution
+
+```go
+registry := templates.InitTemplateRegistry("./templates")
+
+// Validates all templates
+if err := registry.Finalize(); err != nil {
+    log.Fatalf("Template validation failed: %v", err)
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Keep Nodes Small and Focused">
+    Each node should do one thing well:
+
+```yaml
+# Good: Focused nodes
+- id: "search"
+  type: "simple"
+  strategy: "react"
+  tools_allowlist: ["web_search"]
+
+- id: "analyze"
+  type: "cognitive"
+  strategy: "chain_of_thought"
+```
+  </Accordion>
+
+  <Accordion title="Explicitly Allowlist Tools">
+    Restrict tools per node for security and predictability:
+
+```yaml
+# Good: Explicit allowlist
+tools_allowlist:
+  - "web_search"
+  - "calculator"
+
+# Bad: Allowing all tools
+# tools_allowlist: ["*"]
+```
+  </Accordion>
+
+  <Accordion title="Use Budget Degradation">
+    Configure fallback strategies for cost control:
+
+```yaml
+- id: "explore"
+  strategy: "tree_of_thoughts"
+  budget_max: 2500
+  degrade_to: "chain_of_thought"
+  retries: 1
+```
+  </Accordion>
+
+  <Accordion title="Use Inheritance for Common Patterns">
+    Extract shared defaults into base templates:
+
+```yaml
+extends: ["base_research"]
+defaults:
+  budget_agent_max: 8000  # Only override what changes
+```
+  </Accordion>
+
+  <Accordion title="Version Your Templates">
+    Use semantic versioning and specify version in requests:
+
+```yaml
+name: "my_workflow"
+version: "1.0.0"  # Increment on breaking changes
+```
+
+```json
+{
+  "context": {
+    "template": "my_workflow",
+    "template_version": "1.0.0"
+  }
+}
+```
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Template Not Found">
+    **Symptom:** `template 'my_workflow' not found`
+
+    **Solutions:**
+    1. Check template file exists in registered directory
+    2. Verify YAML syntax: `yamllint config/workflows/examples/my_workflow.yaml`
+    3. Restart orchestrator to reload templates
+    4. Check orchestrator logs for load errors
+  </Accordion>
+
+  <Accordion title="Validation Errors">
+    **Symptom:** `Template validation failed: circular dependency`
+
+    **Solutions:**
+    1. Review `depends_on` fields for cycles
+    2. Ensure DAG nodes have acyclic task dependencies
+    3. Check `edges` don't create loops
+  </Accordion>
+
+  <Accordion title="Budget Exceeded">
+    **Symptom:** Node execution stops early or degrades unexpectedly
+
+    **Solutions:**
+    1. Increase `budget_max` for affected nodes
+    2. Configure `degrade_to` for graceful fallback
+    3. Review total budget vs. sum of node budgets
+  </Accordion>
+
+  <Accordion title="Tools Not Available">
+    **Symptom:** `tool 'my_tool' not registered`
+
+    **Solutions:**
+    1. Verify tool is registered in tool registry
+    2. Check tool name spelling in `tools_allowlist`
+    3. Ensure LLM service has tool loaded
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Custom Tools" icon="wrench" href="/en/tutorials/custom-tools">
+    Add tools for your templates
+  </Card>
+  <Card title="Extending Shannon" icon="puzzle-piece" href="/en/tutorials/extending-shannon">
+    Other extension methods
+  </Card>
+  <Card title="Configuration" icon="gear" href="/en/quickstart/configuration">
+    Environment and YAML config
+  </Card>
+  <Card title="Architecture" icon="sitemap" href="/en/architecture/overview">
+    Understanding Shannon's design
+  </Card>
+</CardGroup>
