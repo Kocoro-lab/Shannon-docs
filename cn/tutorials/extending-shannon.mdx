@@ -17,8 +17,8 @@ description: "在不派生大型子系统的情况下扩展 Shannon 的简单、
   <Card title="供应商适配器" icon="plug">
     特定领域集成，无需更改核心
   </Card>
-  <Card title="分解" icon="diagram-project">
-    System 2 - 自定义规划和推理逻辑
+  <Card title="综合模板" icon="file-lines">
+    自定义研究输出格式
   </Card>
 </CardGroup>
 
@@ -591,6 +591,136 @@ if config.BudgetsEnforceTokenLimits {
     // 应用令牌预算
 }
 ```
+
+## 综合模板（输出自定义）
+
+**用于自定义 Shannon 格式化最终研究答案的方式**
+
+综合模板控制多智能体研究结果的格式化和呈现方式。它们对于深度研究工作流特别有用。
+
+### 何时使用
+
+- 为特定领域自定义输出格式（市场研究、学术、执行摘要）
+- 强制引用样式
+- 控制答案结构和长度
+- 注入特定领域的格式规则
+
+### 模板方法
+
+| 方法 | 上下文参数 | 用例 |
+|--------|-------------------|----------|
+| 命名模板 | `synthesis_template: "名称"` | 可重用的 `.tmpl` 文件 |
+| 逐字覆盖 | `synthesis_template_override: "..."` | 一次性自定义格式 |
+| 最小长度 | `synthesis_min_length: N` | 强制最小字符数 |
+
+### 使用命名模板
+
+在 `config/templates/synthesis/` 中创建模板：
+
+```go
+{{/* config/templates/synthesis/market_research.tmpl */}}
+{{template "_base.tmpl"}}
+
+## 执行摘要
+提供 2-3 句关键发现的摘要。
+
+## 市场分析
+- 关键趋势
+- 竞争格局
+- 机会和风险
+
+## 数据来源
+对所有声明使用 [n] 引用格式。
+
+## 建议
+基于分析的可操作见解。
+```
+
+通过 API 使用：
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "分析 2025 年电动汽车市场",
+    "context": {
+      "force_research": true,
+      "synthesis_template": "market_research"
+    }
+  }'
+```
+
+### 逐字覆盖
+
+用于无需创建模板文件的一次性自定义格式：
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "比较主要云服务提供商",
+    "context": {
+      "force_research": true,
+      "synthesis_template_override": "你是一个云基础设施分析师。\n\n## 分析格式\n- 从比较表开始\n- 使用 [n] 引用\n- 包含成本分析部分\n- 以建议结束"
+    }
+  }'
+```
+
+<Warning>
+使用 `synthesis_template_override` 时，您会绕过基础模板的引用约定。您必须在覆盖文本中包含引用规则（`[n]` 格式）。
+</Warning>
+
+### 最小长度控制
+
+强制最小输出长度：
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "AI 治理综合分析",
+    "context": {
+      "force_research": true,
+      "synthesis_min_length": 5000
+    }
+  }'
+```
+
+### 模板选择逻辑
+
+模板选择基于上下文和工作流信号：
+
+1. 如果设置了 `context.synthesis_template` → 使用对应命名模板。
+2. 否则，如果满足以下任一条件：
+   - `context.workflow_type == "research"`
+   - `context.force_research == true`
+   - `context.synthesis_style == "comprehensive"`
+   - `context.research_areas` 非空
+   → 使用 `research_comprehensive.tmpl`。
+3. 否则，如果 `context.synthesis_style == "concise"` → 使用 `research_concise.tmpl`。
+4. 否则 → 使用 `normal_default.tmpl`。
+
+### 可用模板
+
+| 模板 | 描述 |
+|----------|-------------|
+| `_base.tmpl` | 带引用规则的基础模板（受保护，不建议修改） |
+| `normal_default.tmpl` | 默认的非研究综合模板（结构最小化） |
+| `research_comprehensive.tmpl` | 详细研究格式，强调全面覆盖 |
+| `research_concise.tmpl` | 精简研究格式，字数要求较低 |
+| `research_with_facts.tmpl` | 为事实提取元数据优化的研究综合格式 |
+| `test_bullet_summary.tmpl` | 示例用的要点摘要模板 |
+
+### 最佳实践
+
+1. **始终扩展 `_base.tmpl`** - 确保引用约定得到维护
+2. **使用命名模板** 用于重复格式
+3. **使用覆盖** 用于一次性自定义
+4. **测试模板** 在生产使用前使用示例查询
+
+<Card title="模板目录" icon="folder">
+  模板位于 `config/templates/synthesis/`。请参阅该目录中的 `README.md` 了解模板编写指南。
+</Card>
 
 ## 最佳实践总结
 

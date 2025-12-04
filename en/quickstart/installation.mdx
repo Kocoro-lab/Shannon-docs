@@ -54,7 +54,7 @@ The `make dev` command starts the following services via Docker Compose:
 | **Orchestrator** | 50052 | gRPC orchestration service |
 | **Agent Core** | 50051 | Rust-based agent execution |
 | **LLM Service** | 8000 | Python LLM provider gateway |
-| **Dashboard** | 2111 | Real-time monitoring UI |
+| **Desktop App** | — | Native monitoring UI (Tauri) |
 | **PostgreSQL** | 5432 | Persistent storage |
 | **Redis** | 6379 | Caching and pub/sub |
 | **Qdrant** | 6333 | Vector database |
@@ -85,14 +85,12 @@ curl -X POST http://localhost:8080/api/v1/tasks \
 # You should receive a response with a task_id
 ```
 
-## Access the Dashboard
+## Access the UI
 
-Open your browser and navigate to:
+Open your browser and tools as needed:
 
-- **Shannon Dashboard**: http://localhost:2111
+- **Shannon Desktop App**: see [Desktop Application](/en/quickstart/desktop-app) for installation and usage
 - **Temporal UI**: http://localhost:8088
-
-The dashboard provides real-time task monitoring, event streaming, and system metrics.
 
 ## Configuration
 

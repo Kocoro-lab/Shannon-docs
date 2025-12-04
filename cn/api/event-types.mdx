@@ -5,7 +5,7 @@ description: "Shannon 流式事件类型（权威清单）"
 
 ## 概述
 
-Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件**。本文档记录平台**实际发出的 27 种事件类型**、它们的结构以及发生时机。
+Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件**。本文档记录平台**实际发出的 28 种事件类型**、它们的结构以及发生时机。
 
 事件提供:
 - **实时进度** - 实时跟踪任务执行
@@ -27,7 +27,7 @@ Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件
   "timestamp": "2024-10-27T10:00:00Z",
   "seq": 42,
   "stream_id": "stream-abc123",
-  "data": {}
+  "payload": {}
 }
 ```
 
@@ -42,7 +42,7 @@ Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件
 | `timestamp` | ISO 8601 | 事件发生时间 |
 | `seq` | integer | 用于排序的序列号 |
 | `stream_id` | string | 用于重连的流标识符 |
-| `data` | object | 事件特定的载荷(可选) |
+| `payload` | object | 事件特定的载荷(可选，序列化为 `payload`) |
 
 ---
 
@@ -91,11 +91,12 @@ Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件
 | `WORKSPACE_UPDATED` | 系统 | 内存/上下文已更新 |
 | `ROLE_ASSIGNED` | 系统 | 智能体角色已分配 |
 | `DELEGATION` | 系统 | 任务已委托 |
-| `BUDGET_THRESHOLD` | 系统 | Token 预算阈值已达到 |
+| `BUDGET_THRESHOLD` | 系统/进度 | 任务预算达到预警阈值 |
+| `STREAM_END` | 流式 | 显式的流结束信号（该工作流不会再有新事件） |
 
-**总计**: 27 种事件类型
+**总计**: 28 种事件类型
 
-注意：`WORKFLOW_FAILED`、`TOOL_COMPLETED`、`TOOL_FAILED`、`BUDGET_UPDATE` 等事件不会由流式 API 发出。失败通过 `ERROR_OCCURRED` 表示；完成由 `WORKFLOW_COMPLETED` 表示。
+注意：`WORKFLOW_FAILED`、`TOOL_COMPLETED`、`TOOL_FAILED`、`BUDGET_UPDATE` 等事件不会由流式 API 发出。失败通过 `ERROR_OCCURRED` 表示；完成由 `WORKFLOW_COMPLETED` 表示。`STREAM_END` 作为生命周期信号在完成/终止后发出，用于标记流式事件结束。
 
 ---
 

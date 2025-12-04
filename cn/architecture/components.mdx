@@ -47,11 +47,11 @@ LLM Service 注意事项:
   - `["name", …]`: 只有列出的工具可用（内置、OpenAPI、按注册表名称的 MCP）
 </Note>
 
-### Dashboard (TypeScript)
-- **端口**: 2111
-- **角色**: 实时监控界面
-- **技术栈**: TypeScript, React, SSE
-- **扩展方式**: 无状态，水平扩展
+### Desktop App (Tauri + Next.js)
+- **端口**: —（原生应用，通过 Gateway :8080 访问后端）
+- **角色**: 实时监控界面（任务、运行、事件）
+- **技术栈**: Next.js、Tauri、SSE/WebSocket
+- **扩展方式**: 客户端侧；后端服务独立扩展
 
 ## 数据存储
 

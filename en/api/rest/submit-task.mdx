@@ -118,6 +118,10 @@ Recognized keys:
 - `template_version` — template version
 - `disable_ai` — template-only mode (no AI fallback) - **cannot be combined with model controls**
 - Window controls: `history_window_size`, `use_case_preset`, `primers_count`, `recents_count`, `compression_trigger_ratio`, `compression_target_ratio`
+- **Deep Research 2.0 controls** (when `force_research: true`):
+  - `iterative_research_enabled` — Enable/disable iterative coverage loop (default: `true`)
+  - `iterative_max_iterations` — Max iterations 1-5 (strategy presets seed defaults; otherwise falls back to `3`)
+  - `enable_fact_extraction` — Extract structured facts into metadata (default: `false`)
 
 Rules:
 - Top-level parameters override context equivalents: `model_tier`, `model_override`, `provider_override`
@@ -253,6 +257,51 @@ curl -X POST http://localhost:8080/api/v1/tasks \
     "mode": "supervisor"
   }'
 ```
+
+### Deep Research 2.0
+
+Deep Research 2.0 provides iterative coverage improvement for comprehensive research tasks.
+
+```bash
+# Basic Deep Research (uses default settings)
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "AI trends in 2025",
+    "context": {
+      "force_research": true
+    }
+  }'
+
+# Custom iterations (faster, less thorough)
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Compare major LLM providers",
+    "context": {
+      "force_research": true,
+      "iterative_max_iterations": 2
+    }
+  }'
+
+# Disable iterative mode (use legacy research)
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Explain machine learning basics",
+    "context": {
+      "force_research": true,
+      "iterative_research_enabled": false
+    }
+  }'
+```
+
+<Tip>
+**Deep Research 2.0** is enabled by default when `force_research: true`. It uses a multi-stage workflow with coverage evaluation to ensure comprehensive results. Use `iterative_max_iterations` to control depth (1-5, default: 3).
+</Tip>
 
 ### With Idempotency
 

@@ -633,6 +633,17 @@ All LLM providers return usage data in OpenAI's standard structure:
 | `ERROR_OCCURRED` | Error occurred | `error`, `severity` |
 | `ERROR_RECOVERY` | Error recovery attempt | `message` |
 | `WORKSPACE_UPDATED` | Memory/context updated | `message` |
+| `BUDGET_THRESHOLD` | Budget warning threshold reached | `usage_percent`, `threshold_percent`, `tokens_used`, `tokens_budget`, `level`, `budget_type` |
+
+### Stream Lifecycle Events
+
+| Event Type | Description |
+|------------|-------------|
+| `STREAM_END` | Explicit end-of-stream signal (no more events will be emitted for this workflow) |
+
+<Note>
+Over SSE, the `STREAM_END` lifecycle event is delivered as an SSE event named `done` with `data: [DONE]` (plain text, not JSON). Over WebSocket, it appears as a normal JSON event with `"type": "STREAM_END"`.
+</Note>
 
 ### Team & Approvals
 

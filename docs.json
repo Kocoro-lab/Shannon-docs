@@ -82,6 +82,7 @@
                 "group": "Guides",
                 "pages": [
                   "en/quickstart/configuration",
+                  "en/quickstart/desktop-app",
                   "en/quickstart/troubleshooting"
                 ]
               }
@@ -262,6 +263,7 @@
                 "group": "指南",
                 "pages": [
                   "cn/quickstart/configuration",
+                  "cn/quickstart/desktop-app",
                   "cn/quickstart/troubleshooting"
                 ]
               }

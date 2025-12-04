@@ -634,6 +634,17 @@ Shannon 的 SSE 流式传输使用 **OpenAI 兼容格式** 处理使用元数据
 | `ERROR_OCCURRED` | 发生错误 | `error`、`severity` |
 | `ERROR_RECOVERY` | 错误恢复尝试 | `message` |
 | `WORKSPACE_UPDATED` | 内存/上下文已更新 | `message` |
+| `BUDGET_THRESHOLD` | 任务预算达到预警阈值 | `usage_percent`、`threshold_percent`、`tokens_used`、`tokens_budget`、`level`、`budget_type` |
+
+### 流生命周期事件
+
+| 事件类型 | 描述 |
+|------------|-------------|
+| `STREAM_END` | 显式的流结束信号（该工作流不会再有新事件） |
+
+<Note>
+在 SSE 中，`STREAM_END` 生命周期事件通过名为 `done` 的 SSE 事件发送，数据为纯文本 `[DONE]`（不是 JSON）。在 WebSocket 中，它会以普通 JSON 事件的形式出现，字段为 `"type": "STREAM_END"`。
+</Note>
 
 ### 团队与审批
 

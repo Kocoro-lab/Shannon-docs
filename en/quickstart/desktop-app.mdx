@@ -1,0 +1,193 @@
+---
+title: "Desktop Application"
+description: "Native desktop app for Shannon task monitoring and management"
+---
+
+## Overview
+
+Shannon provides a native desktop application built with [Tauri](https://tauri.app/) for real-time task monitoring and management. The desktop app offers a streamlined interface for interacting with Shannon services.
+
+<Note>
+The desktop application has replaced the previous web dashboard and provides improved performance and native OS integration.
+</Note>
+
+## Features
+
+- **Live Task Streaming** - Real-time SSE event feed for active tasks
+- **Task Management** - Submit, monitor, and cancel tasks
+- **Session History** - Browse and continue previous conversations
+- **Multi-Platform** - macOS (Universal), Windows, Linux, iOS
+
+## Supported Platforms
+
+| Platform | Architecture | Format |
+|----------|-------------|--------|
+| macOS | Universal (Intel + Apple Silicon) | DMG |
+| Windows | x86_64 | MSI |
+| Linux | x86_64 | AppImage/DEB |
+| iOS | ARM64 | App Bundle |
+
+## Installation
+
+### macOS
+
+1. Download the latest DMG from the [Releases page](https://github.com/Kocoro-lab/Shannon/releases)
+2. Open the DMG file
+3. Drag Shannon to Applications folder
+4. Launch from Applications
+
+```bash
+# Or install via command line
+open shannon-desktop_0.1.0_universal.dmg
+```
+
+### Building from Source
+
+<Steps>
+  <Step title="Prerequisites">
+    Ensure you have the required tools installed:
+
+    - Node.js 18+
+    - Rust 1.70+
+    - Xcode Command Line Tools (macOS)
+
+    ```bash
+    # Install Rust targets for universal binary (macOS)
+    rustup target add aarch64-apple-darwin x86_64-apple-darwin
+    ```
+  </Step>
+
+  <Step title="Clone and Install">
+    ```bash
+    git clone https://github.com/Kocoro-lab/Shannon.git
+    cd Shannon/desktop
+    npm install
+    ```
+  </Step>
+
+  <Step title="Configure API Endpoint">
+    ```bash
+    cp .env.local.example .env.local
+    # Edit .env.local to set your Shannon API URL
+    # Default: http://localhost:8080
+    ```
+  </Step>
+
+  <Step title="Development Mode">
+    ```bash
+    npm run tauri:dev
+    ```
+  </Step>
+
+  <Step title="Production Build">
+    ```bash
+    npm run tauri:build
+    ```
+
+    Output: `src-tauri/target/release/bundle/dmg/shannon-desktop_0.1.0_universal.dmg`
+  </Step>
+</Steps>
+
+## Configuration
+
+### API Endpoint
+
+Set the Shannon API endpoint via environment variable:
+
+```bash
+# .env.local
+NEXT_PUBLIC_API_URL=http://localhost:8080
+```
+
+For production deployments:
+
+```bash
+NEXT_PUBLIC_API_URL=https://api.your-domain.com
+```
+
+## Usage
+
+### Main Interface
+
+The desktop app provides:
+
+1. **Chat Interface** - Submit queries and view responses
+2. **Runs View** - Monitor active and completed tasks
+3. **Run Details** - View full event stream for a specific task
+4. **Settings** - Configure API endpoint and preferences
+
+### Submitting Tasks
+
+1. Open the app
+2. Enter your query in the chat input
+3. Press Enter or click Send
+4. Watch real-time events as the task executes
+
+### Monitoring Tasks
+
+Navigate to the Runs page to see:
+
+- Active tasks with live status
+- Completed tasks with results
+- Failed tasks with error details
+
+Click on any run to see the full event stream.
+
+## Troubleshooting
+
+### Build Fails: Module Not Found
+
+```bash
+npm install @tauri-apps/plugin-shell
+```
+
+### Universal Binary Requirements (macOS)
+
+Ensure both Rust targets are installed:
+
+```bash
+rustup target list --installed
+# Should show:
+# aarch64-apple-darwin
+# x86_64-apple-darwin
+```
+
+### Connection Issues
+
+1. Verify Shannon services are running
+2. Check API URL in `.env.local`
+3. Ensure no firewall blocking port 8080
+
+### Clean Rebuild
+
+```bash
+rm -rf .next out src-tauri/target/release/bundle
+npm run tauri:build
+```
+
+## Technology Stack
+
+| Component | Technology |
+|-----------|------------|
+| Framework | Next.js 16 (Turbopack) |
+| Runtime | Tauri 2.x |
+| UI | Shadcn/ui + Tailwind CSS |
+| State | Redux Toolkit |
+| Backend | Shannon Gateway API |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/en/quickstart/installation">
+    Set up Shannon services
+  </Card>
+  <Card title="Quick Start" icon="rocket" href="/en/quickstart/quickstart">
+    Submit your first task
+  </Card>
+  <Card title="Streaming" icon="stream" href="/en/quickstart/concepts/streaming">
+    Understand real-time events
+  </Card>
+  <Card title="API Reference" icon="code" href="/en/api/overview">
+    Full API documentation
+  </Card>
+</CardGroup>

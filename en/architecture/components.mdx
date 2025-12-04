@@ -47,11 +47,11 @@ LLM Service notes:
   - `["name", …]`: only listed tools available (built‑in, OpenAPI, MCP by registry name)
 </Note>
 
-### Dashboard (TypeScript)
-- **Port**: 2111
-- **Role**: Real-time monitoring UI
-- **Technology**: TypeScript, React, SSE
-- **Scaling**: Stateless, horizontal
+### Desktop App (Tauri + Next.js)
+- **Port**: — (native app, connects to Gateway :8080)
+- **Role**: Real-time monitoring UI (tasks, runs, events)
+- **Technology**: Next.js, Tauri, SSE/WebSocket
+- **Scaling**: Client-side; backend services scale independently
 
 ## Data Stores
 

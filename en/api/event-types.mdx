@@ -5,7 +5,7 @@ description: "Complete reference for Shannon streaming event types"
 
 ## Overview
 
-Shannon emits **real-time events** via Server-Sent Events (SSE) to provide visibility into task execution. This document catalogs the **26 event types** actually emitted by the platform, their structure, and when they occur.
+Shannon emits **real-time events** via Server-Sent Events (SSE) to provide visibility into task execution. This document catalogs the **28 event types** actually emitted by the platform, their structure, and when they occur.
 
 Events provide:
 - **Real-time progress** - Track task execution as it happens
@@ -27,7 +27,7 @@ All events follow this base structure:
   "timestamp": "2024-10-27T10:00:00Z",
   "seq": 42,
   "stream_id": "stream-abc123",
-  "data": {}
+  "payload": {}
 }
 ```
 
@@ -42,7 +42,7 @@ All events follow this base structure:
 | `timestamp` | ISO 8601 | When the event occurred |
 | `seq` | integer | Sequence number for ordering |
 | `stream_id` | string | Stream identifier for reconnection |
-| `data` | object | Event-specific payload (optional) |
+| `payload` | object | Event-specific payload (optional; serialized as `payload` in JSON) |
 
 ---
 
@@ -93,11 +93,12 @@ Authoritative list of event types emitted by Shannon:
 | `WORKSPACE_UPDATED` | System | Memory/context updated |
 | `ROLE_ASSIGNED` | System | Agent role assigned |
 | `DELEGATION` | System | Task delegated |
-| `BUDGET_THRESHOLD` | System | Token budget threshold reached |
+| `BUDGET_THRESHOLD` | System/Progress | Budget warning threshold reached for a task |
+| `STREAM_END` | Stream | Explicit end-of-stream signal (no more events for this workflow) |
 
-**Total**: 27 event types
+**Total**: 28 event types
 
-Note: Events such as `WORKFLOW_FAILED`, `TASK_COMPLETED`, `TOOL_COMPLETED`, `TOOL_FAILED`, and `BUDGET_UPDATE` are not emitted by the streaming API. Failures are surfaced via `ERROR_OCCURRED`; completion is indicated by `WORKFLOW_COMPLETED`.
+Note: Events such as `WORKFLOW_FAILED`, `TASK_COMPLETED`, `TOOL_COMPLETED`, `TOOL_FAILED`, and `BUDGET_UPDATE` are not emitted by the streaming API. Failures are surfaced via `ERROR_OCCURRED`; completion is indicated by `WORKFLOW_COMPLETED`. `STREAM_END` is emitted as a lifecycle signal after completion/termination when streaming ends.
 
 ---
 

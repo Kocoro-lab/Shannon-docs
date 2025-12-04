@@ -17,8 +17,8 @@ This guide outlines extensible patterns for customizing Shannon while maintainin
   <Card title="Vendor Adapters" icon="plug">
     Domain-specific integrations without core changes
   </Card>
-  <Card title="Decomposition" icon="diagram-project">
-    System 2 - Custom planning and reasoning logic
+  <Card title="Synthesis Templates" icon="file-lines">
+    Customize research output formatting
   </Card>
 </CardGroup>
 
@@ -591,6 +591,136 @@ if config.BudgetsEnforceTokenLimits {
     // Apply token budget
 }
 ```
+
+## Synthesis Templates (Output Customization)
+
+**For customizing how Shannon formats final research answers**
+
+Synthesis templates control how multi-agent research results are formatted and presented. They're particularly useful for Deep Research workflows.
+
+### When to Use
+
+- Customize output format for specific domains (market research, academic, executive summaries)
+- Enforce citation styles
+- Control answer structure and length
+- Inject domain-specific formatting rules
+
+### Template Methods
+
+| Method | Context Parameter | Use Case |
+|--------|-------------------|----------|
+| Named template | `synthesis_template: "name"` | Reusable `.tmpl` files |
+| Verbatim override | `synthesis_template_override: "..."` | One-time custom format |
+| Min length | `synthesis_min_length: N` | Enforce minimum character count |
+
+### Using Named Templates
+
+Create templates in `config/templates/synthesis/`:
+
+```go
+{{/* config/templates/synthesis/market_research.tmpl */}}
+{{template "_base.tmpl"}}
+
+## Executive Summary
+Provide a 2-3 sentence summary of key findings.
+
+## Market Analysis
+- Key trends
+- Competitive landscape
+- Opportunities and risks
+
+## Data Sources
+Use [n] citation format for all claims.
+
+## Recommendations
+Actionable insights based on the analysis.
+```
+
+Use via API:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Analyze the electric vehicle market in 2025",
+    "context": {
+      "force_research": true,
+      "synthesis_template": "market_research"
+    }
+  }'
+```
+
+### Verbatim Override
+
+For one-time custom formatting without creating a template file:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Compare major cloud providers",
+    "context": {
+      "force_research": true,
+      "synthesis_template_override": "You are a cloud infrastructure analyst.\n\n## Analysis Format\n- Start with a comparison table\n- Use [n] citations\n- Include cost analysis section\n- End with recommendations"
+    }
+  }'
+```
+
+<Warning>
+When using `synthesis_template_override`, you bypass the base template's citation contract. You must include citation rules (`[n]` format) in your override text.
+</Warning>
+
+### Minimum Length Control
+
+Enforce a minimum output length:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Comprehensive analysis of AI governance",
+    "context": {
+      "force_research": true,
+      "synthesis_min_length": 5000
+    }
+  }'
+```
+
+### Template Selection Logic
+
+Selection is based on context and workflow signals:
+
+1. If `context.synthesis_template` is set → use that named template.
+2. Else if any of:
+   - `context.workflow_type == "research"`
+   - `context.force_research == true`
+   - `context.synthesis_style == "comprehensive"`
+   - `context.research_areas` is non-empty
+   → use `research_comprehensive.tmpl`.
+3. Else if `context.synthesis_style == "concise"` → use `research_concise.tmpl`.
+4. Otherwise → use `normal_default.tmpl`.
+
+### Available Templates
+
+| Template | Description |
+|----------|-------------|
+| `_base.tmpl` | Protected base with citation rules |
+| `normal_default.tmpl` | Default non-research synthesis (minimal structure) |
+| `research_comprehensive.tmpl` | Detailed research format with strong coverage requirements |
+| `research_concise.tmpl` | Shorter research synthesis with lighter word requirements |
+| `research_with_facts.tmpl` | Research format optimized for fact extraction metadata |
+| `test_bullet_summary.tmpl` | Example bullet-point summary template |
+
+### Best Practices
+
+1. **Always extend `_base.tmpl`** - Ensures citation contract is maintained
+2. **Use named templates** for recurring formats
+3. **Use override** for one-off customizations
+4. **Test templates** with sample queries before production use
+
+<Card title="Template Directory" icon="folder">
+  Templates are located in `config/templates/synthesis/`. See `README.md` in that directory for template authoring guidelines.
+</Card>
 
 ## Best Practices Summary
 

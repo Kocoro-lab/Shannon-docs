@@ -52,6 +52,7 @@ X-API-Key: sk_test_123456
   "status": "string",
   "result": "string",
   "response": {},
+  "metadata": {},
   "error": "string",
   "created_at": "timestamp",
   "updated_at": "timestamp",
@@ -77,6 +78,7 @@ X-API-Key: sk_test_123456
 | `status` | string | Current task status |
 | `result` | string | Raw LLM output (plain text or JSON string) |
 | `response` | object | Parsed JSON (only present if `result` contains valid JSON) |
+| `metadata` | object | Task metadata (citations, verification, unified_response, extracted_facts, model_breakdown, etc.) |
 | `error` | string | Error message (empty if no error) |
 | `created_at` | timestamp | Task creation time |
 | `updated_at` | timestamp | Last update time |
@@ -181,6 +183,156 @@ curl -X GET "http://localhost:8080/api/v1/tasks/task_01HQZX3Y9K8M2P4N5S7T9W2V" \
   "mode": "EXECUTION_MODE_SIMPLE"
 }
 ```
+
+## Deep Research Response Payload
+
+When a task is submitted with `force_research: true`, the completed response includes additional metadata fields with structured research data.
+
+### Deep Research Metadata Fields
+
+For Deep Research tasks, the `metadata` object contains:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `unified_response` | object | Consolidated response with all metadata |
+| `citations` | array | Structured citation data from research |
+| `verification` | object | Claim verification results (if `enable_verification: true`) |
+| `extracted_facts` | array | Structured facts (if `enable_fact_extraction: true`) |
+| `fact_summary` | object | Summary statistics for extracted facts |
+
+### Example: Deep Research Completed Response
+
+```json
+{
+  "task_id": "task-abc123-research",
+  "status": "TASK_STATUS_COMPLETED",
+  "result": "# AI Trends in 2025\n\nThe artificial intelligence landscape in 2025 is characterized by...[1][2]\n\n## Sources\n[1] MIT Technology Review (https://...) - 2025-01-15\n[2] Nature AI (https://...) - 2025-01-10",
+  "metadata": {
+    "unified_response": {
+      "task_id": "task-abc123-research",
+      "session_id": "session-xyz",
+      "status": "completed",
+      "result": "The artificial intelligence landscape in 2025...",
+      "metadata": {
+        "model": "claude-sonnet-4-5-20250929",
+        "execution_mode": "EXECUTION_MODE_COMPLEX",
+        "complexity_score": 0.72,
+        "agents_used": 3
+      },
+      "usage": {
+        "input_tokens": 12100,
+        "output_tokens": 3320,
+        "total_tokens": 15420,
+        "cost_usd": 0.0462
+      },
+      "performance": {
+        "execution_time_ms": 45200
+      },
+      "stop_reason": "completed",
+      "error": null,
+      "timestamp": "2025-01-20T10:00:00Z"
+    },
+    "citations": [
+      {
+        "title": "AI Breakthrough Report 2025",
+        "url": "https://www.technologyreview.com/2025/01/ai-report",
+        "source": "MIT Technology Review",
+        "credibility_score": 0.92,
+        "quality_score": 0.88
+      },
+      {
+        "title": "Nature AI Special Issue",
+        "url": "https://www.nature.com/articles/ai-2025",
+        "source": "Nature",
+        "credibility_score": 0.95,
+        "quality_score": 0.91
+      }
+    ],
+    "verification": {
+      "overall_confidence": 0.87,
+      "total_claims": 12,
+      "supported_claims": 10,
+      "unsupported_claims": ["Claim about future predictions"],
+      "conflicts": [],
+      "claim_details": [
+        {
+          "claim": "AI models have achieved 95% accuracy on benchmark X",
+          "supporting_citations": [1, 2],
+          "conflicting_citations": [],
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  "model_used": "claude-sonnet-4-5-20250929",
+  "provider": "anthropic",
+  "usage": {
+    "total_tokens": 15420,
+    "input_tokens": 12100,
+    "output_tokens": 3320,
+    "estimated_cost": 0.0462
+  }
+}
+```
+
+### Extracted Facts (Optional)
+
+When `enable_fact_extraction: true` is set in the request context:
+
+```json
+{
+  "metadata": {
+    "extracted_facts": [
+      {
+        "statement": "GPT-5 achieved 95% accuracy on MMLU benchmark",
+        "confidence": 0.92,
+        "source_citation": [1, 3],
+        "category": "performance",
+        "entity_mentions": ["GPT-5", "MMLU"],
+        "temporal_marker": "2025",
+        "is_quantitative": true
+      }
+    ],
+    "fact_summary": {
+      "total_facts": 24,
+      "high_confidence": 18,
+      "categorized_facts": {
+        "performance": 8,
+        "market": 6,
+        "research": 10
+      },
+      "contradiction_count": 1
+    }
+  }
+}
+```
+
+### Citation Object Schema
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `url` | string | Source URL |
+| `title` | string | Article/page title |
+| `source` | string | Publisher/domain name |
+| `credibility_score` | float | Source credibility (0.0-1.0) |
+| `quality_score` | float | Content quality (0.0-1.0) |
+
+The position of each citation in the `metadata.citations` array corresponds to the `[n]` index used in inline references.
+
+### Verification Object Schema
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `overall_confidence` | float | Aggregate verification confidence (0.0-1.0) |
+| `total_claims` | integer | Number of factual claims extracted |
+| `supported_claims` | integer | Claims with supporting citations |
+| `unsupported_claims` | array | List of claim texts without citation support |
+| `conflicts` | array | Detected conflicting information |
+| `claim_details` | array | Per-claim verification details |
+
+<Tip>
+**Accessing Deep Research Data**: The `metadata.citations` array and `metadata.verification` object are only populated for research workflows (`force_research: true`). For simple tasks, these fields will be absent from the response.
+</Tip>
 
 ## Error Responses
 

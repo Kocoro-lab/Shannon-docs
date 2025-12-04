@@ -435,14 +435,18 @@ task_ids = ["task-1", "task-2", "task-3"]
 results = asyncio.run(monitor_all(task_ids))
 ```
 
-## Dashboard Integration
+## Desktop Application
 
-Shannon's built-in dashboard (http://localhost:2111) uses SSE for real-time updates:
+Shannon provides a native desktop application built with Tauri for real-time task monitoring and management. The desktop app offers:
 
-- Live event feed for active tasks
-- Real-time metrics updates
-- Agent status visualization
-- Token usage graphs
+- Live event streaming for active tasks
+- Task submission and management interface
+- Real-time metrics and visualizations
+- Session history browsing
+
+<Note>
+The desktop application has replaced the previous web dashboard. See the [Desktop App Guide](/en/quickstart/desktop-app) for installation and usage instructions.
+</Note>
 
 ## Best Practices
 

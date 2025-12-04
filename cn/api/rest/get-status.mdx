@@ -52,6 +52,7 @@ X-API-Key: sk_test_123456
   "status": "string",
   "result": "string",
   "response": {},
+  "metadata": {},
   "error": "string",
   "created_at": "timestamp",
   "updated_at": "timestamp",
@@ -77,6 +78,7 @@ X-API-Key: sk_test_123456
 | `status` | string | 当前任务状态 |
 | `result` | string | 原始 LLM 输出（纯文本或 JSON 字符串） |
 | `response` | object | 解析后的 JSON（仅当 `result` 可解析为 JSON 时出现） |
+| `metadata` | object | 任务元数据（引用、验证结果、统一响应、提取事实、model_breakdown 等） |
 | `error` | string | 错误消息（无错误时为空） |
 | `created_at` | timestamp | 任务创建时间 |
 | `updated_at` | timestamp | 最后更新时间 |
@@ -181,6 +183,156 @@ curl -X GET "http://localhost:8080/api/v1/tasks/task_01HQZX3Y9K8M2P4N5S7T9W2V" \
   "mode": "EXECUTION_MODE_SIMPLE"
 }
 ```
+
+## 深度研究响应载荷
+
+当任务以 `force_research: true` 提交时，完成的响应会包含带有结构化研究数据的额外元数据字段。
+
+### 深度研究元数据字段
+
+对于深度研究任务，`metadata` 对象包含：
+
+| 字段 | 类型 | 描述 |
+|------|------|------|
+| `unified_response` | object | 包含所有元数据的统一响应 |
+| `citations` | array | 研究中的结构化引用数据 |
+| `verification` | object | 声明验证结果（如果设置了 `enable_verification: true`） |
+| `extracted_facts` | array | 结构化事实（如果设置了 `enable_fact_extraction: true`） |
+| `fact_summary` | object | 提取事实的摘要统计 |
+
+### 示例：深度研究完成响应
+
+```json
+{
+  "task_id": "task-abc123-research",
+  "status": "TASK_STATUS_COMPLETED",
+  "result": "# 2025 年 AI 趋势\n\n2025 年的人工智能格局特征是...[1][2]\n\n## 来源\n[1] MIT Technology Review (https://...) - 2025-01-15\n[2] Nature AI (https://...) - 2025-01-10",
+  "metadata": {
+    "unified_response": {
+      "task_id": "task-abc123-research",
+      "session_id": "session-xyz",
+      "status": "completed",
+      "result": "2025 年的人工智能格局...",
+      "metadata": {
+        "model": "claude-sonnet-4-5-20250929",
+        "execution_mode": "EXECUTION_MODE_COMPLEX",
+        "complexity_score": 0.72,
+        "agents_used": 3
+      },
+      "usage": {
+        "input_tokens": 12100,
+        "output_tokens": 3320,
+        "total_tokens": 15420,
+        "cost_usd": 0.0462
+      },
+      "performance": {
+        "execution_time_ms": 45200
+      },
+      "stop_reason": "completed",
+      "error": null,
+      "timestamp": "2025-01-20T10:00:00Z"
+    },
+    "citations": [
+      {
+        "title": "AI Breakthrough Report 2025",
+        "url": "https://www.technologyreview.com/2025/01/ai-report",
+        "source": "MIT Technology Review",
+        "credibility_score": 0.92,
+        "quality_score": 0.88
+      },
+      {
+        "title": "Nature AI Special Issue",
+        "url": "https://www.nature.com/articles/ai-2025",
+        "source": "Nature",
+        "credibility_score": 0.95,
+        "quality_score": 0.91
+      }
+    ],
+    "verification": {
+      "overall_confidence": 0.87,
+      "total_claims": 12,
+      "supported_claims": 10,
+      "unsupported_claims": ["关于未来预测的声明"],
+      "conflicts": [],
+      "claim_details": [
+        {
+          "claim": "AI 模型在基准测试 X 上达到 95% 准确率",
+          "supporting_citations": [1, 2],
+          "conflicting_citations": [],
+          "confidence": 0.92
+        }
+      ]
+    }
+  },
+  "model_used": "claude-sonnet-4-5-20250929",
+  "provider": "anthropic",
+  "usage": {
+    "total_tokens": 15420,
+    "input_tokens": 12100,
+    "output_tokens": 3320,
+    "estimated_cost": 0.0462
+  }
+}
+```
+
+### 提取的事实（可选）
+
+当请求上下文中设置了 `enable_fact_extraction: true` 时：
+
+```json
+{
+  "metadata": {
+    "extracted_facts": [
+      {
+        "statement": "GPT-5 在 MMLU 基准测试上达到 95% 准确率",
+        "confidence": 0.92,
+        "source_citation": [1, 3],
+        "category": "performance",
+        "entity_mentions": ["GPT-5", "MMLU"],
+        "temporal_marker": "2025",
+        "is_quantitative": true
+      }
+    ],
+    "fact_summary": {
+      "total_facts": 24,
+      "high_confidence": 18,
+      "categorized_facts": {
+        "performance": 8,
+        "market": 6,
+        "research": 10
+      },
+      "contradiction_count": 1
+    }
+  }
+}
+```
+
+### 引用对象模式
+
+| 字段 | 类型 | 描述 |
+|------|------|------|
+| `url` | string | 来源 URL |
+| `title` | string | 文章/页面标题 |
+| `source` | string | 出版商/域名 |
+| `credibility_score` | float | 来源可信度（0.0-1.0） |
+| `quality_score` | float | 内容质量（0.0-1.0） |
+
+在 `metadata.citations` 数组中的位置与正文中使用的 `[n]` 引用编号一一对应。
+
+### 验证对象模式
+
+| 字段 | 类型 | 描述 |
+|------|------|------|
+| `overall_confidence` | float | 总体验证置信度（0.0-1.0） |
+| `total_claims` | integer | 提取的事实声明数量 |
+| `supported_claims` | integer | 有引用支持的声明数量 |
+| `unsupported_claims` | array | 没有引用支持的声明文本列表 |
+| `conflicts` | array | 检测到的冲突信息 |
+| `claim_details` | array | 每个声明的验证详情 |
+
+<Tip>
+**访问深度研究数据**：`metadata.citations` 数组和 `metadata.verification` 对象仅对研究工作流（`force_research: true`）填充。对于简单任务，这些字段将不会出现在响应中。
+</Tip>
 
 ## 错误响应
 

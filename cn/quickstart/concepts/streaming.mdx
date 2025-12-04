@@ -434,14 +434,18 @@ task_ids = ["task-1", "task-2", "task-3"]
 results = asyncio.run(monitor_all(task_ids))
 ```
 
-## 仪表板集成
+## 桌面应用程序
 
-Shannon 的内置仪表板（http://localhost:2111）使用 SSE 进行实时更新：
+Shannon 提供基于 Tauri 构建的原生桌面应用程序，用于实时任务监控和管理。桌面应用提供：
 
-- 活动任务的实时事件源
-- 实时指标更新
-- 智能体状态可视化
-- 令牌使用图表
+- 活动任务的实时事件流
+- 任务提交和管理界面
+- 实时指标和可视化
+- 会话历史浏览
+
+<Note>
+桌面应用程序已取代之前的 Web 仪表板。请参阅[桌面应用指南](/cn/quickstart/desktop-app)了解安装和使用说明。
+</Note>
 
 ## 最佳实践
 

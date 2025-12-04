@@ -118,6 +118,10 @@ X-API-Key: sk_test_123456
 - `template_version` — 模板版本
 - `disable_ai` — 仅模板模式（不回退到 AI）- **不能与模型控制参数组合使用**
 - 窗口控制：`history_window_size`、`use_case_preset`、`primers_count`、`recents_count`、`compression_trigger_ratio`、`compression_target_ratio`
+- **Deep Research 2.0 控制**（当 `force_research: true` 时）：
+  - `iterative_research_enabled` — 启用/禁用迭代覆盖循环（默认：`true`）
+  - `iterative_max_iterations` — 最大迭代次数 1-5（策略预设会注入默认值；否则回退为 `3`）
+  - `enable_fact_extraction` — 将结构化事实提取到元数据中（默认：`false`）
 
 规则：
 - 顶层参数会覆盖上下文中的等效参数：`model_tier`、`model_override`、`provider_override`
@@ -253,6 +257,51 @@ curl -X POST http://localhost:8080/api/v1/tasks \\
     "mode": "supervisor"
   }'
 ```
+
+### Deep Research 2.0
+
+Deep Research 2.0 通过迭代覆盖改进提供全面的研究任务支持。
+
+```bash
+# 基础深度研究（使用默认设置）
+curl -X POST http://localhost:8080/api/v1/tasks \\
+  -H "X-API-Key: sk_test_123456" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "query": "2025 年 AI 趋势",
+    "context": {
+      "force_research": true
+    }
+  }'
+
+# 自定义迭代次数（更快但不够深入）
+curl -X POST http://localhost:8080/api/v1/tasks \\
+  -H "X-API-Key: sk_test_123456" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "query": "比较主要 LLM 提供商",
+    "context": {
+      "force_research": true,
+      "iterative_max_iterations": 2
+    }
+  }'
+
+# 禁用迭代模式（使用旧版研究）
+curl -X POST http://localhost:8080/api/v1/tasks \\
+  -H "X-API-Key: sk_test_123456" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "query": "解释机器学习基础",
+    "context": {
+      "force_research": true,
+      "iterative_research_enabled": false
+    }
+  }'
+```
+
+<Tip>
+当 `force_research: true` 时，**Deep Research 2.0** 默认启用。它使用带有覆盖评估的多阶段工作流来确保全面的结果。使用 `iterative_max_iterations` 控制深度（1-5，默认：3）。
+</Tip>
 
 ### 带幂等性
 

@@ -99,7 +99,7 @@ graph TB
     Orchestrator --> PostgreSQL[(PostgreSQL :5432)]
     Orchestrator --> Redis[(Redis :6379)]
     AgentCore --> Qdrant[(Qdrant :6333)]
-    Dashboard[Dashboard :2111] --> Orchestrator
+    DesktopApp[Desktop App] --> Gateway
 ```
 
 ### Core Services
@@ -110,7 +110,7 @@ graph TB
 | **Orchestrator** | Task coordination, gRPC | Horizontal (stateful via Temporal) |
 | **Agent Core** | Agent execution, Rust runtime | Horizontal |
 | **LLM Service** | LLM provider gateway | Horizontal |
-| **Dashboard** | Real-time monitoring UI | Horizontal (stateless) |
+| **Desktop App** | Real-time monitoring UI (native client) | Client-side; backend scales independently |
 
 ### Data Stores
 

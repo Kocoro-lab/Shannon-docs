@@ -99,7 +99,7 @@ graph TB
     Orchestrator --> PostgreSQL[(PostgreSQL :5432)]
     Orchestrator --> Redis[(Redis :6379)]
     AgentCore --> Qdrant[(Qdrant :6333)]
-    Dashboard[Dashboard :2111] --> Orchestrator
+    DesktopApp[Desktop App] --> Gateway
 ```
 
 ### 核心服务
@@ -110,7 +110,7 @@ graph TB
 | **Orchestrator** | 任务协调, gRPC | 水平扩展 (通过 Temporal 有状态) |
 | **Agent Core** | Agent 执行, Rust 运行时 | 水平扩展 |
 | **LLM Service** | LLM 提供商网关 | 水平扩展 |
-| **Dashboard** | 实时监控 UI | 水平扩展 (无状态) |
+| **Desktop App** | 实时监控 UI（原生客户端） | 客户端侧；后端独立扩展 |
 
 ### 数据存储
 

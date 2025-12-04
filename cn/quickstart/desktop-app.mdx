@@ -1,0 +1,193 @@
+---
+title: "桌面应用程序"
+description: "用于 Shannon 任务监控和管理的原生桌面应用"
+---
+
+## 概述
+
+Shannon 提供基于 [Tauri](https://tauri.app/) 构建的原生桌面应用程序，用于实时任务监控和管理。桌面应用提供了与 Shannon 服务交互的简化界面。
+
+<Note>
+桌面应用程序已取代之前的 Web 仪表板，提供更好的性能和原生操作系统集成。
+</Note>
+
+## 功能特性
+
+- **实时任务流** - 活动任务的实时 SSE 事件源
+- **任务管理** - 提交、监控和取消任务
+- **会话历史** - 浏览和继续之前的对话
+- **多平台支持** - macOS（通用版）、Windows、Linux、iOS
+
+## 支持的平台
+
+| 平台 | 架构 | 格式 |
+|----------|-------------|--------|
+| macOS | 通用版（Intel + Apple Silicon） | DMG |
+| Windows | x86_64 | MSI |
+| Linux | x86_64 | AppImage/DEB |
+| iOS | ARM64 | App Bundle |
+
+## 安装
+
+### macOS
+
+1. 从[发布页面](https://github.com/Kocoro-lab/Shannon/releases)下载最新的 DMG
+2. 打开 DMG 文件
+3. 将 Shannon 拖到应用程序文件夹
+4. 从应用程序启动
+
+```bash
+# 或通过命令行安装
+open shannon-desktop_0.1.0_universal.dmg
+```
+
+### 从源代码构建
+
+<Steps>
+  <Step title="前置条件">
+    确保已安装所需工具：
+
+    - Node.js 18+
+    - Rust 1.70+
+    - Xcode 命令行工具（macOS）
+
+    ```bash
+    # 安装用于通用二进制文件的 Rust 目标（macOS）
+    rustup target add aarch64-apple-darwin x86_64-apple-darwin
+    ```
+  </Step>
+
+  <Step title="克隆并安装">
+    ```bash
+    git clone https://github.com/Kocoro-lab/Shannon.git
+    cd Shannon/desktop
+    npm install
+    ```
+  </Step>
+
+  <Step title="配置 API 端点">
+    ```bash
+    cp .env.local.example .env.local
+    # 编辑 .env.local 设置您的 Shannon API URL
+    # 默认：http://localhost:8080
+    ```
+  </Step>
+
+  <Step title="开发模式">
+    ```bash
+    npm run tauri:dev
+    ```
+  </Step>
+
+  <Step title="生产构建">
+    ```bash
+    npm run tauri:build
+    ```
+
+    输出：`src-tauri/target/release/bundle/dmg/shannon-desktop_0.1.0_universal.dmg`
+  </Step>
+</Steps>
+
+## 配置
+
+### API 端点
+
+通过环境变量设置 Shannon API 端点：
+
+```bash
+# .env.local
+NEXT_PUBLIC_API_URL=http://localhost:8080
+```
+
+对于生产部署：
+
+```bash
+NEXT_PUBLIC_API_URL=https://api.your-domain.com
+```
+
+## 使用方法
+
+### 主界面
+
+桌面应用提供：
+
+1. **聊天界面** - 提交查询并查看响应
+2. **运行视图** - 监控活动和已完成的任务
+3. **运行详情** - 查看特定任务的完整事件流
+4. **设置** - 配置 API 端点和偏好设置
+
+### 提交任务
+
+1. 打开应用
+2. 在聊天输入框中输入您的查询
+3. 按 Enter 或点击发送
+4. 观看任务执行时的实时事件
+
+### 监控任务
+
+导航到运行页面可以看到：
+
+- 带有实时状态的活动任务
+- 带有结果的已完成任务
+- 带有错误详情的失败任务
+
+点击任何运行可查看完整的事件流。
+
+## 故障排除
+
+### 构建失败：模块未找到
+
+```bash
+npm install @tauri-apps/plugin-shell
+```
+
+### 通用二进制文件要求（macOS）
+
+确保已安装两个 Rust 目标：
+
+```bash
+rustup target list --installed
+# 应该显示：
+# aarch64-apple-darwin
+# x86_64-apple-darwin
+```
+
+### 连接问题
+
+1. 验证 Shannon 服务正在运行
+2. 检查 `.env.local` 中的 API URL
+3. 确保防火墙没有阻止端口 8080
+
+### 清理重建
+
+```bash
+rm -rf .next out src-tauri/target/release/bundle
+npm run tauri:build
+```
+
+## 技术栈
+
+| 组件 | 技术 |
+|-----------|------------|
+| 框架 | Next.js 16（Turbopack） |
+| 运行时 | Tauri 2.x |
+| UI | Shadcn/ui + Tailwind CSS |
+| 状态管理 | Redux Toolkit |
+| 后端 | Shannon Gateway API |
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="安装" icon="download" href="/cn/quickstart/installation">
+    设置 Shannon 服务
+  </Card>
+  <Card title="快速开始" icon="rocket" href="/cn/quickstart/quickstart">
+    提交您的第一个任务
+  </Card>
+  <Card title="流式传输" icon="stream" href="/cn/quickstart/concepts/streaming">
+    了解实时事件
+  </Card>
+  <Card title="API 参考" icon="code" href="/cn/api/overview">
+    完整 API 文档
+  </Card>
+</CardGroup>

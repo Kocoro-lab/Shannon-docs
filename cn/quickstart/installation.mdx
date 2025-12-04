@@ -54,7 +54,7 @@ make dev
 | **Orchestrator** | 50052 | gRPC 编排服务 |
 | **Agent Core** | 50051 | 基于 Rust 的智能体执行 |
 | **LLM Service** | 8000 | Python LLM 提供商网关 |
-| **Dashboard** | 2111 | 实时监控 UI |
+| **Desktop App** | — | 原生监控 UI（Tauri 桌面应用） |
 | **PostgreSQL** | 5432 | 持久化存储 |
 | **Redis** | 6379 | 缓存和发布/订阅 |
 | **Qdrant** | 6333 | 向量数据库 |
@@ -85,14 +85,12 @@ curl -X POST http://localhost:8080/api/v1/tasks \
 # 您应该收到包含 task_id 的响应
 ```
 
-## 访问控制面板
+## 访问界面
 
-在浏览器中打开：
+在浏览器和桌面应用中查看：
 
-- **Shannon Dashboard**: http://localhost:2111
+- **Shannon 桌面应用**：参见[桌面应用程序](/cn/quickstart/desktop-app)了解安装和使用
 - **Temporal UI**: http://localhost:8088
-
-控制面板提供实时任务监控、事件流和系统指标。
 
 ## 配置
 
