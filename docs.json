@@ -449,11 +449,5 @@
     "thumbsRating": true,
     "suggestEdit": true,
     "raiseIssue": true
-  },
-  "redirects": [
-    {
-      "source": "/",
-      "destination": "/en/quickstart"
-    }
-  ]
+  }
 }
