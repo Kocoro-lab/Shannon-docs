@@ -1,0 +1,115 @@
+---
+title: "POST /api/v1/tasks/{id}/resume"
+description: "Resume a previously paused task"
+---
+
+## Endpoint
+
+```http
+POST http://localhost:8080/api/v1/tasks/{id}/resume
+```
+
+## Description
+
+Resumes a task that was previously paused via the pause endpoint. The workflow continues from the last checkpoint and proceeds normally.
+
+## Authentication
+
+**Required**: Yes
+
+Include API key in header:
+
+```http
+X-API-Key: sk_test_123456
+```
+
+## Request
+
+### Headers
+
+| Header        | Required | Description                 |
+|---------------|----------|-----------------------------|
+| `X-API-Key`   | Yes      | API authentication key      |
+| `Content-Type`| No       | `application/json` if body  |
+| `traceparent` | No       | W3C trace context           |
+
+### Path Parameters
+
+| Parameter | Type   | Required | Description                       |
+|-----------|--------|----------|-----------------------------------|
+| `id`      | string | Yes      | Task ID (Temporal workflow ID)   |
+
+### Body Parameters
+
+| Parameter | Type   | Required | Description                 |
+|-----------|--------|----------|-----------------------------|
+| `reason`  | string | No       | Optional resume reason note |
+
+### Request Body Example
+
+```json
+{
+  "reason": "User approved continuation"
+}
+```
+
+## Response
+
+### 202 Accepted
+
+```json
+{
+  "success": true,
+  "message": "Resume signal sent",
+  "task_id": "task-123"
+}
+```
+
+### 404 Not Found
+
+```json
+{ "error": "Task not found" }
+```
+
+### 409 Failed Precondition
+
+Cannot resume task in invalid state:
+
+```json
+{ "error": "cannot resume completed task" }
+```
+
+```json
+{ "error": "cannot resume failed task" }
+```
+
+```json
+{ "error": "cannot resume cancelled task" }
+```
+
+```json
+{ "error": "cannot resume timed out task" }
+```
+
+```json
+{ "error": "task is not paused" }
+```
+
+### 401 / 403
+
+```json
+{ "error": "Unauthorized" }
+```
+
+or
+
+```json
+{ "error": "Forbidden" }
+```
+
+## Notes
+
+- Only has an effect for tasks that are currently paused; calling `resume` on a non-paused task returns a **409 Failed Precondition** error.
+- State validation ensures clear error messages for invalid operations (e.g., resuming completed or already-running tasks).
+- SSE streams emit `workflow.resumed` when a paused workflow continues.
+

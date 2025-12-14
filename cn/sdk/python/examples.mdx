@@ -268,6 +268,117 @@ if __name__ == "__main__":
 - 全部（不加过滤）：`types=None`（或省略该参数）
 </Note>
 
+## 任务控制示例
+
+### 暂停和恢复长时间运行的任务
+
+```python
+"""任务控制（暂停/恢复）示例"""
+from shannon import ShannonClient
+import time
+
+def main():
+    print("=" * 60)
+    print("任务控制（暂停/恢复）示例")
+    print("=" * 60)
+
+    client = ShannonClient(base_url="http://localhost:8080")
+
+    # 提交长时间运行的研究任务
+    print("\n[步骤 1] 提交长时间运行的任务...")
+    handle = client.submit_task(
+        query="研究量子计算和 AI 集成的最新发展。提供详细分析。"
+    )
+    print(f"✅ 任务已提交: {handle.task_id}")
+
+    # 让任务运行一段时间
+    print("\n[步骤 2] 让任务运行 5 秒...")
+    time.sleep(5)
+
+    # 暂停任务
+    print("\n[步骤 3] 暂停任务...")
+    success = client.pause_task(handle.task_id, reason="查看中间结果")
+    if success:
+        print("✅ 暂停信号已发送")
+
+    # 检查控制状态
+    print("\n[步骤 4] 检查控制状态...")
+    state = client.get_control_state(handle.task_id)
+    print(f"是否暂停: {state.is_paused}")
+    print(f"是否取消: {state.is_cancelled}")
+    if state.paused_at:
+        print(f"暂停时间: {state.paused_at}")
+        print(f"暂停原因: {state.pause_reason}")
+        print(f"暂停者: {state.paused_by}")
+
+    # 恢复前等待一段时间
+    print("\n[步骤 5] 恢复前等待 3 秒...")
+    time.sleep(3)
+
+    # 恢复任务
+    print("\n[步骤 6] 恢复任务...")
+    success = client.resume_task(handle.task_id, reason="审查后继续")
+    if success:
+        print("✅ 恢复信号已发送")
+
+    # 等待完成
+    print("\n[步骤 7] 等待任务完成...")
+    result = client.wait(handle.task_id)
+    print(f"\n✅ 任务已完成!")
+    print(f"状态: {result.status}")
+    print(f"\n结果预览: {result.result[:200]}...")
+
+    print("\n" + "=" * 60)
+    print("✅ 任务控制示例完成!")
+    print("=" * 60)
+
+if __name__ == "__main__":
+    main()
+```
+
+### 控制信号的错误处理
+
+```python
+"""暂停/恢复操作的错误处理"""
+from shannon import ShannonClient
+from shannon.errors import APIError
+
+def main():
+    client = ShannonClient()
+
+    task_id = "task-123"
+
+    # 尝试暂停
+    try:
+        client.pause_task(task_id, reason="需要审查")
+        print("✅ 任务暂停成功")
+    except APIError as e:
+        # 处理特定错误情况
+        if "cannot pause completed task" in str(e):
+            print("⚠️  任务已完成，无法暂停")
+        elif "task is already paused" in str(e):
+            print("⚠️  任务已经处于暂停状态")
+        elif "Task not found" in str(e):
+            print("❌ 未找到任务")
+        else:
+            print(f"❌ 错误: {e}")
+
+    # 尝试恢复
+    try:
+        client.resume_task(task_id, reason="继续执行")
+        print("✅ 任务恢复成功")
+    except APIError as e:
+        if "task is not paused" in str(e):
+            print("⚠️  任务未暂停，无法恢复")
+        elif "cannot resume completed task" in str(e):
+            print("⚠️  任务已完成，无法恢复")
+        else:
+            print(f"❌ 错误: {e}")
+
+if __name__ == "__main__":
+    main()
+```
+
 ## 真实用例
 
 {/* 本节示例已移除以保持页面简洁。 */}

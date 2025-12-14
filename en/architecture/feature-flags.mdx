@@ -1,0 +1,369 @@
+---
+title: "Feature Flags"
+description: "Configure optional features and enterprise extensions with feature flags"
+---
+
+## Overview
+
+Shannon uses **feature flags** to control optional features, experimental functionality, and enterprise extensions without modifying code. This allows clean separation between:
+
+- **Open-source core features** (available to all)
+- **Enterprise/private features** (gated behind flags)
+- **Experimental features** (toggleable for testing)
+
+<CardGroup cols={2}>
+  <Card title="Zero Recompilation" icon="toggle-on">
+    Enable/disable features without rebuilding services
+  </Card>
+  <Card title="Environment-Based" icon="layer-group">
+    Different flags for dev/staging/production
+  </Card>
+  <Card title="Clean Separation" icon="shield-check">
+    Enterprise features isolated from OSS core
+  </Card>
+  <Card title="Gradual Rollout" icon="gauge-high">
+    Test new features before full deployment
+  </Card>
+</CardGroup>
+
+## Configuration
+
+### Configuration File
+
+Feature flags are defined in `config/shannon.yaml` under the `features` section:
+
+```yaml
+# config/shannon.yaml
+features:
+  # Enterprise workflow features
+  ads_research: false              # Ads research workflow (enterprise)
+  advanced_synthesis: false        # Advanced synthesis templates
+
+  # Experimental features
+  parallel_streaming: true         # Multi-agent parallel streaming
+  enhanced_memory: false           # Enhanced vector memory
+
+  # Custom integrations
+  vendor_tools_enabled: false      # Enable vendor-specific tools
+```
+
+### Environment Variables
+
+Feature flags can be overridden via environment variables:
+
+```bash
+# .env
+SHANNON_FEATURE_ADS_RESEARCH=true
+SHANNON_FEATURE_PARALLEL_STREAMING=false
+```
+
+**Naming convention**: `SHANNON_FEATURE_<FLAG_NAME_UPPERCASE>`
+
+### Priority Order
+
+1. **Environment variables** (highest priority)
+2. **Config overlays** (`config/overlays/shannon.{env}.yaml`)
+3. **Base config** (`config/shannon.yaml`)
+4. **Code defaults** (lowest priority)
+
+## Usage Patterns
+
+### In Go Code (Orchestrator)
+
+```go
+package main
+
+import (
+    "github.com/Kocoro-lab/Shannon/go/orchestrator/internal/config"
+)
+
+func routeWorkflow(ctx context.Context, req *pb.Request) error {
+    cfg, _ := config.LoadShannon()
+
+    // Check feature flag
+    if cfg.Features.AdsResearch {
+        return routeToAdsResearchWorkflow(ctx, req)
+    }
+
+    return routeToStandardWorkflow(ctx, req)
+}
+```
+
+### In Python Code (LLM Service)
+
+```python
+from llm_service.config import load_shannon_config
+
+config = load_shannon_config()
+
+# Check feature flag
+if config.get("features", {}).get("vendor_tools_enabled"):
+    from llm_service.tools.vendor import register_vendor_tools
+    register_vendor_tools()
+```
+
+### Conditional Imports Pattern
+
+Use feature flags with conditional imports for clean separation:
+
+```python
+# roles/presets.py
+_PRESETS = {
+    "general": GENERAL_PRESET,
+    "research": RESEARCH_PRESET,
+}
+
+# Conditionally load enterprise roles
+if config.get("features", {}).get("ads_research"):
+    try:
+        from .enterprise.ads_analyst import ADS_ANALYST_PRESET
+        _PRESETS["ads_analyst"] = ADS_ANALYST_PRESET
+    except ImportError:
+        pass  # Shannon works without enterprise module
+```
+
+## Common Feature Flags
+
+| Flag Name | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `ads_research` | Enterprise | Ads research workflow with market analysis | `false` |
+| `parallel_streaming` | Experimental | Multi-agent parallel SSE streaming | `true` |
+| `advanced_synthesis` | Enterprise | Custom synthesis templates | `false` |
+| `vendor_tools_enabled` | Integration | Enable vendor-specific tool adapters | `false` |
+| `enhanced_memory` | Experimental | Advanced vector memory with hybrid search | `false` |
+
+## Best Practices
+
+### 1. Default to Disabled
+
+New features should default to `false` in base config:
+
+```yaml
+# config/shannon.yaml
+features:
+  new_feature: false  # ✅ Safe default
+```
+
+### 2. Use Environment Overlays
+
+Create environment-specific overlays for different deployments:
+
+```yaml
+# config/overlays/shannon.production.yaml
+features:
+  ads_research: true
+  parallel_streaming: true
+  enhanced_memory: false  # Still testing
+```
+
+Load with:
+
+```bash
+SHANNON_CONFIG_PATH=config/overlays/shannon.production.yaml
+```
+
+### 3. Guard with Try/Except
+
+Always use graceful fallback for enterprise/optional features:
+
+```python
+if config.features.vendor_tools_enabled:
+    try:
+        from .vendor import CustomVendorTool
+    except ImportError:
+        logger.warning("Vendor tools not available, using standard tools")
+```
+
+### 4. Document Feature Requirements
+
+```yaml
+features:
+  # Requires: GA4_SERVICE_ACCOUNT_KEY environment variable
+  # Vendor module: llm_service/tools/vendor_adapters/ga4/
+  ga4_integration: false
+```
+
+## Enterprise Feature Pattern
+
+Shannon separates **OSS core** from **enterprise extensions** using feature flags:
+
+### File Structure
+
+```
+Shannon/
+├── config/
+│   ├── shannon.yaml                    # Base config (OSS)
+│   └── overlays/
+│       └── shannon.enterprise.yaml     # Enterprise flags
+├── go/orchestrator/
+│   └── internal/workflows/
+│       ├── standard_workflow.go        # OSS workflow
+│       └── enterprise/                 # Enterprise workflows
+│           └── ads_research.go         # Gated by flag
+└── python/llm-service/
+    └── llm_service/
+        ├── roles/
+        │   ├── presets.py              # OSS roles + conditional load
+        │   └── enterprise/             # Enterprise roles
+        │       └── ads_analyst.py      # Gated by flag
+        └── tools/
+            └── vendor_adapters/        # Vendor tools (gated)
+```
+
+### Conditional Workflow Routing
+
+```go
+// orchestrator/internal/workflows/router.go
+func SelectWorkflow(ctx context.Context, cfg *config.Shannon, req *pb.Request) Workflow {
+    // Check for enterprise feature flag
+    if cfg.Features.AdsResearch && req.Context["workflow_type"] == "ads_research" {
+        return NewAdsResearchWorkflow()
+    }
+
+    // Fall back to OSS workflow
+    return NewStandardWorkflow()
+}
+```
+
+## Testing with Feature Flags
+
+### Unit Tests
+
+```go
+func TestAdsResearchWorkflow(t *testing.T) {
+    cfg := &config.Shannon{
+        Features: config.FeatureFlagsConfig{
+            AdsResearch: true,  // Enable for test
+        },
+    }
+
+    workflow := SelectWorkflow(context.Background(), cfg, testReq)
+    assert.IsType(t, &AdsResearchWorkflow{}, workflow)
+}
+```
+
+### Integration Tests
+
+```bash
+# Run tests with feature enabled
+SHANNON_FEATURE_ADS_RESEARCH=true go test ./...
+
+# Run tests with feature disabled (OSS mode)
+SHANNON_FEATURE_ADS_RESEARCH=false go test ./...
+```
+
+## Deployment Strategies
+
+### Canary Deployment
+
+Enable features for subset of users:
+
+```go
+func isFeatureEnabled(userID string, featureName string) bool {
+    // Check user-specific feature flags (e.g., from database)
+    if userHasAccess(userID, featureName) {
+        return true
+    }
+
+    // Fall back to global config
+    return cfg.Features.Get(featureName)
+}
+```
+
+### A/B Testing
+
+Route traffic based on feature flags:
+
+```go
+if experimentGroup(userID) == "variant_a" && cfg.Features.EnhancedMemory {
+    return useEnhancedMemory(ctx, req)
+}
+return useStandardMemory(ctx, req)
+```
+
+## Monitoring & Observability
+
+Log feature flag usage for debugging:
+
+```go
+logger.Info("Feature flag check",
+    zap.String("feature", "ads_research"),
+    zap.Bool("enabled", cfg.Features.AdsResearch),
+    zap.String("user_id", userID),
+)
+```
+
+Add metrics:
+
+```go
+featureFlagGauge.WithLabelValues("ads_research").Set(
+    boolToFloat64(cfg.Features.AdsResearch),
+)
+```
+
+## Migration Guide
+
+### Adding a New Feature Flag
+
+<Steps>
+  <Step title="Define Flag in Config">
+    Add to `config/shannon.yaml`:
+
+```yaml
+features:
+  my_new_feature: false  # Default disabled
+```
+  </Step>
+
+  <Step title="Update Go Struct">
+    Add field to `go/orchestrator/internal/config/shannon.go`:
+
+```go
+type FeatureFlagsConfig struct {
+    // ... existing flags
+    MyNewFeature bool `json:"my_new_feature" yaml:"my_new_feature"`
+}
+```
+  </Step>
+
+  <Step title="Use in Code">
+    Gate functionality:
+
+```go
+if cfg.Features.MyNewFeature {
+    return newFeatureBehavior()
+}
+return existingBehavior()
+```
+  </Step>
+
+  <Step title="Add Tests">
+    Test both enabled/disabled states:
+
+```go
+func TestMyNewFeature_Enabled(t *testing.T) { /* ... */ }
+func TestMyNewFeature_Disabled(t *testing.T) { /* ... */ }
+```
+  </Step>
+
+  <Step title="Document">
+    Update this page and environment variables documentation.
+  </Step>
+</Steps>
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="Environment Variables" icon="gear" href="/en/deployment/environment-variables">
+    Full list of configuration options
+  </Card>
+  <Card title="Vendor Adapters" icon="puzzle-piece" href="/en/tutorials/vendor-adapters">
+    Build vendor-specific integrations
+  </Card>
+  <Card title="Configuration Guide" icon="sliders" href="/en/quickstart/configuration">
+    Shannon configuration overview
+  </Card>
+  <Card title="Extending Shannon" icon="code" href="/en/tutorials/extending-shannon">
+    Add custom features and workflows
+  </Card>
+</CardGroup>

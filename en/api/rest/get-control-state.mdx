@@ -1,0 +1,82 @@
+---
+title: "GET /api/v1/tasks/{id}/control-state"
+description: "Query the pause/cancel control state for a task"
+---
+
+## Endpoint
+
+```http
+GET http://localhost:8080/api/v1/tasks/{id}/control-state
+```
+
+## Description
+
+Returns the **current control state** for a workflow: whether it is paused, cancelled, and metadata about who triggered the action and when.
+
+This is useful for:
+- Building UIs that show **Pause / Resume** button states
+- Polling from backend services to coordinate other systems
+
+## Authentication
+
+**Required**: Yes
+
+Include API key in header:
+
+```http
+X-API-Key: sk_test_123456
+```
+
+## Request
+
+### Headers
+
+| Header      | Required | Description            |
+|-------------|----------|------------------------|
+| `X-API-Key` | Yes      | API authentication key |
+| `traceparent` | No     | W3C trace context      |
+
+### Path Parameters
+
+| Parameter | Type   | Required | Description                     |
+|-----------|--------|----------|---------------------------------|
+| `id`      | string | Yes      | Task ID (Temporal workflow ID) |
+
+## Response
+
+### 200 OK
+
+```json
+{
+  "is_paused": true,
+  "is_cancelled": false,
+  "paused_at": "2025-10-29T06:00:01Z",
+  "pause_reason": "User requested pause",
+  "paused_by": "user-123",
+  "cancel_reason": "",
+  "cancelled_by": ""
+}
+```
+
+Notes:
+- `paused_at` is an empty string when the workflow has never been paused.
+- `is_cancelled` reflects logical cancel state from control signals, not just Temporal termination.
+
+### 404 Not Found
+
+```json
+{ "error": "Task not found" }
+```
+
+### 401 / 403
+
+```json
+{ "error": "Unauthorized" }
+```
+
+or
+
+```json
+{ "error": "Forbidden" }
+```
+

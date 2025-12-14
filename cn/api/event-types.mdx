@@ -5,7 +5,7 @@ description: "Shannon 流式事件类型（权威清单）"
 
 ## 概述
 
-Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件**。本文档记录平台**实际发出的 28 种事件类型**、它们的结构以及发生时机。
+Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件**。本文档记录平台**实际发出的 33 种事件类型**、它们的结构以及发生时机。
 
 事件提供:
 - **实时进度** - 实时跟踪任务执行
@@ -67,6 +67,11 @@ Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件
 |------------|----------|-------------|
 | `WORKFLOW_STARTED` | 工作流 | 任务开始执行 |
 | `WORKFLOW_COMPLETED` | 工作流 | 任务成功完成 |
+| `WORKFLOW_PAUSING` | 工作流控制 | 收到暂停请求，工作流准备在检查点暂停 |
+| `WORKFLOW_PAUSED` | 工作流控制 | 工作流在检查点已暂停 |
+| `WORKFLOW_RESUMED` | 工作流控制 | 工作流从暂停状态恢复 |
+| `WORKFLOW_CANCELLING` | 工作流控制 | 收到取消请求，工作流准备终止 |
+| `WORKFLOW_CANCELLED` | 工作流控制 | 工作流在检查点已取消 |
 | `AGENT_STARTED` | 智能体 | 智能体开始处理 |
 | `AGENT_THINKING` | 智能体 | 智能体推理/规划 |
 | `AGENT_COMPLETED` | 智能体 | 智能体成功完成 |
@@ -94,7 +99,7 @@ Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件
 | `BUDGET_THRESHOLD` | 系统/进度 | 任务预算达到预警阈值 |
 | `STREAM_END` | 流式 | 显式的流结束信号（该工作流不会再有新事件） |
 
-**总计**: 28 种事件类型
+**总计**: 33 种事件类型
 
 注意：`WORKFLOW_FAILED`、`TOOL_COMPLETED`、`TOOL_FAILED`、`BUDGET_UPDATE` 等事件不会由流式 API 发出。失败通过 `ERROR_OCCURRED` 表示；完成由 `WORKFLOW_COMPLETED` 表示。`STREAM_END` 作为生命周期信号在完成/终止后发出，用于标记流式事件结束。
 

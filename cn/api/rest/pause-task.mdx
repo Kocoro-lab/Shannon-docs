@@ -1,0 +1,117 @@
+---
+title: "POST /api/v1/tasks/{id}/pause"
+description: "在检查点暂停正在运行的任务"
+---
+
+## 接口
+
+```http
+POST http://localhost:8080/api/v1/tasks/{id}/pause
+```
+
+## 描述
+
+向工作流发送“暂停”信号，在**下一个检查点**暂停执行。当前正在运行的活动（LLM 调用、工具调用等）会先正常结束，然后工作流在检查点阻塞，直到收到恢复或取消信号。
+
+适用于长时间运行的研究 / 监督类任务，想暂时停下来但不丢失进度的场景。
+
+## 认证
+
+**必需**：是
+
+在请求头中携带 API Key：
+
+```http
+X-API-Key: sk_test_123456
+```
+
+## 请求
+
+### 请求头
+
+| Header        | 必需 | 说明                    |
+|---------------|------|-------------------------|
+| `X-API-Key`   | 是   | API 鉴权 Key           |
+| `Content-Type`| 否   | 发送 body 时为 `application/json` |
+| `traceparent` | 否   | W3C Trace 上下文        |
+
+### 路径参数
+
+| 参数 | 类型   | 必需 | 说明                         |
+|------|--------|------|------------------------------|
+| `id` | string | 是   | 任务 ID（Temporal workflow ID） |
+
+### Body 参数
+
+| 参数      | 类型   | 必需 | 说明              |
+|-----------|--------|------|-------------------|
+| `reason`  | string | 否   | 暂停原因（备注）   |
+
+### 请求示例
+
+```json
+{
+  "reason": "用户需要先查看中间结果"
+}
+```
+
+## 响应
+
+### 202 Accepted
+
+```json
+{
+  "success": true,
+  "message": "Pause signal sent",
+  "task_id": "task-123"
+}
+```
+
+### 404 Not Found
+
+```json
+{ "error": "Task not found" }
+```
+
+### 409 Failed Precondition
+
+无法暂停处于无效状态的任务：
+
+```json
+{ "error": "cannot pause completed task" }
+```
+
+```json
+{ "error": "cannot pause failed task" }
+```
+
+```json
+{ "error": "cannot pause cancelled task" }
+```
+
+```json
+{ "error": "cannot pause timed out task" }
+```
+
+```json
+{ "error": "task is already paused" }
+```
+
+### 401 / 403
+
+```json
+{ "error": "Unauthorized" }
+```
+
+或
+
+```json
+{ "error": "Forbidden" }
+```
+
+## 说明
+
+- 暂停在工作流内部的检查点生效（如 **pre_execution**、**pre_completion**），不会强制中断正在执行的活动。
+- 暂停时，SSE 流会依次发送 `workflow.pausing` / `workflow.paused` 事件，并携带 `checkpoint` 字段。
+- 服务端会校验租户和用户，只能暂停自己所属的任务。
+

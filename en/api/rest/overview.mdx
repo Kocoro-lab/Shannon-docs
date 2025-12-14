@@ -11,9 +11,9 @@ http://localhost:8080/api/v1
 
 ## Endpoints Summary
 
-Shannon provides **19 REST endpoints** across 4 categories:
+Shannon provides **22 REST endpoints** across 4 categories:
 
-### Task Operations (8 endpoints)
+### Task Operations (11 endpoints)
 
 | Endpoint | Description |
 |----------|-------------|
@@ -23,6 +23,9 @@ Shannon provides **19 REST endpoints** across 4 categories:
 | `GET /tasks/{id}` | Get task status and result |
 | `GET /tasks/{id}/events` | Get persistent event history |
 | `GET /tasks/{id}/timeline` | Get deterministic Temporal timeline |
+| `POST /tasks/{id}/pause` | Pause a running task at workflow checkpoints |
+| `POST /tasks/{id}/resume` | Resume a previously paused task |
+| `GET /tasks/{id}/control-state` | Get pause/cancel control state for a task |
 | `POST /tasks/{id}/cancel` | Cancel a queued or running task |
 | `POST /approvals/decision` | Submit a human approval decision |
 

@@ -1,0 +1,115 @@
+---
+title: "POST /api/v1/tasks/{id}/resume"
+description: "恢复之前被暂停的任务"
+---
+
+## 接口
+
+```http
+POST http://localhost:8080/api/v1/tasks/{id}/resume
+```
+
+## 描述
+
+恢复之前通过暂停接口暂停的任务。工作流会从上一次检查点继续执行。
+
+## 认证
+
+**必需**：是
+
+在请求头中携带 API Key：
+
+```http
+X-API-Key: sk_test_123456
+```
+
+## 请求
+
+### 请求头
+
+| Header        | 必需 | 说明                    |
+|---------------|------|-------------------------|
+| `X-API-Key`   | 是   | API 鉴权 Key           |
+| `Content-Type`| 否   | 发送 body 时为 `application/json` |
+| `traceparent` | 否   | W3C Trace 上下文        |
+
+### 路径参数
+
+| 参数 | 类型   | 必需 | 说明                         |
+|------|--------|------|------------------------------|
+| `id` | string | 是   | 任务 ID（Temporal workflow ID） |
+
+### Body 参数
+
+| 参数      | 类型   | 必需 | 说明              |
+|-----------|--------|------|-------------------|
+| `reason`  | string | 否   | 恢复原因（备注）   |
+
+### 请求示例
+
+```json
+{
+  "reason": "用户确认继续执行"
+}
+```
+
+## 响应
+
+### 202 Accepted
+
+```json
+{
+  "success": true,
+  "message": "Resume signal sent",
+  "task_id": "task-123"
+}
+```
+
+### 404 Not Found
+
+```json
+{ "error": "Task not found" }
+```
+
+### 409 Failed Precondition
+
+无法恢复处于无效状态的任务：
+
+```json
+{ "error": "cannot resume completed task" }
+```
+
+```json
+{ "error": "cannot resume failed task" }
+```
+
+```json
+{ "error": "cannot resume cancelled task" }
+```
+
+```json
+{ "error": "cannot resume timed out task" }
+```
+
+```json
+{ "error": "task is not paused" }
+```
+
+### 401 / 403
+
+```json
+{ "error": "Unauthorized" }
+```
+
+或
+
+```json
+{ "error": "Forbidden" }
+```
+
+## 说明
+
+- 仅对当前处于暂停状态的任务有效；对未暂停的任务调用会返回 **409 Failed Precondition** 错误。
+- 状态验证确保对无效操作（如恢复已完成或正在运行的任务）返回清晰的错误消息。
+- SSE 流在恢复时会发送 `workflow.resumed` 事件。
+

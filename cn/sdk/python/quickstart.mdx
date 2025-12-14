@@ -67,6 +67,48 @@ async def main():
 asyncio.run(main())
 ```
 
+## 任务控制（暂停/恢复）
+
+控制长时间运行的任务，支持暂停、恢复和状态检查：
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# 提交一个长时间运行的研究任务
+handle = client.submit_task("研究 2025 年 AI 趋势并提供详细分析")
+
+# 在下一个检查点暂停任务
+client.pause_task(handle.task_id, reason="查看中间结果")
+
+# 检查控制状态
+state = client.get_control_state(handle.task_id)
+print(f"是否暂停: {state.is_paused}")
+print(f"暂停时间: {state.paused_at}")
+print(f"暂停原因: {state.pause_reason}")
+
+# 恢复执行
+client.resume_task(handle.task_id, reason="审查后继续")
+
+# 等待完成
+result = client.wait(handle.task_id)
+print(result.result)
+```
+
+**CLI 用法：**
+
+```bash
+# 暂停正在运行的任务
+shannon pause task-123 --reason "暂停以供审查"
+
+# 检查控制状态
+shannon control-state task-123
+
+# 恢复任务
+shannon resume task-123 --reason "继续执行"
+```
+
 ## CLI
 
 ```bash

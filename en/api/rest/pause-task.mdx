@@ -1,0 +1,117 @@
+---
+title: "POST /api/v1/tasks/{id}/pause"
+description: "Pause a running task at the next checkpoint"
+---
+
+## Endpoint
+
+```http
+POST http://localhost:8080/api/v1/tasks/{id}/pause
+```
+
+## Description
+
+Pauses a running task at the **next workflow checkpoint**. The current activity (LLM call, tool, etc.) is allowed to finish, and then the workflow blocks until it is resumed or cancelled.
+
+Use this when you want to temporarily stop long‑running research or supervisor workflows without losing progress.
+
+## Authentication
+
+**Required**: Yes
+
+Include API key in header:
+
+```http
+X-API-Key: sk_test_123456
+```
+
+## Request
+
+### Headers
+
+| Header        | Required | Description                 |
+|---------------|----------|-----------------------------|
+| `X-API-Key`   | Yes      | API authentication key      |
+| `Content-Type`| No       | `application/json` if body  |
+| `traceparent` | No       | W3C trace context           |
+
+### Path Parameters
+
+| Parameter | Type   | Required | Description                       |
+|-----------|--------|----------|-----------------------------------|
+| `id`      | string | Yes      | Task ID (Temporal workflow ID)   |
+
+### Body Parameters
+
+| Parameter | Type   | Required | Description                |
+|-----------|--------|----------|----------------------------|
+| `reason`  | string | No       | Optional pause reason note |
+
+### Request Body Example
+
+```json
+{
+  "reason": "Pause while user reviews intermediate results"
+}
+```
+
+## Response
+
+### 202 Accepted
+
+```json
+{
+  "success": true,
+  "message": "Pause signal sent",
+  "task_id": "task-123"
+}
+```
+
+### 404 Not Found
+
+```json
+{ "error": "Task not found" }
+```
+
+### 409 Failed Precondition
+
+Cannot pause task in invalid state:
+
+```json
+{ "error": "cannot pause completed task" }
+```
+
+```json
+{ "error": "cannot pause failed task" }
+```
+
+```json
+{ "error": "cannot pause cancelled task" }
+```
+
+```json
+{ "error": "cannot pause timed out task" }
+```
+
+```json
+{ "error": "task is already paused" }
+```
+
+### 401 / 403
+
+```json
+{ "error": "Unauthorized" }
+```
+
+or
+
+```json
+{ "error": "Forbidden" }
+```
+
+## Notes
+
+- Pause takes effect at well‑defined checkpoints (e.g., **pre_execution**, **pre_completion**); it does **not** interrupt in‑flight activities.
+- While paused, SSE streams will emit `workflow.pausing` and `workflow.paused` events with a `checkpoint` field.
+- Ownership and tenancy are enforced: users can only pause their own tasks.
+

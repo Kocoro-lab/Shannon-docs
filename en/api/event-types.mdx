@@ -5,7 +5,7 @@ description: "Complete reference for Shannon streaming event types"
 
 ## Overview
 
-Shannon emits **real-time events** via Server-Sent Events (SSE) to provide visibility into task execution. This document catalogs the **28 event types** actually emitted by the platform, their structure, and when they occur.
+Shannon emits **real-time events** via Server-Sent Events (SSE) to provide visibility into task execution. This document catalogs the **33 event types** actually emitted by the platform, their structure, and when they occur.
 
 Events provide:
 - **Real-time progress** - Track task execution as it happens
@@ -69,6 +69,11 @@ Authoritative list of event types emitted by Shannon:
 |------------|----------|-------------|
 | `WORKFLOW_STARTED` | Workflow | Task begins execution |
 | `WORKFLOW_COMPLETED` | Workflow | Task completes successfully |
+| `WORKFLOW_PAUSING` | Workflow control | Pause requested; workflow preparing to pause |
+| `WORKFLOW_PAUSED` | Workflow control | Workflow paused at a checkpoint |
+| `WORKFLOW_RESUMED` | Workflow control | Workflow resumed after pause |
+| `WORKFLOW_CANCELLING` | Workflow control | Cancel requested; workflow preparing to terminate |
+| `WORKFLOW_CANCELLED` | Workflow control | Workflow cancelled at a checkpoint |
 | `AGENT_STARTED` | Agent | Agent begins processing |
 | `AGENT_THINKING` | Agent | Agent reasoning/planning |
 | `AGENT_COMPLETED` | Agent | Agent finishes successfully |
@@ -96,7 +101,7 @@ Authoritative list of event types emitted by Shannon:
 | `BUDGET_THRESHOLD` | System/Progress | Budget warning threshold reached for a task |
 | `STREAM_END` | Stream | Explicit end-of-stream signal (no more events for this workflow) |
 
-**Total**: 28 event types
+**Total**: 33 event types
 
 Note: Events such as `WORKFLOW_FAILED`, `TASK_COMPLETED`, `TOOL_COMPLETED`, `TOOL_FAILED`, and `BUDGET_UPDATE` are not emitted by the streaming API. Failures are surfaced via `ERROR_OCCURRED`; completion is indicated by `WORKFLOW_COMPLETED`. `STREAM_END` is emitted as a lifecycle signal after completion/termination when streaming ends.
 

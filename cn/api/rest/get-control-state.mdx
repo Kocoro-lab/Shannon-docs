@@ -1,0 +1,82 @@
+---
+title: "GET /api/v1/tasks/{id}/control-state"
+description: "查询任务的暂停 / 取消控制状态"
+---
+
+## 接口
+
+```http
+GET http://localhost:8080/api/v1/tasks/{id}/control-state
+```
+
+## 描述
+
+返回工作流当前的**控制状态**：是否被暂停、是否被取消，以及谁在什么时候触发的操作等元数据。
+
+常见用途：
+- 在前端构建“暂停 / 恢复”按钮状态
+- 后端轮询协调其他系统的行为
+
+## 认证
+
+**必需**：是
+
+在请求头中携带 API Key：
+
+```http
+X-API-Key: sk_test_123456
+```
+
+## 请求
+
+### 请求头
+
+| Header      | 必需 | 说明            |
+|-------------|------|-----------------|
+| `X-API-Key` | 是   | API 鉴权 Key   |
+| `traceparent` | 否 | W3C Trace 上下文 |
+
+### 路径参数
+
+| 参数 | 类型   | 必需 | 说明                         |
+|------|--------|------|------------------------------|
+| `id` | string | 是   | 任务 ID（Temporal workflow ID） |
+
+## 响应
+
+### 200 OK
+
+```json
+{
+  "is_paused": true,
+  "is_cancelled": false,
+  "paused_at": "2025-10-29T06:00:01Z",
+  "pause_reason": "User requested pause",
+  "paused_by": "user-123",
+  "cancel_reason": "",
+  "cancelled_by": ""
+}
+```
+
+说明：
+- 如果从未暂停过，`paused_at` 为空字符串。
+- `is_cancelled` 反映的是控制信号层面的取消状态，而不仅仅是 Temporal 终止状态。
+
+### 404 Not Found
+
+```json
+{ "error": "Task not found" }
+```
+
+### 401 / 403
+
+```json
+{ "error": "Unauthorized" }
+```
+
+或
+
+```json
+{ "error": "Forbidden" }
+```
+

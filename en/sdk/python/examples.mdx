@@ -268,6 +268,117 @@ See the full list of event types in the [Event Types Catalog](/en/api/event-type
 - Everything (no filter): `types=None` (or omit the parameter)
 </Note>
 
+## Task Control Examples
+
+### Pause and Resume Long-Running Tasks
+
+```python
+"""Task control (pause/resume) example"""
+from shannon import ShannonClient
+import time
+
+def main():
+    print("=" * 60)
+    print("Task Control (Pause/Resume) Example")
+    print("=" * 60)
+
+    client = ShannonClient(base_url="http://localhost:8080")
+
+    # Submit a long-running research task
+    print("\n[Step 1] Submitting long-running task...")
+    handle = client.submit_task(
+        query="Research the latest developments in quantum computing and AI integration. Provide detailed analysis."
+    )
+    print(f"✅ Task submitted: {handle.task_id}")
+
+    # Let it run for a bit
+    print("\n[Step 2] Letting task run for 5 seconds...")
+    time.sleep(5)
+
+    # Pause the task
+    print("\n[Step 3] Pausing task...")
+    success = client.pause_task(handle.task_id, reason="Review intermediate results")
+    if success:
+        print("✅ Pause signal sent")
+
+    # Check control state
+    print("\n[Step 4] Checking control state...")
+    state = client.get_control_state(handle.task_id)
+    print(f"Is paused: {state.is_paused}")
+    print(f"Is cancelled: {state.is_cancelled}")
+    if state.paused_at:
+        print(f"Paused at: {state.paused_at}")
+        print(f"Pause reason: {state.pause_reason}")
+        print(f"Paused by: {state.paused_by}")
+
+    # Wait a bit before resuming
+    print("\n[Step 5] Waiting 3 seconds before resume...")
+    time.sleep(3)
+
+    # Resume the task
+    print("\n[Step 6] Resuming task...")
+    success = client.resume_task(handle.task_id, reason="Continue after review")
+    if success:
+        print("✅ Resume signal sent")
+
+    # Wait for completion
+    print("\n[Step 7] Waiting for task completion...")
+    result = client.wait(handle.task_id)
+    print(f"\n✅ Task completed!")
+    print(f"Status: {result.status}")
+    print(f"\nResult preview: {result.result[:200]}...")
+
+    print("\n" + "=" * 60)
+    print("✅ Task control example completed!")
+    print("=" * 60)
+
+if __name__ == "__main__":
+    main()
+```
+
+### Error Handling for Control Signals
+
+```python
+"""Error handling for pause/resume operations"""
+from shannon import ShannonClient
+from shannon.errors import APIError
+
+def main():
+    client = ShannonClient()
+
+    task_id = "task-123"
+
+    # Attempt to pause
+    try:
+        client.pause_task(task_id, reason="Review needed")
+        print("✅ Task paused successfully")
+    except APIError as e:
+        # Handle specific error cases
+        if "cannot pause completed task" in str(e):
+            print("⚠️  Task already completed, cannot pause")
+        elif "task is already paused" in str(e):
+            print("⚠️  Task is already paused")
+        elif "Task not found" in str(e):
+            print("❌ Task not found")
+        else:
+            print(f"❌ Error: {e}")
+
+    # Attempt to resume
+    try:
+        client.resume_task(task_id, reason="Continue execution")
+        print("✅ Task resumed successfully")
+    except APIError as e:
+        if "task is not paused" in str(e):
+            print("⚠️  Task is not paused, cannot resume")
+        elif "cannot resume completed task" in str(e):
+            print("⚠️  Task already completed, cannot resume")
+        else:
+            print(f"❌ Error: {e}")
+
+if __name__ == "__main__":
+    main()
+```
+
 ## Error Handling Examples
 
 See the dedicated page for complete patterns and a full retry-logic example: [Error Handling](/en/sdk/python/error-handling).

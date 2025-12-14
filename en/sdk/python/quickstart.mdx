@@ -67,6 +67,48 @@ async def main():
 asyncio.run(main())
 ```
 
+## Task Control (Pause/Resume)
+
+Control long-running tasks with pause, resume, and state checking:
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# Submit a long-running research task
+handle = client.submit_task("Research AI trends in 2025 with detailed analysis")
+
+# Pause the task at the next checkpoint
+client.pause_task(handle.task_id, reason="Review intermediate results")
+
+# Check control state
+state = client.get_control_state(handle.task_id)
+print(f"Is paused: {state.is_paused}")
+print(f"Paused at: {state.paused_at}")
+print(f"Pause reason: {state.pause_reason}")
+
+# Resume execution
+client.resume_task(handle.task_id, reason="Continue after review")
+
+# Wait for completion
+result = client.wait(handle.task_id)
+print(result.result)
+```
+
+**CLI Usage:**
+
+```bash
+# Pause a running task
+shannon pause task-123 --reason "Hold for review"
+
+# Check control state
+shannon control-state task-123
+
+# Resume the task
+shannon resume task-123 --reason "Continue"
+```
+
 ## CLI
 
 ```bash
