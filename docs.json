@@ -82,7 +82,6 @@
                 "group": "Guides",
                 "pages": [
                   "en/quickstart/configuration",
-                  "en/quickstart/desktop-app",
                   "en/quickstart/troubleshooting"
                 ]
               }
@@ -111,9 +110,6 @@
                   "en/api/rest/submit-task",
                   "en/api/rest/list-tasks",
                   "en/api/rest/get-status",
-                  "en/api/rest/pause-task",
-                  "en/api/rest/resume-task",
-                  "en/api/rest/get-control-state",
                   "en/api/rest/cancel-task",
                   "en/api/rest/approve-task"
                 ]
@@ -266,7 +262,6 @@
                 "group": "指南",
                 "pages": [
                   "cn/quickstart/configuration",
-                  "cn/quickstart/desktop-app",
                   "cn/quickstart/troubleshooting"
                 ]
               }
@@ -295,9 +290,6 @@
                   "cn/api/rest/submit-task",
                   "cn/api/rest/list-tasks",
                   "cn/api/rest/get-status",
-                  "cn/api/rest/pause-task",
-                  "cn/api/rest/resume-task",
-                  "cn/api/rest/get-control-state",
                   "cn/api/rest/cancel-task",
                   "cn/api/rest/approve-task"
                 ]
