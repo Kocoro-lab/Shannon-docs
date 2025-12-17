@@ -23,27 +23,22 @@
       "href": "https://github.com/Kocoro-lab/Shannon"
     }
   },
-  "navigation": {
-    "global": {
-      "anchors": [
-        {
-          "anchor": "GitHub",
-          "icon": "github",
-          "href": "https://github.com/Kocoro-lab/Shannon"
-        },
-        {
-          "anchor": "Community",
-          "icon": "discord",
-          "href": "https://discord.gg/NB7C2fMcQR"
-        }
-      ]
+  "anchors": [
+    {
+      "name": "GitHub",
+      "icon": "github",
+      "url": "https://github.com/Kocoro-lab/Shannon"
     },
+    {
+      "name": "Community",
+      "icon": "discord",
+      "url": "https://discord.gg/NB7C2fMcQR"
+    }
+  ],
+  "navigation": {
     "languages": [
       {
         "language": "en",
-        "label": "English",
-        "href": "/",
-        "default": true,
         "tabs": [
           {
             "tab": "Quick Start",
@@ -226,8 +221,6 @@
       },
       {
         "language": "zh-Hans",
-        "label": "简体中文",
-        "href": "/",
         "tabs": [
           {
             "tab": "快速开始",
@@ -410,8 +403,6 @@
       },
       {
         "language": "ja",
-        "label": "日本語",
-        "href": "/",
         "tabs": [
           {
             "tab": "クイックスタート",
