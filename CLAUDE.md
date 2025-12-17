@@ -220,6 +220,79 @@ Key tabs:
 - `deployment/` - Production deployment guides
 - `architecture/` - System design and deep dives
 
+### Mintlify Multi-Language Configuration (IMPORTANT)
+
+When configuring multi-language navigation in `docs.json`, follow this exact structure. Deviating from this pattern causes **sidebar/navigation to not render on remote deployment** (works locally but fails remotely).
+
+**Correct structure:**
+```json
+{
+  "anchors": [
+    {
+      "name": "GitHub",
+      "icon": "github",
+      "url": "https://github.com/Kocoro-lab/Shannon"
+    }
+  ],
+  "navigation": {
+    "languages": [
+      {
+        "language": "en",
+        "tabs": [...]
+      },
+      {
+        "language": "zh-Hans",
+        "tabs": [...]
+      }
+    ]
+  }
+}
+```
+
+**Common mistakes that break remote deployment:**
+
+1. **DO NOT use `navigation.global`** - Mintlify remote doesn't recognize this:
+   ```json
+   // ❌ WRONG - causes sidebar to disappear on remote
+   "navigation": {
+     "global": {
+       "anchors": [...]
+     },
+     "languages": [...]
+   }
+   ```
+
+2. **DO NOT add extra keys to language objects** - Only `language` and `tabs` are supported:
+   ```json
+   // ❌ WRONG - extra keys cause issues
+   {
+     "language": "en",
+     "label": "English",    // ❌ Not supported
+     "href": "/",           // ❌ Not supported
+     "default": true,       // ❌ Not supported
+     "tabs": [...]
+   }
+
+   // ✅ CORRECT
+   {
+     "language": "en",
+     "tabs": [...]
+   }
+   ```
+
+3. **Anchors must be at top level**, not inside `navigation.global`:
+   ```json
+   // ✅ CORRECT - top-level anchors
+   {
+     "anchors": [...],
+     "navigation": {
+       "languages": [...]
+     }
+   }
+   ```
+
+**Debugging tip:** If navigation works locally (`mint dev`) but not on remote deployment, compare your `docs.json` structure against Mintlify's official docs repo: https://github.com/mintlify/docs
+
 ### Content Best Practices
 
 1. **Use Mintlify Components**:
