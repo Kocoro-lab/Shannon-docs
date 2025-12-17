@@ -357,6 +357,7 @@
                 "group": "扩展与集成",
                 "pages": [
                   "cn/tutorials/custom-tools",
+                  "cn/tutorials/openapi-tools",
                   "cn/tutorials/vendor-adapters",
                   "cn/tutorials/templates",
                   "cn/tutorials/extending-shannon",
