@@ -1,0 +1,131 @@
+---
+title: "タスクキャンセル"
+description: "実行中のタスクをキャンセル"
+---
+
+## エンドポイント
+
+```
+POST http://localhost:8080/api/v1/tasks/{id}/cancel
+```
+
+## 説明
+
+キューにあるか実行中のタスクをキャンセルします。キャンセルが処理のために受け入れられた場合は `202 Accepted` を返します。タスクがすでに最終状態に達している場合は `409 Conflict` を返します。
+
+## 認証
+
+**必要**: はい
+
+ヘッダーにAPIキーを含めてください:
+```
+X-API-Key: sk_test_123456
+```
+
+## リクエスト
+
+### ヘッダー
+
+| ヘッダー | 必要 | 説明 |
+|----------|------|------|
+| `X-API-Key` | はい | API認証キー |
+| `Content-Type` | いいえ | 本文が提供される場合は `application/json` |
+| `traceparent` | いいえ | W3Cトレースコンテキスト |
+
+### パスパラメータ
+
+| パラメータ | タイプ | 必要 | 説明 |
+|-------------|--------|------|------|
+| `id` | string | はい | タスクID（TemporalワークフローID） |
+
+### ボディパラメータ
+
+| パラメータ | タイプ | 必要 | 説明 |
+|-------------|--------|------|------|
+| `reason` | string | いいえ | 任意の人間が読める理由 |
+
+### リクエストボディスキーマ
+
+```json
+{
+  "reason": "Stopped by user"
+}
+```
+
+## レスポンス
+
+### 202 Accepted
+
+```json
+{
+  "success": true,
+  "message": "タスクが正常にキャンセルされました"
+}
+```
+
+### 409 Conflict
+
+```json
+{
+  "success": false,
+  "message": "タスクはすでに最終状態にあります: COMPLETED",
+  "status": "COMPLETED"
+}
+```
+
+### 404 Not Found
+
+```json
+{ "error": "タスクが見つかりません" }
+```
+
+### 401 / 403
+
+```json
+{ "error": "認証されていません" }
+```
+
+または
+
+```json
+{ "error": "禁止されています" }
+```
+
+## 例
+
+### curl
+
+```bash
+curl -X POST "http://localhost:8080/api/v1/tasks/${TASK_ID}/cancel" \
+  -H "X-API-Key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"reason":"user request"}'
+```
+
+### Python (httpx)
+
+```python
+import httpx
+
+resp = httpx.post(
+    f"http://localhost:8080/api/v1/tasks/{task_id}/cancel",
+    headers={"X-API-Key": api_key},
+    json={"reason": "cleanup"}
+)
+print(resp.status_code, resp.json())
+```
+
+### JavaScript (axios)
+
+```javascript
+await axios.post(
+  `http://localhost:8080/api/v1/tasks/${taskId}/cancel`,
+  { reason: "not needed" },
+  { headers: { "X-API-Key": apiKey } }
+);
+```
+
+## 注意事項
+
+- 冪等性: 繰り返し呼び出すと、現在の状態に応じて `202` または `409` が返されます。
+- キャンセルは子ワークフローに伝播されます（`REQUEST_CANCEL` を介して優雅に）。

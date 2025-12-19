@@ -1,0 +1,38 @@
+---
+title: "設定リファレンス"
+description: "Shannonの完全な環境変数と設定オプション"
+---
+
+<Note>
+設定リファレンスの完全版は準備中です。現在は[Installation](/ja/quickstart/installation)を参照してください。
+</Note>
+
+## 概要
+
+Shannonは**環境変数**と**YAML設定ファイル**を通じて設定されます。
+
+## 主要な設定
+
+### LLMプロバイダーAPIキー
+
+```bash
+# .env
+OPENAI_API_KEY=sk-your-key-here
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+```
+
+### 予算制限
+
+```bash
+MAX_TOKENS_PER_REQUEST=10000
+MAX_COST_PER_REQUEST=0.50
+```
+
+### サービスエンドポイント
+
+```bash
+TEMPORAL_HOST=temporal:7233
+LLM_SERVICE_URL=http://llm-service:8000
+```
+
+詳細については[Installation Guide](/ja/quickstart/installation)を参照してください。

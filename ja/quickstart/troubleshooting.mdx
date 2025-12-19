@@ -1,0 +1,146 @@
+---
+title: "トラブルシューティング"
+description: "Shannonを使用する際の一般的な問題と解決策"
+---
+
+## クイック診断
+
+特定の問題に入る前に、これらのクイックチェックを実行してください：
+
+```bash
+# すべてのサービスが実行中であることを確認
+docker compose ps
+
+# すべてのサービスから最近のログを表示
+docker compose logs --tail=50
+
+# 特定のサービスヘルスを確認
+curl http://localhost:8080/health
+curl http://localhost:8000/health  # LLM Service
+```
+
+## インストール & セットアップの問題
+
+### Docker Composeが起動しない
+
+**症状**:
+- サービスが起動しない
+- 終了コードエラー
+- コンテナが即座にクラッシュ
+
+**一般的な原因と解決策**:
+
+1. **Dockerデーモンが実行されていない**
+```bash
+docker info
+# macOS: open -a Docker
+# Linux: sudo systemctl start docker
+```
+
+2. **ポートの競合**
+```bash
+lsof -i :8080  # Gateway
+lsof -i :50051 # Agent Core
+lsof -i :50052 # Orchestrator
+```
+
+3. **.envファイルが見つからない**
+```bash
+make setup
+# または
+cp .env.example .env
+echo "OPENAI_API_KEY=sk-..." >> .env
+```
+
+## API & 接続の問題
+
+### 401 Unauthorized
+
+**解決策1: 認証を無効化（開発環境）**
+```bash
+# .envで
+GATEWAY_SKIP_AUTH=1
+docker compose restart gateway
+```
+
+### タスクがRUNNINGまたはQUEUED状態のまま
+
+**一般的な原因**:
+- 無効なLLM APIキー
+- LLMプロバイダーのレート制限
+- ネットワーク接続の問題
+
+```bash
+docker compose logs llm-service | grep -i "api key\|unauthorized\|quota"
+```
+
+## 予算 & コストの問題
+
+### 予算超過エラー
+
+**.envで予算制限を増やす**:
+```bash
+MAX_COST_PER_REQUEST=1.00
+MAX_TOKENS_PER_REQUEST=20000
+docker compose restart orchestrator llm-service
+```
+
+## パフォーマンスの問題
+
+### レスポンスが遅い
+
+**リソースを確認**:
+```bash
+docker stats
+```
+
+**ワーカー並行性を調整**:
+```bash
+# .envで
+WORKER_ACT_CRITICAL=5
+WORKER_WF_CRITICAL=3
+TOOL_PARALLELISM=2
+```
+
+## デバッグツール
+
+### ログの表示
+
+```bash
+# すべてのサービス
+docker compose logs -f
+
+# 特定のサービス
+docker compose logs -f orchestrator
+
+# エラーを検索
+docker compose logs orchestrator | grep -i error
+```
+
+### Temporal UI
+
+http://localhost:8088 にアクセスしてWorkflowを確認
+
+### ヘルスチェック
+
+```bash
+curl http://localhost:8080/health
+curl http://localhost:8000/health
+```
+
+## ヘルプの取得
+
+<CardGroup cols={2}>
+  <Card title="インストールガイド" icon="download" href="/ja/quickstart/installation">
+    詳細なセットアップ手順
+  </Card>
+  <Card title="設定" icon="gear" href="/ja/quickstart/configuration">
+    設定オプション
+  </Card>
+  <Card title="Discord コミュニティ" icon="discord" href="https://discord.gg/NB7C2fMcQR">
+    コミュニティからヘルプを得る
+  </Card>
+  <Card title="GitHub Issues" icon="github" href="https://github.com/Kocoro-lab/Shannon/issues">
+    バグ報告や機能リクエスト
+  </Card>
+</CardGroup>

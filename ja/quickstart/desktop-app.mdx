@@ -1,0 +1,193 @@
+---
+title: "Desktop Application"
+description: "タスク監視と管理のためのネイティブデスクトップアプリ"
+---
+
+## 概要
+
+Shannonは[Tauri](https://tauri.app/)で構築されたネイティブデスクトップアプリケーションを提供し、リアルタイムのタスク監視と管理を実現します。デスクトップアプリは、Shannonサービスと対話するための合理化されたインターフェースを提供します。
+
+<Note>
+デスクトップアプリケーションは以前のWebダッシュボードに代わり、パフォーマンスの向上とネイティブOS統合を提供します。
+</Note>
+
+## 機能
+
+- **ライブタスクストリーミング** - アクティブなタスクのリアルタイムSSEイベントフィード
+- **タスク管理** - タスクの送信、監視、キャンセル
+- **セッション履歴** - 以前の会話の閲覧と継続
+- **マルチプラットフォーム** - macOS (Universal)、Windows、Linux、iOS
+
+## サポートされているプラットフォーム
+
+| プラットフォーム | アーキテクチャ | フォーマット |
+|----------|-------------|-----------|
+| macOS | Universal (Intel + Apple Silicon) | DMG |
+| Windows | x86_64 | MSI |
+| Linux | x86_64 | AppImage/DEB |
+| iOS | ARM64 | App Bundle |
+
+## インストール
+
+### macOS
+
+1. [Releasesページ](https://github.com/Kocoro-lab/Shannon/releases)から最新のDMGをダウンロード
+2. DMGファイルを開く
+3. ShannonをApplicationsフォルダにドラッグ
+4. Applicationsから起動
+
+```bash
+# またはコマンドラインからインストール
+open shannon-desktop_0.1.0_universal.dmg
+```
+
+### ソースからビルド
+
+<Steps>
+  <Step title="前提条件">
+    必要なツールがインストールされていることを確認：
+
+    - Node.js 18+
+    - Rust 1.70+
+    - Xcode Command Line Tools (macOS)
+
+    ```bash
+    # ユニバーサルバイナリ用のRustターゲットをインストール（macOS）
+    rustup target add aarch64-apple-darwin x86_64-apple-darwin
+    ```
+  </Step>
+
+  <Step title="クローンとインストール">
+    ```bash
+    git clone https://github.com/Kocoro-lab/Shannon.git
+    cd Shannon/desktop
+    npm install
+    ```
+  </Step>
+
+  <Step title="APIエンドポイントの設定">
+    ```bash
+    cp .env.local.example .env.local
+    # .env.localを編集してShannon API URLを設定
+    # デフォルト: http://localhost:8080
+    ```
+  </Step>
+
+  <Step title="開発モード">
+    ```bash
+    npm run tauri:dev
+    ```
+  </Step>
+
+  <Step title="本番ビルド">
+    ```bash
+    npm run tauri:build
+    ```
+
+    出力: `src-tauri/target/release/bundle/dmg/shannon-desktop_0.1.0_universal.dmg`
+  </Step>
+</Steps>
+
+## 設定
+
+### APIエンドポイント
+
+環境変数でShannon APIエンドポイントを設定：
+
+```bash
+# .env.local
+NEXT_PUBLIC_API_URL=http://localhost:8080
+```
+
+本番環境デプロイの場合：
+
+```bash
+NEXT_PUBLIC_API_URL=https://api.your-domain.com
+```
+
+## 使用方法
+
+### メインインターフェース
+
+デスクトップアプリは以下を提供します：
+
+1. **チャットインターフェース** - クエリの送信とレスポンスの表示
+2. **Runsビュー** - アクティブおよび完了したタスクの監視
+3. **Run Details** - 特定のタスクの完全なイベントストリームを表示
+4. **Settings** - APIエンドポイントと設定の構成
+
+### タスクの送信
+
+1. アプリを開く
+2. チャット入力にクエリを入力
+3. EnterキーまたはSendをクリック
+4. タスクが実行される際のリアルタイムイベントを監視
+
+### タスクの監視
+
+Runsページに移動して以下を確認：
+
+- ライブステータス付きのアクティブなタスク
+- 結果付きの完了したタスク
+- エラー詳細付きの失敗したタスク
+
+任意のRunをクリックして完全なイベントストリームを表示します。
+
+## トラブルシューティング
+
+### ビルド失敗: Module Not Found
+
+```bash
+npm install @tauri-apps/plugin-shell
+```
+
+### ユニバーサルバイナリの要件（macOS）
+
+両方のRustターゲットがインストールされていることを確認：
+
+```bash
+rustup target list --installed
+# 以下が表示されるはず:
+# aarch64-apple-darwin
+# x86_64-apple-darwin
+```
+
+### 接続の問題
+
+1. Shannonサービスが実行中であることを確認
+2. `.env.local`のAPI URLを確認
+3. ポート8080をブロックするファイアウォールがないことを確認
+
+### クリーンリビルド
+
+```bash
+rm -rf .next out src-tauri/target/release/bundle
+npm run tauri:build
+```
+
+## 技術スタック
+
+| コンポーネント | 技術 |
+|-----------|------------|
+| Framework | Next.js 16 (Turbopack) |
+| Runtime | Tauri 2.x |
+| UI | Shadcn/ui + Tailwind CSS |
+| State | Redux Toolkit |
+| Backend | Shannon Gateway API |
+
+## 次のステップ
+
+<CardGroup cols={2}>
+  <Card title="インストール" icon="download" href="/ja/quickstart/installation">
+    Shannonサービスのセットアップ
+  </Card>
+  <Card title="クイックスタート" icon="rocket" href="/ja/quickstart/quickstart">
+    最初のタスクを送信
+  </Card>
+  <Card title="ストリーミング" icon="stream" href="/ja/quickstart/concepts/streaming">
+    リアルタイムイベントを理解
+  </Card>
+  <Card title="APIリファレンス" icon="code" href="/ja/api/overview">
+    完全なAPIドキュメント
+  </Card>
+</CardGroup>

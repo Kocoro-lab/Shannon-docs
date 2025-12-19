@@ -1,0 +1,1719 @@
+---
+title: "環境変数"
+description: "Shannon環境変数リファレンス"
+---
+
+## 概要
+
+Shannonは、すべてのサービスで環境変数を使用して設定を行います。このページでは、100以上の設定オプションをタイプ、デフォルト、影響とともに文書化しています。
+
+## クイックリファレンス
+
+| カテゴリ | 変数 | サービス |
+|----------|-----------|---------|
+| [Core Runtime](#core-runtime) | 3 | すべて |
+| [LLM Provider Keys](#llm-provider-api-keys) | 11 | LLMサービス |
+| [Web Search](#web-search-providers) | 6 | LLMサービス |
+| [Data Stores](#data-stores) | 17 | すべて |
+| [Service Endpoints](#service-endpoints) | 8 | すべて |
+| [Model Routing](#model-routing-and-budgets) | 13 | Orchestrator, LLMサービス |
+| [Cache & Rate Limiting](#cache-and-rate-limiting) | 8 | すべて |
+| [Tool Execution](#tool-execution-and-workflow) | 11 | Orchestrator, Agent Core |
+| [Security](#approvals-and-security) | 6 | Gateway, Orchestrator |
+| [Observability](#observability-and-telemetry) | 5 | すべて |
+| [WASI Sandbox](#python-wasi-sandbox) | 4 | Agent Core, LLMサービス |
+| [Integrations](#openapi-and-mcp) | 13 | LLMサービス |
+| [Advanced](#advanced-orchestrator-controls) | 20+ | Orchestrator |
+
+**合計**: 100以上の設定変数
+
+## 設定ファイル
+
+`.env.example`を`.env`にコピーしてカスタマイズします：
+
+```bash
+cp .env.example .env
+nano .env
+```
+
+変更後にサービスを再起動します：
+
+```bash
+docker compose restart
+```
+
+## Core Runtime
+
+### ENVIRONMENT
+
+**タイプ**: String  
+**デフォルト**: `dev`  
+**有効な値**: `dev`, `staging`, `prod`  
+**サービス**: すべて  
+**ホットリロード**: いいえ（再起動が必要）
+
+ログの詳細度とポリシーの適用を制御します。
+
+```bash
+ENVIRONMENT=prod
+```
+
+**影響**:
+- `dev`: 詳細なログ、緩和されたポリシー
+- `staging`: 中程度のログ、標準的なポリシー
+- `prod`: 最小限のログ、厳格なポリシー
+
+### DEBUG
+
+**タイプ**: Boolean  
+**デフォルト**: `false`  
+**有効な値**: `true`, `false`  
+**サービス**: すべて  
+**ホットリロード**: いいえ
+
+すべてのサービスでデバッグログを有効にします。
+
+```bash
+DEBUG=true
+```
+
+**影響**:
+- `true`: デバッグレベルのログ、スタックトレース
+- `false`: 情報レベルのログのみ
+
+### SERVICE_NAME
+
+**タイプ**: String  
+**デフォルト**: `shannon-llm-service`  
+**サービス**: LLMサービス  
+**ホットリロード**: いいえ
+
+ログとテレメトリのためのサービス識別子。
+
+```bash
+SERVICE_NAME=shannon-llm-service
+```
+
+## LLM Provider API Keys
+
+### OPENAI_API_KEY
+
+**タイプ**: String  
+**必須**: 少なくとも1つのプロバイダーキー  
+**サービス**: LLMサービス  
+**ホットリロード**: はい
+
+GPTモデル用のOpenAI APIキー。
+
+```bash
+OPENAI_API_KEY=sk-...
+```
+
+**有効なモデル**: GPT-5, GPT-5-mini, GPT-5-nano
+
+### ANTHROPIC_API_KEY
+
+**タイプ**: String  
+**サービス**: LLMサービス  
+**ホットリロード**: はい
+
+Claudeモデル用のAnthropic APIキー。
+
+```bash
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+**有効なモデル**: Claude 3.5 Sonnet, Claude 3 Opus, Claude 3 Haiku
+
+### GOOGLE_API_KEY
+
+**タイプ**: String  
+**サービス**: LLMサービス  
+**ホットリロード**: はい
+
+Geminiモデル用のGoogle AI APIキー。
+
+```bash
+GOOGLE_API_KEY=...
+```
+
+**有効なモデル**: Gemini Pro, Gemini Flash
+
+### GROQ_API_KEY
+
+**タイプ**: String  
+**サービス**: LLMサービス  
+**ホットリロード**: はい
+
+高速推論用のGroq APIキー。
+
+```bash
+GROQ_API_KEY=...
+```
+
+**有効なモデル**: Llama 3, Mixtral
+
+### XAI_API_KEY
+
+**タイプ**: String  
+**サービス**: LLMサービス  
+**ホットリロード**: はい
+
+Grokモデル用のxAI APIキー。
+
+```bash
+XAI_API_KEY=...
+```
+
+### DEEPSEEK_API_KEY
+
+**タイプ**: String  
+**サービス**: LLMサービス  
+**ホットリロード**: はい
+
+DeepSeek APIキー。
+
+```bash
+DEEPSEEK_API_KEY=...
+```
+
+### QWEN_API_KEY
+
+**タイプ**: String  
+**サービス**: LLMサービス  
+**ホットリロード**: はい
+
+Alibaba Cloudモデル用のQwen APIキー。
+
+```bash
+QWEN_API_KEY=...
+```
+
+### MISTRAL_API_KEY
+
+**タイプ**: String  
+**サービス**: LLMサービス  
+**ホットリロード**: はい
+
+Mistral APIキー。
+
+```bash
+MISTRAL_API_KEY=...
+```
+
+### AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
+
+**タイプ**: String  
+**サービス**: LLMサービス  
+**ホットリロード**: はい
+
+Bedrockモデル用のAWS認証情報。
+
+```bash
+AWS_ACCESS_KEY_ID=AKIA...
+AWS_SECRET_ACCESS_KEY=...
+AWS_REGION=us-east-1
+```
+
+**有効なモデル**: Claude (Bedrock), Llama (Bedrock), Titan
+
+### ZAI_API_KEY
+
+**タイプ**: String  
+**サービス**: LLMサービス  
+**ホットリロード**: はい
+
+ZAI APIキー。
+
+```bash
+ZAI_API_KEY=...
+```
+
+## Web Search Providers
+
+### WEB_SEARCH_PROVIDER
+
+**タイプ**: String  
+**デフォルト**: `google`  
+**有効な値**: `google`, `serper`, `bing`, `exa`, `firecrawl`  
+**サービス**: LLMサービス  
+**ホットリロード**: はい
+
+アクティブなウェブ検索プロバイダー。
+
+```bash
+WEB_SEARCH_PROVIDER=google
+```
+
+### GOOGLE_SEARCH_API_KEY
+
+**タイプ**: String  
+**サービス**: LLMサービス  
+**ホットリロード**: はい
+
+Google Custom Search APIキー。
+
+```bash
+GOOGLE_SEARCH_API_KEY=...
+GOOGLE_SEARCH_ENGINE_ID=...
+```
+
+取得先: https://console.cloud.google.com/apis/credentials
+
+### SERPER_API_KEY
+
+**タイプ**: String  
+**サービス**: LLMサービス  
+**ホットリロード**: はい
+
+Serper.dev APIキー（Google Search APIの代替）。
+
+```bash
+SERPER_API_KEY=...
+```
+
+取得先: https://serper.dev
+
+### BING_API_KEY
+
+**タイプ**: String  
+**サービス**: LLMサービス  
+**ホットリロード**: はい
+
+Microsoft Bing Search APIキー。
+
+```bash
+BING_API_KEY=...
+```
+
+### EXA_API_KEY
+
+**タイプ**: String  
+**サービス**: LLMサービス  
+**ホットリロード**: はい
+
+Exa AI検索APIキー。
+
+```bash
+EXA_API_KEY=...
+```
+
+### FIRECRAWL_API_KEY
+
+**タイプ**: 文字列  
+**サービス**: LLMサービス  
+**ホットリロード**: はい  
+
+Webスクレイピング用のFirecrawl APIキー。
+
+```bash
+FIRECRAWL_API_KEY=...
+```
+
+## データストア
+
+### PostgreSQL
+
+#### POSTGRES_HOST
+
+**タイプ**: 文字列  
+**デフォルト**: `postgres`  
+**サービス**: ゲートウェイ、オーケストレーター  
+**ホットリロード**: いいえ  
+
+PostgreSQLのホスト名。
+
+```bash
+POSTGRES_HOST=postgres
+```
+
+#### POSTGRES_PORT
+
+**タイプ**: 整数  
+**デフォルト**: `5432`  
+**範囲**: 1-65535  
+**サービス**: ゲートウェイ、オーケストレーター  
+**ホットリロード**: いいえ  
+
+PostgreSQLのポート。
+
+```bash
+POSTGRES_PORT=5432
+```
+
+#### POSTGRES_DB
+
+**タイプ**: 文字列  
+**デフォルト**: `shannon`  
+**サービス**: ゲートウェイ、オーケストレーター  
+**ホットリロード**: いいえ  
+
+PostgreSQLのデータベース名。
+
+```bash
+POSTGRES_DB=shannon
+```
+
+#### POSTGRES_USER
+
+**タイプ**: 文字列  
+**デフォルト**: `shannon`  
+**サービス**: ゲートウェイ、オーケストレーター  
+**ホットリロード**: いいえ  
+
+PostgreSQLのユーザー名。
+
+```bash
+POSTGRES_USER=shannon
+```
+
+#### POSTGRES_PASSWORD
+
+**タイプ**: 文字列  
+**デフォルト**: `shannon`  
+**サービス**: ゲートウェイ、オーケストレーター  
+**ホットリロード**: いいえ  
+
+PostgreSQLのパスワード。
+
+```bash
+POSTGRES_PASSWORD=secure-password
+```
+
+**セキュリティ**: 本番環境では変更してください！
+
+#### POSTGRES_SSLMODE
+
+**タイプ**: 文字列  
+**デフォルト**: `disable`  
+**有効な値**: `disable`, `require`, `verify-ca`, `verify-full`  
+**サービス**: ゲートウェイ、オーケストレーター  
+**ホットリロード**: いいえ  
+
+PostgreSQL接続のSSLモード。
+
+```bash
+POSTGRES_SSLMODE=require
+```
+
+### Redis
+
+#### REDIS_HOST
+
+**タイプ**: 文字列  
+**デフォルト**: `redis`  
+**サービス**: すべて  
+**ホットリロード**: いいえ  
+
+Redisのホスト名。
+
+```bash
+REDIS_HOST=redis
+```
+
+#### REDIS_PORT
+
+**タイプ**: 整数  
+**デフォルト**: `6379`  
+**サービス**: すべて  
+**ホットリロード**: いいえ  
+
+Redisのポート。
+
+```bash
+REDIS_PORT=6379
+```
+
+#### REDIS_PASSWORD
+
+**タイプ**: 文字列  
+**デフォルト**: 空  
+**サービス**: すべて  
+**ホットリロード**: いいえ  
+
+Redisのパスワード（認証が有効な場合）。
+
+```bash
+REDIS_PASSWORD=secure-password
+```
+
+#### REDIS_TTL_SECONDS
+
+**タイプ**: 整数  
+**デフォルト**: `3600`  
+**範囲**: 0-∞ (0 = 無期限)  
+**サービス**: すべて  
+**ホットリロード**: はい  
+
+RedisキーのデフォルトTTL。
+
+```bash
+REDIS_TTL_SECONDS=3600
+```
+
+**影響**: セッション、イベント、レスポンスのキャッシュ期間
+
+#### REDIS_URL
+
+**タイプ**: 文字列  
+**デフォルト**: `redis://redis:6379`  
+**サービス**: すべて  
+**ホットリロード**: いいえ  
+
+完全なRedis接続URL。
+
+```bash
+REDIS_URL=redis://redis:6379
+# 認証あり:
+REDIS_URL=redis://:password@redis:6379
+```
+
+#### LLM_REDIS_URL
+
+**タイプ**: 文字列  
+**デフォルト**: 空（REDIS_URLを使用）  
+**サービス**: LLMサービス  
+**ホットリロード**: いいえ  
+
+LLMレスポンスキャッシング用の専用Redisインスタンス。
+
+```bash
+LLM_REDIS_URL=redis://llm-redis:6379
+```
+
+**ユースケース**: スケーリングのためにLLMキャッシュをセッションデータから分離
+
+### Qdrant (ベクターストア)
+
+#### QDRANT_URL
+
+**タイプ**: 文字列  
+**デフォルト**: `http://qdrant:6333`  
+**サービス**: オーケストレーター、LLMサービス  
+**ホットリロード**: いいえ  
+
+Qdrant接続URL。
+
+```bash
+QDRANT_URL=http://qdrant:6333
+```
+
+#### QDRANT_HOST / QDRANT_PORT
+
+**タイプ**: 文字列 / 整数  
+**デフォルト**: `qdrant` / `6333`  
+**サービス**: オーケストレーター、LLMサービス  
+**ホットリロード**: いいえ  
+
+QDRANT_URLの代替（ホスト/ポートを別々に指定）。
+
+```bash
+QDRANT_HOST=qdrant
+QDRANT_PORT=6333
+```
+
+## サービスエンドポイント
+
+### TEMPORAL_HOST
+
+**タイプ**: 文字列  
+**デフォルト**: `temporal:7233`  
+**サービス**: オーケストレーター  
+**ホットリロード**: いいえ  
+
+Temporalサーバーのアドレス。
+
+```bash
+TEMPORAL_HOST=temporal:7233
+```
+
+### LLM_SERVICE_URL
+
+**タイプ**: 文字列  
+**デフォルト**: `http://llm-service:8000`  
+**サービス**: オーケストレーター、エージェントコア  
+**ホットリロード**: いいえ  
+
+LLMサービスのエンドポイント。
+
+```bash
+LLM_SERVICE_URL=http://llm-service:8000
+```
+
+### AGENT_CORE_ADDR
+
+**タイプ**: 文字列  
+**デフォルト**: `agent-core:50051`  
+**サービス**: オーケストレーター  
+**ホットリロード**: いいえ  
+
+エージェントコアのgRPCアドレス。
+
+```bash
+AGENT_CORE_ADDR=agent-core:50051
+```
+
+### ORCHESTRATOR_GRPC
+
+**タイプ**: 文字列  
+**デフォルト**: `orchestrator:50052`  
+**サービス**: ゲートウェイ  
+**ホットリロード**: いいえ  
+
+オーケストレーターのgRPCエンドポイント。
+
+```bash
+ORCHESTRATOR_GRPC=orchestrator:50052
+```
+
+### ADMIN_SERVER
+
+**タイプ**: 文字列  
+**デフォルト**: `http://orchestrator:8081`  
+**サービス**: ゲートウェイ  
+**ホットリロード**: いいえ  
+
+イベントストリーミング用の管理/SSEサーバー。
+
+```bash
+ADMIN_SERVER=http://orchestrator:8081
+```
+
+### CONFIG_PATH
+
+**タイプ**: 文字列  
+**デフォルト**: `./config/features.yaml`  
+**サービス**: オーケストレーター、エージェントコア  
+**ホットリロード**: はい（ファイルウォッチャー使用）  
+
+フィーチャーフラグ設定のパス。
+
+```bash
+CONFIG_PATH=./config/features.yaml
+```
+
+### MODELS_CONFIG_PATH
+
+**タイプ**: 文字列  
+**デフォルト**: `./config/models.yaml`  
+**サービス**: LLMサービス、オーケストレーター  
+**ホットリロード**: はい（ファイルウォッチャー使用）  
+
+モデルと価格設定のパス。
+
+```bash
+MODELS_CONFIG_PATH=./config/models.yaml
+```
+
+### EVENTS_INGEST_URL
+
+**タイプ**: 文字列  
+**デフォルト**: `http://orchestrator:8081/events`  
+**サービス**: エージェントコア  
+**ホットリロード**: いいえ  
+
+イベント取り込みエンドポイント。
+
+```bash
+EVENTS_INGEST_URL=http://orchestrator:8081/events
+```
+
+## モデルルーティングと予算
+
+### DEFAULT_MODEL_TIER
+
+**タイプ**: 文字列  
+**デフォルト**: `small`  
+**有効な値**: `small`, `medium`, `large`  
+**サービス**: オーケストレーター  
+**ホットリロード**: はい  
+
+タスクのデフォルトモデルティア。
+
+```bash
+DEFAULT_MODEL_TIER=small
+```
+
+**ティア**:
+- `small`: GPT-5o-mini, Claude Haiku (~$0.15/1Mトークン)
+- `medium`: GPT-5o, Claude Sonnet (~$3-15/1Mトークン)
+- `large`: GPT-5, Claude Opus (~$15-75/1Mトークン)
+
+### COMPLEXITY_MODEL_ID
+
+**タイプ**: 文字列  
+**デフォルト**: `gpt-5`  
+**サービス**: Orchestrator  
+**ホットリロード**: はい  
+
+複雑性分析に使用されるモデルです。
+
+```bash
+COMPLEXITY_MODEL_ID=gpt-5
+```
+
+### DECOMPOSITION_MODEL_ID
+
+**タイプ**: 文字列  
+**デフォルト**: `claude-sonnet-4-20250514`  
+**サービス**: Orchestrator  
+**ホットリロード**: はい  
+
+タスク分解に使用されるモデルです。
+
+```bash
+DECOMPOSITION_MODEL_ID=claude-sonnet-4-20250514
+```
+
+### MAX_TOKENS
+
+**タイプ**: 整数  
+**デフォルト**: `2000`  
+**範囲**: 1-∞  
+**サービス**: LLM Service  
+**ホットリロード**: はい  
+
+LLMコールごとの最大出力トークン数のデフォルトです。
+
+```bash
+MAX_TOKENS=2000
+```
+
+### TEMPERATURE
+
+**タイプ**: 浮動小数点数  
+**デフォルト**: `0.7`  
+**範囲**: 0.0-2.0  
+**サービス**: LLM Service  
+**ホットリロード**: はい  
+
+LLMサンプリングのデフォルト温度です。
+
+```bash
+TEMPERATURE=0.7
+```
+
+**影響**:
+- `0.0`: 決定論的、集中
+- `0.7`: バランスの取れた創造性
+- `1.0+`: よりランダムで創造的
+
+### MAX_TOKENS_PER_REQUEST
+
+**タイプ**: 整数  
+**デフォルト**: `10000`  
+**範囲**: 1-∞  
+**サービス**: Orchestrator  
+**ホットリロード**: はい  
+
+タスクリクエストごとの最大トークン数です。
+
+```bash
+MAX_TOKENS_PER_REQUEST=10000
+```
+
+**影響**: ハードバジェット制限、超過時にタスクが失敗します。
+
+### MAX_COST_PER_REQUEST
+
+**タイプ**: 浮動小数点数  
+**デフォルト**: `0.50`  
+**範囲**: 0.0-∞  
+**サービス**: Orchestrator  
+**ホットリロード**: はい  
+
+タスクリクエストごとの最大コスト（USD）です。
+
+```bash
+MAX_COST_PER_REQUEST=0.50
+```
+
+**影響**: コストがこの制限を超えるとタスクが失敗します。
+
+### LLM_DISABLE_BUDGETS
+
+**タイプ**: 整数  
+**デフォルト**: `1`  
+**有効な値**: `0`, `1`  
+**サービス**: Orchestrator, LLM Service  
+**ホットリロード**: はい  
+
+バジェットの強制場所です。
+
+```bash
+LLM_DISABLE_BUDGETS=1
+```
+
+**値**:
+- `1`: Orchestratorがバジェットを管理（推奨）
+- `0`: LLMサービスがバジェットを強制
+
+### HISTORY_WINDOW_MESSAGES
+
+**タイプ**: 整数  
+**デフォルト**: `50`  
+**範囲**: 1-∞  
+**サービス**: Orchestrator  
+**ホットリロード**: はい  
+
+会話履歴に含めるメッセージの数です。
+
+```bash
+HISTORY_WINDOW_MESSAGES=50
+```
+
+### HISTORY_WINDOW_DEBUG_MESSAGES
+
+**タイプ**: 整数  
+**デフォルト**: `75`  
+**サービス**: Orchestrator  
+**ホットリロード**: はい  
+
+デバッグモードの履歴ウィンドウサイズです。
+
+```bash
+HISTORY_WINDOW_DEBUG_MESSAGES=75
+```
+
+### WORKFLOW_SYNTH_BYPASS_SINGLE
+
+**タイプ**: ブール値  
+**デフォルト**: `true`  
+**サービス**: Orchestrator  
+**ホットリロード**: はい  
+
+単一結果のワークフローの合成をスキップします。
+
+```bash
+WORKFLOW_SYNTH_BYPASS_SINGLE=true
+```
+
+**影響**:
+- `true`: 簡単なタスクに対して高速（合成ステップをスキップ）
+- `false`: 常に結果を合成
+
+### TOKEN_BUDGET_PER_AGENT
+
+**タイプ**: 整数  
+**デフォルト**: 空（無制限）  
+**サービス**: Orchestrator  
+**ホットリロード**: はい  
+
+エージェント実行ごとのトークン予算です。
+
+```bash
+TOKEN_BUDGET_PER_AGENT=5000
+```
+
+### TOKEN_BUDGET_PER_TASK
+
+**タイプ**: 整数  
+**デフォルト**: 空（無制限）  
+**サービス**: Orchestrator  
+**ホットリロード**: はい  
+
+全タスクに対するトークン予算です。
+
+```bash
+TOKEN_BUDGET_PER_TASK=20000
+```
+
+## キャッシュとレート制限
+
+### ENABLE_CACHE
+
+**タイプ**: ブール値  
+**デフォルト**: `true`  
+**サービス**: LLM Service  
+**ホットリロード**: はい  
+
+LLM応答のキャッシングを有効にします。
+
+```bash
+ENABLE_CACHE=true
+```
+
+**影響**:
+- `true`: Redisに応答をキャッシュし、高速かつ安価
+- `false`: 常にLLM APIにアクセス
+
+### CACHE_SIMILARITY_THRESHOLD
+
+**タイプ**: 浮動小数点数  
+**デフォルト**: `0.95`  
+**範囲**: 0.0-1.0  
+**サービス**: LLM Service  
+**ホットリロード**: はい  
+
+キャッシュヒットのための意味的類似性の閾値です。
+
+```bash
+CACHE_SIMILARITY_THRESHOLD=0.95
+```
+
+**影響**:
+- `1.0`: 完全一致のみ
+- `0.95`: 非常に類似したクエリ
+- `0.8`: ゆるい一致（キャッシュヒットが増え、精度が低下）
+
+### RATE_LIMIT_REQUESTS
+
+**タイプ**: 整数  
+**デフォルト**: `100`  
+**サービス**: Gateway  
+**ホットリロード**: はい  
+
+APIキーごとのウィンドウあたりのリクエスト数です。
+
+```bash
+RATE_LIMIT_REQUESTS=100
+```
+
+### RATE_LIMIT_WINDOW
+
+**タイプ**: 整数  
+**デフォルト**: `60`  
+**範囲**: 1-∞（秒）  
+**サービス**: Gateway  
+**ホットリロード**: はい  
+
+レート制限ウィンドウの期間です。
+
+```bash
+RATE_LIMIT_WINDOW=60
+```
+
+**組み合わせ**:
+```bash
+RATE_LIMIT_REQUESTS=100
+RATE_LIMIT_WINDOW=60
+# = 60秒あたり100リクエスト
+```
+
+### WEB_SEARCH_RATE_LIMIT
+
+**タイプ**: 整数  
+**デフォルト**: `120`  
+**サービス**: LLM Service  
+**ホットリロード**: はい  
+
+1分あたりのウェブ検索リクエスト数です。
+
+```bash
+WEB_SEARCH_RATE_LIMIT=120
+```
+
+### CALCULATOR_RATE_LIMIT
+
+**タイプ**: 整数  
+**デフォルト**: `2000`  
+**サービス**: LLM Service  
+**ホットリロード**: はい  
+
+1分あたりの計算ツールリクエスト数です。
+
+```bash
+CALCULATOR_RATE_LIMIT=2000
+```
+
+### PYTHON_EXECUTOR_RATE_LIMIT
+
+**タイプ**: 整数  
+**デフォルト**: `60`  
+**サービス**: Agent Core  
+**ホットリロード**: はい  
+
+1分あたりのPythonコード実行リクエスト数です。
+
+```bash
+PYTHON_EXECUTOR_RATE_LIMIT=60
+```
+
+### PARTIAL_CHUNK_CHARS
+
+**タイプ**: 整数  
+**デフォルト**: `512`  
+**サービス**: LLM Service  
+**ホットリロード**: はい  
+
+ストリーミングチャンクごとの文字数です。
+
+```bash
+PARTIAL_CHUNK_CHARS=512
+```
+
+## ツール実行とワークフロー
+
+### TOOL_PARALLELISM
+
+**タイプ**: 整数  
+**デフォルト**: `5`  
+**範囲**: 1-∞（1 = 逐次）  
+**サービス**: Orchestrator, Agent Core  
+**ホットリロード**: はい  
+
+同時ツール実行数です。
+
+```bash
+TOOL_PARALLELISM=5
+```
+
+**影響**:
+- `1`: 逐次実行（遅い、安全）
+- `5`: 5つのツールを並行して実行（速い、リソースを多く使用）
+- `10+`: 高い並行性（最速、最高のリソース使用）
+
+### ENABLE_TOOL_SELECTION
+
+**タイプ**: 整数  
+**デフォルト**: `1`  
+**有効な値**: `0`, `1`  
+**サービス**: Orchestrator  
+**ホットリロード**: はい  
+
+プランナーによる自動ツール選択。
+
+```bash
+ENABLE_TOOL_SELECTION=1
+```
+
+**値**:
+- `1`: プランナーがツールを自動選択（推奨）
+- `0`: 手動でツールを指定のみ
+
+### PRIORITY_QUEUES
+
+**タイプ**: 文字列  
+**デフォルト**: `off`  
+**有効な値**: `on`, `off`  
+**サービス**: Orchestrator  
+**ホットリロード**: はい  
+
+優先度に基づくタスクキューの有効化。
+
+```bash
+PRIORITY_QUEUES=on
+```
+
+### STREAMING_RING_CAPACITY
+
+**タイプ**: 整数  
+**デフォルト**: `1000`  
+**サービス**: Orchestrator  
+**ホットリロード**: いいえ  
+
+ストリーミングイベントのリングバッファ容量。
+
+```bash
+STREAMING_RING_CAPACITY=1000
+```
+
+### COMPRESSION_TRIGGER_RATIO
+
+**タイプ**: 浮動小数点数  
+**デフォルト**: `0.75`  
+**範囲**: 0.0-1.0  
+**サービス**: Orchestrator  
+**ホットリロード**: はい  
+
+コンテキスト圧縮のトリガー閾値。
+
+```bash
+COMPRESSION_TRIGGER_RATIO=0.75
+```
+
+**影響**: トークン予算の75%使用時にコンテキストを圧縮
+
+### COMPRESSION_TARGET_RATIO
+
+**タイプ**: 浮動小数点数  
+**デフォルト**: `0.375`  
+**範囲**: 0.0-1.0  
+**サービス**: Orchestrator  
+**ホットリロード**: はい  
+
+圧縮後のターゲットサイズ。
+
+```bash
+COMPRESSION_TARGET_RATIO=0.375
+```
+
+### ENFORCE_TIMEOUT_SECONDS
+
+**タイプ**: 整数  
+**デフォルト**: `90`  
+**サービス**: Agent Core  
+**ホットリロード**: はい  
+
+ツール実行のタイムアウト。
+
+```bash
+ENFORCE_TIMEOUT_SECONDS=90
+```
+
+### ENFORCE_MAX_TOKENS
+
+**タイプ**: 整数  
+**デフォルト**: `32768`  
+**サービス**: Agent Core  
+**ホットリロード**: はい  
+
+エージェント実行ごとの最大トークン数。
+
+```bash
+ENFORCE_MAX_TOKENS=32768
+```
+
+### ENFORCE_RATE_RPS
+
+**タイプ**: 整数  
+**デフォルト**: `20`  
+**サービス**: Agent Core  
+**ホットリロード**: はい  
+
+エージェント操作のレート制限（秒あたりのリクエスト数）。
+
+```bash
+ENFORCE_RATE_RPS=20
+```
+
+### ENFORCE_CB_ERROR_THRESHOLD
+
+**タイプ**: 浮動小数点数  
+**デフォルト**: `0.5`  
+**範囲**: 0.0-1.0  
+**サービス**: Agent Core  
+**ホットリロード**: はい  
+
+サーキットブレーカーのエラー率閾値。
+
+```bash
+ENFORCE_CB_ERROR_THRESHOLD=0.5
+```
+
+**影響**: リクエストの50%が失敗した場合にサーキットが開く
+
+### ENFORCE_CB_WINDOW_SECONDS
+
+**タイプ**: 整数  
+**デフォルト**: `30`  
+**サービス**: Agent Core  
+**ホットリロード**: はい  
+
+サーキットブレーカーの測定ウィンドウ。
+
+```bash
+ENFORCE_CB_WINDOW_SECONDS=30
+```
+
+### ENFORCE_CB_MIN_REQUESTS
+
+**タイプ**: 整数  
+**デフォルト**: `20`  
+**サービス**: Agent Core  
+**ホットリロード**: はい  
+
+サーキットブレーカーがアクティブになる前の最小リクエスト数。
+
+```bash
+ENFORCE_CB_MIN_REQUESTS=20
+```
+
+## 承認とセキュリティ
+
+### APPROVAL_ENABLED
+
+**タイプ**: ブール  
+**デフォルト**: `false`  
+**サービス**: Orchestrator  
+**ホットリロード**: はい  
+
+人間による承認を有効化。
+
+```bash
+APPROVAL_ENABLED=true
+```
+
+### APPROVAL_COMPLEXITY_THRESHOLD
+
+**タイプ**: 浮動小数点数  
+**デフォルト**: `0.5`  
+**範囲**: 0.0-1.0  
+**サービス**: Orchestrator  
+**ホットリロード**: はい  
+
+承認が必要な複雑さの閾値。
+
+```bash
+APPROVAL_COMPLEXITY_THRESHOLD=0.5
+```
+
+### APPROVAL_DANGEROUS_TOOLS
+
+**タイプ**: 文字列（カンマ区切り）  
+**デフォルト**: `file_system,code_execution`  
+**サービス**: Orchestrator  
+**ホットリロード**: はい  
+
+承認が必要なツール。
+
+```bash
+APPROVAL_DANGEROUS_TOOLS=file_system,code_execution,database_query
+```
+
+### APPROVAL_TIMEOUT_SECONDS
+
+**タイプ**: 整数  
+**デフォルト**: `7200`  
+**サービス**: Orchestrator  
+**ホットリロード**: はい  
+
+承認リクエストのタイムアウト（2時間）。
+
+```bash
+APPROVAL_TIMEOUT_SECONDS=7200
+```
+
+### JWT_SECRET
+
+**タイプ**: 文字列  
+**デフォルト**: `development-only-secret-change-in-production`  
+**サービス**: Gateway  
+**ホットリロード**: いいえ  
+
+JWT署名の秘密。
+
+```bash
+JWT_SECRET=secure-random-256-bit-key
+```
+
+**セキュリティ**: **本番環境では必ず変更してください！**
+
+### GATEWAY_SKIP_AUTH
+
+**タイプ**: 整数  
+**デフォルト**: `1`  
+**有効な値**: `0`, `1`  
+**サービス**: Gateway  
+**ホットリロード**: はい（再起動推奨）  
+
+認証をスキップ（開発用のみ）。
+
+```bash
+GATEWAY_SKIP_AUTH=0  # 認証を有効にする
+```
+
+**セキュリティ**: **本番環境では必ず `0` に設定してください！**
+
+## テンプレート
+
+### TEMPLATE_FALLBACK_ENABLED
+
+**タイプ**: ブール  
+**デフォルト**: `false`  
+**サービス**: Orchestrator  
+**ホットリロード**: はい  
+
+テンプレートが失敗した場合にAIにフォールバック。
+
+```bash
+TEMPLATE_FALLBACK_ENABLED=true
+```
+
+## 可観測性とテレメトリー
+
+### OTEL_SERVICE_NAME
+
+**タイプ**: 文字列  
+**デフォルト**: `shannon-llm-service`  
+**サービス**: すべて  
+**ホットリロード**: いいえ  
+
+OpenTelemetry用のサービス名。
+
+```bash
+OTEL_SERVICE_NAME=shannon-llm-service
+```
+
+### OTEL_EXPORTER_OTLP_ENDPOINT
+
+**タイプ**: 文字列  
+**デフォルト**: `localhost:4317`  
+**サービス**: すべて  
+**ホットリロード**: いいえ  
+
+OTLPエクスポータのエンドポイント。
+
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=localhost:4317
+```
+
+### OTEL_ENABLED
+
+**タイプ**: ブール  
+**デフォルト**: `false`  
+**サービス**: すべて  
+**ホットリロード**: いいえ  
+
+OpenTelemetryトレーシングを有効化。
+
+```bash
+OTEL_ENABLED=true
+```
+
+### LOG_FORMAT
+
+**タイプ**: 文字列  
+**デフォルト**: `plain`  
+**有効な値**: `plain`, `json`  
+**サービス**: Agent Core (Rust)  
+**ホットリロード**: いいえ  
+
+ログ出力フォーマット。
+
+```bash
+LOG_FORMAT=json
+```
+
+### METRICS_PORT
+
+**タイプ**: 整数  
+**デフォルト**: `2112`  
+**サービス**: すべて  
+**ホットリロード**: いいえ  
+
+Prometheusメトリクスポート。
+
+```bash
+METRICS_PORT=2112
+```
+
+## Python WASI Sandbox
+
+### PYTHON_WASI_WASM_PATH
+
+**タイプ**: 文字列  
+**デフォルト**: `./wasm-interpreters/python-3.11.4.wasm`  
+**サービス**: Agent Core, LLM Service  
+**ホットリロード**: いいえ  
+
+Python WASI インタープリタへのパス。
+
+```bash
+PYTHON_WASI_WASM_PATH=./wasm-interpreters/python-3.11.4.wasm
+```
+
+### PYTHON_WASI_SESSION_TIMEOUT
+
+**タイプ**: 整数  
+**デフォルト**: `3600`  
+**サービス**: LLM Service  
+**ホットリロード**: はい  
+
+Python セッションのタイムアウト（秒）。
+
+```bash
+PYTHON_WASI_SESSION_TIMEOUT=3600
+```
+
+### WASI_MEMORY_LIMIT_MB
+
+**タイプ**: 整数  
+**デフォルト**: `512`  
+**サービス**: Agent Core  
+**ホットリロード**: はい  
+
+WASI サンドボックスのメモリ制限（MB）。
+
+```bash
+WASI_MEMORY_LIMIT_MB=512
+```
+
+### WASI_TIMEOUT_SECONDS
+
+**タイプ**: 整数  
+**デフォルト**: `60`  
+**サービス**: Agent Core  
+**ホットリロード**: はい  
+
+WASI 実行のタイムアウト。
+
+```bash
+WASI_TIMEOUT_SECONDS=60
+```
+
+## OpenAPI と MCP
+
+### OpenAPI 統合
+
+#### OPENAPI_ALLOWED_DOMAINS
+
+**タイプ**: 文字列  
+**デフォルト**: `*`  
+**サービス**: LLM Service  
+**ホットリロード**: はい  
+
+OpenAPI スペック取得のための許可されたドメイン。
+
+```bash
+OPENAPI_ALLOWED_DOMAINS=*
+# または特定のドメイン:
+OPENAPI_ALLOWED_DOMAINS=api.example.com,api2.example.com
+```
+
+#### OPENAPI_MAX_SPEC_SIZE
+
+**タイプ**: 整数  
+**デフォルト**: `5242880` (5 MB)  
+**サービス**: LLM Service  
+**ホットリロード**: はい  
+
+最大 OpenAPI スペックファイルサイズ。
+
+```bash
+OPENAPI_MAX_SPEC_SIZE=5242880
+```
+
+#### OPENAPI_FETCH_TIMEOUT
+
+**タイプ**: 整数  
+**デフォルト**: `30`  
+**サービス**: LLM Service  
+**ホットリロード**: はい  
+
+OpenAPI スペック取得のタイムアウト。
+
+```bash
+OPENAPI_FETCH_TIMEOUT=30
+```
+
+#### OPENAPI_RETRIES
+
+**タイプ**: 整数  
+**デフォルト**: `2`  
+**サービス**: LLM Service  
+**ホットリロード**: はい  
+
+OpenAPI 操作の再試行回数（スペック取得と API 呼び出し）。
+
+```bash
+OPENAPI_RETRIES=2
+```
+
+### MCP 統合
+
+#### MCP_ALLOWED_DOMAINS
+
+**タイプ**: 文字列  
+**デフォルト**: `*`  
+**サービス**: LLM Service  
+**ホットリロード**: はい  
+
+MCP サーバーのための許可されたドメイン。
+
+```bash
+MCP_ALLOWED_DOMAINS=*
+```
+
+#### MCP_MAX_RESPONSE_BYTES
+
+**タイプ**: 整数  
+**デフォルト**: `10485760` (10 MB)  
+**サービス**: LLM Service  
+**ホットリロード**: はい  
+
+最大 MCP 応答サイズ。
+
+```bash
+MCP_MAX_RESPONSE_BYTES=10485760
+```
+
+#### MCP_RETRIES
+
+**タイプ**: 整数  
+**デフォルト**: `3`  
+**サービス**: LLM Service  
+**ホットリロード**: はい  
+
+MCP リクエストの再試行回数。
+
+```bash
+MCP_RETRIES=3
+```
+
+#### MCP_TIMEOUT_SECONDS
+
+**タイプ**: 整数  
+**デフォルト**: `10`  
+**サービス**: LLM Service  
+**ホットリロード**: はい  
+
+MCP リクエストのタイムアウト。
+
+```bash
+MCP_TIMEOUT_SECONDS=10
+```
+
+#### MCP_REGISTER_TOKEN
+
+**タイプ**: 文字列  
+**デフォルト**: 空  
+**サービス**: LLM Service  
+**ホットリロード**: はい  
+
+MCP サーバー登録のための認証トークン。
+
+```bash
+MCP_REGISTER_TOKEN=secret-token
+```
+
+#### MCP_RATE_LIMIT_DEFAULT
+
+**タイプ**: 整数  
+**デフォルト**: `60`  
+**サービス**: LLM Service  
+**ホットリロード**: はい  
+
+MCP ツールのデフォルトレート制限（リクエスト/分）。
+
+```bash
+MCP_RATE_LIMIT_DEFAULT=60
+```
+
+#### MCP_CB_FAILURES
+
+**タイプ**: 整数  
+**デフォルト**: `5`  
+**サービス**: LLM Service  
+**ホットリロード**: はい  
+
+MCP のサーキットブレイカーの失敗閾値。
+
+```bash
+MCP_CB_FAILURES=5
+```
+
+#### MCP_CB_RECOVERY_SECONDS
+
+**タイプ**: 整数  
+**デフォルト**: `60`  
+**サービス**: LLM Service  
+**ホットリロード**: はい  
+
+サーキットブレイカーの回復時間。
+
+```bash
+MCP_CB_RECOVERY_SECONDS=60
+```
+
+#### MCP_COST_TO_TOKENS
+
+**タイプ**: 整数  
+**デフォルト**: `0`  
+**サービス**: LLM Service  
+**ホットリロード**: はい  
+
+MCP ツールのトークンコスト倍率。
+
+```bash
+MCP_COST_TO_TOKENS=100
+```
+
+## 高度なオーケストレーター制御
+
+### EVENTLOG_BATCH_SIZE
+
+**タイプ**: 整数  
+**デフォルト**: `100`  
+**サービス**: Orchestrator  
+**ホットリロード**: はい  
+
+データベース書き込みのバッチあたりのイベント数。
+
+```bash
+EVENTLOG_BATCH_SIZE=100
+```
+
+### EVENTLOG_BATCH_INTERVAL_MS
+
+**タイプ**: 整数  
+**デフォルト**: `100`  
+**サービス**: Orchestrator  
+**ホットリロード**: はい  
+
+バッチ間隔（ミリ秒）。
+
+```bash
+EVENTLOG_BATCH_INTERVAL_MS=100
+```
+
+### RATE_LIMIT_INTERVAL_MS
+
+**タイプ**: 整数  
+**デフォルト**: `60000`  
+**サービス**: Orchestrator  
+**ホットリロード**: はい  
+
+レート制限ウィンドウ（ミリ秒）。
+
+```bash
+RATE_LIMIT_INTERVAL_MS=60000
+```
+
+### Worker Concurrency
+
+優先度キューごとの Temporal ワーカーの同時実行数を設定します。
+
+```bash
+# デフォルトワーカー（すべての優先度）
+WORKER_ACT=10
+WORKER_WF=5
+
+# クリティカル優先度
+WORKER_ACT_CRITICAL=20
+WORKER_WF_CRITICAL=10
+
+# 高優先度
+WORKER_ACT_HIGH=15
+WORKER_WF_HIGH=8
+
+# 通常優先度
+WORKER_ACT_NORMAL=10
+WORKER_WF_NORMAL=5
+
+# 低優先度
+WORKER_ACT_LOW=5
+WORKER_WF_LOW=3
+```
+
+**影響**:
+- 高い値 = より多くの同時実行、より多くのリソース使用
+- 低い値 = より少ない同時実行、より少ないリソース使用
+
+### LLM_TIMEOUT_SECONDS
+
+**タイプ**: 整数  
+**デフォルト**: `120`  
+**サービス**: Orchestrator  
+**ホットリロード**: はい  
+
+LLM API 呼び出しのタイムアウト。
+
+```bash
+LLM_TIMEOUT_SECONDS=120
+```
+
+## その他
+
+### SHANNON_WORKSPACE
+
+**タイプ**: 文字列  
+**デフォルト**: `./workspace`  
+**サービス**: Agent Core  
+**ホットリロード**: いいえ  
+
+ファイル操作のためのワークスペースディレクトリ。
+
+```bash
+SHANNON_WORKSPACE=./workspace
+```
+
+### SEED_DATA
+
+**タイプ**: ブール値  
+**デフォルト**: `false`  
+**サービス**: すべて  
+**ホットリロード**: いいえ  
+
+起動時に Qdrant にサンプルデータをシードします。
+
+```bash
+SEED_DATA=true
+```
+
+### AGENT_TIMEOUT_SECONDS
+
+**タイプ**: 整数  
+**デフォルト**: `600`  
+**サービス**: Agent Core  
+**ホットリロード**: はい  
+
+エージェント実行ごとの最大ランタイム。
+
+```bash
+AGENT_TIMEOUT_SECONDS=600
+```
+
+## 設定例
+
+### 開発
+
+```bash
+ENVIRONMENT=dev
+DEBUG=true
+GATEWAY_SKIP_AUTH=1
+ENABLE_CACHE=true
+DEFAULT_MODEL_TIER=small
+MAX_COST_PER_REQUEST=0.10
+TOOL_PARALLELISM=3
+```
+
+### 本番
+
+```bash
+ENVIRONMENT=prod
+DEBUG=false
+GATEWAY_SKIP_AUTH=0
+JWT_SECRET=<secure-256-bit-key>
+POSTGRES_PASSWORD=<secure-password>
+REDIS_PASSWORD=<secure-password>
+ENABLE_CACHE=true
+DEFAULT_MODEL_TIER=medium
+MAX_COST_PER_REQUEST=1.00
+TOOL_PARALLELISM=5
+OTEL_ENABLED=true
+LOG_FORMAT=json
+```
+
+### 高パフォーマンス
+
+```bash
+TOOL_PARALLELISM=10
+WORKER_ACT_CRITICAL=30
+WORKER_WF_CRITICAL=15
+ENABLE_CACHE=true
+CACHE_SIMILARITY_THRESHOLD=0.90
+STREAMING_RING_CAPACITY=2000
+```
+
+### コスト最適化
+
+```bash
+DEFAULT_MODEL_TIER=small
+MAX_COST_PER_REQUEST=0.25
+MAX_TOKENS_PER_REQUEST=5000
+ENABLE_CACHE=true
+CACHE_SIMILARITY_THRESHOLD=0.95
+WORKFLOW_SYNTH_BYPASS_SINGLE=true
+```
+
+## トラブルシューティング
+
+一般的な問題については、[設定トラブルシューティング](/en/deployment/configuration-troubleshooting)を参照してください。
+
+## 関連ドキュメント
+
+<CardGroup cols={2}>
+  <Card title="Docker Compose" icon="docker" href="/en/deployment/docker-compose">
+    Dockerデプロイメントガイド
+  </Card>
+  <Card title="Kubernetes" icon="cubes" href="/en/deployment/kubernetes">
+    Kubernetesデプロイメント
+  </Card>
+  <Card title="パフォーマンス調整" icon="gauge" href="/en/deployment/performance-tuning">
+    パフォーマンスの最適化
+  </Card>
+  <Card title="セキュリティ" icon="shield" href="/en/deployment/security">
+    セキュリティ強化
+  </Card>
+</CardGroup>

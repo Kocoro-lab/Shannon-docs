@@ -1,0 +1,118 @@
+---
+title: "クイックスタート"
+description: "Shannon Python SDKクイックスタート"
+---
+
+## インストール
+
+```bash
+pip install shannon-sdk
+```
+
+## 最初のタスク
+
+```python
+from shannon import ShannonClient
+client = ShannonClient(base_url="http://localhost:8080")
+
+handle = client.submit_task("フランスの首都を一言で返してください。")
+final = client.wait(handle.task_id, timeout=60)
+print(final.result)
+```
+
+## ストリーミング (SSE)
+
+```python
+from shannon import ShannonClient, EventType
+client = ShannonClient()
+
+h = client.submit_task(
+  "最近の量子コンピューティングのマイルストーン3つについて、約120語のエグゼクティブサマリーを作成してください。Markdownの段落として出力します。"
+)
+for e in client.stream(h.workflow_id, types=[EventType.LLM_OUTPUT, EventType.WORKFLOW_COMPLETED]):
+  print(e.type, e.message)
+  if e.type == EventType.WORKFLOW_COMPLETED:
+    break
+```
+
+## モデル/モード選択 (オプション)
+
+提出時にコストとプロバイダーの選択を制御します：
+
+```python
+handle = client.submit_task(
+  "段落を収益トレンドに焦点を当てて3つの箇条書きに要約してください。出力: Markdownリスト。",
+  model_tier="small",                # small|medium|large
+  # model_override="gpt-5-nano-2025-08-07",
+  # provider_override="openai",      # または anthropic, google, ...
+  mode="simple",                      # simple|standard|complex|supervisor
+)
+print(client.wait(handle.task_id).result)
+```
+
+## 非同期バージョン
+
+```python
+import asyncio
+from shannon import AsyncShannonClient
+
+async def main():
+  async with AsyncShannonClient(base_url="http://localhost:8080") as client:
+    h = await client.submit_task(
+      "次の文の感情を分類してください (positive|neutral|negative): 'この製品が大好きです！'。JSON {label, score}を返してください。"
+    )
+    f = await client.wait(h.task_id)
+    print(f.result)
+
+asyncio.run(main())
+```
+
+## タスク制御 (一時停止/再開)
+
+長時間実行されるタスクを一時停止、再開、状態確認で制御します：
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# 長時間実行される研究タスクを提出
+handle = client.submit_task("2025年のAIトレンドについて詳細な分析を行う")
+
+# 次のチェックポイントでタスクを一時停止
+client.pause_task(handle.task_id, reason="中間結果のレビュー")
+
+# 制御状態を確認
+state = client.get_control_state(handle.task_id)
+print(f"一時停止中: {state.is_paused}")
+print(f"一時停止時: {state.paused_at}")
+print(f"一時停止理由: {state.pause_reason}")
+
+# 実行を再開
+client.resume_task(handle.task_id, reason="レビュー後に続行")
+
+# 完了を待つ
+result = client.wait(handle.task_id)
+print(result.result)
+```
+
+**CLIの使用法:**
+
+```bash
+# 実行中のタスクを一時停止
+shannon pause task-123 --reason "レビューのため保留"
+
+# 制御状態を確認
+shannon control-state task-123
+
+# タスクを再開
+shannon resume task-123 --reason "続行"
+```
+
+## CLI
+
+```bash
+# モデル選択で提出
+python -m shannon.cli --base-url http://localhost:8080 \
+  submit "要約" --model-tier small --mode simple --wait
+```

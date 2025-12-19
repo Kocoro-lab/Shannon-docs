@@ -1,0 +1,277 @@
+---
+title: "監視 & 可観測性"
+description: "Shannonタスク実行とシステムヘルスの監視"
+---
+
+<Note>
+監視ドキュメントは開発中です。以下にコアコンセプトを概説します。
+</Note>
+
+## 概要
+
+Shannonは、本番環境でタスク実行、システムパフォーマンス、リソース使用状況を追跡するための包括的な監視および可観測性機能を提供します。
+
+## 監視機能
+
+### タスク監視
+
+個別のタスク実行を追跡：
+- 実行ステータスと進捗
+- リソース消費
+- エラー率とタイプ
+- レイテンシメトリクス
+- コスト追跡
+
+### システム監視
+
+Shannonインフラストラクチャを監視：
+- サービスヘルスステータス
+- APIエンドポイントレイテンシ
+- キューの深さ
+- Agentの可用性
+- LLMプロバイダーステータス
+
+## メトリクス
+
+### タスクメトリクス
+
+| メトリクス | 説明 | 単位 |
+|--------|-------------|------|
+| `task.latency` | エンドツーエンドタスク完了時間 | ms |
+| `task.cost` | タスクごとの総コスト | USD |
+| `task.tokens.input` | 消費された入力トークン | count |
+| `task.tokens.output` | 生成された出力トークン | count |
+| `task.iterations` | Agent反復回数 | count |
+| `task.tools.invocations` | ツール使用回数 | count |
+
+### システムメトリクス
+
+| メトリクス | 説明 | 単位 |
+|--------|-------------|------|
+| `api.latency` | APIレスポンス時間 | ms |
+| `api.requests` | リクエストレート | req/s |
+| `api.errors` | エラーレート | errors/s |
+| `queue.depth` | 待機中のタスク | count |
+| `agents.active` | アクティブなAgent数 | count |
+
+## ヘルスチェック
+
+### APIヘルス
+
+```bash
+curl http://localhost:8080/health
+```
+
+レスポンス（Gateway）:
+```json
+{
+  "status": "healthy",
+  "version": "0.1.0",
+  "time": "2025-01-20T10:00:00Z",
+  "checks": {
+    "gateway": "ok"
+  }
+}
+```
+
+Readiness（Orchestrator接続を確認）:
+```bash
+curl http://localhost:8080/readiness
+```
+
+レスポンス:
+```json
+{
+  "status": "ready",
+  "version": "0.1.0",
+  "time": "2025-01-20T10:00:02Z",
+  "checks": {
+    "orchestrator": "ok"
+  }
+}
+```
+
+### コンポーネントヘルス
+
+```python
+import requests
+
+health = requests.get("http://localhost:8080/health").json()
+print("Gateway:", health.get("status"), health.get("checks"))
+
+ready = requests.get("http://localhost:8080/readiness").json()
+print("Readiness:", ready.get("status"), ready.get("checks"))
+```
+
+## ログ
+
+### ログレベル
+
+Shannonは以下のレベルで構造化ログを使用：
+- `DEBUG` - 詳細な診断情報
+- `INFO` - 一般的な運用メッセージ
+- `WARN` - 警告状態
+- `ERROR` - エラー状態
+- `FATAL` - 重大な障害
+
+### ログフォーマット
+
+```json
+{
+  "timestamp": "2024-10-27T10:00:00Z",
+  "level": "INFO",
+  "service": "orchestrator",
+  "task_id": "task-dev-1730000000",
+  "message": "Task submitted",
+  "metadata": {
+    "mode": "standard",
+    "estimated_cost": 0.15
+  }
+}
+```
+
+## ダッシュボード
+
+### タスクダッシュボード
+
+リアルタイムでタスク実行を監視：
+- アクティブなタスク
+- 完了率
+- 平均レイテンシ
+- エラー率
+- 時間あたりのコスト
+
+### システムダッシュボード
+
+システムヘルスを追跡：
+- サービスステータス
+- リソース使用率
+- キューの長さ
+- プロバイダーの可用性
+
+## アラート
+
+### アラートタイプ
+
+以下のアラートを設定：
+- タスク失敗
+- 予算超過
+- 高レイテンシ
+- サービス劣化
+- レート制限
+
+### アラート設定
+
+```yaml
+alerts:
+  - name: high_error_rate
+    condition: error_rate > 0.05
+    action: notify
+    channels: [email, slack]
+
+  - name: budget_warning
+    condition: daily_cost > 100
+    action: notify
+    channels: [email]
+
+  - name: service_down
+    condition: health_check_failed
+    action: page
+    channels: [pagerduty]
+```
+
+## Prometheus統合
+
+Prometheusにメトリクスをエクスポート（ローカル開発用のスクレイプターゲット例）：
+
+```yaml
+# prometheus.yml
+scrape_configs:
+  - job_name: 'orchestrator'
+    static_configs:
+      - targets: ['localhost:2112']   # Go Orchestrator /metrics
+
+  - job_name: 'agent_core'
+    static_configs:
+      - targets: ['localhost:2113']   # Rust Agent Core /metrics
+
+  - job_name: 'llm_service'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['localhost:8000']   # Python LLM Service /metrics
+```
+
+### 利用可能なメトリクス
+
+```
+# HELP shannon_task_total Total number of tasks
+# TYPE shannon_task_total counter
+shannon_task_total{status="completed"} 1234
+shannon_task_total{status="failed"} 12
+
+# HELP shannon_task_duration_seconds Task execution duration
+# TYPE shannon_task_duration_seconds histogram
+shannon_task_duration_seconds_bucket{le="1.0"} 100
+shannon_task_duration_seconds_bucket{le="5.0"} 450
+```
+
+## Grafanaダッシュボード
+
+以下のための事前構築Grafanaダッシュボード：
+- タスク分析
+- コスト追跡
+- パフォーマンス監視
+- エラー分析
+
+## OpenTelemetry
+
+Shannonは分散トレーシングのためにOpenTelemetryをサポート：
+
+```python
+from opentelemetry import trace
+from shannon import ShannonClient
+
+tracer = trace.get_tracer(__name__)
+
+with tracer.start_as_current_span("analyze_data"):
+    client = ShannonClient()
+    handle = client.submit_task(query="Analyze dataset")
+    result = client.get_status(handle.task_id)
+```
+
+## ベストプラクティス
+
+1. **重要なメトリクスのアラートを設定**
+2. **予算超過を防ぐためにコストを監視**
+3. **問題を特定するためにエラーパターンを追跡**
+4. **デバッグに分散トレーシングを使用**
+5. **コンプライアンスのためにログをアーカイブ**
+6. **ユースケースに合わせたカスタムダッシュボードを作成**
+7. **信頼性のためにSLOを実装**
+
+## デバッグ
+
+### デバッグログを有効化
+
+```python
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
+# Shannonが詳細ログを出力するようになります
+client = ShannonClient()
+```
+
+### リクエストのトレース
+
+OpenTelemetry経由で分散トレーシングを使用するか、サービスのログ詳細度を上げます。エクスポーターについては可観測性スタック設定（Jaeger/Tempo）を参照してください。
+
+## 次のステップ
+
+<CardGroup cols={2}>
+  <Card title="トラブルシューティング" icon="wrench" href="/ja/quickstart/troubleshooting">
+    一般的な問題と解決策
+  </Card>
+  <Card title="コスト管理" icon="dollar" href="/ja/quickstart/concepts/cost-control">
+    コストの管理と最適化
+  </Card>
+</CardGroup>

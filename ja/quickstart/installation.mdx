@@ -1,0 +1,227 @@
+---
+title: "インストール"
+description: "Docker Composeで10分以内にShannonを起動"
+---
+
+## 前提条件
+
+Shannonをインストールする前に、以下を確認してください：
+
+- **Docker** (20.10+) および **Docker Compose** (v2.0+)
+- **Git** リポジトリのクローン用
+- **LLM APIキー** (OpenAI、Anthropic、またはその他のサポートされているプロバイダー)
+- Dockerで利用可能な **4GB以上のRAM**
+
+<Note>
+ShannonはLinux、macOS、Windows (WSL2使用) で動作します。すべての例はUnix系環境を想定しています。
+</Note>
+
+## ワンコマンドセットアップ
+
+Shannonは数分で起動できる合理化されたセットアッププロセスを提供します：
+
+```bash
+# リポジトリをクローン
+git clone https://github.com/Kocoro-lab/Shannon.git
+cd Shannon
+
+# 設定を初期化しprotocol buffersを生成
+make setup
+
+<Note>
+ヒント: `make setup`はワンストップセットアップです（`.env`を作成しprotobufを生成）。環境ファイルのみが必要な場合は`make setup-env`を使用してください。`make proto`でいつでもprotobufを再生成できます。
+</Note>
+
+# LLM APIキーを追加
+echo "OPENAI_API_KEY=sk-your-key-here" >> .env
+
+# Python WASIインタープリターをダウンロード（サンドボックス実行に必要）
+./scripts/setup_python_wasi.sh
+
+# すべてのサービスを起動
+make dev
+```
+
+これで完了です！Shannonが必要なすべてのサービスとともに起動しました。
+
+## インストールされるもの
+
+`make dev`コマンドはDocker Compose経由で以下のサービスを起動します：
+
+| サービス | ポート | 説明 |
+|---------|------|------|
+| **Gateway** | 8080 | REST API Gateway |
+| **Orchestrator** | 50052 | gRPCオーケストレーションサービス |
+| **Agent Core** | 50051 | RustベースのAgent実行 |
+| **LLM Service** | 8000 | Python LLMプロバイダーGateway |
+| **Desktop App** | — | ネイティブ監視UI (Tauri) |
+| **PostgreSQL** | 5432 | 永続ストレージ |
+| **Redis** | 6379 | キャッシングとpub/sub |
+| **Qdrant** | 6333 | ベクトルデータベース |
+| **Temporal** | 7233 | Workflowエンジン |
+| **Temporal UI** | 8088 | Workflow可視化 |
+
+## インストールの確認
+
+すべてのサービスが起動していることを確認：
+
+```bash
+# サービスステータスを表示
+docker compose ps
+
+# すべてのサービスが「healthy」または「running」と表示されるはずです
+```
+
+APIをテスト：
+
+```bash
+# シンプルなタスクを送信
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What is 2+2?"
+  }'
+
+# task_idを含むレスポンスが返されるはずです
+```
+
+## UIへのアクセス
+
+必要に応じてブラウザとツールを開きます：
+
+- **Shannon Desktop App**: インストールと使用方法については[Desktop Application](/ja/quickstart/desktop-app)を参照
+- **Temporal UI**: http://localhost:8088
+
+## 設定
+
+Shannonはローカル開発用に事前設定されていますが、カスタマイズ可能です：
+
+### 環境変数
+
+`.env`ファイル（`make setup`で作成）には主要な設定が含まれています：
+
+```bash
+# LLMプロバイダーキー
+OPENAI_API_KEY=sk-your-key-here
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+
+# サービス設定
+GATEWAY_SKIP_AUTH=1  # 開発用に認証を無効化
+LOG_LEVEL=info
+
+# データベース
+POSTGRES_USER=shannon
+POSTGRES_PASSWORD=shannon_dev
+POSTGRES_DB=shannon
+
+# Redis
+REDIS_URL=redis://redis:6379
+```
+
+<Warning>
+本番環境では、`GATEWAY_SKIP_AUTH=0`に設定してAPIキー認証を有効にしてください。
+</Warning>
+
+### 設定ファイル
+
+高度な設定は`config/`ディレクトリで利用可能です：
+
+- `shannon.yaml` - メインシステム設定
+- `features.yaml` - 機能フラグ
+- `models.yaml` - LLMプロバイダーの価格設定とルーティング
+
+## よくある問題
+
+<AccordionGroup>
+  <Accordion title="ポートの競合">
+    ポートバインディングエラーが表示される場合は、ポート8080、50051、50052、8000などが使用されていないことを確認してください：
+
+    ```bash
+    # macOS/Linux
+    lsof -i :8080
+
+    # 競合するサービスを停止するか、docker-compose.ymlでポートを変更してください
+    ```
+  </Accordion>
+
+  <Accordion title="Dockerメモリの問題">
+    Shannonには少なくとも4GBのRAMが必要です。Dockerのメモリ制限を増やしてください：
+
+    - **Docker Desktop**: Settings → Resources → Memory (6GB以上に設定)
+    - **Linux**: Dockerはデフォルトで利用可能なすべてのメモリを使用します
+  </Accordion>
+
+  <Accordion title="Python WASIダウンロードの失敗">
+    `setup_python_wasi.sh`が失敗した場合は、手動でダウンロードしてください：
+
+    ```bash
+    mkdir -p wasm-interpreters
+    cd wasm-interpreters
+    wget https://github.com/vmware-labs/webassembly-language-runtimes/releases/download/python%2F3.11.4%2B20230714-11be424/python-3.11.4.wasm
+    ```
+  </Accordion>
+
+  <Accordion title="サービスが起動しない">
+    Dockerログでエラーを確認してください：
+
+    ```bash
+    docker compose logs orchestrator
+    docker compose logs agent-core
+    docker compose logs llm-service
+    ```
+
+    よくある原因：
+    - `.env`ファイルが見つからない（`make setup`を実行）
+    - 無効なAPIキー
+    - Dockerリソース不足
+  </Accordion>
+</AccordionGroup>
+
+## 次のステップ
+
+Shannonが起動したら：
+
+<CardGroup cols={2}>
+  <Card
+    title="最初のタスクを送信"
+    icon="rocket"
+    href="/ja/quickstart/quickstart"
+  >
+    Shannonとの対話方法を学ぶ
+  </Card>
+  <Card
+    title="コアコンセプト"
+    icon="book"
+    href="/ja/quickstart/concepts/agents"
+  >
+    AgentとWorkflowを理解する
+  </Card>
+</CardGroup>
+
+## 開発セットアップ
+
+Docker経由でコア依存関係を実行し、ローカルでサービスを実行して反復開発：
+
+```bash
+# ターミナル1: 依存関係のみを起動（DB、キャッシュ、ベクトル、Temporal）
+docker compose -f deploy/compose/docker-compose.yml up -d postgres redis qdrant temporal
+
+# ターミナル2: Orchestratorをローカルで実行（gRPC 50052、admin 8081）
+cd go/orchestrator
+go run ./cmd/server
+
+# ターミナル3: Agent Coreをローカルで実行（gRPC 50051）
+cd ../../rust/agent-core
+cargo run
+
+# ターミナル4: LLM Serviceをローカルで実行（HTTP 8000）
+cd ../../python/llm-service
+pip install -r requirements.txt
+python main.py
+
+# （オプション）ターミナル5: Gatewayをローカルで実行（REST 8080）
+cd ../../go/orchestrator/cmd/gateway
+go run .
+```
+
+システムアーキテクチャの詳細については、[Architecture Overview](/ja/architecture/overview)を参照してください。

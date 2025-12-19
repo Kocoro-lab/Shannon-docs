@@ -1,0 +1,114 @@
+---
+title: "タスク再開"
+description: "一時停止したタスクを再開"
+---
+
+## エンドポイント
+
+```http
+POST http://localhost:8080/api/v1/tasks/{id}/resume
+```
+
+## 説明
+
+一時停止されたタスクを再開します。ワークフローは最後のチェックポイントから続行され、通常通り進行します。
+
+## 認証
+
+**必要**: はい
+
+ヘッダーにAPIキーを含めてください：
+
+```http
+X-API-Key: sk_test_123456
+```
+
+## リクエスト
+
+### ヘッダー
+
+| ヘッダー        | 必要 | 説明                          |
+|-----------------|------|-------------------------------|
+| `X-API-Key`     | はい | API認証キー                  |
+| `Content-Type`  | いいえ | ボディがある場合は`application/json` |
+| `traceparent`   | いいえ | W3Cトレースコンテキスト      |
+
+### パスパラメータ
+
+| パラメータ | タイプ   | 必要 | 説明                             |
+|-------------|----------|------|----------------------------------|
+| `id`        | string   | はい | タスクID（TemporalワークフローID） |
+
+### ボディパラメータ
+
+| パラメータ | タイプ   | 必要 | 説明                          |
+|-------------|----------|------|-------------------------------|
+| `reason`    | string   | いいえ | オプションの再開理由ノート   |
+
+### リクエストボディの例
+
+```json
+{
+  "reason": "User approved continuation"
+}
+```
+
+## レスポンス
+
+### 202 Accepted
+
+```json
+{
+  "success": true,
+  "message": "Resume signal sent",
+  "task_id": "task-123"
+}
+```
+
+### 404 Not Found
+
+```json
+{ "error": "Task not found" }
+```
+
+### 409 Failed Precondition
+
+無効な状態でタスクを再開できません：
+
+```json
+{ "error": "cannot resume completed task" }
+```
+
+```json
+{ "error": "cannot resume failed task" }
+```
+
+```json
+{ "error": "cannot resume cancelled task" }
+```
+
+```json
+{ "error": "cannot resume timed out task" }
+```
+
+```json
+{ "error": "task is not paused" }
+```
+
+### 401 / 403
+
+```json
+{ "error": "Unauthorized" }
+```
+
+または
+
+```json
+{ "error": "Forbidden" }
+```
+
+## 注意事項
+
+- 現在一時停止されているタスクにのみ効果があります。非一時停止タスクに対して`resume`を呼び出すと、**409 Failed Precondition**エラーが返されます。
+- 状態検証により、無効な操作（例：完了したタスクやすでに実行中のタスクの再開）に対して明確なエラーメッセージが提供されます。
+- SSEストリームは、一時停止されたワークフローが再開されると`workflow.resumed`を発信します。

@@ -1,0 +1,832 @@
+---
+title: "設定トラブルシューティング"
+description: "設定の問題のトラブルシューティング"
+---
+
+## 概要
+
+このガイドでは、一般的な設定の問題、診断方法、および実績のある解決策について説明します。
+
+## クイック診断
+
+### 環境変数の確認
+
+```bash
+# サービスのすべての環境変数を表示
+docker compose exec orchestrator env | sort
+
+# 特定の変数を確認
+docker compose exec orchestrator env | grep MAX_COST_PER_REQUEST
+
+# 変数が設定されているか確認
+docker compose exec orchestrator printenv MAX_COST_PER_REQUEST
+```
+
+### 設定ファイルの検証
+
+```bash
+# 設定ファイルが存在するか確認
+docker compose exec orchestrator ls -la ./config/
+
+# 設定ファイルの内容を表示
+docker compose exec orchestrator cat ./config/features.yaml
+
+# 構文エラーを確認
+docker compose exec orchestrator cat ./config/models.yaml | yq .
+```
+
+### サービスの健康状態を確認
+
+```bash
+# ゲートウェイの健康状態
+curl http://localhost:8080/health
+
+# オーケストレーターのメトリクス
+curl http://localhost:2112/metrics
+
+# エージェントコアの健康状態
+grpcurl -plaintext localhost:50051 list
+```
+
+## 一般的な問題
+
+### 1. サービスが起動しない
+
+#### 環境変数が不足している
+
+**症状**:
+- サービスが即座にクラッシュする
+- ログに「variable not set」エラーが表示される
+- コンテナがコード1で終了する
+
+**診断**:
+```bash
+docker compose logs orchestrator | grep -i "not set\|missing\|required"
+```
+
+**解決策**:
+```bash
+# .envファイルが存在するか確認
+ls -la .env
+
+# 必要な変数が設定されているか確認
+grep -E "OPENAI_API_KEY|POSTGRES" .env
+
+# 不足している場合は例からコピー
+cp .env.example .env
+nano .env  # 必要な値を入力
+
+# サービスを再起動
+docker compose restart
+```
+
+**必要な変数**:
+- 少なくとも1つのLLMプロバイダーキー (OPENAI_API_KEY, ANTHROPIC_API_KEYなど)
+- データベースの資格情報 (POSTGRES_*)
+- Redis接続 (REDIS_*)
+
+#### 無効な設定構文
+
+**症状**:
+- 「Failed to parse config」エラー
+- YAML構文エラー
+- サービスが起動しない
+
+**診断**:
+```bash
+# YAML構文を確認
+docker compose exec orchestrator cat ./config/features.yaml | yq .
+```
+
+**解決策**:
+```bash
+# ローカルでYAMLを検証
+yq eval ./config/features.yaml
+
+# 一般的な問題を確認
+cat ./config/features.yaml | grep -E "^\s+- |^\w+:"
+
+# デフォルトにリセット
+cp ./config/features.yaml.example ./config/features.yaml
+```
+
+### 2. 認証失敗
+
+#### ゲートウェイが401 Unauthorizedを返す
+
+**症状**:
+- すべてのリクエストが401を返す
+- 「Unauthorized」エラー
+- APIキーが拒否される
+
+**診断**:
+```bash
+# 認証が有効か確認
+docker compose exec gateway env | grep GATEWAY_SKIP_AUTH
+
+# curlでテスト
+curl -v http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" 2>&1 | grep "401"
+```
+
+**解決策1**: 開発用に認証を無効にする
+```bash
+# .envに追加
+GATEWAY_SKIP_AUTH=1
+
+# ゲートウェイを再起動
+docker compose restart gateway
+
+# テスト
+curl http://localhost:8080/api/v1/tasks
+```
+
+**解決策2**: 有効なAPIキーを使用
+```bash
+# データベースにAPIキーを挿入
+docker compose exec postgres psql -U shannon -d shannon -c "
+INSERT INTO auth.api_keys (key, user_id, tenant_id, name, enabled)
+VALUES ('sk_test_123456', gen_random_uuid(), gen_random_uuid(), 'Test Key', true);
+"
+
+# キーでテスト
+curl -H "X-API-Key: sk_test_123456" \
+  http://localhost:8080/api/v1/tasks
+```
+
+#### JWTシークレットが設定されていない
+
+**症状**:
+- 「JWT secret not configured」エラー
+- 認証ミドルウェアが失敗する
+
+**解決策**:
+```bash
+# セキュアなシークレットを生成
+JWT_SECRET=$(openssl rand -base64 32)
+
+# .envに追加
+echo "JWT_SECRET=$JWT_SECRET" >> .env
+
+# ゲートウェイを再起動
+docker compose restart gateway
+```
+
+### 3. データベース接続の問題
+
+#### PostgreSQLに接続できない
+
+**症状**:
+- 「connection refused」エラー
+- 「dial tcp: connect: connection refused」
+- サービスが起動時にクラッシュする
+
+**診断**:
+```bash
+# PostgreSQLが実行中か確認
+docker compose ps postgres
+
+# PostgreSQLのログを確認
+docker compose logs postgres --tail=50
+
+# 接続をテスト
+docker compose exec postgres pg_isready -U shannon
+```
+
+**解決策1**: PostgreSQLが起動していない
+```bash
+# PostgreSQLを起動
+docker compose up -d postgres
+
+# 準備ができるまで待つ
+docker compose exec postgres pg_isready -U shannon
+
+# 依存サービスを再起動
+docker compose restart gateway orchestrator
+```
+
+**解決策2**: 誤った資格情報
+```bash
+# .env設定を確認
+grep POSTGRES .env
+
+# docker-compose.ymlと一致する必要がある
+docker compose exec postgres psql -U shannon -d shannon -c "SELECT 1;"
+
+# パスワードが間違っている場合は、.envを更新して再起動
+docker compose down
+docker compose up -d
+```
+
+**解決策3**: ポートの競合
+```bash
+# ポート5432が使用中か確認
+lsof -i :5432
+
+# 競合がある場合は、.envでポートを変更
+POSTGRES_PORT=5433
+
+# docker-compose.ymlを更新
+# 再起動
+docker compose down
+docker compose up -d
+```
+
+#### データベーススキーマが初期化されていない
+
+**症状**:
+- 「table does not exist」エラー
+- 「column not found」エラー
+- ログにSQLエラーが表示される
+
+**解決策**:
+```bash
+# マイグレーションを実行
+docker compose exec orchestrator make migrate
+
+# またはデータベースをリセット (⚠️ 破壊的)
+docker compose down -v
+docker compose up -d
+```
+
+### 4. Redis接続の問題
+
+#### Redisに接続できない
+
+**症状**:
+- Redisへの「connection refused」
+- セッション状態が持続しない
+- キャッシュミス
+
+**診断**:
+```bash
+# Redisの状態を確認
+docker compose ps redis
+
+# 接続をテスト
+docker compose exec redis redis-cli ping
+
+# ログを確認
+docker compose logs redis --tail=20
+```
+
+**解決策**:
+```bash
+# Redisを起動
+docker compose up -d redis
+
+# 接続をテスト
+docker compose exec redis redis-cli ping
+# PONGが返されるべき
+
+# 依存サービスを再起動
+docker compose restart gateway orchestrator llm-service
+```
+
+#### Redis 認証失敗
+
+**症状**:
+- "NOAUTH Authentication required"
+- 接続は成功するがコマンドが失敗する
+
+**解決策**:
+```bash
+# パスワードが設定されているか確認
+docker compose exec redis redis-cli CONFIG GET requirepass
+
+# パスワードが必要な場合、.env に追加
+REDIS_PASSWORD=your-password
+
+# または認証を無効にする（開発用のみ）
+docker compose exec redis redis-cli CONFIG SET requirepass ""
+
+# サービスを再起動
+docker compose restart
+```
+
+### 5. LLM プロバイダーの問題
+
+#### API キーが無効または期限切れ
+
+**症状**:
+- "Invalid API key" エラー
+- LLM プロバイダーからの 401
+- タスクが即座に失敗する
+
+**診断**:
+```bash
+# 設定されているプロバイダーを確認
+docker compose exec llm-service env | grep API_KEY
+
+# OpenAI キーをテスト
+curl https://api.openai.com/v1/models \
+  -H "Authorization: Bearer $OPENAI_API_KEY"
+
+# Anthropic キーをテスト
+curl https://api.anthropic.com/v1/messages \
+  -H "X-API-Key: $ANTHROPIC_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"claude-3-haiku-20240307","max_tokens":10,"messages":[{"role":"user","content":"Hi"}]}'
+```
+
+**解決策**:
+```bash
+# .env でキーを更新
+OPENAI_API_KEY=sk-...new-key...
+
+# LLM サービスを再起動
+docker compose restart llm-service
+
+# 確認
+docker compose logs llm-service | grep "API key"
+```
+
+#### レート制限超過
+
+**症状**:
+- LLM プロバイダーからの 429 エラー
+- ログに "Rate limit exceeded"
+- タスクがタイムアウトまたは失敗する
+
+**解決策 1**: レート制限のリセットを待つ
+```bash
+# レート制限ヘッダーを確認
+docker compose logs llm-service | grep "rate"
+
+# 一般的なリセット: ほとんどのプロバイダーで 60 秒
+```
+
+**解決策 2**: レート制限を設定
+```bash
+# .env に追加
+RATE_LIMIT_REQUESTS=50  # プロバイダーの制限より低く
+RATE_LIMIT_WINDOW=60
+
+# 再起動
+docker compose restart llm-service
+```
+
+**解決策 3**: 複数のプロバイダーを使用
+```bash
+# models.yaml にフォールバックプロバイダーを設定
+providers:
+  - id: openai
+    primary: true
+  - id: anthropic
+    fallback: true
+```
+
+#### クォータ超過
+
+**症状**:
+- "insufficient_quota" エラー
+- "You exceeded your current quota"
+- すべての LLM 呼び出しが失敗する
+
+**解決策**:
+```bash
+# クォータを確認
+# OpenAI: https://platform.openai.com/account/usage
+# Anthropic: https://console.anthropic.com/settings/limits
+
+# クレジットを追加またはプランをアップグレード
+# または別のプロバイダーを使用
+OPENAI_API_KEY=
+ANTHROPIC_API_KEY=sk-ant-...
+
+# 再起動
+docker compose restart llm-service
+```
+
+### 6. モデル設定の問題
+
+#### モデルが見つからない
+
+**症状**:
+- "model not found" エラー
+- "invalid model" エラー
+- モデルエラーでタスクが失敗する
+
+**診断**:
+```bash
+# 設定されているモデルを確認
+docker compose exec llm-service cat ./config/models.yaml | grep "id:"
+
+# 環境変数を確認
+docker compose exec orchestrator env | grep MODEL
+```
+
+**解決策**:
+```bash
+# .env で有効なモデル ID を使用
+DEFAULT_MODEL_TIER=small
+COMPLEXITY_MODEL_ID=gpt-5  # これが存在するか確認
+DECOMPOSITION_MODEL_ID=claude-sonnet-4-20250514
+
+# または models.yaml で設定
+docker compose exec orchestrator cat ./config/models.yaml
+
+# 再起動
+docker compose restart orchestrator llm-service
+```
+
+### 7. 予算とコストの問題
+
+#### タスクが予算を超過
+
+**症状**:
+- "Budget exceeded" エラー
+- コストエラーでタスクが失敗する
+- `MAX_COST_PER_REQUEST` を超過
+
+**解決策**:
+```bash
+# 予算制限を増加
+# .env に:
+MAX_COST_PER_REQUEST=1.00  # 0.50 から増加
+MAX_TOKENS_PER_REQUEST=20000  # 10000 から増加
+
+# 再起動
+docker compose restart orchestrator
+
+# または安価なモデルを使用
+DEFAULT_MODEL_TIER=small  # GPT-5o-mini を GPT-5 の代わりに使用
+```
+
+#### 予算の強制が機能していない
+
+**症状**:
+- コストが制限を超過
+- 予算エラーがない
+
+**診断**:
+```bash
+# 予算の強制を確認
+docker compose exec orchestrator env | grep LLM_DISABLE_BUDGETS
+```
+
+**解決策**:
+```bash
+# 予算の強制を有効にする
+LLM_DISABLE_BUDGETS=1  # オーケストレーターが予算を強制
+
+# 制限を設定
+MAX_COST_PER_REQUEST=0.50
+MAX_TOKENS_PER_REQUEST=10000
+
+# 再起動
+docker compose restart orchestrator
+```
+
+### 8. パフォーマンスの問題
+
+#### タスク実行が遅い
+
+**症状**:
+- タスクが予想の 2-3 倍の時間がかかる
+- 高いレイテンシ
+- タイムアウト
+
+**診断**:
+```bash
+# リソース使用状況を確認
+docker stats
+
+# ワーカーの同時実行数を確認
+docker compose exec orchestrator env | grep WORKER
+
+# ツールの並列性を確認
+docker compose exec orchestrator env | grep TOOL_PARALLELISM
+```
+
+**解決策 1**: 並列性を増加
+```bash
+# .env に:
+TOOL_PARALLELISM=10  # 5 から増加
+WORKER_ACT_CRITICAL=20  # 10 から増加
+
+# 再起動
+docker compose restart orchestrator
+```
+
+**解決策 2**: キャッシングを有効にする
+```bash
+# .env に:
+ENABLE_CACHE=true
+CACHE_SIMILARITY_THRESHOLD=0.95
+
+# 再起動
+docker compose restart llm-service
+```
+
+**解決策 3**: モデル選択を最適化
+```bash
+# より高速なモデルを使用
+DEFAULT_MODEL_TIER=small  # GPT-5o-mini は GPT-5 の 10 倍速い
+```
+
+#### 高いメモリ使用量
+
+**症状**:
+- OOM エラー
+- コンテナの再起動
+- 高いスワップ使用
+
+**診断**:
+```bash
+docker stats
+```
+
+**解決策**:
+```bash
+# キャッシュサイズを減少
+HISTORY_WINDOW_MESSAGES=25  # 50 から減少
+STREAMING_RING_CAPACITY=500  # 1000 から減少
+
+# ツールの並列性を制限
+TOOL_PARALLELISM=3  # 5 から減少
+
+# 再起動
+docker compose restart
+```
+
+### 9. ストリーミングの問題
+
+#### SSE接続の切断
+
+**症状**:
+- SSEストリームが切断される
+- タスクの途中でイベントが停止する
+- "Connection closed" エラー
+
+**解決策 1**: タイムアウトを増加させる
+```bash
+# nginx/proxy設定で:
+proxy_read_timeout 600s;
+proxy_connect_timeout 600s;
+
+# gatewayのdocker-compose.ymlで:
+GATEWAY_READ_TIMEOUT=600
+```
+
+**解決策 2**: 再接続を処理する
+```python
+# クライアント側の再接続
+while True:
+    try:
+        for event in stream_events(task_id):
+            process(event)
+        break  # タスク完了
+    except ConnectionError:
+        time.sleep(2)  # 待機して再試行
+```
+
+#### イベントが受信されない
+
+**症状**:
+- ストリームにイベントがない
+- 空のSSEレスポンス
+- ストリームは接続されるがデータがない
+
+**診断**:
+```bash
+# イベントが作成されているか確認
+docker compose exec postgres psql -U shannon -d shannon -c "
+SELECT COUNT(*) FROM event_logs WHERE workflow_id = 'task_abc123';
+"
+
+# Redisストリームを確認
+docker compose exec redis redis-cli XLEN "stream:task_abc123"
+```
+
+**解決策**:
+```bash
+# 管理サーバーが稼働しているか確認
+docker compose ps orchestrator
+
+# 管理サーバーのエンドポイントを確認
+curl http://localhost:8081/health
+
+# オーケストレーターを再起動
+docker compose restart orchestrator
+```
+
+### 10. ツール実行の問題
+
+#### Pythonコードの実行失敗
+
+**症状**:
+- "WASI interpreter not found"
+- Pythonコードツールが失敗する
+- サンドボックスエラー
+
+**解決策**:
+```bash
+# Python WASIインタープリターをダウンロード
+./scripts/setup_python_wasi.sh
+
+# または手動ダウンロード
+wget https://github.com/vmware-labs/webassembly-language-runtimes/releases/download/python%2F3.11.4%2B20230908-ba7c2cf/python-3.11.4.wasm
+mkdir -p ./wasm-interpreters
+mv python-3.11.4.wasm ./wasm-interpreters/
+
+# .envでパスを確認
+PYTHON_WASI_WASM_PATH=./wasm-interpreters/python-3.11.4.wasm
+
+# 再起動
+docker compose restart agent-core llm-service
+```
+
+#### ツールタイムアウト
+
+**症状**:
+- "Tool execution timeout" エラー
+- ツールが無限にハングする
+- WASIタイムアウトエラー
+
+**解決策**:
+```bash
+# タイムアウトを増加させる
+WASI_TIMEOUT_SECONDS=120  # 60から増加
+ENFORCE_TIMEOUT_SECONDS=180  # 90から増加
+
+# 再起動
+docker compose restart agent-core
+```
+
+## 設定の検証
+
+### すべての設定を検証
+
+```bash
+#!/bin/bash
+
+echo "=== Shannon 設定検証 ==="
+
+# .envファイルを確認
+if [ ! -f .env ]; then
+  echo "❌ .envファイルが見つかりません"
+  exit 1
+fi
+echo "✓ .envファイルが存在します"
+
+# 必要な変数を確認
+required_vars=(
+  "POSTGRES_HOST"
+  "REDIS_HOST"
+  "TEMPORAL_HOST"
+)
+
+for var in "${required_vars[@]}"; do
+  if grep -q "^${var}=" .env; then
+    echo "✓ $var が設定されています"
+  else
+    echo "❌ $var が欠けています"
+  fi
+done
+
+# 少なくとも1つのLLMプロバイダーを確認
+if grep -qE "^(OPENAI|ANTHROPIC|GOOGLE)_API_KEY=.+" .env; then
+  echo "✓ LLMプロバイダーが設定されています"
+else
+  echo "❌ LLMプロバイダーのAPIキーが設定されていません"
+fi
+
+# サービスが稼働しているか確認
+echo ""
+echo "=== サービスの健康状態 ==="
+services=("postgres" "redis" "temporal" "qdrant" "orchestrator" "agent-core" "llm-service" "gateway")
+
+for service in "${services[@]}"; do
+  if docker compose ps | grep -q "$service.*running"; then
+    echo "✓ $service が稼働しています"
+  else
+    echo "❌ $service が稼働していません"
+  fi
+done
+
+echo ""
+echo "=== エンドポイントテスト ==="
+
+# Gatewayをテスト
+if curl -f -s http://localhost:8080/health > /dev/null; then
+  echo "✓ Gatewayのヘルスチェックに合格しました"
+else
+  echo "❌ Gatewayのヘルスチェックに失敗しました"
+fi
+
+# Orchestratorメトリクスをテスト
+if curl -f -s http://localhost:2112/metrics > /dev/null; then
+  echo "✓ Orchestratorメトリクスが利用可能です"
+else
+  echo "❌ Orchestratorメトリクスに失敗しました"
+fi
+
+echo ""
+echo "=== 設定検証完了 ==="
+```
+
+## ベストプラクティス
+
+### 1. 環境ごとの設定を使用
+
+```bash
+# 開発
+.env.development
+ENVIRONMENT=dev
+DEBUG=true
+GATEWAY_SKIP_AUTH=1
+
+# 本番
+.env.production
+ENVIRONMENT=prod
+DEBUG=false
+GATEWAY_SKIP_AUTH=0
+JWT_SECRET=<secure-secret>
+```
+
+### 2. カスタム設定を文書化
+
+```bash
+# .envにコメントを追加
+# 高トラフィックAPI用のカスタムレート制限
+RATE_LIMIT_REQUESTS=500  # エンタープライズティア用に増加
+```
+
+### 3. バージョン管理
+
+```bash
+# .gitignore
+.env
+.env.local
+
+# コミットテンプレート
+.env.example
+.env.template
+```
+
+### 4. 定期的な検証
+
+```bash
+# CI/CDに追加
+./scripts/validate-config.sh
+```
+
+### 5. 設定の監視
+
+```bash
+# 設定変更を追跡
+git diff .env.example
+
+# 重要な変更にアラート
+# 本番環境の環境変数を監視
+```
+
+## クイックフィックスチェックリスト
+
+問題が発生した場合、次の手順を順に試してください：
+
+- [ ] すべてのサービスを再起動: `docker compose restart`
+- [ ] ログを確認: `docker compose logs --tail=50`
+- [ ] .envファイルが存在し、必要な変数が設定されているか確認
+- [ ] データベース接続をテスト: `docker compose exec postgres pg_isready`
+- [ ] Redisをテスト: `docker compose exec redis redis-cli ping`
+- [ ] 少なくとも1つのLLM APIキーが設定されているか確認
+- [ ] ディスクスペースを確認: `df -h`
+- [ ] メモリを確認: `docker stats`
+- [ ] 完全リセット（最終手段）: `docker compose down -v && docker compose up -d`
+
+## ヘルプを得る
+
+問題が解決しない場合：
+
+1. **ログを収集**:
+   ```bash
+   docker compose logs > shannon-logs.txt
+   ```
+
+2. **設定をエクスポート**:
+   ```bash
+   docker compose exec orchestrator env | grep -v API_KEY > config.txt
+   ```
+
+3. **GitHubの問題を確認**: https://github.com/Kocoro-lab/Shannon/issues
+
+4. **Discordに参加**: https://discord.gg/NB7C2fMcQR
+
+## 関連ドキュメント
+
+<CardGroup cols={2}>
+  <Card title="環境変数" icon="gear" href="/en/deployment/environment-variables">
+    変数の完全なリファレンス
+  </Card>
+  <Card title="Docker Compose" icon="docker" href="/en/deployment/docker-compose">
+    Docker デプロイメントガイド
+  </Card>
+  <Card title="トラブルシューティング" icon="wrench" href="/en/quickstart/troubleshooting">
+    一般的なトラブルシューティング
+  </Card>
+  <Card title="パフォーマンス調整" icon="gauge" href="/en/deployment/performance-tuning">
+    パフォーマンス最適化
+  </Card>
+</CardGroup>

@@ -1,0 +1,550 @@
+---
+title: "認証"
+description: "REST API認証"
+---
+
+<Note>プラットフォームレベルの認証を参照: [/en/api/authentication](/en/api/authentication)</Note>
+
+## 認証
+
+Shannon Gatewayは、すべての保護されたエンドポイントに対してAPIキー認証をサポートしています。
+
+### APIキー認証
+
+APIキーを`X-API-Key`ヘッダーに含めてください：
+
+```bash
+curl -H "X-API-Key: sk_test_123456" \
+  http://localhost:8080/api/v1/tasks
+```
+
+### 認証エラー
+
+**401 Unauthorized** - APIキーが欠落または無効です：
+
+```json
+{
+  "error": "Unauthorized"
+}
+```
+
+**一般的な原因**：
+- `X-API-Key`ヘッダーが欠落
+- 無効なAPIキー形式
+- 無効または期限切れのAPIキー
+- 誤った認証エンドポイント
+
+## リクエストヘッダー
+
+### 必須ヘッダー
+
+#### X-API-Key
+
+**目的**: 認証  
+**必須**: はい（`GATEWAY_SKIP_AUTH=1`でない限り）  
+**形式**: 文字列  
+
+```bash
+X-API-Key: sk_test_123456
+```
+
+#### Content-Type (POSTリクエスト)
+
+**目的**: リクエストボディの形式を指定  
+**必須**: POSTリクエストに対してはい  
+**形式**: `application/json`  
+
+```bash
+Content-Type: application/json
+```
+
+### オプションヘッダー
+
+#### Idempotency-Key
+
+**目的**: 重複タスクの提出を防ぐ  
+**必須**: いいえ（重要な操作には推奨）  
+**形式**: UUIDまたはユニークな文字列  
+**キャッシュ期間**: 24時間  
+
+```bash
+Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
+```
+
+**例**:
+```bash
+# 最初のリクエスト - タスクを作成
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Process payment #12345"}'
+
+# 重複リクエスト - キャッシュされたレスポンスを返す
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Process payment #12345"}'
+```
+
+#### traceparent
+
+**目的**: W3C分散トレーシング  
+**必須**: いいえ（可視性のために推奨）  
+**形式**: `{version}-{trace-id}-{parent-id}-{flags}`  
+
+```bash
+traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
+```
+
+**形式仕様**:
+- **version**: `00`（現在のバージョン）
+- **trace-id**: 32の16進数文字（128ビット）
+- **parent-id**: 16の16進数文字（64ビット）
+- **flags**: 2の16進数文字（サンプリング: `01`、サンプリングなし: `00`）
+
+**例**:
+```python
+import uuid
+
+def generate_traceparent():
+    trace_id = uuid.uuid4().hex + uuid.uuid4().hex  # 32文字
+    parent_id = uuid.uuid4().hex[:16]                # 16文字
+    return f"00-{trace_id}-{parent_id}-01"
+
+traceparent = generate_traceparent()
+# "00-4bf92f3577b34da6a3ce929d0e0e47360011223344556677-00f067aa0ba902b7-01"
+```
+
+#### tracestate
+
+**目的**: ベンダー固有のトレースコンテキスト  
+**必須**: いいえ  
+**形式**: カンマ区切りのキーと値のペア  
+
+```bash
+tracestate: shannon=task_abc123,vendor=value
+```
+
+#### Cache-Control
+
+**目的**: キャッシュ動作を制御  
+**必須**: いいえ  
+**形式**: 標準HTTPキャッシュディレクティブ  
+
+```bash
+Cache-Control: no-cache
+Cache-Control: max-age=300
+```
+
+#### Last-Event-ID (SSEのみ)
+
+**目的**: 特定のイベントからSSEストリームを再開  
+**必須**: いいえ  
+**形式**: イベントID文字列 — RedisストリームID（例: `1700000000000-0`）または数値シーケンス（例: `42`）  
+
+```bash
+Last-Event-ID: 1700000000000-0
+```
+
+SSE再接続に使用：
+```javascript
+const eventSource = new EventSource(url, {
+  headers: {
+    'X-API-Key': 'sk_test_123456',
+    'Last-Event-ID': '1700000000000-0'  // このストリームIDから再開（または数値シーケンスを使用）
+  }
+});
+```
+
+## レスポンスヘッダー
+
+### 標準レスポンスヘッダー
+
+#### X-Workflow-ID
+
+**目的**: Temporalワークフロー識別子  
+**含まれる場所**: POST /api/v1/tasks, GET /api/v1/tasks/{id}  
+**形式**: 文字列（task_idと同じ）  
+
+```bash
+X-Workflow-ID: task_01HQZX3Y9K8M2P4N5S7T9W2V
+```
+
+**使用例**: Temporal UIでワークフローの実行を追跡  
+```bash
+WORKFLOW_ID=$(curl -s -X POST ... | grep -i "X-Workflow-ID" | cut -d: -f2)
+echo "Monitor at: http://localhost:8088/workflows/$WORKFLOW_ID"
+```
+
+#### X-Session-ID
+
+**目的**: マルチターン会話のセッション識別子  
+**含まれる場所**: POST /api/v1/tasks  
+**形式**: UUID文字列  
+
+```bash
+X-Session-ID: user-123-chat-session
+```
+
+#### Content-Type
+
+**目的**: レスポンスボディの形式  
+**含まれる場所**: すべてのJSONレスポンス  
+**形式**: `application/json`  
+
+```bash
+Content-Type: application/json
+```
+
+SSEの場合：
+```bash
+Content-Type: text/event-stream
+```
+
+### レート制限ヘッダー
+
+#### X-RateLimit-Limit
+
+**目的**: ウィンドウごとに許可される最大リクエスト数  
+**含まれる場所**: すべての認証済みリクエスト  
+**形式**: 整数  
+
+```bash
+X-RateLimit-Limit: 100
+```
+
+#### X-RateLimit-Remaining
+
+**目的**: 現在のウィンドウ内の残りリクエスト数  
+**含まれる場所**: すべての認証済みリクエスト  
+**形式**: 整数  
+
+```bash
+X-RateLimit-Remaining: 95
+```
+
+#### X-RateLimit-Reset
+
+**目的**: レート制限がリセットされるUnixタイムスタンプ  
+**含まれる場所**: すべての認証済みリクエスト  
+**形式**: Unixタイムスタンプ（秒）  
+
+```bash
+X-RateLimit-Reset: 1609459200
+```
+
+**例 - レート制限を確認**:
+```bash
+curl -v http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" 2>&1 | grep -i "X-RateLimit"
+
+# 出力:
+# < X-RateLimit-Limit: 100
+# < X-RateLimit-Remaining: 95
+# < X-RateLimit-Reset: 1609459200
+```
+
+#### Retry-After
+
+**目的**: 再試行までの待機時間（429レスポンス）
+**含まれる場所**: 429 Too Many Requestsレスポンス
+**フォーマット**: 整数（秒）
+
+```bash
+Retry-After: 60
+```
+
+**例 - レート制限の処理**:
+```python
+import time
+import httpx
+
+response = httpx.post(...)
+
+if response.status_code == 429:
+    retry_after = int(response.headers.get("Retry-After", 60))
+    print(f"レート制限中、{retry_after}秒待機...")
+    time.sleep(retry_after)
+    # リクエストを再試行...
+```
+
+### CORSヘッダー
+
+#### Access-Control-Allow-Origin
+
+**目的**: CORSの許可されたオリジン
+**含まれる場所**: すべてのレスポンス（開発モード）
+**フォーマット**: ドメインまたは `*`
+
+```bash
+Access-Control-Allow-Origin: *
+```
+
+**本番環境**: 特定のドメインを設定:
+```go
+// gateway/main.go
+w.Header().Set("Access-Control-Allow-Origin", "https://app.example.com")
+```
+
+#### Access-Control-Allow-Methods
+
+**目的**: 許可されたHTTPメソッド
+**含まれる場所**: CORSプリフライトレスポンス
+**フォーマット**: カンマ区切りのメソッド
+
+```bash
+Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+```
+
+#### Access-Control-Allow-Headers
+
+**目的**: 許可されたリクエストヘッダー
+**含まれる場所**: CORSプリフライトレスポンス
+**フォーマット**: カンマ区切りのヘッダー
+
+```bash
+Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Key, Idempotency-Key, traceparent
+```
+
+## ヘッダーの例
+
+### 最小リクエスト (GET)
+
+```bash
+curl http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456"
+```
+
+### 完全リクエスト (POST)
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \
+  -H "traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01" \
+  -d '{"query": "データを分析する"}'
+```
+
+### Python - すべてのヘッダー
+
+```python
+import httpx
+import uuid
+
+def generate_traceparent():
+    trace_id = uuid.uuid4().hex + uuid.uuid4().hex
+    parent_id = uuid.uuid4().hex[:16]
+    return f"00-{trace_id}-{parent_id}-01"
+
+response = httpx.post(
+    "http://localhost:8080/api/v1/tasks",
+    headers={
+        "X-API-Key": "sk_test_123456",
+        "Content-Type": "application/json",
+        "Idempotency-Key": str(uuid.uuid4()),
+        "traceparent": generate_traceparent()
+    },
+    json={"query": "データを分析する"}
+)
+
+# レスポンスヘッダーを抽出
+workflow_id = response.headers.get("X-Workflow-ID")
+session_id = response.headers.get("X-Session-ID")
+rate_limit = response.headers.get("X-RateLimit-Remaining")
+
+print(f"ワークフロー: {workflow_id}")
+print(f"セッション: {session_id}")
+print(f"残りのレート制限: {rate_limit}")
+```
+
+### JavaScript - Fetch API
+
+```javascript
+const response = await fetch('http://localhost:8080/api/v1/tasks', {
+  method: 'POST',
+  headers: {
+    'X-API-Key': 'sk_test_123456',
+    'Content-Type': 'application/json',
+    'Idempotency-Key': crypto.randomUUID()
+  },
+  body: JSON.stringify({
+    query: 'データを分析する'
+  })
+});
+
+// レスポンスヘッダーを読み取る
+const workflowId = response.headers.get('X-Workflow-ID');
+const rateLimit = response.headers.get('X-RateLimit-Remaining');
+
+console.log('ワークフロー:', workflowId);
+console.log('残りのレート制限:', rateLimit);
+```
+
+## セキュリティベストプラクティス
+
+### 1. APIキーを保護する
+
+**APIキーをバージョン管理にコミットしない**:
+
+```bash
+# ✅ 良い - 環境変数を使用
+export SHANNON_API_KEY="sk_test_123456"
+curl -H "X-API-Key: $SHANNON_API_KEY" ...
+
+# ❌ 悪い - スクリプトにハードコーディング
+curl -H "X-API-Key: sk_test_123456" ...
+```
+
+**安全な設定に保存**:
+```python
+import os
+
+API_KEY = os.environ.get("SHANNON_API_KEY")
+if not API_KEY:
+    raise ValueError("SHANNON_API_KEYが設定されていません")
+```
+
+### 2. 本番環境でHTTPSを使用
+
+```python
+# ✅ 本番環境
+BASE_URL = "https://shannon.example.com"
+
+# ⚠️ 開発環境のみ
+BASE_URL = "http://localhost:8080"
+```
+
+### 3. 定期的にAPIキーをローテーション
+
+```sql
+-- 古いキーを無効にする
+UPDATE auth.api_keys SET enabled = false WHERE key = 'sk_test_old';
+
+-- 新しいキーを作成
+INSERT INTO auth.api_keys (key, user_id, tenant_id, name, enabled)
+VALUES ('sk_test_new', 'user-uuid', 'tenant-uuid', 'ローテーションされたキー', true);
+```
+
+### 4. キーの有効期限を実装
+
+```sql
+-- キーに有効期限を追加
+UPDATE auth.api_keys SET expires_at = NOW() + INTERVAL '90 days';
+
+-- 期限切れのキーを確認
+SELECT * FROM auth.api_keys WHERE expires_at < NOW();
+```
+
+### 5. APIキーの使用状況を監視
+
+```python
+def track_api_usage(api_key: str):
+    """監視のためにAPIキーの使用をログに記録する。"""
+    response = httpx.post(...)
+
+    # 使用状況をログに記録
+    logger.info("APIリクエスト", extra={
+        "api_key": api_key[:10] + "...",  # 部分キーのみ
+        "endpoint": "/api/v1/tasks",
+        "status": response.status_code,
+        "rate_limit_remaining": response.headers.get("X-RateLimit-Remaining")
+    })
+```
+
+## トラブルシューティング
+
+### 認証失敗
+
+**問題**: 401 Unauthorizedが返される
+
+**解決策**:
+1. APIキーが含まれているか確認:
+   ```bash
+   curl -v http://localhost:8080/api/v1/tasks 2>&1 | grep "X-API-Key"
+   ```
+
+2. APIキーのフォーマットを確認:
+   ```bash
+   # sk_で始まるべき
+   echo $API_KEY | grep -E "^sk_"
+   ```
+
+3. 認証が無効になっているか確認:
+   ```bash
+   docker compose exec gateway env | grep GATEWAY_SKIP_AUTH
+   ```
+
+4. データベース内のキーを確認:
+   ```sql
+   SELECT key, enabled, expires_at FROM auth.api_keys WHERE key = 'sk_test_123456';
+   ```
+
+### レート制限の問題
+
+**問題**: 429 Too Many Requests
+
+**解決策**:
+1. レート制限ヘッダーを確認する:
+   ```bash
+   curl -v ... 2>&1 | grep "X-RateLimit"
+   ```
+
+2. 指数バックオフを実装する:
+   ```python
+   if response.status_code == 429:
+       retry_after = int(response.headers.get("Retry-After", 60))
+       time.sleep(retry_after)
+   ```
+
+3. レート制限を増加させる（必要に応じて）:
+   ```bash
+   # .envに記載
+   RATE_LIMIT_RPM=200
+   RATE_LIMIT_BURST=50
+   ```
+
+### 冪等性の問題
+
+**問題**: 重複したタスクが作成される
+
+**解決策**:
+1. 常に Idempotency-Key を含める:
+   ```python
+   idempotency_key = str(uuid.uuid4())
+   headers["Idempotency-Key"] = idempotency_key
+   ```
+
+2. 冪等性キーを保存する:
+   ```python
+   # リクエストと共にキーを保存
+   db.requests.insert({
+       "idempotency_key": idempotency_key,
+       "task_id": task_id,
+       "created_at": datetime.now()
+   })
+   ```
+
+3. Redis キャッシュを確認する:
+   ```bash
+   docker compose exec redis redis-cli KEYS "idempotency:*"
+   ```
+
+## 関連ドキュメント
+
+<CardGroup cols={2}>
+  <Card title="REST API 概要" icon="book" href="/en/api/rest/overview">
+    完全な API リファレンス
+  </Card>
+  <Card title="タスクの提出" icon="paper-plane" href="/en/api/rest/submit-task">
+    POST /api/v1/tasks
+  </Card>
+  <Card title="レート制限" icon="gauge" href="/en/api/rest/overview#rate-limiting">
+    レート制限の詳細
+  </Card>
+  <Card title="分散トレーシング" icon="route" href="/en/api/rest/overview#distributed-tracing">
+    トレーシングの設定
+  </Card>
+</CardGroup>

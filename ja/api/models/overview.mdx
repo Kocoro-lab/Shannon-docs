@@ -1,0 +1,264 @@
+---
+title: "モデル"
+description: "Shannon APIモデル"
+---
+
+## エンドポイント
+
+```
+GET http://localhost:8000/providers/models
+```
+
+## 説明
+
+Shannonに現在設定されているすべてのモデルをプロバイダー別に返します。このエンドポイントはPython LLMサービスに直接クエリを実行し、`config/models.yaml`に定義されたモデルを反映します。
+
+## 認証
+
+**必要**: いいえ（内部サービスエンドポイント）
+
+本番環境では、アクセスは内部ネットワークのみに制限する必要があります。
+
+## リクエスト
+
+### クエリパラメータ
+
+| パラメータ | タイプ | 必須 | 説明 |
+|------------|--------|------|------|
+| `tier`     | string | いいえ | ティアでフィルタリング: `small`, `medium`, または `large` |
+
+### ヘッダー
+
+内部アクセスには必要ありません。
+
+## レスポンス
+
+### 成功レスポンス
+
+**ステータス**: `200 OK`
+
+**ボディ**:
+```json
+{
+  "openai": [
+    {
+      "id": "gpt-5-nano-2025-08-07",
+      "name": "gpt-5-nano-2025-08-07",
+      "tier": "small",
+      "context_window": 128000,
+      "cost_per_1k_prompt_tokens": 0.0001,
+      "cost_per_1k_completion_tokens": 0.0004,
+      "supports_tools": true,
+      "supports_streaming": true,
+      "available": true
+    }
+  ],
+  "anthropic": [
+    {
+      "id": "claude-sonnet-4-5-20250929",
+      "name": "claude-sonnet-4-5-20250929",
+      "tier": "medium",
+      "context_window": 200000,
+      "cost_per_1k_prompt_tokens": 0.003,
+      "cost_per_1k_completion_tokens": 0.015,
+      "supports_tools": true,
+      "supports_streaming": true,
+      "available": true
+    }
+  ]
+}
+```
+
+### レスポンス構造
+
+レスポンスはプロバイダー別に整理され、各プロバイダーはモデルオブジェクトの配列を返します：
+
+| フィールド | タイプ | 説明 |
+|------------|--------|------|
+| `id`       | string | モデル識別子（標準名） |
+| `name`     | string | 表示名（idと同じ） |
+| `tier`     | string | サイズティア: `small`, `medium`, または `large` |
+| `context_window` | integer | トークンの最大コンテキスト長 |
+| `cost_per_1k_prompt_tokens` | float | 1K入力トークンあたりのコスト（USD） |
+| `cost_per_1k_completion_tokens` | float | 1K出力トークンあたりのコスト（USD） |
+| `supports_tools` | boolean | 関数呼び出しサポート |
+| `supports_streaming` | boolean | リアルタイムストリーミングサポート |
+| `available` | boolean | 現在使用可能 |
+
+## 例
+
+### すべてのモデルをリスト
+
+```bash
+curl http://localhost:8000/providers/models | jq
+```
+
+### ティアでフィルタリング
+
+```bash
+# 小モデルのみ
+curl "http://localhost:8000/providers/models?tier=small" | jq
+
+# 大モデルのみ
+curl "http://localhost:8000/providers/models?tier=large" | jq
+```
+
+### Pythonの例
+
+```python
+import httpx
+
+# すべてのモデルを取得
+response = httpx.get("http://localhost:8000/providers/models")
+models = response.json()
+
+# OpenAIモデルを表示
+for model in models.get("openai", []):
+    print(f"{model['id']} - {model['tier']} - ${model['cost_per_1k_prompt_tokens']:.4f}/1K")
+
+# 小ティアをフィルタリング
+response = httpx.get("http://localhost:8000/providers/models?tier=small")
+small_models = response.json()
+```
+
+## モデルティア
+
+モデルは能力とコストに基づいて3つのティアに整理されています：
+
+### 小ティア（ワークロードの50%を優先）
+基本的なタスク向けの高速でコスト最適化されたモデル：
+- **OpenAI**: gpt-5-nano-2025-08-07
+- **Anthropic**: claude-haiku-4-5-20251001
+- **xAI**: grok-4-fast-non-reasoning
+- **Google**: gemini-2.5-flash-lite
+- **DeepSeek**: deepseek-chat
+
+### 中ティア（ワークロードの40%を優先）
+能力とコストのバランスが取れたモデル：
+- **OpenAI**: gpt-5-2025-08-07
+- **Anthropic**: claude-sonnet-4-5-20250929
+- **xAI**: grok-4
+- **Google**: gemini-2.5-flash
+- **Meta**: llama-4-scout
+
+### 大ティア（ワークロードの10%を優先）
+複雑なタスク向けの重い推論モデル：
+- **OpenAI**: gpt-4.1-2025-04-14, gpt-5-pro-2025-10-06
+- **Anthropic**: claude-opus-4-1-20250805
+- **Google**: gemini-2.5-pro
+- **DeepSeek**: deepseek-r1
+- **xAI**: grok-4-fast-reasoning
+
+## 設定ソース
+
+モデルは`config/models.yaml`の`model_catalog`に定義されています：
+
+```yaml
+model_catalog:
+  openai:
+    gpt-5-nano-2025-08-07:
+      model_id: gpt-5-nano-2025-08-07
+      tier: small
+      context_window: 128000
+      max_tokens: 4096
+      supports_functions: true
+      supports_streaming: true
+```
+
+価格は`pricing.models`の下に集中管理されています：
+
+```yaml
+pricing:
+  models:
+    openai:
+      gpt-5-nano-2025-08-07:
+        input_per_1k: 0.0001
+        output_per_1k: 0.0004
+```
+
+## ユースケース
+
+**1. 利用可能なモデルを発見**
+```bash
+curl http://localhost:8000/providers/models | jq 'keys'
+# ["anthropic", "openai", "google", "xai", ...]
+```
+
+**2. 価格を確認**
+```bash
+curl http://localhost:8000/providers/models | \
+  jq '.openai[] | {id, input: .cost_per_1k_prompt_tokens, output: .cost_per_1k_completion_tokens}'
+```
+
+**3. APIキーの設定を確認**
+```bash
+# プロバイダーが空の配列を返す場合、APIキーが欠落している可能性があります
+curl http://localhost:8000/providers/models | jq '.anthropic | length'
+```
+
+**4. モデルセレクターUIを構築**
+```javascript
+const response = await fetch('http://localhost:8000/providers/models?tier=small');
+const models = await response.json();
+
+// ドロップダウンをポピュレート
+Object.entries(models).forEach(([provider, modelList]) => {
+  modelList.forEach(model => {
+    dropdown.add(new Option(`${provider}: ${model.id}`, model.id));
+  });
+});
+```
+
+## ノート
+
+- **静的構成**: モデルは `config/models.yaml` から読み込まれ、プロバイダーAPIから動的に発見されることはありません。
+- **ホットリロード**: `models.yaml` の変更は、効果を得るためにサービスの再起動が必要です。
+- **空のプロバイダー**: プロバイダーが `[]` を返す場合は、`.env` にAPIキーが設定されているか確認してください。
+- **価格の中央集権化**: すべてのコストはYAMLの `pricing` セクションから取得され、Go/Rust/Pythonサービス間での一貫性が確保されます。
+- **内部エンドポイント**: このエンドポイントはLLMサービス（ポート8000）にあり、Gateway API（ポート8080）ではありません。
+
+## 環境変数
+
+環境変数でモデルの選択を上書きします：
+
+```bash
+# ステージ固有の上書き
+COMPLEXITY_MODEL_ID=gpt-5-mini-2025-08-07
+DECOMPOSITION_MODEL_ID=gpt-5-2025-08-07
+DEFAULT_MODEL_TIER=small
+```
+
+完全なリストについては [Configuration Guide](/en/quickstart/configuration) を参照してください。
+
+## トラブルシューティング
+
+**空のプロバイダー配列**
+- APIキーが設定されているか確認: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` など。
+- `config/models.yaml` に `model_catalog.<provider>` のエントリがあるか確認してください。
+
+**モデルが見つからない**
+- `MODELS_CONFIG_PATH` が正しいファイルを指しているか確認してください。
+- YAML構文が有効であることを確認してください。
+- モデルIDにタイプミスがないか確認してください。
+
+**価格が不正確**
+- 価格は `pricing.models.<provider>` セクションから取得されます。
+- `config/models.yaml` を更新し、サービスを再起動してください。
+- Go/Rustサービスも同じ構成ファイルを読み取ることを確認してください。
+
+## 関連ドキュメント
+
+<CardGroup cols={2}>
+  <Card title="モデル選択ガイド" icon="sliders" href="/en/guides/model-selection">
+    ティアルーティングとフォールバックの仕組み
+  </Card>
+  <Card title="構成" icon="gear" href="/en/quickstart/configuration">
+    環境変数と構成ファイル
+  </Card>
+  <Card title="タスクの提出" icon="paper-plane" href="/en/api/rest/submit-task">
+    model_tier または model_override を使用
+  </Card>
+  <Card title="中央集権的価格設定" icon="dollar-sign" href="https://github.com/Kocoro-lab/Shannon/blob/main/docs/centralized-pricing.md">
+    価格アーキテクチャの詳細
+  </Card>
+</CardGroup>

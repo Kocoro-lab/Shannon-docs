@@ -78,6 +78,7 @@
                 "group": "Overview",
                 "pages": [
                   "en/api/overview",
+                  "en/api/rest/overview",
                   "en/api/authentication",
                   "en/api/event-types"
                 ]
@@ -204,7 +205,8 @@
                   "en/architecture/overview",
                   "en/architecture/components",
                   "en/architecture/grpc-api",
-                  "en/architecture/database-schema"
+                  "en/architecture/database-schema",
+                  "en/architecture/feature-flags"
                 ]
               },
               {
@@ -260,6 +262,7 @@
                 "group": "概览",
                 "pages": [
                   "cn/api/overview",
+                  "cn/api/rest/overview",
                   "cn/api/authentication",
                   "cn/api/event-types"
                 ]
@@ -386,7 +389,8 @@
                   "cn/architecture/overview",
                   "cn/architecture/components",
                   "cn/architecture/grpc-api",
-                  "cn/architecture/database-schema"
+                  "cn/architecture/database-schema",
+                  "cn/architecture/feature-flags"
                 ]
               },
               {
@@ -410,7 +414,175 @@
               {
                 "group": "はじめに",
                 "pages": [
-                  "ja/quickstart/index"
+                  "ja/quickstart/index",
+                  "ja/quickstart/installation",
+                  "ja/quickstart/quickstart"
+                ]
+              },
+              {
+                "group": "コアコンセプト",
+                "pages": [
+                  "ja/quickstart/concepts/agents",
+                  "ja/quickstart/concepts/workflows",
+                  "ja/quickstart/concepts/cost-control",
+                  "ja/quickstart/concepts/streaming",
+                  "ja/quickstart/concepts/monitoring"
+                ]
+              },
+              {
+                "group": "ガイド",
+                "pages": [
+                  "ja/quickstart/configuration",
+                  "ja/quickstart/desktop-app",
+                  "ja/quickstart/troubleshooting"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "APIリファレンス",
+            "groups": [
+              {
+                "group": "概要",
+                "pages": [
+                  "ja/api/overview",
+                  "ja/api/rest/overview",
+                  "ja/api/authentication",
+                  "ja/api/event-types"
+                ]
+              },
+              {
+                "group": "認証とヘッダー",
+                "pages": [
+                  "ja/api/rest/authentication"
+                ]
+              },
+              {
+                "group": "タスク",
+                "pages": [
+                  "ja/api/rest/submit-task",
+                  "ja/api/rest/list-tasks",
+                  "ja/api/rest/get-status",
+                  "ja/api/rest/pause-task",
+                  "ja/api/rest/resume-task",
+                  "ja/api/rest/get-control-state",
+                  "ja/api/rest/cancel-task",
+                  "ja/api/rest/approve-task"
+                ]
+              },
+              {
+                "group": "セッション",
+                "pages": [
+                  "ja/api/rest/sessions"
+                ]
+              },
+              {
+                "group": "ストリーミング",
+                "pages": [
+                  "ja/api/rest/streaming"
+                ]
+              },
+              {
+                "group": "モデル",
+                "pages": [
+                  "ja/api/models/overview"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "SDK",
+            "groups": [
+              {
+                "group": "Python SDK",
+                "pages": [
+                  "ja/sdk/python/installation",
+                  "ja/sdk/python/quickstart",
+                  "ja/sdk/python/streaming",
+                  "ja/sdk/python/async-usage",
+                  "ja/sdk/python/examples",
+                  "ja/sdk/python/error-handling"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "チュートリアル",
+            "groups": [
+              {
+                "group": "概要",
+                "pages": [
+                  "ja/tutorials/index"
+                ]
+              },
+              {
+                "group": "Agent構築",
+                "pages": [
+                  "ja/tutorials/research-assistant"
+                ]
+              },
+              {
+                "group": "拡張と統合",
+                "pages": [
+                  "ja/tutorials/custom-tools",
+                  "ja/tutorials/openapi-tools",
+                  "ja/tutorials/vendor-adapters",
+                  "ja/tutorials/templates",
+                  "ja/tutorials/extending-shannon",
+                  "ja/tutorials/model-selection"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "デプロイ",
+            "groups": [
+              {
+                "group": "はじめに",
+                "pages": [
+                  "ja/deployment/index",
+                  "ja/deployment/docker-compose",
+                  "ja/deployment/kubernetes"
+                ]
+              },
+              {
+                "group": "クラウドプラットフォーム",
+                "pages": [
+                  "ja/deployment/aws",
+                  "ja/deployment/azure"
+                ]
+              },
+              {
+                "group": "運用",
+                "pages": [
+                  "ja/deployment/environment-variables",
+                  "ja/deployment/configuration-troubleshooting",
+                  "ja/deployment/monitoring",
+                  "ja/deployment/performance-tuning",
+                  "ja/deployment/security"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "アーキテクチャ",
+            "groups": [
+              {
+                "group": "システム設計",
+                "pages": [
+                  "ja/architecture/overview",
+                  "ja/architecture/components",
+                  "ja/architecture/grpc-api",
+                  "ja/architecture/database-schema",
+                  "ja/architecture/feature-flags"
+                ]
+              },
+              {
+                "group": "詳細解説",
+                "pages": [
+                  "ja/architecture/temporal-workflows",
+                  "ja/architecture/vector-memory",
+                  "ja/architecture/tool-execution"
                 ]
               }
             ]

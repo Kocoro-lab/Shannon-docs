@@ -1,0 +1,981 @@
+---
+title: "イベントタイプ"
+description: "Shannonイベントタイプリファレンス"
+---
+
+## 概要
+
+Shannonは、タスク実行の可視性を提供するために、Server-Sent Events (SSE)を介して**リアルタイムイベント**を発信します。この文書では、プラットフォームによって実際に発信される**33種類のイベント**、その構造、および発生タイミングをカタログ化しています。
+
+イベントは以下を提供します：
+- **リアルタイムの進捗** - タスク実行をリアルタイムで追跡
+- **デバッグの洞察** - LLMプロンプト、ツール呼び出し、エージェントの推論
+- **コスト監視** - トークン使用量とコストをリアルタイムで追跡
+- **マルチエージェントの調整** - チーム形成とコラボレーションの観察
+- **エラー回復** - エラー処理と回復の試みを監視
+
+## イベント構造
+
+すべてのイベントはこの基本構造に従います：
+
+```json
+{
+  "workflow_id": "wf-550e8400-e29b-41d4-a716-446655440000",
+  "type": "AGENT_THINKING",
+  "agent_id": "agent-001",
+  "message": "タスクの複雑さを分析中...",
+  "timestamp": "2024-10-27T10:00:00Z",
+  "seq": 42,
+  "stream_id": "stream-abc123",
+  "payload": {}
+}
+```
+
+### 基本フィールド
+
+| フィールド | 型 | 説明 |
+|------------|----|------|
+| `workflow_id` | string | ユニークなタスク/ワークフロー識別子 |
+| `type` | string | イベントタイプ（下記のカタログを参照） |
+| `agent_id` | string | イベントを発信したエージェント |
+| `message` | string | 人間が読めるイベントの説明 |
+| `timestamp` | ISO 8601 | イベントが発生した時刻 |
+| `seq` | integer | 順序付けのためのシーケンス番号 |
+| `stream_id` | string | 再接続用のストリーム識別子 |
+| `payload` | object | イベント固有のペイロード（オプション；JSONでは`payload`としてシリアライズ） |
+
+---
+
+## イベントカテゴリ
+
+イベントは論理的なカテゴリに整理されています：
+
+1. **ワークフローイベント** - タスクライフサイクル
+2. **エージェントイベント** - エージェントの実行
+3. **ツールイベント** - ツールの呼び出し
+4. **パターンイベント** - 認知パターンの実行
+5. **チームイベント** - マルチエージェントの調整
+6. **LLMイベント** - 言語モデルとのインタラクション
+7. **進捗イベント** - タスクの進捗とステータス
+8. **システムイベント** - エラーとシステム状態
+
+---
+
+## イベントタイプのクイックリファレンス
+
+Shannonによって発信されるイベントタイプの権威あるリスト：
+
+| イベントタイプ | カテゴリ | 説明 |
+|----------------|----------|------|
+| `WORKFLOW_STARTED` | Workflow | タスクの実行が開始される |
+| `WORKFLOW_COMPLETED` | Workflow | タスクが正常に完了する |
+| `WORKFLOW_PAUSING` | Workflow control | 一時停止が要求され、ワークフローが一時停止の準備をしている |
+| `WORKFLOW_PAUSED` | Workflow control | チェックポイントでワークフローが一時停止 |
+| `WORKFLOW_RESUMED` | Workflow control | 一時停止後にワークフローが再開 |
+| `WORKFLOW_CANCELLING` | Workflow control | キャンセルが要求され、ワークフローが終了の準備をしている |
+| `WORKFLOW_CANCELLED` | Workflow control | チェックポイントでワークフローがキャンセル |
+| `AGENT_STARTED` | Agent | エージェントが処理を開始 |
+| `AGENT_THINKING` | Agent | エージェントの推論/計画 |
+| `AGENT_COMPLETED` | Agent | エージェントが正常に完了 |
+| `TOOL_INVOKED` | Tool | ツールが呼び出される |
+| `TOOL_OBSERVATION` | Tool | エージェントがツールの結果を観察 |
+| `TEAM_RECRUITED` | Team | マルチエージェントチームが編成 |
+| `TEAM_RETIRED` | Team | チームが解散 |
+| `TEAM_STATUS` | Team | チーム調整の更新 |
+| `DEPENDENCY_SATISFIED` | Team | 依存関係が解決 |
+| `MESSAGE_SENT` | Message | エージェントがメッセージを送信 |
+| `MESSAGE_RECEIVED` | Message | エージェントがメッセージを受信 |
+| `LLM_PROMPT` | LLM | LLMに送信されたプロンプト |
+| `LLM_PARTIAL` | LLM | 増分的なLLM出力 |
+| `LLM_OUTPUT` | LLM | 最終的なLLM出力 |
+| `PROGRESS` | Progress | 一般的な進捗更新 |
+| `DATA_PROCESSING` | Progress | データの処理/分析 |
+| `WAITING` | Progress | リソースを待機中 |
+| `ERROR_OCCURRED` | System | エラーが発生 |
+| `ERROR_RECOVERY` | System | エラー回復の試み |
+| `APPROVAL_REQUESTED` | System | 人間の承認が必要 |
+| `APPROVAL_DECISION` | System | 承認の決定がなされた |
+| `WORKSPACE_UPDATED` | System | メモリ/コンテキストが更新 |
+| `ROLE_ASSIGNED` | System | エージェントの役割が割り当てられた |
+| `DELEGATION` | System | タスクが委任された |
+| `BUDGET_THRESHOLD` | System/Progress | タスクの予算警告閾値に達した |
+| `STREAM_END` | Stream | ストリームの明示的な終了信号（このワークフローのイベントはこれ以上ありません） |
+
+**合計**: 33種類のイベントタイプ
+
+注：`WORKFLOW_FAILED`、`TASK_COMPLETED`、`TOOL_COMPLETED`、`TOOL_FAILED`、および`BUDGET_UPDATE`などのイベントはストリーミングAPIによって発信されません。失敗は`ERROR_OCCURRED`を介して表示され、完了は`WORKFLOW_COMPLETED`で示されます。`STREAM_END`は、ストリーミングが終了した際のライフサイクル信号として発信されます。
+
+---
+
+## ワークフローイベント
+
+全体のタスクワークフローに関連するイベント。
+
+### WORKFLOW_STARTED
+
+**発信タイミング**: タスクの実行が開始されたとき
+
+**データ**:
+```json
+{
+  "type": "WORKFLOW_STARTED",
+  "message": "ワークフローが開始されました",
+  "data": {
+    "query": "Q4の売上データを分析",
+    "mode": "STANDARD",
+    "session_id": "sess-123",
+    "estimated_complexity": 0.75
+  }
+}
+```
+
+**フィールド**:
+- `query`: 元のタスククエリ
+- `mode`: 実行モード (SIMPLE, STANDARD, COMPLEX)
+- `session_id`: セッション識別子
+- `estimated_complexity`: 複雑さスコア (0.0-1.0)
+
+---
+
+### WORKFLOW_COMPLETED
+
+**発生**: タスクが正常に完了したとき
+
+**データ**:
+```json
+{
+  "type": "WORKFLOW_COMPLETED",
+  "message": "Workflow completed successfully",
+  "data": {
+    "result": "Analysis complete. Key findings: ...",
+    "duration_ms": 45000,
+    "total_tokens": 5420,
+    "total_cost_usd": 0.0814,
+    "agents_used": 3,
+    "tools_invoked": 7
+  }
+}
+```
+
+**フィールド**:
+- `result`: 最終タスク結果
+- `duration_ms`: 総実行時間
+- `total_tokens`: 累積トークン使用量
+- `total_cost_usd`: 総コスト
+- `agents_used`: 呼び出されたエージェントの数
+- `tools_invoked`: 呼び出されたツールの数
+
+---
+
+## 選択された例
+
+### AGENT_THINKING
+
+```json
+{
+  "type": "AGENT_THINKING",
+  "agent_id": "researcher",
+  "message": "Analyzing data structure...",
+  "timestamp": "2025-01-20T10:00:02Z"
+}
+```
+
+### TOOL_INVOKED / TOOL_OBSERVATION
+
+```json
+{ "type": "TOOL_INVOKED", "message": "web_search: q=\"LLM caching\"" }
+{ "type": "TOOL_OBSERVATION", "message": "web_search: 12 results" }
+```
+
+### LLM_OUTPUT
+
+```json
+{
+  "type": "LLM_OUTPUT",
+  "message": "Final summary of findings..."
+}
+```
+
+### ERROR_OCCURRED
+
+```json
+{
+  "type": "ERROR_OCCURRED",
+  "message": "Provider rate limit exceeded",
+  "data": { "error": "RATE_LIMIT", "retry_after": 30 }
+}
+```
+
+### APPROVAL_REQUESTED
+
+```json
+{
+  "type": "APPROVAL_REQUESTED",
+  "message": "Delete temporary files older than 30 days?",
+  "data": { "approval_id": "appr-456" }
+}
+```
+
+**一般的なエラータイプ**:
+- `BUDGET_EXCEEDED` - コスト/トークン制限に達した
+- `TIMEOUT` - 実行タイムアウト
+- `TOOL_EXECUTION_FAILED` - ツールエラー
+- `LLM_ERROR` - LLMプロバイダーエラー
+- `INVALID_INPUT` - 不正なリクエスト
+
+---
+
+## エージェントイベント
+
+個々のエージェント実行に関連するイベント。
+
+### AGENT_STARTED
+
+**発生**: エージェントが処理を開始したとき
+
+**データ**:
+```json
+{
+  "type": "AGENT_STARTED",
+  "agent_id": "data-analyst",
+  "message": "Agent started",
+  "data": {
+    "role": "data-analyst",
+    "subtask": "Analyze revenue trends",
+    "tools_available": ["csv_loader", "pandas", "matplotlib"]
+  }
+}
+```
+
+---
+
+### AGENT_THINKING
+
+**発生**: エージェントが推論/処理中（最も頻繁なイベント）
+
+**データ**:
+```json
+{
+  "type": "AGENT_THINKING",
+  "agent_id": "data-analyst",
+  "message": "Analyzing data structure...",
+  "data": {
+    "thought": "I need to first load the CSV and examine column types",
+    "next_action": "invoke_tool",
+    "confidence": 0.85
+  }
+}
+```
+
+**使用法**: ユーザーへの進捗インジケーターとして表示
+
+---
+
+### AGENT_COMPLETED
+
+**発生**: エージェントがサブタスクを完了したとき
+
+**データ**:
+```json
+{
+  "type": "AGENT_COMPLETED",
+  "agent_id": "data-analyst",
+  "message": "Agent completed successfully",
+  "data": {
+    "result": "Revenue increased 15% YoY",
+    "tokens_used": 1200,
+    "cost_usd": 0.018,
+    "duration_ms": 8000
+  }
+}
+```
+
+---
+
+### AGENT_FAILED
+
+**発生**: エージェントがエラーに遭遇したとき
+
+**データ**:
+```json
+{
+  "type": "AGENT_FAILED",
+  "agent_id": "data-analyst",
+  "message": "Agent failed: Tool execution error",
+  "data": {
+    "error": "TOOL_EXECUTION_FAILED",
+    "error_message": "CSV file not found",
+    "recoverable": true
+  }
+}
+```
+
+---
+
+## ツールイベント
+
+ツール呼び出しに関連するイベント。
+
+### TOOL_INVOKED
+
+**発生**: ツールが呼び出されたとき
+
+**データ**:
+```json
+{
+  "type": "TOOL_INVOKED",
+  "message": "Invoking tool: csv_loader",
+  "data": {
+    "tool_name": "csv_loader",
+    "tool_args": {
+      "file_path": "sales_q4.csv"
+    },
+    "timeout_seconds": 30
+  }
+}
+```
+
+---
+
+### TOOL_OBSERVATION
+
+**発生**: エージェントがツールの結果を観察したとき
+
+**データ**:
+```json
+{
+  "type": "TOOL_OBSERVATION",
+  "message": "Tool result: csv_loader",
+  "data": {
+    "tool_name": "csv_loader",
+    "result": {
+      "rows": 15000,
+      "columns": 12,
+      "sample": ["date", "product", "revenue", "..."]
+    },
+    "duration_ms": 450,
+    "truncated": false
+  }
+}
+```
+
+**フィールド**:
+- `tool_name`: 呼び出されたツールの名前
+- `result`: ツール出力（構造化データまたはテキスト）
+- `duration_ms`: ツール実行時間
+- `truncated`: 結果が切り捨てられたかどうか（2000文字を超える場合はtrue）
+
+**注意**: 大きなツール結果は、ストリーミング接続を圧倒しないようにUTF-8安全で2000文字に自動的に切り捨てられます。`truncated`フィールドは、これが発生したかどうかを示します。完全な結果は常にタスク完了レスポンスで利用可能です。
+
+---
+
+{/* ツールの失敗はシステムイベントでERROR_OCCURREDとして発生します。 */}
+
+---
+
+## パターンイベント
+
+パターン選択および分解イベントは公開ストリーミングスキーマの一部ではなく、簡潔さのために省略されています。
+
+---
+
+## チームイベント
+
+複数のエージェントのチーム調整と管理。
+
+### TEAM_RECRUITED
+
+**発生**: エージェントのチームが実行のために編成されたとき
+
+**データ**:
+```json
+{
+  "type": "TEAM_RECRUITED",
+  "message": "Team recruited: 3 agents",
+  "data": {
+    "team_size": 3,
+    "agents": [
+      {
+        "agent_id": "data-analyst",
+        "role": "analyst",
+        "capabilities": ["data_loading", "analysis"]
+      },
+      {
+        "agent_id": "visualizer",
+        "role": "visualization",
+        "capabilities": ["charts", "graphs"]
+      },
+      {
+        "agent_id": "writer",
+        "role": "report_generation",
+        "capabilities": ["summarization", "writing"]
+      }
+    ]
+  }
+}
+```
+
+### TEAM_RETIRED
+
+**発生**: タスク完了後にチームが解散されたとき
+
+**データ**:
+```json
+{
+  "type": "TEAM_RETIRED",
+  "message": "Team retired after task completion",
+  "data": {
+    "team_size": 3,
+    "duration_ms": 45000,
+    "total_tokens": 8000,
+    "reason": "task_completed"
+  }
+}
+```
+
+---
+
+### TEAM_STATUS
+
+**発生**: マルチエージェントチームの調整に関する定期的な更新
+
+**データ**:
+```json
+{
+  "type": "TEAM_STATUS",
+  "message": "Team progress update",
+  "data": {
+    "active_agents": 2,
+    "idle_agents": 1,
+    "tasks_completed": 5,
+    "tasks_remaining": 3,
+    "coordination_mode": "parallel"
+  }
+}
+```
+
+---
+
+### DEPENDENCY_SATISFIED
+
+**発生**: タスクの依存関係が解決され、実行が進められるとき
+
+**データ**:
+```json
+{
+  "type": "DEPENDENCY_SATISFIED",
+  "message": "Dependencies satisfied for subtask-3",
+  "data": {
+    "subtask_id": "subtask-3",
+    "satisfied_dependencies": ["subtask-1", "subtask-2"],
+    "can_proceed": true
+  }
+}
+```
+
+---
+
+## メッセージイベント
+
+エージェント間の通信。
+
+### MESSAGE_SENT
+
+**発生**: エージェントが別のエージェントにメッセージを送信
+
+**データ**:
+```json
+{
+  "type": "MESSAGE_SENT",
+  "agent_id": "supervisor",
+  "message": "Message sent to data-analyst",
+  "data": {
+    "to": "data-analyst",
+    "content": "Please analyze revenue trends",
+    "message_type": "DELEGATION"
+  }
+}
+```
+
+---
+
+### MESSAGE_RECEIVED
+
+**発生**: エージェントがメッセージを受信
+
+**データ**:
+```json
+{
+  "type": "MESSAGE_RECEIVED",
+  "agent_id": "data-analyst",
+  "message": "Message received from supervisor",
+  "data": {
+    "from": "supervisor",
+    "content": "Please analyze revenue trends",
+    "acknowledged": true
+  }
+}
+```
+
+---
+
+## LLMイベント
+
+デバッグと監視のための言語モデルのインタラクションイベント。
+
+### LLM_PROMPT
+
+**発生**: プロンプトがLLMに送信されたとき（プライバシーのためにサニタイズ済み）
+
+**データ**:
+```json
+{
+  "type": "LLM_PROMPT",
+  "message": "Sending prompt to LLM",
+  "data": {
+    "model": "gpt-5",
+    "prompt_length": 1200,
+    "max_tokens": 2000,
+    "temperature": 0.7,
+    "sanitized_prompt": "Analyze the provided data..."
+  }
+}
+```
+
+---
+
+### LLM_PARTIAL
+
+**発生**: ストリーミング中のLLM出力のインクリメンタルチャンク
+
+**データ**:
+```json
+{
+  "type": "LLM_PARTIAL",
+  "message": "Received partial LLM output",
+  "data": {
+    "chunk": "Based on the analysis",
+    "chunk_index": 5,
+    "total_tokens_so_far": 50
+  }
+}
+```
+
+---
+
+### LLM_OUTPUT
+
+**発生**: ステップの最終LLM出力
+
+**データ**:
+```json
+{
+  "type": "LLM_OUTPUT",
+  "message": "LLM output complete",
+  "data": {
+    "output": "Analysis complete. Revenue increased 15% YoY...",
+    "model": "gpt-5",
+    "provider": "openai",
+    "usage": {
+      "total_tokens": 350,
+      "input_tokens": 200,
+      "output_tokens": 150
+    },
+    "cost_usd": 0.0105,
+    "duration_ms": 2000
+  }
+}
+```
+
+**フィールド**:
+- `output`: 完全なLLM応答テキスト
+- `model`: 使用されたモデル（正式名称）
+- `provider`: LLMプロバイダー（openai, anthropic, google, xaiなど）
+- `usage`: OpenAI互換の使用オブジェクトを含む:
+  - `total_tokens`: 総トークン（入力 + 出力）
+  - `input_tokens`: 入力/プロンプトトークン
+  - `output_tokens`: 生成されたトークン
+- `cost_usd`: USDでの推定コスト
+- `duration_ms`: リクエストの所要時間（ミリ秒）
+
+**注意**: 使用メタデータはOpenAIの標準フォーマットに従い、OpenAI、Anthropic、Google、Groq、xAI、OpenAI互換のエンドポイントを含むすべてのプロバイダーで利用可能です。`usage`オブジェクトの構造は、シームレスな統合のためにOpenAIのストリーミング応答フォーマットに一致します。
+
+---
+
+### TOOL_OBSERVATION
+
+**発生**: エージェントによるツール結果の観察
+
+**データ**:
+```json
+{
+  "type": "TOOL_OBSERVATION",
+  "message": "Agent observed tool result",
+  "data": {
+    "tool_name": "web_search",
+    "observation": "Found 10 relevant results about AI trends",
+    "relevance_score": 0.85
+  }
+}
+```
+
+---
+
+## 進捗イベント
+
+ユーザーのフィードバックのためのタスクの進捗とステータスの更新。
+
+### PROGRESS
+
+**発生**: 実行中の一般的な進捗更新
+
+**データ**:
+```json
+{
+  "type": "PROGRESS",
+  "message": "Progress: 60% complete",
+  "data": {
+    "percentage": 60,
+    "current_step": 3,
+    "total_steps": 5,
+    "current_task": "Generating visualizations"
+  }
+}
+```
+
+---
+
+### DATA_PROCESSING
+
+**発生**: エージェントがデータを処理または分析中
+
+**データ**:
+```json
+{
+  "type": "DATA_PROCESSING",
+  "message": "Processing sales data",
+  "data": {
+    "operation": "data_analysis",
+    "records_processed": 15000,
+    "total_records": 15000,
+    "processing_stage": "aggregation"
+  }
+}
+```
+
+---
+
+### WAITING
+
+**発生**: エージェントがリソースまたは応答を待機中
+
+**データ**:
+```json
+{
+  "type": "WAITING",
+  "message": "Waiting for dependencies",
+  "data": {
+    "waiting_for": "subtask-2",
+    "wait_reason": "dependency_not_satisfied",
+    "estimated_wait_seconds": 10
+  }
+}
+```
+
+---
+
+## システムイベント
+
+システムレベルのイベントとエラー。
+
+### ERROR_OCCURRED
+
+**発生**: 実行中のシステムエラー
+
+**データ**:
+```json
+{
+  "type": "ERROR_OCCURRED",
+  "message": "Database connection failed",
+  "data": {
+    "error_type": "DATABASE_ERROR",
+    "error_message": "Connection timeout",
+    "recoverable": true,
+    "retry_count": 2,
+    "max_retries": 3
+  }
+}
+```
+
+---
+
+{/* Budget updates are not emitted by the streaming API. */}
+
+### ERROR_RECOVERY
+
+**発生**: システムがエラーから回復中
+
+**データ**:
+```json
+{
+  "type": "ERROR_RECOVERY",
+  "message": "データベース接続エラーから回復中",
+  "data": {
+    "error_type": "DATABASE_ERROR",
+    "recovery_action": "retry_connection",
+    "attempt": 2,
+    "max_attempts": 3,
+    "success": true
+  }
+}
+```
+
+---
+
+### APPROVAL_REQUESTED
+
+**発生**: 続行するために人間の承認が必要
+
+**データ**:
+```json
+{
+  "type": "APPROVAL_REQUESTED",
+  "message": "ファイルシステムアクセスの承認を要求",
+  "data": {
+    "approval_id": "appr-123",
+    "tool_name": "file_system",
+    "operation": "write",
+    "risk_level": "HIGH",
+    "timeout_seconds": 7200,
+    "details": {
+      "file_path": "/data/critical.db",
+      "action": "delete"
+    }
+  }
+}
+```
+
+---
+
+### APPROVAL_DECISION
+
+**発生**: 人間が承認の決定を下した
+
+**データ**:
+```json
+{
+  "type": "APPROVAL_DECISION",
+  "message": "承認されました",
+  "data": {
+    "approval_id": "appr-123",
+    "decision": "approved",
+    "approved_by": "user-456",
+    "timestamp": "2024-10-27T10:05:00Z",
+    "comments": "アクションが必要であることを確認"
+  }
+}
+```
+
+**決定値**:
+- `approved` - アクションが続行可能
+- `denied` - アクションがブロックされました
+- `timeout` - タイムアウト期間内に決定が下されなかった
+
+---
+
+### WORKSPACE_UPDATED
+
+**発生**: 作業メモリ/コンテキストが更新されました
+
+**データ**:
+```json
+{
+  "type": "WORKSPACE_UPDATED",
+  "message": "ワークスペースが更新されました",
+  "data": {
+    "key": "loaded_datasets",
+    "value": ["sales_q4.csv"],
+    "action": "ADD"
+  }
+}
+```
+
+---
+
+### ROLE_ASSIGNED
+
+**発生**: 実行中にエージェントの役割が割り当てられました
+
+**データ**:
+```json
+{
+  "type": "ROLE_ASSIGNED",
+  "agent_id": "agent-002",
+  "message": "役割が割り当てられました: data-analyst",
+  "data": {
+    "role": "data-analyst",
+    "capabilities": ["data_loading", "analysis", "visualization"],
+    "tools": ["csv_loader", "pandas", "matplotlib"]
+  }
+}
+```
+
+---
+
+### DELEGATION
+
+**発生**: タスクが別のエージェントに委任されました
+
+**データ**:
+```json
+{
+  "type": "DELEGATION",
+  "agent_id": "supervisor",
+  "message": "data-analystに委任されました",
+  "data": {
+    "to_agent": "data-analyst",
+    "task": "収益トレンドの分析",
+    "priority": "HIGH"
+  }
+}
+```
+
+---
+
+### BUDGET_THRESHOLD
+
+**発生**: トークン予算が警告閾値に達しました（通常は制限の80%）
+
+**データ**:
+```json
+{
+  "type": "BUDGET_THRESHOLD",
+  "message": "予算閾値に達しました: 80%",
+  "data": {
+    "threshold_percentage": 80,
+    "tokens_used": 8000,
+    "tokens_limit": 10000,
+    "tokens_remaining": 2000,
+    "cost_usd": 0.24,
+    "estimated_cost_at_limit": 0.30
+  }
+}
+```
+
+**フィールド**:
+- `threshold_percentage`: 警告閾値（例: 80）
+- `tokens_used`: これまでに消費されたトークンの累計
+- `tokens_limit`: タスクに対して許可される最大トークン数
+- `tokens_remaining`: 制限前に残っているトークン
+- `cost_usd`: 現在のコスト（USD）
+- `estimated_cost_at_limit`: 制限に達した場合の予測コスト
+
+**使用法**: このイベントを監視して、ハード予算制限に達する前にユーザーに警告し、優雅な劣化や早期終了の決定を可能にします。
+
+---
+
+## イベントの順序
+
+イベントは**厳密に順序付けられています**（シーケンス番号 `seq` による）:
+
+```json
+{"seq": 1, "type": "WORKFLOW_STARTED"}
+{"seq": 2, "type": "AGENT_STARTED"}
+{"seq": 3, "type": "AGENT_THINKING"}
+{"seq": 4, "type": "TOOL_INVOKED"}
+{"seq": 5, "type": "LLM_OUTPUT"}
+{"seq": 6, "type": "WORKFLOW_COMPLETED"}
+```
+
+**プロパティ**:
+- シーケンス番号は単調増加
+- シーケンスにギャップなし（1からNまでのすべての番号）
+- 同じワークフローからのイベントは常に正しく順序付けられています
+
+---
+
+## 一般的なイベントフロー（簡略化）
+
+```
+1. WORKFLOW_STARTED
+2. AGENT_STARTED
+3. AGENT_THINKING
+4. TOOL_INVOKED (オプション)
+5. LLM_OUTPUT (最終回答)
+6. WORKFLOW_COMPLETED
+```
+
+## イベントの永続性
+
+イベントは以下に保存されます:
+- **PostgreSQL**: 永続的なイベントログ
+- **Redis**: 最近のイベント（ホットキャッシュ）
+- **リアルタイム**: SSEストリーム
+
+**過去のイベントの取得**:
+```bash
+# タスクのすべてのイベントを取得
+GET /api/v1/tasks/{task_id}/events?limit=1000
+```
+
+---
+
+## イベントの信頼性と保証
+
+### 順序保証
+
+Shannonは**単一のワークフロー内で厳密な順序**を提供します:
+- イベントはシーケンシャルに番号付けされています（`seq`フィールド）
+- シーケンス番号にギャップなし（1, 2, 3, ...）
+- 同じワークフローからのイベントは常に順序通りに到着します
+- 異なるワークフローからのイベントは交互に到着する可能性があります
+
+### 配信保証
+
+- **少なくとも1回の配信**: イベントは複数回配信される可能性があります（重複排除には `seq` を使用）
+- **イベントの永続性**: すべてのイベントはPostgreSQLの `event_logs` テーブルに保存されます
+- **ホットキャッシュ**: 最近のイベントはRedisにキャッシュされ、迅速に取得可能
+- **過去のアクセス**: REST APIを介して過去のイベントをクエリ可能
+
+### ストリーム再接続
+
+SSE接続が切断された場合:
+```python
+# 再接続し、最後のシーケンス番号から再開
+last_seq = 42  # 最後に受信したイベント
+for event in client.stream_events(workflow_id, from_seq=last_seq + 1):
+    process_event(event)
+```
+
+### イベント保持
+
+| ストレージ | 保持期間 | 目的 | イベントタイプ |
+|------------|----------|------|----------------|
+| Redis      | 24時間  | リアルタイムストリーミング | すべてのイベント |
+| PostgreSQL  | 90日（デフォルト） | 歴史的クエリ | 重要なイベントのみ* |
+| アーカイブ  | 1年以上（オプション） | 長期監査 | 設定可能 |
+
+**PostgreSQLの選択的永続性**: データベースのパフォーマンスを最適化するために、重要なイベントのみがPostgreSQLに永続化されます。これには、`WORKFLOW_COMPLETED`、`AGENT_COMPLETED`、`TOOL_INVOKED`、`LLM_OUTPUT`、および `ERROR_OCCURRED` が含まれます。`LLM_PARTIAL`、`HEARTBEAT`、および `AGENT_THINKING` のような一時的なイベントはデータベースへの書き込みから除外され（書き込み負荷を約92%削減）、リアルタイムのSSEストリーミングとRedisキャッシュを介して完全に利用可能です。
+
+イベントストレージの詳細については、[Database Schema](/en/architecture/database-schema#event-logs-table)を参照してください。
+
+---
+
+{/* 詳細な頻度の内訳は簡潔さのために削除されました。上記のクイックリファレンスを参照してください。 */}
+
+## 関連トピック
+
+<CardGroup cols={2}>
+  <Card title="Streaming API" icon="stream" href="/en/api/rest/streaming">
+    SSEおよびWebSocketストリーミング
+  </Card>
+  <Card title="Python SDK Streaming" icon="python" href="/en/sdk/python/streaming">
+    SDKストリーミングガイド
+  </Card>
+  <Card title="List Tasks" icon="list" href="/en/api/rest/list-tasks">
+    タスク履歴の表示
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/en/quickstart/troubleshooting">
+    ストリーミングの問題をデバッグ
+  </Card>
+</CardGroup>

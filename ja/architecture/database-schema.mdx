@@ -1,0 +1,948 @@
+---
+title: "データベーススキーマ"
+description: "Shannonのデータベーススキーマ"
+---
+
+## 概要
+
+Shannonは、永続的なストレージのためにPostgreSQLとpgvector拡張を使用しています。データベースは2つのスキーマに整理されています：
+- `auth` - 認証、マルチテナンシー、およびセキュリティ
+- `public` - コアアプリケーションテーブル（タスク、エージェント、セッション）
+
+**テーブル数**: 18テーブル  
+**拡張機能**: uuid-ossp, pg_trgm, btree_gin, pgcrypto
+
+## エンティティリレーションシップ図
+
+```
+┌─────────────────┐
+│  auth.tenants   │
+└────────┬────────┘
+         │
+         │ 1:N
+         ▼
+┌─────────────────┐        ┌──────────────────┐
+│   auth.users    │◄───────│  auth.api_keys   │
+└────────┬────────┘   N:1  └──────────────────┘
+         │
+         │ 1:N
+         ▼
+┌─────────────────┐        ┌──────────────────┐
+│   public.users  │◄───────│   sessions       │
+└────────┬────────┘   1:N  └──────────────────┘
+         │
+         │ 1:N
+         ▼
+┌──────────────────────────┐
+│   task_executions        │
+│  (workflow_id = PK)      │
+└──────────┬───────────────┘
+           │
+           │ 1:N
+           ▼
+┌──────────────────────────┐        ┌──────────────────┐
+│   agent_executions       │◄───────│  tool_executions │
+└──────────┬───────────────┘   1:N  └──────────────────┘
+           │
+           │ 1:N
+           ▼
+┌──────────────────────────┐
+│     tool_calls           │
+└──────────────────────────┘
+
+┌──────────────────────────┐        ┌──────────────────┐
+│   event_logs             │        │  token_usage     │
+│  (workflow_id)           │        └──────────────────┘
+└──────────────────────────┘
+
+┌──────────────────────────┐        ┌───────────────────┐
+│  usage_daily_aggregates  │        │  learning_cases   │
+└──────────────────────────┘        └───────────────────┘
+```
+
+## スキーマ: `auth` (認証とマルチテナンシー)
+
+### auth.tenants
+
+**目的**: マルチテナントの組織管理
+
+| カラム | 型 | 制約 | 説明 |
+|--------|------|-------------|-------------|
+| id | UUID | PK, DEFAULT gen_random_uuid() | テナント識別子 |
+| name | VARCHAR(255) | NOT NULL | 組織名 |
+| slug | VARCHAR(100) | UNIQUE, NOT NULL | URLセーフ識別子 |
+| plan | VARCHAR(50) | DEFAULT 'free' | サブスクリプションプラン（free, pro, enterprise） |
+| token_limit | INTEGER | DEFAULT 10000 | 月間トークン許容量 |
+| monthly_token_usage | INTEGER | DEFAULT 0 | 現在の月の使用量 |
+| rate_limit_per_hour | INTEGER | DEFAULT 1000 | APIレート制限 |
+| is_active | BOOLEAN | DEFAULT true | テナントのステータス |
+| created_at | TIMESTAMP | DEFAULT NOW() | 作成時間 |
+| updated_at | TIMESTAMP | DEFAULT NOW() | 最終更新時間 |
+| metadata | JSONB | DEFAULT '{}' | 追加のテナントデータ |
+
+**インデックス**:
+- `slug`に対する主キー（UNIQUE）
+
+**例**:
+```sql
+-- アクティブなテナントを取得
+SELECT id, name, plan, token_limit
+FROM auth.tenants
+WHERE is_active = true;
+
+-- トークン使用量を確認
+SELECT name, monthly_token_usage, token_limit,
+       (monthly_token_usage::FLOAT / token_limit * 100) as usage_percentage
+FROM auth.tenants
+WHERE monthly_token_usage > token_limit * 0.8;
+```
+
+### auth.users
+
+**目的**: ユーザー認証とプロフィール管理
+
+| カラム | 型 | 制約 | 説明 |
+|--------|------|-------------|-------------|
+| id | UUID | PK, DEFAULT gen_random_uuid() | ユーザー識別子 |
+| email | VARCHAR(255) | UNIQUE, NOT NULL | ユーザーのメール |
+| username | VARCHAR(100) | UNIQUE, NOT NULL | ユーザー名 |
+| password_hash | VARCHAR(255) | NOT NULL | Bcryptパスワードハッシュ |
+| full_name | VARCHAR(255) | | フルネーム |
+| tenant_id | UUID | FK → auth.tenants, NOT NULL | 組織 |
+| role | VARCHAR(50) | DEFAULT 'user' | 役割（user, admin, owner） |
+| is_active | BOOLEAN | DEFAULT true | アカウントのステータス |
+| is_verified | BOOLEAN | DEFAULT false | メール確認 |
+| email_verified_at | TIMESTAMP | | 確認タイムスタンプ |
+| created_at | TIMESTAMP | DEFAULT NOW() | アカウント作成 |
+| updated_at | TIMESTAMP | DEFAULT NOW() | 最終更新 |
+| last_login | TIMESTAMP | | 最終ログイン時間 |
+| metadata | JSONB | DEFAULT '{}' | 追加のユーザーデータ |
+
+**インデックス**:
+- `idx_users_email` ON (email)
+- `idx_users_username` ON (username)
+- `idx_users_tenant_id` ON (tenant_id)
+
+**例**:
+```sql
+-- テナント内のすべてのユーザーを取得
+SELECT u.email, u.username, u.role, u.last_login
+FROM auth.users u
+WHERE u.tenant_id = '...'
+  AND u.is_active = true
+ORDER BY u.last_login DESC NULLS LAST;
+
+-- 非アクティブなユーザーを見つける
+SELECT email, created_at, last_login
+FROM auth.users
+WHERE last_login < NOW() - INTERVAL '90 days'
+   OR last_login IS NULL;
+```
+
+### auth.api_keys
+
+**目的**: プログラムによるアクセスのためのAPIキー管理
+
+| カラム | 型 | 制約 | 説明 |
+|--------|------|-------------|-------------|
+| id | UUID | PK, DEFAULT gen_random_uuid() | キー識別子 |
+| key_hash | VARCHAR(255) | UNIQUE, NOT NULL | キーのSHA256ハッシュ |
+| key_prefix | VARCHAR(20) | NOT NULL | 最初の8文字（表示用） |
+| user_id | UUID | FK → auth.users | キーの所有者 |
+| tenant_id | UUID | FK → auth.tenants, NOT NULL | 組織 |
+| name | VARCHAR(100) | NOT NULL | キー名/説明 |
+| description | TEXT | | 詳細な説明 |
+| scopes | TEXT[] | DEFAULT [...] | 権限配列 |
+| rate_limit_per_hour | INTEGER | DEFAULT 1000 | キー固有のレート制限 |
+| last_used | TIMESTAMP | | 最終使用タイムスタンプ |
+| expires_at | TIMESTAMP | | 有効期限 |
+| is_active | BOOLEAN | DEFAULT true | キーステータス |
+| created_at | TIMESTAMP | DEFAULT NOW() | 作成時間 |
+| metadata | JSONB | DEFAULT '{}' | 追加のキーデータ |
+
+**インデックス**:
+- `idx_api_keys_tenant_id` ON (tenant_id)
+- `idx_api_keys_key_prefix` ON (key_prefix)
+
+**デフォルトスコープ**:
+- `tasks:run`: タスク実行を許可
+- `tasks:read`: タスクのステータスと結果の読み取りを許可
+- `sessions:manage`: セッションの管理を許可
+
+**例**:
+```sql
+-- アクティブなAPIキーのリスト
+SELECT key_prefix, name, last_used, expires_at
+FROM auth.api_keys
+WHERE is_active = true
+  AND (expires_at IS NULL OR expires_at > NOW())
+ORDER BY last_used DESC NULLS LAST;
+
+-- 未使用のキーを見つける
+SELECT key_prefix, name, created_at, last_used
+FROM auth.api_keys
+WHERE last_used IS NULL
+  AND created_at < NOW() - INTERVAL '30 days';
+
+-- 期限切れのキーを確認
+SELECT key_prefix, name, expires_at
+FROM auth.api_keys
+WHERE expires_at BETWEEN NOW() AND NOW() + INTERVAL '7 days'
+  AND is_active = true;
+```
+
+### auth.refresh_tokens
+
+**目的**: JWTリフレッシュトークンの保存と取り消し
+
+| カラム | 型 | 制約 | 説明 |
+|--------|------|-------------|-------------|
+| id | UUID | PK, DEFAULT gen_random_uuid() | トークン識別子 |
+| token_hash | VARCHAR(255) | UNIQUE, NOT NULL | SHA256ハッシュ |
+| user_id | UUID | FK → auth.users | トークン所有者 |
+| tenant_id | UUID | FK → auth.tenants, NOT NULL | 組織 |
+| expires_at | TIMESTAMP | NOT NULL | 有効期限 |
+| revoked | BOOLEAN | DEFAULT false | 取り消しステータス |
+| revoked_at | TIMESTAMP | | 取り消し時間 |
+| ip_address | INET | | クライアントIP |
+| user_agent | TEXT | | クライアントユーザーエージェント |
+| created_at | TIMESTAMP | DEFAULT NOW() | 作成時間 |
+
+**インデックス**:
+- `idx_refresh_tokens_user_id` ON (user_id)
+- `idx_refresh_tokens_token_hash` ON (token_hash)
+
+**例**:
+```sql
+-- ユーザーのすべてのトークンを取り消す
+UPDATE auth.refresh_tokens
+SET revoked = true, revoked_at = NOW()
+WHERE user_id = '...'
+  AND revoked = false;
+
+-- 期限切れのトークンをクリーンアップ
+DELETE FROM auth.refresh_tokens
+WHERE expires_at < NOW() - INTERVAL '7 days';
+```
+
+### auth.audit_logs
+
+**目的**: セキュリティイベントの監査トレイル
+
+| カラム | 型 | 制約 | 説明 |
+|--------|------|-------------|-------------|
+| id | UUID | PK, DEFAULT gen_random_uuid() | ログエントリID |
+| event_type | VARCHAR(100) | NOT NULL | イベントタイプ |
+| user_id | UUID | FK → auth.users | ユーザー（nullable） |
+| tenant_id | UUID | FK → auth.tenants | テナント（nullable） |
+| ip_address | INET | | クライアントIP |
+| user_agent | TEXT | | クライアントユーザーエージェント |
+| details | JSONB | DEFAULT '{}' | イベント詳細 |
+| created_at | TIMESTAMP | DEFAULT NOW() | イベント時間 |
+
+**インデックス**:
+- `idx_audit_logs_user_id` ON (user_id)
+- `idx_audit_logs_tenant_id` ON (tenant_id)
+- `idx_audit_logs_event_type` ON (event_type)
+- `idx_audit_logs_created_at` ON (created_at)
+
+**イベントタイプ**:
+- `login` - ユーザーログイン
+- `logout` - ユーザーログアウト
+- `api_key_created` - APIキー生成
+- `permission_changed` - ロール/権限の変更
+
+**例**:
+```sql
+-- 最近のセキュリティイベント
+SELECT event_type, user_id, ip_address, created_at
+FROM auth.audit_logs
+WHERE created_at > NOW() - INTERVAL '24 hours'
+ORDER BY created_at DESC
+LIMIT 100;
+
+-- 失敗したログイン試行
+SELECT user_id, ip_address, COUNT(*) as attempts
+FROM auth.audit_logs
+WHERE event_type = 'login_failed'
+  AND created_at > NOW() - INTERVAL '1 hour'
+GROUP BY user_id, ip_address
+HAVING COUNT(*) > 5;
+```
+
+## スキーマ: `public` (コアアプリケーション)
+
+### users
+
+**目的**: アプリケーションユーザープロファイル（レガシー、auth.usersにリンク）
+
+| カラム | 型 | 制約 | 説明 |
+|--------|------|-------------|-------------|
+| id | UUID | PK, DEFAULT uuid_generate_v4() | ユーザー識別子 |
+| external_id | VARCHAR(255) | UNIQUE, NOT NULL | 外部システムID |
+| email | VARCHAR(255) | | メールアドレス |
+| tenant_id | UUID | | テナント参照 |
+| metadata | JSONB | DEFAULT '{}' | ユーザーメタデータ |
+| created_at | TIMESTAMPTZ | DEFAULT NOW() | 作成時間 |
+| updated_at | TIMESTAMPTZ | DEFAULT NOW() | 最終更新 |
+
+**インデックス**:
+- `idx_users_tenant_id` ON (tenant_id)
+- `idx_users_external_id` ON (external_id)
+
+**注意**: このテーブルは後方互換性のために存在します。新しいコードは`auth.users`を使用するべきです。
+
+### sessions
+
+**目的**: ユーザーセッション管理とコンテキスト
+
+| カラム | 型 | 制約 | 説明 |
+|--------|------|-------------|-------------|
+| id | UUID | PK, DEFAULT uuid_generate_v4() | セッション識別子 |
+| user_id | UUID | FK → users | セッション所有者 |
+| tenant_id | UUID | | テナント参照 |
+| context | JSONB | DEFAULT '{}' | セッションコンテキストデータ |
+| token_budget | INTEGER | DEFAULT 10000 | トークン割り当て |
+| tokens_used | INTEGER | DEFAULT 0 | 消費トークン |
+| created_at | TIMESTAMPTZ | DEFAULT NOW() | セッション開始 |
+| updated_at | TIMESTAMPTZ | DEFAULT NOW() | 最終活動 |
+| expires_at | TIMESTAMPTZ | | 有効期限 |
+| deleted_at | TIMESTAMPTZ | DEFAULT NULL | ソフト削除のタイムスタンプ |
+| deleted_by | UUID | DEFAULT NULL | セッションを削除したユーザー |
+
+**インデックス**:
+- `idx_sessions_user_id` ON (user_id)
+- `idx_sessions_tenant_id` ON (tenant_id)
+- `idx_sessions_expires_at` ON (expires_at)
+- `idx_sessions_external_id` ON ((context->>'external_id')) WHERE context->>'external_id' IS NOT NULL
+- `idx_sessions_user_external_id` UNIQUE ON (user_id, (context->>'external_id')) WHERE context->>'external_id' IS NOT NULL AND deleted_at IS NULL
+- `idx_sessions_not_deleted` ON (id) WHERE deleted_at IS NULL
+- `idx_sessions_deleted_at` ON (deleted_at) WHERE deleted_at IS NOT NULL
+
+**注意**:
+- 外部ID（非UUIDセッションID）は`context->>'external_id'`に保存され、二重IDの検索を可能にします。
+- `deleted_at`カラムによるソフト削除のサポート - `deleted_at`がNULLでないセッションは削除されたと見なされます。
+
+**例**:
+```sql
+-- アクティブなセッション
+SELECT id, user_id, tokens_used, token_budget, created_at
+FROM sessions
+WHERE expires_at > NOW()
+  OR expires_at IS NULL
+ORDER BY created_at DESC;
+
+-- セッショントークンの使用状況
+SELECT
+    COUNT(*) as session_count,
+    AVG(tokens_used) as avg_tokens,
+    SUM(tokens_used) as total_tokens
+FROM sessions
+WHERE created_at > NOW() - INTERVAL '24 hours';
+```
+
+### task_executions
+
+**目的**: タスク/ワークフローの実行履歴とメトリクス
+
+| カラム | 型 | 制約 | 説明 |
+|--------|------|-------------|-------------|
+| id | UUID | PK, DEFAULT uuid_generate_v4() | タスク識別子 |
+| workflow_id | VARCHAR(255) | UNIQUE, NOT NULL | Temporal ワークフロー ID |
+| user_id | UUID | FK → users | タスク作成者 |
+| tenant_id | UUID | | テナント参照 |
+| session_id | VARCHAR(255) | | セッション識別子 |
+| query | TEXT | NOT NULL | タスククエリ/プロンプト |
+| mode | VARCHAR(50) | | 実行モード (SIMPLE, STANDARD, COMPLEX) |
+| status | VARCHAR(50) | NOT NULL | タスクのステータス |
+| started_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | 開始時間 |
+| completed_at | TIMESTAMPTZ | | 完了時間 |
+| result | TEXT | | 最終結果 |
+| response | JSONB | DEFAULT '{}' | 構造化されたレスポンス |
+| error_message | TEXT | | エラー詳細 |
+| total_tokens | INTEGER | DEFAULT 0 | 使用トークン総数 |
+| prompt_tokens | INTEGER | DEFAULT 0 | 入力トークン |
+| completion_tokens | INTEGER | DEFAULT 0 | 出力トークン |
+| total_cost_usd | DECIMAL(10,6) | DEFAULT 0 | 総コスト |
+| duration_ms | INTEGER | | 実行時間 (ms) |
+| agents_used | INTEGER | DEFAULT 0 | 使用されたエージェント数 |
+| tools_invoked | INTEGER | DEFAULT 0 | ツール呼び出し数 |
+| cache_hits | INTEGER | DEFAULT 0 | キャッシュヒット数 |
+| complexity_score | DECIMAL(3,2) | | 複雑さ (0.0-1.0) |
+| metadata | JSONB | | 追加メタデータ |
+| created_at | TIMESTAMPTZ | DEFAULT NOW() | レコード作成 |
+
+**インデックス**:
+- `idx_task_user_session` ON (user_id, session_id)
+- `idx_task_created_at` ON (created_at DESC)
+- `idx_task_status` ON (status)
+- `idx_task_workflow_id` ON (workflow_id)
+- `idx_task_executions_tenant_id` ON (tenant_id)
+- `idx_task_executions_session_id` ON (session_id)
+
+**ステータス値**:
+- `RUNNING` - タスク進行中
+- `COMPLETED` - タスクが正常に完了
+- `FAILED` - タスクがエラーで失敗
+- `CANCELLED` - ユーザーによってタスクがキャンセル
+
+**例**:
+```sql
+-- ユーザーの最近のタスク
+SELECT workflow_id, query, status, duration_ms, total_cost_usd
+FROM task_executions
+WHERE user_id = '...'
+ORDER BY started_at DESC
+LIMIT 20;
+
+-- 失敗したタスクの分析
+SELECT
+    DATE(started_at) as date,
+    COUNT(*) as failed_count,
+    AVG(duration_ms) as avg_duration
+FROM task_executions
+WHERE status = 'FAILED'
+  AND started_at > NOW() - INTERVAL '7 days'
+GROUP BY DATE(started_at)
+ORDER BY date DESC;
+
+-- コスト分析
+SELECT
+    user_id,
+    COUNT(*) as task_count,
+    SUM(total_cost_usd) as total_cost,
+    AVG(total_cost_usd) as avg_cost,
+    SUM(total_tokens) as total_tokens
+FROM task_executions
+WHERE started_at > NOW() - INTERVAL '30 days'
+GROUP BY user_id
+ORDER BY total_cost DESC;
+```
+
+### agent_executions
+
+**目的**: タスク内の個々のエージェント実行の詳細
+
+| カラム | 型 | 制約 | 説明 |
+|--------|------|-------------|-------------|
+| id | UUID | PK, DEFAULT uuid_generate_v4() | 実行 ID |
+| task_execution_id | UUID | FK → task_executions | 親タスク |
+| agent_id | VARCHAR(255) | NOT NULL | エージェント識別子 |
+| execution_order | INTEGER | NOT NULL | 実行順序 |
+| input | TEXT | NOT NULL | エージェント入力 |
+| output | TEXT | | エージェント出力 |
+| mode | VARCHAR(50) | | 実行モード |
+| state | VARCHAR(50) | | FSM ステート |
+| tokens_used | INTEGER | DEFAULT 0 | 消費トークン |
+| cost_usd | DECIMAL(10,6) | DEFAULT 0 | 実行コスト |
+| model_used | VARCHAR(100) | | LLM モデル |
+| duration_ms | INTEGER | | 実行時間 |
+| memory_used_mb | INTEGER | | メモリ使用量 |
+| created_at | TIMESTAMPTZ | DEFAULT NOW() | 開始時間 |
+| completed_at | TIMESTAMPTZ | | 完了時間 |
+
+**インデックス**:
+- `idx_agent_task_execution` ON (task_execution_id)
+- `idx_agent_created_at` ON (created_at DESC)
+- `idx_agent_state` ON (state)
+
+**ステート値**:
+- `IDLE` - エージェントアイドル
+- `ANALYZING` - 入力を分析中
+- `PLANNING` - 実行を計画中
+- `RETRIEVING` - 情報を取得中
+- `EXECUTING` - タスクを実行中
+- `VALIDATING` - 結果を検証中
+- `SYNTHESIZING` - レスポンスを合成中
+- `COMPLETED` - 実行完了
+- `FAILED` - 実行失敗
+
+**例**:
+```sql
+-- タスクのためのエージェント実行チェーン
+SELECT agent_id, execution_order, state, duration_ms, tokens_used
+FROM agent_executions
+WHERE task_execution_id = '...'
+ORDER BY execution_order;
+
+-- エージェントパフォーマンスメトリクス
+SELECT
+    agent_id,
+    COUNT(*) as execution_count,
+    AVG(duration_ms) as avg_duration,
+    AVG(tokens_used) as avg_tokens,
+    SUM(cost_usd) as total_cost
+FROM agent_executions
+WHERE created_at > NOW() - INTERVAL '7 days'
+GROUP BY agent_id
+ORDER BY execution_count DESC;
+```
+
+### tool_executions
+
+**目的**: ツール呼び出し履歴とパフォーマンス
+
+| カラム | 型 | 制約 | 説明 |
+|--------|------|-------------|-------------|
+| id | UUID | PK, DEFAULT uuid_generate_v4() | 実行 ID |
+| agent_execution_id | UUID | FK → agent_executions | 親エージェント |
+| task_execution_id | UUID | FK → task_executions | 親タスク |
+| tool_name | VARCHAR(255) | NOT NULL | ツール識別子 |
+| tool_version | VARCHAR(50) | | ツールバージョン |
+| category | VARCHAR(100) | | ツールカテゴリ |
+| input_params | JSONB | | 入力パラメータ |
+| output | JSONB | | ツール出力 |
+| success | BOOLEAN | DEFAULT true | 成功ステータス |
+| error_message | TEXT | | エラー詳細 |
+| duration_ms | INTEGER | | 実行時間 |
+| tokens_consumed | INTEGER | DEFAULT 0 | 使用トークン |
+| sandboxed | BOOLEAN | DEFAULT true | WASI サンドボックス使用 |
+| memory_used_mb | INTEGER | | メモリ使用量 |
+| executed_at | TIMESTAMPTZ | DEFAULT NOW() | 実行時間 |
+
+**インデックス**:
+- `idx_tool_name` ON (tool_name)
+- `idx_tool_executed_at` ON (executed_at DESC)
+- `idx_tool_task_execution` ON (task_execution_id)
+- `idx_tool_success` ON (success)
+
+**ツールカテゴリ**:
+- `search` - 検索およびルックアップツール
+- `calculation` - 数学的および計算ツール
+- `file` - ファイルシステム操作
+- `api` - API 呼び出しおよび統合
+- `code` - コード実行および分析
+
+**例**:
+```sql
+-- ツール使用統計
+SELECT
+    tool_name,
+    COUNT(*) as invocation_count,
+    COUNT(CASE WHEN success THEN 1 END) as successful,
+    AVG(duration_ms) as avg_duration
+FROM tool_executions
+WHERE executed_at > NOW() - INTERVAL '7 days'
+GROUP BY tool_name
+ORDER BY invocation_count DESC;
+
+-- 失敗したツール実行
+SELECT tool_name, error_message, executed_at
+FROM tool_executions
+WHERE success = false
+  AND executed_at > NOW() - INTERVAL '24 hours'
+ORDER BY executed_at DESC;
+
+-- ツールパフォーマンス
+SELECT
+    tool_name,
+    AVG(duration_ms) as avg_ms,
+    MAX(duration_ms) as max_ms,
+    STDDEV(duration_ms) as stddev_ms
+FROM tool_executions
+WHERE success = true
+GROUP BY tool_name
+ORDER BY avg_ms DESC;
+```
+
+### event_logs
+
+**目的**: 監査およびリプレイのためのイベントストレージ
+
+| カラム | 型 | 制約 | 説明 |
+|--------|------|-------------|-------------|
+| id | UUID | PK, DEFAULT uuid_generate_v4() | イベントID |
+| workflow_id | VARCHAR(255) | NOT NULL | ワークフロー識別子 |
+| task_id | UUID | | タスク参照（nullable） |
+| type | VARCHAR(100) | NOT NULL | イベントタイプ |
+| agent_id | VARCHAR(255) | | エージェント識別子 |
+| message | TEXT | | イベントメッセージ |
+| payload | JSONB | DEFAULT '{}' | イベントペイロード |
+| timestamp | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | イベント時間 |
+| seq | BIGINT | | シーケンス番号 |
+| stream_id | VARCHAR(64) | | RedisストリームID |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | レコード作成 |
+
+**インデックス**:
+- `idx_event_logs_workflow_id` ON (workflow_id)
+- `idx_event_logs_task_id` ON (task_id)
+- `idx_event_logs_type` ON (type)
+- `idx_event_logs_ts` ON (timestamp DESC)
+- `idx_event_logs_seq` ON (workflow_id, seq)
+- `idx_event_logs_workflow_ts` ON (workflow_id, timestamp DESC)
+- `uq_event_logs_wf_type_seq` UNIQUE ON (workflow_id, type, seq) WHERE seq IS NOT NULL
+
+**イベントタイプ**:
+- `task.started` - タスク実行開始
+- `task.completed` - タスク実行完了
+- `agent.thinking` - エージェント処理中
+- `tool.called` - ツール呼び出し
+
+**例**:
+```sql
+-- タスクのすべてのイベントを取得
+SELECT type, agent_id, message, timestamp
+FROM event_logs
+WHERE workflow_id = '...'
+ORDER BY timestamp;
+
+-- イベント頻度分析
+SELECT
+    type,
+    COUNT(*) as event_count,
+    DATE_TRUNC('hour', timestamp) as hour
+FROM event_logs
+WHERE timestamp > NOW() - INTERVAL '24 hours'
+GROUP BY type, hour
+ORDER BY hour DESC, event_count DESC;
+```
+
+### token_usage
+
+**目的**: タスクごとの詳細なトークン使用状況の追跡
+
+| カラム | 型 | 制約 | 説明 |
+|--------|------|-------------|-------------|
+| id | UUID | PK, DEFAULT uuid_generate_v4() | レコードID |
+| user_id | UUID | FK → users | ユーザー |
+| task_id | UUID | FK → task_executions | タスク |
+| provider | VARCHAR(50) | NOT NULL | LLMプロバイダー |
+| model | VARCHAR(255) | NOT NULL | モデル名 |
+| prompt_tokens | INTEGER | NOT NULL | 入力トークン |
+| completion_tokens | INTEGER | NOT NULL | 出力トークン |
+| total_tokens | INTEGER | NOT NULL | 合計トークン |
+| cost_usd | DECIMAL(10,6) | NOT NULL | USDでのコスト |
+| created_at | TIMESTAMPTZ | DEFAULT NOW() | レコード時間 |
+
+**インデックス**:
+- `idx_token_usage_user_id` ON (user_id)
+- `idx_token_usage_created_at` ON (created_at DESC)
+- `idx_token_usage_provider_model` ON (provider, model)
+- `idx_token_usage_task_id` ON (task_id)
+
+**例**:
+```sql
+-- プロバイダーごとのトークン使用状況
+SELECT
+    provider,
+    model,
+    COUNT(*) as call_count,
+    SUM(total_tokens) as total_tokens,
+    SUM(cost_usd) as total_cost
+FROM token_usage
+WHERE created_at > NOW() - INTERVAL '30 days'
+GROUP BY provider, model
+ORDER BY total_cost DESC;
+
+-- 日次トークントレンド
+SELECT
+    DATE(created_at) as date,
+    SUM(total_tokens) as tokens,
+    SUM(cost_usd) as cost
+FROM token_usage
+WHERE created_at > NOW() - INTERVAL '30 days'
+GROUP BY DATE(created_at)
+ORDER BY date;
+```
+
+### usage_daily_aggregates
+
+**目的**: 事前計算された日次使用統計
+
+| カラム | 型 | 制約 | 説明 |
+|--------|------|-------------|-------------|
+| id | UUID | PK, DEFAULT uuid_generate_v4() | レコードID |
+| user_id | UUID | FK → users | ユーザー |
+| date | DATE | NOT NULL | 集計日 |
+| total_tasks | INTEGER | DEFAULT 0 | 合計タスク数 |
+| successful_tasks | INTEGER | DEFAULT 0 | 成功数 |
+| failed_tasks | INTEGER | DEFAULT 0 | 失敗数 |
+| total_tokens | INTEGER | DEFAULT 0 | 合計トークン |
+| total_cost_usd | DECIMAL(10,6) | DEFAULT 0 | 合計コスト |
+| model_usage | JSONB | | モデル分布 |
+| tools_invoked | INTEGER | DEFAULT 0 | ツール呼び出し数 |
+| tool_distribution | JSONB | | ツール使用分布 |
+| avg_duration_ms | INTEGER | | 平均タスク時間 |
+| cache_hit_rate | DECIMAL(3,2) | | キャッシュヒット率 |
+| created_at | TIMESTAMPTZ | DEFAULT NOW() | レコード時間 |
+
+**インデックス**:
+- `idx_usage_daily_user_date` ON (user_id, date)
+- `idx_usage_daily_date` ON (date DESC)
+
+**ユニーク制約**: (user_id, date)
+
+**例**:
+```sql
+-- ユーザー使用状況の概要
+SELECT date, total_tasks, successful_tasks, total_cost_usd
+FROM usage_daily_aggregates
+WHERE user_id = '...'
+  AND date > CURRENT_DATE - INTERVAL '30 days'
+ORDER BY date DESC;
+
+-- 集計メトリクス
+SELECT
+    SUM(total_tasks) as total_tasks,
+    SUM(total_cost_usd) as total_cost,
+    AVG(cache_hit_rate) as avg_cache_rate
+FROM usage_daily_aggregates
+WHERE date > CURRENT_DATE - INTERVAL '7 days';
+```
+
+## 追加テーブル
+
+### tool_calls
+
+**目的**: レガシーツール呼び出しの追跡（代わりに tool_executions を使用）
+
+### prompts
+
+**目的**: プロンプトのバージョン管理とA/Bテスト
+
+### learning_cases
+
+**目的**: 強化学習ケースのストレージ
+
+### session_archives
+
+**目的**: Redisからの長期セッションスナップショット
+
+### audit_logs (public)
+
+**目的**: アプリケーション監査トレイル（auth.audit_logsとは別）
+
+## データベース関数
+
+### update_updated_at_column()
+
+**目的**: 行の変更時に `updated_at` を自動的に更新
+
+**使用法**: `users` および `sessions` テーブルにトリガーとして添付
+
+```sql
+CREATE TRIGGER update_users_updated_at
+BEFORE UPDATE ON users
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+```
+
+### update_daily_aggregate(user_id, date)
+
+**目的**: ユーザーのために日次使用集計を更新または作成
+
+**使用法**: タスク完了時にトリガーを介して自動的に呼び出される
+
+```sql
+-- 手動呼び出し
+SELECT update_daily_aggregate(
+    '00000000-0000-0000-0000-000000000002',
+    '2025-10-22'
+);
+```
+
+### trigger_update_daily_aggregate()
+
+**目的**: タスクのステータス変更時に集計を更新するトリガー関数
+
+**使用法**: task_executions の INSERT/UPDATE 時に自動的に発火
+
+## サンプルクエリ
+
+### タスク分析
+
+```sql
+-- モード別タスク成功率
+SELECT
+    mode,
+    COUNT(*) as total,
+    COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) as completed,
+    ROUND(100.0 * COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) / COUNT(*), 2) as success_rate
+FROM task_executions
+WHERE started_at > NOW() - INTERVAL '7 days'
+GROUP BY mode;
+
+-- 複雑さ別平均実行時間
+SELECT
+    CASE
+        WHEN complexity_score < 0.3 THEN 'Low'
+        WHEN complexity_score < 0.7 THEN 'Medium'
+        ELSE 'High'
+    END as complexity,
+    COUNT(*) as task_count,
+    AVG(duration_ms) as avg_ms,
+    AVG(total_cost_usd) as avg_cost
+FROM task_executions
+WHERE complexity_score IS NOT NULL
+GROUP BY complexity;
+```
+
+### コスト分析
+
+```sql
+-- コスト上位ユーザー
+SELECT
+    u.email,
+    COUNT(t.id) as task_count,
+    SUM(t.total_cost_usd) as total_cost,
+    AVG(t.total_cost_usd) as avg_cost
+FROM task_executions t
+JOIN users u ON t.user_id = u.id
+WHERE t.started_at > NOW() - INTERVAL '30 days'
+GROUP BY u.email
+ORDER BY total_cost DESC
+LIMIT 10;
+
+-- モデル別コスト内訳
+SELECT
+    tu.provider,
+    tu.model,
+    COUNT(*) as usage_count,
+    SUM(tu.total_tokens) as total_tokens,
+    SUM(tu.cost_usd) as total_cost,
+    AVG(tu.cost_usd) as avg_cost_per_call
+FROM token_usage tu
+WHERE tu.created_at > NOW() - INTERVAL '7 days'
+GROUP BY tu.provider, tu.model
+ORDER BY total_cost DESC;
+```
+
+### パフォーマンス監視
+
+```sql
+-- 遅いクエリ (タスク > 60秒)
+SELECT
+    workflow_id,
+    query,
+    duration_ms,
+    agents_used,
+    tools_invoked
+FROM task_executions
+WHERE duration_ms > 60000
+  AND started_at > NOW() - INTERVAL '24 hours'
+ORDER BY duration_ms DESC;
+
+-- ツール実行成功率
+SELECT
+    tool_name,
+    COUNT(*) as total,
+    COUNT(CASE WHEN success THEN 1 END) as successful,
+    ROUND(100.0 * COUNT(CASE WHEN success THEN 1 END) / COUNT(*), 2) as success_rate,
+    AVG(duration_ms) as avg_duration
+FROM tool_executions
+GROUP BY tool_name
+ORDER BY total DESC;
+```
+
+## ベストプラクティス
+
+### 1. インデックス作成
+
+**常にインデックスを使用するべき**:
+- 外部キー列 (user_id, tenant_id, task_execution_id など)
+- 頻繁にフィルタリングされる列 (status, created_at, expires_at)
+- JSONB クエリ (context->>'external_id')
+- 時間ベースのクエリ (created_at DESC)
+
+**現在のインデックスカバレッジ**: 優秀 (すべての外部キーと一般的なクエリがインデックス化されている)
+
+### 2. パーティショニング
+
+高ボリュームのテーブルにはパーティショニングを検討:
+
+```sql
+-- task_executions の月次パーティショニング
+CREATE TABLE task_executions_2025_10 PARTITION OF task_executions
+    FOR VALUES FROM ('2025-10-01') TO ('2025-11-01');
+```
+
+### 3. データ保持
+
+**推奨ポリシー**:
+- `event_logs`: 90日 (高ボリューム、アーカイブ可能)
+- `task_executions`: 1年 (古いデータをアーカイブ)
+- `audit_logs`: 2年 (コンプライアンス)
+- `token_usage`: 日次集計、90日後に生データをアーカイブ
+
+**クリーンアップスクリプト**:
+```sql
+-- 古いイベントを削除 (毎月実行)
+DELETE FROM event_logs
+WHERE created_at < NOW() - INTERVAL '90 days';
+
+-- 古いタスクをアーカイブ (毎年実行)
+INSERT INTO task_executions_archive
+SELECT * FROM task_executions
+WHERE started_at < NOW() - INTERVAL '1 year';
+
+DELETE FROM task_executions
+WHERE started_at < NOW() - INTERVAL '1 year';
+```
+
+### 4. クエリ最適化
+
+**EXPLAIN ANALYZE を使用**:
+```sql
+EXPLAIN ANALYZE
+SELECT * FROM task_executions
+WHERE user_id = '...'
+  AND started_at > NOW() - INTERVAL '7 days';
+```
+
+**カバリングインデックスで最適化**:
+```sql
+CREATE INDEX idx_task_user_date_status
+ON task_executions(user_id, started_at, status)
+INCLUDE (total_cost_usd, duration_ms);
+```
+
+### 5. コネクションプーリング
+
+**設定** (Shannon ですでに設定済み):
+```bash
+DB_MAX_OPEN_CONNS=50
+DB_MAX_IDLE_CONNS=10
+```
+
+## メンテナンス
+
+### Vacuum と Analyze
+
+```sql
+-- 手動バキューム (毎週実行)
+VACUUM ANALYZE task_executions;
+VACUUM ANALYZE event_logs;
+
+-- 自動バキュームの設定
+ALTER TABLE task_executions SET (autovacuum_vacuum_threshold = 1000);
+```
+
+### 統計
+
+```sql
+-- 統計を更新
+ANALYZE task_executions;
+
+-- テーブルの膨張をチェック
+SELECT
+    schemaname,
+    tablename,
+    pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as size
+FROM pg_tables
+WHERE schemaname = 'public'
+ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
+```
+
+## 関連ドキュメント
+
+<CardGroup cols={2}>
+  <Card title="環境変数" icon="gear" href="/en/deployment/environment-variables">
+    データベース設定
+  </Card>
+  <Card title="パフォーマンス調整" icon="gauge" href="/en/deployment/performance-tuning">
+    クエリ最適化
+  </Card>
+  <Card title="監視" icon="chart-line" href="/en/deployment/monitoring">
+    データベース監視
+  </Card>
+</CardGroup>

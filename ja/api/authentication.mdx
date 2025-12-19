@@ -1,0 +1,355 @@
+---
+title: "認証"
+description: "Shannon API認証"
+---
+
+## 概要
+
+<Note>HTTP ヘッダーの詳細とリクエストの例については、[/en/api/rest/authentication](/en/api/rest/authentication)を参照してください。</Note>
+
+Shannon は、オーケストレーションプラットフォームへのアクセスを保護するために API キー認証をサポートしています。認証は **デフォルトで無効** になっており、ローカル開発を容易にし、プロダクションデプロイメントでは有効にできます。
+
+## 認証モード
+
+### 開発モード (デフォルト)
+
+```bash
+# .env ファイル内
+GATEWAY_SKIP_AUTH=1
+```
+
+開発モードでは:
+- API キーは不要
+- すべてのリクエストが受け入れられる
+- ローカルテストと開発に便利
+
+### プロダクションモード
+
+```bash
+# .env ファイル内
+GATEWAY_SKIP_AUTH=0
+```
+
+プロダクションモードでは:
+- すべてのリクエストに API キーが必要
+- 無効なキーは 401 Unauthorized を返す
+- キーごとにレート制限が適用される
+
+## API キー形式
+
+Shannon はプレフィックス付きの API キーを使用します:
+
+```
+sk_test_1234567890abcdef    # テストキー
+sk_live_1234567890abcdef    # プロダクションキー
+```
+
+<Warning>
+API キーをバージョン管理にコミットしたり、公開したりしないでください。
+</Warning>
+
+## API キーの作成
+
+### コマンドライン経由
+
+```bash
+# テスト API キーを作成 (リポジトリのルートから実行)
+make seed-api-key
+
+# 出力
+✅ テスト API キーが作成されました。テストには 'sk_test_123456' を使用してください。
+注意: 認証はデフォルトで無効になっています (GATEWAY_SKIP_AUTH=1)
+```
+
+### API 経由 (将来)
+
+```bash
+curl -X POST http://localhost:8080/api/v1/keys \
+  -H "X-Admin-Token: admin-secret" \
+  -d '{
+    "name": "My Application",
+    "user_id": "user-123"
+  }'
+```
+
+## レート制限
+
+Shannon は固定ウィンドウカウンターを使用して API キーごとにレート制限を適用します:
+
+### デフォルトの制限
+
+| 制限タイプ | デフォルト値 |
+|------------|---------------|
+| 分あたりのリクエスト | 60 |
+| バースト許可 | 10 |
+
+<Note>
+トークン予算と同時タスク制限は、オーケストレーターによってワークフローのレベルで適用され、ゲートウェイ層では適用されません。
+</Note>
+
+### レート制限ヘッダー
+
+レスポンスには現在のウィンドウ制限が含まれます。429 の場合、`Retry-After` が設定されます:
+
+```http
+X-RateLimit-Limit: 60
+X-RateLimit-Remaining: 45
+X-RateLimit-Reset: 1730001234
+```
+
+### レート制限超過
+
+レート制限を超えた場合:
+
+```bash
+HTTP/1.1 429 Too Many Requests
+Retry-After: 30
+
+{
+  "error": "Rate limit exceeded",
+  "message": "リクエストが多すぎます。レート制限ウィンドウがリセットされるまで再試行してください。"
+}
+```
+
+### レート制限の処理
+
+指数バックオフを実装します:
+
+```python
+import time
+import requests
+from requests.exceptions import HTTPError
+
+def submit_with_retry(query, max_retries=3):
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(
+                "http://localhost:8080/api/v1/tasks",
+                headers={"X-API-Key": "sk_test_123456"},
+                json={"query": query}
+            )
+            response.raise_for_status()
+            return response.json()
+
+        except HTTPError as e:
+            if e.response.status_code == 429:
+                retry_after = int(e.response.headers.get('Retry-After', 60))
+                print(f"レート制限に達しました。{retry_after}秒後に再試行します...")
+                time.sleep(retry_after)
+            else:
+                raise
+
+    raise Exception("最大リトライ回数を超えました")
+```
+
+## マルチテナンシー
+
+Shannon はテナントの分離を伴うマルチテナントデプロイメントをサポートしています:
+
+### テナント ID
+
+リクエストにテナント ID を含めます:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "X-Tenant-ID: org-acme" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "データを処理する"}'
+```
+
+### テナントの分離
+
+各テナントには:
+- 分離されたセッションストレージ
+- 共有 Qdrant コレクション内のペイロードフィルター (`tenant_id`) によるテナントごとの分離
+- 独立した予算追跡
+- 専用のメトリクス
+
+## OPA ポリシーの適用
+
+Shannon は [Open Policy Agent](https://www.openpolicyagent.org/) を使用して、きめ細かなアクセス制御を行います:
+
+### ポリシー構造
+
+```rego
+package shannon.auth
+
+import future.keywords.if
+
+# デフォルトは拒否
+default allow = false
+
+# ユーザーが有効な API キーと適切な権限を持っている場合は許可
+allow if {
+    input.api_key_valid
+    input.user.team in ["engineering", "data-science"]
+    input.task.mode in allowed_modes[input.user.team]
+}
+
+# チームごとの許可されたモード
+allowed_modes := {
+    "engineering": ["simple", "standard", "complex"],
+    "data-science": ["standard", "complex"]
+}
+
+# チームごとのトークン予算制限
+max_tokens[team] := 50000 if team == "data-science"
+max_tokens[team] := 10000 if team == "engineering"
+```
+
+### ポリシーモード
+
+`config/shannon.yaml` で設定します:
+
+```yaml
+policy:
+  enabled: true
+  mode: "enforce"  # dry-run, enforce, off
+  path: "/app/config/opa/policies"
+  fail_closed: false  # ポリシーエラー時に許可
+```
+
+**モード:**
+- `enforce`: ポリシーに違反するリクエストを拒否
+- `dry-run`: 違反をログに記録するがリクエストを許可
+- `off`: ポリシー適用を無効にする
+
+### 例: モデルの制限
+
+```rego
+package shannon.models
+
+# チームごとに特定のモデルのみを許可
+allowed_models[user.team] contains model if {
+    user.team == "cost-sensitive"
+    model in ["gpt-5-mini", "claude-haiku"]
+}
+
+allowed_models[user.team] contains model if {
+    user.team == "premium"
+    model in ["gpt-5-thinking", "claude-opus", "gpt-5", "claude-sonnet"]
+}
+```
+
+## セキュリティベストプラクティス
+
+### 1. 定期的にキーをローテーションする
+
+```bash
+# 新しいキーを作成
+make seed-api-key
+
+# 新しいキーでアプリケーションを更新
+# 移行後に古いキーを無効化
+```
+
+### 2. 環境変数を使用する
+
+```python
+import os
+from shannon import ShannonClient
+
+client = ShannonClient(
+    base_url=os.environ["SHANNON_BASE_URL"],
+    api_key=os.environ["SHANNON_API_KEY"],
+)
+```
+
+### 3. 本番環境でHTTPSを有効にする
+
+```yaml
+# config/shannon.yaml
+gateway:
+  tls:
+    enabled: true
+    cert_file: "/path/to/cert.pem"
+    key_file: "/path/to/key.pem"
+```
+
+### 4. APIキーの使用状況を監視する
+
+Prometheusメトリクスで使用状況を追跡：
+
+```promql
+# APIキーごとのリクエスト数
+sum by (api_key_id) (rate(shannon_gateway_requests_total[5m]))
+
+# APIキーごとのエラー数
+sum by (api_key_id) (rate(shannon_gateway_errors_total[5m]))
+```
+
+### 5. IPホワイトリストを実装する
+
+```yaml
+# config/shannon.yaml
+gateway:
+  ip_whitelist:
+    enabled: true
+    allowed_ips:
+      - "10.0.0.0/8"
+      - "192.168.1.100"
+```
+
+## トラブルシューティング
+
+<AccordionGroup>
+  <Accordion title="401 Unauthorized">
+    **原因**: APIキーが欠落または無効
+
+    **解決策**:
+    ```bash
+    # 認証が有効か確認
+    grep GATEWAY_SKIP_AUTH .env
+
+    # 有効な場合、APIキーを確認
+    curl -H "X-API-Key: sk_test_123456" \
+      http://localhost:8080/api/v1/tasks
+    ```
+  </Accordion>
+
+  <Accordion title="403 Forbidden">
+    **原因**: 有効なAPIキーだが権限が不十分（OPAポリシー）
+
+    **解決策**: OPAポリシーログを確認：
+    ```bash
+    docker compose logs orchestrator | grep "policy"
+    ```
+  </Accordion>
+
+  <Accordion title="429 Rate Limited">
+    **原因**: レート制限を超過
+
+    **解決策**: 指数バックオフを用いたリトライロジックを実装：
+    ```python
+    retry_after = response.headers.get('Retry-After', 60)
+    time.sleep(int(retry_after))
+    ```
+  </Accordion>
+
+  <Accordion title="APIキーが機能しない">
+    **原因**: キーが期限切れまたは無効化されている可能性
+
+    **解決策**: 新しいテストキーを作成：
+    ```bash
+    make seed-api-key
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## 次のステップ
+
+<CardGroup cols={2}>
+  <Card title="タスクを送信" icon="paper-plane" href="/en/api/rest/submit-task">
+    認証を使用してタスクを送信する方法を学ぶ
+  </Card>
+  <Card title="レート制限" icon="gauge" href="/en/api/overview#rate-limiting">
+    レート制限とクォータを理解する
+  </Card>
+  <Card title="Python SDK" icon="python" href="/en/sdk/python/quickstart">
+    自動認証のためにSDKを使用する
+  </Card>
+  <Card title="REST APIリファレンス" icon="code" href="/en/api/rest/overview">
+    完全なREST APIドキュメント
+  </Card>
+</CardGroup>

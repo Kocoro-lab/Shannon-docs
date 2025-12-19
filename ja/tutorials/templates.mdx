@@ -1,0 +1,647 @@
+---
+title: "テンプレート"
+description: "Shannonプロジェクトテンプレート"
+---
+
+## 概要
+
+Shannonのテンプレートシステムは、**決定論的でゼロトークンのワークフロー**を一般的なパターンに対して可能にします。テンプレートは、AIの分解なしに実行されるYAMLで構造化されたワークフローを定義し、繰り返し可能なタスクに対して大幅なコスト削減を提供します。
+
+<CardGroup cols={2}>
+  <Card title="ゼロトークンコスト" icon="coins">
+    テンプレートはワークフローのルーティングにLLM呼び出しをバイパスします
+  </Card>
+  <Card title="決定論的実行" icon="route">
+    予測可能で繰り返し可能なワークフローの動作
+  </Card>
+  <Card title="予算管理" icon="gauge">
+    ノードごとのトークン制限と自動的な劣化
+  </Card>
+  <Card title="DAGサポート" icon="diagram-project">
+    依存関係管理を伴う並列実行
+  </Card>
+</CardGroup>
+
+## テンプレートを使用するタイミング
+
+**テンプレートを使用する場合:**
+- ワークフローが既知の構造で繰り返し可能な場合
+- 分解トークンコストを排除したい場合
+- 予測可能な実行順序が必要な場合
+- ワークフローの各ステージで予算管理が必要な場合
+
+**AI分解を使用する場合:**
+- タスクの構造が不明または変動する場合
+- ワークフロー設計に関する複雑な推論が必要な場合
+- 一回限りまたは非常に動的なタスク
+
+## テンプレート構造
+
+テンプレートは次の構造のYAMLファイルです：
+
+```yaml
+name: "workflow_name"
+version: "1.0.0"
+description: "このワークフローの機能"
+
+defaults:
+  model_tier: "medium"        # small | medium | large
+  budget_agent_max: 6000      # 総トークン予算
+  require_approval: false     # 人間の承認ゲート
+
+nodes:
+  - id: "step_1"
+    type: "simple"            # ノードタイプ
+    strategy: "react"         # 実行戦略
+    tools_allowlist:          # 許可されたツール
+      - "web_search"
+    budget_max: 1500          # ノードごとのトークン制限
+    depends_on: []            # 依存関係
+
+  - id: "step_2"
+    type: "cognitive"
+    strategy: "chain_of_thought"
+    budget_max: 2000
+    depends_on: ["step_1"]
+
+edges:
+  - from: "step_1"
+    to: "step_2"
+```
+
+### コアフィールド
+
+| フィールド | タイプ | 必須 | 説明 |
+|------------|--------|------|------|
+| `name` | string | はい | ユニークなワークフロー識別子 |
+| `version` | string | はい | セマンティックバージョン（例: "1.0.0"） |
+| `description` | string | いいえ | 人間が読める説明 |
+| `defaults` | object | いいえ | すべてのノードのグローバル設定 |
+| `nodes` | array | はい | ワークフロー実行ユニット |
+| `edges` | array | いいえ | 明示的な依存関係接続 |
+
+### デフォルト設定
+
+```yaml
+defaults:
+  model_tier: "medium"        # すべてのノードのモデルサイズ
+  budget_agent_max: 6000      # 総ワークフロートークン予算
+  require_approval: false     # 実行前に人間の承認が必要
+```
+
+## ノードタイプ
+
+Shannonは、異なる実行パターンのために4つのノードタイプをサポートしています。
+
+### シンプルノード
+
+単一タスクの実行と直接ツールの呼び出し。
+
+```yaml
+- id: "fetch_data"
+  type: "simple"
+  strategy: "react"
+  tools_allowlist:
+    - "web_search"
+  budget_max: 1000
+  depends_on: []
+```
+
+**使用例:** データ取得、シンプルな変換、ツールベースの操作。
+
+### コグニティブノード
+
+複雑な推論と多段階の分析。
+
+```yaml
+- id: "analyze"
+  type: "cognitive"
+  strategy: "chain_of_thought"
+  budget_max: 2500
+  depends_on: ["fetch_data"]
+  degrade_to: "react"         # 予算超過時のフォールバック
+  retries: 1
+```
+
+**使用例:** 分析、推論、合成タスク。
+
+### DAGノード
+
+内部タスク依存関係を持つ並列実行。
+
+```yaml
+- id: "parallel_analysis"
+  type: "dag"
+  budget_max: 5000
+  depends_on: ["understand"]
+  metadata:
+    tasks:
+      - id: "collect"
+        tools_allowlist: ["web_search"]
+        depends_on: []
+      - id: "quantitative"
+        tools_allowlist: ["calculator"]
+        depends_on: ["collect"]
+      - id: "qualitative"
+        tools_allowlist: []
+        depends_on: ["collect"]
+      - id: "cross_validate"
+        depends_on: ["quantitative", "qualitative"]
+```
+
+**使用例:** 並列処理、ファンアウト/ファンインパターン。
+
+### スーパーバイザーノード
+
+階層的なタスク分解と調整。
+
+```yaml
+- id: "orchestrate"
+  type: "supervisor"
+  strategy: "reflection"
+  budget_max: 3000
+  depends_on: ["parallel_analysis"]
+```
+
+**使用例:** 結果の集約、品質管理、合成。
+
+## 実行戦略
+
+戦略はノードがタスクを処理する方法を定義します：
+
+| 戦略 | トークン範囲 | 説明 |
+|------|--------------|------|
+| `react` | ~500-1500 | ツールベースの推論とアクションサイクル |
+| `chain_of_thought` | ~1500-3000 | 順次のステップバイステップの推論 |
+| `tree_of_thoughts` | ~3000-8000 | 複数の推論ブランチを探る |
+| `reflection` | ~1000-2000 | 自己評価と洗練 |
+| `debate` | ~2000-4000 | 多角的な分析 |
+
+### 自動劣化
+
+予算制約に達した場合、戦略は自動的に劣化します：
+
+```
+tree_of_thoughts → chain_of_thought → react
+```
+
+明示的な劣化を設定：
+
+```yaml
+- id: "explore"
+  type: "cognitive"
+  strategy: "tree_of_thoughts"
+  budget_max: 2500
+  degrade_to: "chain_of_thought"  # フォールバック戦略
+  retries: 1                       # 劣化時の再試行回数
+```
+
+## テンプレートの作成
+
+<Steps>
+  <Step title="テンプレートファイルの作成">
+    `config/workflows/examples/` またはカスタムディレクトリに YAML ファイルを作成します:
+
+```yaml
+# config/workflows/examples/my_workflow.yaml
+name: "my_workflow"
+version: "1.0.0"
+description: "カスタム分析ワークフロー"
+
+defaults:
+  model_tier: "medium"
+  budget_agent_max: 5000
+  require_approval: false
+
+nodes:
+  - id: "intake"
+    type: "simple"
+    strategy: "react"
+    tools_allowlist:
+      - "web_search"
+    budget_max: 1500
+    depends_on: []
+
+  - id: "analyze"
+    type: "cognitive"
+    strategy: "chain_of_thought"
+    budget_max: 2000
+    depends_on: ["intake"]
+
+  - id: "synthesize"
+    type: "cognitive"
+    strategy: "reflection"
+    budget_max: 1500
+    depends_on: ["analyze"]
+
+edges:
+  - from: "intake"
+    to: "analyze"
+  - from: "analyze"
+    to: "synthesize"
+```
+  </Step>
+
+  <Step title="テンプレートディレクトリの登録">
+    テンプレートは `InitTemplateRegistry` を介して起動時に読み込まれます:
+
+```go
+// オーケストレーターの初期化時
+registry := templates.InitTemplateRegistry(
+    "./config/workflows/builtin",
+    "./config/workflows/examples",  // あなたのテンプレート
+)
+
+// すべてのテンプレートを検証
+if err := registry.Finalize(); err != nil {
+    log.Fatal(err)
+}
+```
+  </Step>
+
+  <Step title="サービスの再起動">
+```bash
+docker compose -f deploy/compose/docker-compose.yml up -d --force-recreate orchestrator
+```
+  </Step>
+
+  <Step title="利用可能なテンプレートの一覧表示">
+    gRPC を介して:
+
+```bash
+grpcurl -plaintext -d '{}' localhost:50052 \
+  shannon.orchestrator.OrchestratorService/ListTemplates
+```
+  </Step>
+</Steps>
+
+## テンプレートの使用
+
+### HTTP Gateway 経由
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "現在のAI市場のトレンドを分析する",
+    "context": {
+      "template": "my_workflow",
+      "template_version": "1.0.0"
+    }
+  }'
+```
+
+### gRPC 経由
+
+```bash
+grpcurl -plaintext -d '{
+  "query": "現在のAI市場のトレンドを分析する",
+  "context": {
+    "template": "my_workflow",
+    "template_version": "1.0.0",
+    "disable_ai": true
+  }
+}' localhost:50052 shannon.orchestrator.OrchestratorService/SubmitTask
+```
+
+<Note>
+`disable_ai: true` を設定すると、AI フォールバックなしでテンプレートのみの実行が強制されます。
+</Note>
+
+### Python SDK 経由
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+handle = client.submit_task(
+    "現在のAI市場のトレンドを分析する",
+    context={
+        "template": "my_workflow",
+        "template_version": "1.0.0",
+    },
+)
+result = client.wait(handle.task_id)
+print(result.result)
+```
+
+## テンプレートの例
+
+### シンプルな分析ワークフロー
+
+迅速な要約のための二段階パイプライン:
+
+```yaml
+name: "simple_analysis"
+version: "1.0.0"
+description: "短いブリーフのための迅速な要約ワークフロー"
+
+defaults:
+  model_tier: "medium"
+  budget_agent_max: 3000
+  require_approval: false
+
+nodes:
+  - id: "intake"
+    type: "simple"
+    strategy: "react"
+    budget_max: 1000
+    depends_on: []
+
+  - id: "summarize"
+    type: "cognitive"
+    strategy: "chain_of_thought"
+    budget_max: 1200
+    depends_on: ["intake"]
+
+edges:
+  - from: "intake"
+    to: "summarize"
+```
+
+### 研究要約ワークフロー
+
+進行的な推論を伴う四段階の研究パイプライン:
+
+```yaml
+name: "research_summary"
+version: "1.0.0"
+description: "マルチステージの研究ワークフロー"
+
+defaults:
+  model_tier: "medium"
+  budget_agent_max: 6000
+  require_approval: false
+
+nodes:
+  - id: "discover"
+    type: "simple"
+    strategy: "react"
+    tools_allowlist:
+      - "web_search"
+    budget_max: 1500
+    depends_on: []
+
+  - id: "reason"
+    type: "cognitive"
+    strategy: "chain_of_thought"
+    budget_max: 1500
+    depends_on: ["discover"]
+
+  - id: "explore"
+    type: "cognitive"
+    strategy: "tree_of_thoughts"
+    budget_max: 2500
+    degrade_to: "chain_of_thought"
+    retries: 1
+    depends_on: ["reason"]
+
+  - id: "finalize"
+    type: "cognitive"
+    strategy: "reflection"
+    budget_max: 1000
+    depends_on: ["explore"]
+
+edges:
+  - from: "discover"
+    to: "reason"
+  - from: "reason"
+    to: "explore"
+  - from: "explore"
+    to: "finalize"
+```
+
+### 並列 DAG ワークフロー
+
+並列実行ブランチを持つ複雑なワークフロー:
+
+```yaml
+name: "parallel_analysis"
+version: "1.0.0"
+description: "収束を伴う並列分析"
+
+defaults:
+  model_tier: "medium"
+  budget_agent_max: 8000
+  require_approval: false
+
+nodes:
+  - id: "understand"
+    type: "simple"
+    strategy: "react"
+    budget_max: 1000
+    depends_on: []
+
+  - id: "parallel_analysis"
+    type: "dag"
+    budget_max: 5000
+    depends_on: ["understand"]
+    metadata:
+      tasks:
+        - id: "collect"
+          tools_allowlist: ["web_search"]
+          depends_on: []
+        - id: "quantitative"
+          tools_allowlist: ["calculator"]
+          depends_on: ["collect"]
+        - id: "qualitative"
+          tools_allowlist: []
+          depends_on: ["collect"]
+        - id: "cross_validate"
+          depends_on: ["quantitative", "qualitative"]
+
+  - id: "report"
+    type: "cognitive"
+    strategy: "reflection"
+    budget_max: 2000
+    degrade_to: "chain_of_thought"
+    depends_on: ["parallel_analysis"]
+
+edges:
+  - from: "understand"
+    to: "parallel_analysis"
+  - from: "parallel_analysis"
+    to: "report"
+```
+
+## テンプレートの継承
+
+テンプレートは `extends` を使用して親テンプレートから継承できます。
+
+```yaml
+# base_research.yaml
+name: "base_research"
+version: "1.0.0"
+
+defaults:
+  model_tier: "medium"
+  budget_agent_max: 5000
+  require_approval: false
+```
+
+```yaml
+# advanced_research.yaml
+name: "advanced_research"
+version: "1.0.0"
+extends: ["base_research"]    # すべてのデフォルトを継承
+
+defaults:
+  budget_agent_max: 10000     # 特定の値をオーバーライド
+
+nodes:
+  # ... 追加のノード
+```
+
+複数の親が順番に適用され、派生テンプレートの値が優先されます。
+
+## バリデーション
+
+テンプレートはロード時に以下の項目が検証されます。
+
+- YAML構文の正しさ
+- 必須フィールドの存在
+- DAGの非循環性（循環依存がないこと）
+- 予算階層（ノードの予算 ≤ エージェントの予算）
+- ツールレジストリの存在
+- 変数参照の解決
+
+```go
+registry := templates.InitTemplateRegistry("./templates")
+
+// すべてのテンプレートを検証
+if err := registry.Finalize(); err != nil {
+    log.Fatalf("テンプレートの検証に失敗しました: %v", err)
+}
+```
+
+## ベストプラクティス
+
+<AccordionGroup>
+  <Accordion title="ノードは小さく集中させる">
+    各ノードは一つのことをうまく行うべきです：
+
+```yaml
+# 良い: 集中したノード
+- id: "search"
+  type: "simple"
+  strategy: "react"
+  tools_allowlist: ["web_search"]
+
+- id: "analyze"
+  type: "cognitive"
+  strategy: "chain_of_thought"
+```
+  </Accordion>
+
+  <Accordion title="ツールを明示的に許可リストに追加する">
+    セキュリティと予測可能性のためにノードごとにツールを制限します：
+
+```yaml
+# 良い: 明示的な許可リスト
+tools_allowlist:
+  - "web_search"
+  - "calculator"
+
+# 悪い: すべてのツールを許可
+# tools_allowlist: ["*"]
+```
+  </Accordion>
+
+  <Accordion title="予算の劣化を使用する">
+    コスト管理のためにフォールバック戦略を設定します：
+
+```yaml
+- id: "explore"
+  strategy: "tree_of_thoughts"
+  budget_max: 2500
+  degrade_to: "chain_of_thought"
+  retries: 1
+```
+  </Accordion>
+
+  <Accordion title="共通パターンのために継承を使用する">
+    共有デフォルトをベーステンプレートに抽出します：
+
+```yaml
+extends: ["base_research"]
+defaults:
+  budget_agent_max: 8000  # 変更するものだけをオーバーライド
+```
+  </Accordion>
+
+  <Accordion title="テンプレートにバージョンを付ける">
+    セマンティックバージョニングを使用し、リクエストにバージョンを指定します：
+
+```yaml
+name: "my_workflow"
+version: "1.0.0"  # 破壊的変更時にインクリメント
+```
+
+```json
+{
+  "context": {
+    "template": "my_workflow",
+    "template_version": "1.0.0"
+  }
+}
+```
+  </Accordion>
+</AccordionGroup>
+
+## トラブルシューティング
+
+<AccordionGroup>
+  <Accordion title="テンプレートが見つからない">
+    **症状:** `template 'my_workflow' not found`
+
+    **解決策:**
+    1. 登録されたディレクトリにテンプレートファイルが存在するか確認
+    2. YAML構文を検証: `yamllint config/workflows/examples/my_workflow.yaml`
+    3. オーケストレーターを再起動してテンプレートを再読み込み
+    4. オーケストレーターのログでロードエラーを確認
+  </Accordion>
+
+  <Accordion title="バリデーションエラー">
+    **症状:** `Template validation failed: circular dependency`
+
+    **解決策:**
+    1. `depends_on` フィールドにサイクルがないか確認
+    2. DAGノードが非循環のタスク依存関係を持つことを確認
+    3. `edges` がループを作成していないか確認
+  </Accordion>
+
+  <Accordion title="予算超過">
+    **症状:** ノードの実行が早期に停止するか、予期せず劣化する
+
+    **解決策:**
+    1. 影響を受けるノードの `budget_max` を増加
+    2. 優雅なフォールバックのために `degrade_to` を設定
+    3. 総予算とノード予算の合計を確認
+  </Accordion>
+
+  <Accordion title="ツールが利用できない">
+    **症状:** `tool 'my_tool' not registered`
+
+    **解決策:**
+    1. ツールがツールレジストリに登録されているか確認
+    2. `tools_allowlist` でツール名のスペルを確認
+    3. LLMサービスがツールをロードしていることを確認
+  </Accordion>
+</AccordionGroup>
+
+## 次のステップ
+
+<CardGroup cols={2}>
+  <Card title="カスタムツール" icon="wrench" href="/en/tutorials/custom-tools">
+    テンプレート用のツールを追加
+  </Card>
+  <Card title="Shannonの拡張" icon="puzzle-piece" href="/en/tutorials/extending-shannon">
+    他の拡張方法
+  </Card>
+  <Card title="設定" icon="gear" href="/en/quickstart/configuration">
+    環境とYAML設定
+  </Card>
+  <Card title="アーキテクチャ" icon="sitemap" href="/en/architecture/overview">
+    Shannonの設計を理解する
+  </Card>
+</CardGroup>

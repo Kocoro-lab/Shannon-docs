@@ -1,0 +1,293 @@
+---
+title: "コスト管理"
+description: "Shannonにおけるトークン予算の管理とLLMコストの最小化"
+---
+
+## 概要
+
+Shannonは、予期しないLLM料金を防ぎ、支出を最適化するための包括的なコスト管理機能を提供します。組み込みの予算適用とインテリジェントルーティングにより、チームは素朴な実装と比較して**大幅なコスト削減（60～90%）**を実現することがよくあります（ワークロード依存）。
+
+## 予算の設定
+
+予算はプラットフォームレベルで設定されます（REST経由のリクエストごとではありません）。`.env`で環境変数を使用：
+
+```bash
+# LLMサービス予算ガード
+MAX_TOKENS_PER_REQUEST=10000    # リクエストごとの最大トークン
+MAX_COST_PER_REQUEST=0.50       # リクエストごとの最大コスト（USD）
+
+# 変更を適用
+docker compose restart
+```
+
+<Note>
+Shannonは実行中に予算を適用します。制限に達すると、システムはさらなる支出を停止し、利用可能な最良の結果またはコンテキストに応じてエラーを返します。
+</Note>
+
+## モデルティア
+
+Shannonは機能とコストに基づいてモデルをティアに分類します：
+
+| ティア | モデル | 100万トークンあたりのコスト | ユースケース |
+|------|--------|-------------------|----------|
+| **SMALL** | gpt-5-mini<br/>claude-haiku | $0.15 - $0.25 | シンプルなクエリ、大量処理 |
+| **MEDIUM** | gpt-5<br/>claude-sonnet | $3.00 - $15.00 | 汎用タスク |
+| **LARGE** | gpt-5-thinking<br/>claude-opus | $15.00 - $75.00 | 複雑な推論、重要なタスク |
+
+### 明示的なティア設定
+
+環境変数で優先デフォルトティアを設定：
+
+```bash
+DEFAULT_MODEL_TIER=small   # small | medium | large
+```
+
+## インテリジェントルーター
+
+Shannonの学習ルーターは、各タスクを処理できる最も安価なモデルを自動的に選択します。
+
+### 仕組み
+
+1. **タスク分析**: 複雑さ、必要な機能を分析
+2. **モデル選択**: 最小の実行可能モデルから開始
+3. **品質チェック**: 出力品質を検証
+4. **学習**: 成功したモデル-タスクペアリングを記憶
+
+### コスト削減
+
+```python
+# インテリジェントルーティングなし
+従来: 常にGPT-5を使用 → タスクあたり$0.50
+
+# Shannonのルーティング付き
+Shannon:
+  - 70%がgpt-5-miniにルーティング → $0.01
+  - 25%がgpt-5にルーティング → $0.15
+  - 5%がgpt-5-thinkingにルーティング → $0.50
+例の平均: タスクあたり$0.05（約90%の節約）
+```
+
+### ルーター決定の監視
+
+ダッシュボードまたはSDKステータスを使用してコストを確認：
+
+```python
+status = client.wait(handle.task_id)
+if status.metrics:
+    print(f"Cost (USD): {status.metrics.cost_usd:.4f}")
+```
+
+## レスポンスキャッシング
+
+Shannonは冗長なAPI呼び出しを排除するためにLLMレスポンスをキャッシュします：
+
+### キャッシュ戦略
+
+- **キー**: `(messages + model + parameters)`のSHA256ハッシュ
+- **TTL**: 設定可能（Redis TTL経由で通常約1時間）
+- **ストレージ**: インメモリLRU + 分散キャッシング用のオプションRedis
+- **ヒット率**: 本番ワークロードで通常30-50%
+
+### キャッシュの利点
+
+```bash
+# 最初の呼び出し: キャッシュミス
+タスク1: "What is Python?" → $0.002（LLM呼び出し）
+
+# 2回目の呼び出し: キャッシュヒット
+タスク2: "What is Python?" → $0.000（キャッシュ済み）
+```
+
+### キャッシュパフォーマンスの監視
+
+```python
+status = client.wait(handle.task_id)
+if status.metrics:
+    if status.metrics.cost_usd == 0:
+        print("Likely served from cache (no LLM cost)")
+    else:
+        print(f"Cost: ${status.metrics.cost_usd:.4f}")
+```
+
+## プロバイダーレート制限
+
+Shannonはプロバイダーのレート制限を自動的に尊重します：
+
+### 設定された制限
+
+`config/models.yaml`から：
+
+```yaml
+providers:
+  openai:
+    rpm: 10000  # 分あたりのリクエスト
+    tpm: 2000000  # 分あたりのトークン
+  anthropic:
+    rpm: 4000
+    tpm: 400000
+```
+
+### 自動スロットリング
+
+制限に近づくと：
+1. リクエストをキューイング
+2. 時間をかけて負荷を分散
+3. 利用可能な場合は代替プロバイダーにフォールバック
+
+## コスト監視
+
+### タスクごとの支出を追跡
+
+```python
+status = client.wait(handle.task_id)
+if status.metrics:
+    print(f"Tokens used: {status.metrics.tokens_used}")
+    print(f"Cost: ${status.metrics.cost_usd:.4f}")
+```
+
+### 集計メトリクス
+
+Shannonはメトリクスパイプライン経由で累積コストを追跡：
+- 日/週/月ごとの総支出
+- ユーザー/チームごとのコスト
+- 認知パターンごとのコスト
+- トークン使用傾向
+
+Prometheus/Grafana（設定後）または可観測性スタックを使用してこれらのメトリクスを可視化します。Desktop AppのRunsビューもタスクごとのコストの検査に役立ちます。
+
+## ベストプラクティス
+
+### 1. 常に予算を設定
+
+予算制限なしで本番タスクを実行しないでください：
+
+```python
+# ❌ 悪い: 予算制限なし
+client.submit_task(query="...")
+
+# ✅ 良い: 予算保護
+client.submit_task(
+    query="...",
+    # 予算は.env経由で設定
+)
+```
+
+### 2. 可能な限りシンプルモードを使用
+
+複雑なパターンはコストが高くなります：
+
+```python
+# シンプルなクエリ: シンプルモードを使用
+client.submit_task(
+    query="What is the capital of France?",
+    # モード自動選択  # シングルAgent、最小トークン
+)
+
+# 複雑なクエリ: 標準/複雑モードを使用
+client.submit_task(
+    query="Research and compare 5 database technologies",
+    # モード自動選択  # タスク分解が正当化される
+)
+```
+
+### 3. キャッシングを活用
+
+繰り返しクエリの場合、キャッシュヒットを最大化するために一貫した表現を使用：
+
+```python
+# ❌ 悪い: 異なる表現がキャッシュヒットを妨げる
+client.submit_task(query="What's Python?")
+client.submit_task(query="Tell me about Python")
+client.submit_task(query="Explain Python")
+
+# ✅ 良い: 一貫したクエリがキャッシュにヒット
+standard_query = "What is Python?"
+client.submit_task(query=standard_query)  # キャッシュミス
+client.submit_task(query=standard_query)  # キャッシュヒット
+client.submit_task(query=standard_query)  # キャッシュヒット
+```
+
+### 4. 監視と最適化
+
+コストメトリクスを定期的に確認：
+
+```python
+# 詳細ログを有効化
+import logging
+logging.basicConfig(level=logging.INFO)
+
+total_cost = 0.0
+for t in tasks:
+    st = client.wait(t.task_id)
+    if st.metrics:
+        total_cost += st.metrics.cost_usd
+        print(f"Task: ${st.metrics.cost_usd:.4f}, Running total: ${total_cost:.4f}")
+```
+
+### 5. 最初に小さいモデルを使用
+
+インテリジェントルーターに、より大きなモデルが必要な時を証明させる：
+
+```python
+# Shannonに選択させる
+client.submit_task(query="...")  # ティアを自動選択
+
+# モデルティアはプラットフォームルーターによって選択されます。SDKはリクエストごとのモデルティアまたは予算パラメータを受け付けません。
+```
+
+## コスト最適化チェックリスト
+
+<Accordion title="最適化チェックリスト">
+  - [ ] 予算環境変数を設定（`MAX_COST_PER_REQUEST`、`MAX_TOKENS_PER_REQUEST`）
+  - [ ] 直接的なクエリには`# モード自動選択`を使用
+  - [ ] レスポンスキャッシングを有効化（デフォルト: 有効）
+  - [ ] 適切な場合は`model_tier="SMALL"`を使用
+  - [ ] キャッシュヒットのためにクエリ表現を標準化
+  - [ ] ダッシュボードでコストメトリクスを監視
+  - [ ] 予算アラートを設定（Prometheus経由）
+  - [ ] プロンプトテンプレートを確認して最適化
+  - [ ] トークン使用量を減らすためにセッションコンテキストを使用
+  - [ ] 学習ルーターを有効化（デフォルト: 有効）
+</Accordion>
+
+## 例: コスト最適化Workflow
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient()
+
+# 大量、シンプルなクエリ
+simple_tasks = [
+    "Classify sentiment: Great product!",
+    "Classify sentiment: Terrible experience",
+    "Classify sentiment: It's okay"
+]
+
+total_cost = 0
+for query in simple_tasks:
+    handle = client.submit_task(query=query)
+    status = client.wait(handle.task_id)
+    if status.metrics:
+        total_cost += status.metrics.cost_usd
+
+print(f"Total cost for 3 tasks: ${total_cost:.4f}")
+# 例: ~$0.006（常にGPT-5と比較して約90%の節約）
+```
+
+## 次のステップ
+
+<CardGroup cols={2}>
+  <Card title="ストリーミングイベント" icon="stream" href="/ja/quickstart/concepts/streaming">
+    リアルタイムタスク監視
+  </Card>
+  <Card title="設定" icon="gear" href="/ja/quickstart/configuration">
+    高度なコスト設定
+  </Card>
+  <Card title="API概要" icon="code" href="/ja/api/overview">
+    エンドポイントと使用方法
+  </Card>
+  <Card title="監視" icon="chart-line" href="/ja/quickstart/concepts/monitoring">
+    コスト監視UI
+  </Card>
+</CardGroup>

@@ -1,0 +1,180 @@
+---
+title: "セッション"
+description: "セッション管理API"
+---
+
+## はじめに
+
+関連するタスクとコンテキストをグループ化するためにユーザーセッションを管理します。
+
+注意事項:
+- ソフトデリートのみ。`DELETE`はセッションを削除済みとしてマークし（データは保持）、204を返します。
+- 削除されたセッションは読み取りから除外され、取得できません（404）。
+
+## セッションの一覧
+
+```
+GET /api/v1/sessions?limit=20&offset=0
+```
+
+クエリパラメータ:
+- `limit` (1–100, デフォルト20)
+- `offset` (>= 0, デフォルト0)
+
+レスポンス (200):
+```json
+{
+  "sessions": [
+    {
+      "session_id": "a0c2b1e2-...",
+      "user_id": "00000000-0000-0000-0000-000000000002",
+      "task_count": 3,
+      "tokens_used": 1234,
+      "token_budget": 10000,
+      "created_at": "2025-10-28T06:00:00Z"
+    }
+  ],
+  "total_count": 1
+}
+```
+
+## セッションの取得
+
+```
+GET /api/v1/sessions/{sessionId}
+```
+
+パスパラメータ:
+- `sessionId` (UUIDまたはexternal_id文字列)
+
+レスポンス (200): セッションメタデータ（トークン使用量とタスク数を含む）。
+エラー: 401, 403, 404。
+
+### セッションIDのフォーマット
+
+Shannonはセッションのために**デュアルIDパターン**をサポートしています：
+
+1. **UUIDフォーマット** (内部): `a0c2b1e2-fd3e-4567-890a-bcdef1234567`
+2. **外部IDフォーマット** (カスタム文字列): `"user-123-chat"`, `"analytics-session-456"`
+
+非UUIDの`session_id`でタスクを送信すると、Shannonは以下を行います：
+- データベースストレージ用に内部UUIDを作成
+- `context.external_id`にカスタムIDを保存
+- すべてのセッションAPI呼び出しで**いずれかのフォーマット**を受け入れます
+
+**例**:
+```bash
+# カスタムIDでセッションを作成
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -d '{"query": "Hello", "session_id": "my-chat-session"}'
+
+# 同じカスタムIDを使用してクエリ
+curl http://localhost:8080/api/v1/sessions/my-chat-session \
+  -H "X-API-Key: sk_test_123456"
+```
+
+これにより、UUIDを管理することなく自然なセッション名付けが可能になります。
+
+## セッション履歴の取得
+
+```
+GET /api/v1/sessions/{sessionId}/history
+```
+
+パスパラメータ:
+- `sessionId` (UUIDまたはexternal_id文字列)
+
+セッション内のすべてのタスクと実行詳細を返します。
+エラー: 401, 403, 404。
+
+## セッションイベントの取得（ターンごとにグループ化）
+
+```
+GET /api/v1/sessions/{sessionId}/events?limit=10&offset=0
+```
+
+パスパラメータ:
+- `sessionId` (UUIDまたはexternal_id文字列)
+
+タスク/ターンごとにグループ化されたチャット履歴を返し、各ターンの完全なイベントを含みます（`LLM_PARTIAL`は除外）。
+
+クエリパラメータ:
+- `limit` (1–100, デフォルト10) — 返すターンの数
+- `offset` (>= 0, デフォルト0) — スキップするターンの数
+
+レスポンス (200):
+```json
+{
+  "session_id": "chat-session-123",
+  "count": 2,
+  "turns": [
+    {
+      "turn": 1,
+      "task_id": "task-001",
+      "user_query": "What is 2+2?",
+      "final_output": "2 + 2 equals 4.",
+      "timestamp": "2025-10-29T06:00:01.513288Z",
+      "events": [
+        { "workflow_id": "wf-1", "type": "LLM_PROMPT", "message": "...", "timestamp": "..." },
+        { "workflow_id": "wf-1", "type": "LLM_OUTPUT", "message": "2 + 2 equals 4.", "timestamp": "..." }
+      ],
+      "metadata": {
+        "tokens_used": 150,
+        "execution_time_ms": 8000,
+        "agents_involved": ["planner", "simple-agent"]
+      }
+    }
+  ]
+}
+```
+
+注意事項:
+- `final_output`はタスク結果が空の場合、最初の`LLM_OUTPUT`イベントにフォールバックします。
+- `turn`番号はグローバル（offset+index）です。
+- セッションが削除されているか、リクエスターの所有でない場合は404を返します。
+
+## セッションタイトルの更新
+
+```
+PATCH /api/v1/sessions/{sessionId}
+```
+
+パスパラメータ:
+- `sessionId` (UUIDまたはexternal_id)
+
+ボディ:
+```json
+{ "title": "New Title" }
+```
+
+ルール:
+- タイトルはトリムされ、制御文字は削除されます。
+- 最大60文字（UTF-8安全）。長すぎるタイトルは拒否されます。
+
+レスポンス:
+- 200 OK（更新されたタイトル）
+- 400 無効なリクエスト（空または長すぎるタイトル）
+- 401 認証されていない
+- 403 禁止（所有者でない）
+- 404 見つかりません
+
+## セッションの削除（ソフトデリート）
+
+```
+DELETE /api/v1/sessions/{sessionId}
+```
+
+パスパラメータ:
+- `sessionId` (UUIDまたはexternal_id文字列)
+
+動作:
+- セッションを削除済みとしてマークします（`deleted_at`, `deleted_by`）、データは削除しません。
+- 冪等性: 所有者に対して常に204を返します。
+- 古い読み取りを防ぐためにセッションキャッシュをクリアします。
+
+レスポンス:
+- 204 No Content
+- 401 認証されていない
+- 403 禁止（所有者でない）
+- 404 見つかりません

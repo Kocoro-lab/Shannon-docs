@@ -1,0 +1,83 @@
+---
+title: "インストール"
+description: "Shannon Python SDKのインストール"
+---
+
+## インストール
+
+```bash
+pip install shannon-sdk
+```
+
+ソースから（開発）:
+
+```bash
+git clone https://github.com/Kocoro-lab/Shannon.git
+cd Shannon/clients/python
+pip install -e .
+```
+
+オプション（WebSocketストリーミングサポート）:
+
+```bash
+pip install websockets
+```
+
+## クイック検証
+
+```python
+from shannon import ShannonClient
+client = ShannonClient(base_url="http://localhost:8080")
+print("✓ SDK ready")
+```
+
+## 認証
+
+```python
+from shannon import ShannonClient
+client = ShannonClient(
+  base_url="http://localhost:8080",
+  api_key="sk_test_123"
+)
+```
+
+環境変数を使用:
+
+```python
+import os
+from shannon import ShannonClient
+client = ShannonClient(
+  base_url=os.getenv("SHANNON_BASE_URL", "http://localhost:8080"),
+  api_key=os.getenv("SHANNON_API_KEY"),
+)
+```
+
+## クライアントオプション
+
+| パラメータ | 型 | デフォルト | 備考 |
+|------|------|---------|-------|
+| `base_url` | str | `http://localhost:8080` | ゲートウェイHTTP URL |
+| `api_key` | str | None | `X-API-Key`として送信 |
+| `bearer_token` | str | None | 代替の`Authorization: Bearer` |
+| `default_timeout` | float | `30.0` | 秒 |
+
+## 非同期クライアント
+
+```python
+import asyncio
+from shannon import AsyncShannonClient
+
+async def main():
+  async with AsyncShannonClient(base_url="http://localhost:8080") as client:
+    h = await client.submit_task("Analyze data")
+    s = await client.wait(h.task_id)
+    print(s.result)
+
+asyncio.run(main())
+```
+
+## CLI
+
+```bash
+python -m shannon.cli --base-url http://localhost:8080 submit "What is 2+2?" --wait
+```

@@ -1,0 +1,1311 @@
+---
+title: "gRPC API"
+description: "ShannonのgRPC APIリファレンス"
+---
+
+## 概要
+
+Shannonの内部アーキテクチャは、**gRPC**（HTTP/2 + Protocol Buffers）を使用して高性能なサービス間通信を実現しています。このドキュメントでは、5つのサービスと27のRPCメソッドに関する完全なProtocol Buffer定義を提供します。
+
+<Note>
+公開APIと内部API: gRPCサービスは内部用であり、公開SDKでは利用できません。アプリケーション統合には、Gateway REST API（`http://localhost:8080/api/v1/*`）またはPython SDK（`ShannonClient(base_url=...)`）を使用してください。
+</Note>
+
+**サービス**:
+- **OrchestratorService**（8 RPC） - タスクオーケストレーションとワークフロー管理
+- **StreamingService**（1 RPC） - リアルタイムイベントストリーミング
+- **AgentService**（6 RPC） - エージェント実行とツール管理
+- **LLMService**（5 RPC） - LLMプロバイダーゲートウェイ
+- **SessionService**（7 RPC） - マルチターン会話管理
+
+**合計**: 27 RPCメソッド
+
+## 共通タイプ
+
+すべてのサービスで使用される共有タイプ。
+
+### ExecutionMode
+
+```protobuf
+enum ExecutionMode {
+  EXECUTION_MODE_UNSPECIFIED = 0;
+  EXECUTION_MODE_SIMPLE = 1;      // 直接ツール/キャッシュ応答
+  EXECUTION_MODE_STANDARD = 2;    // LLMを使用した単一エージェント
+  EXECUTION_MODE_COMPLEX = 3;     // マルチエージェントDAG実行
+}
+```
+
+**使用法**: タスク実行戦略を決定
+- `SIMPLE`: 直接ツール呼び出しまたはキャッシュ検索（最速）
+- `STANDARD`: 単一エージェントによるLLM駆動の実行（バランスが取れている）
+- `COMPLEX`: 並列実行を伴うマルチエージェントDAG（最も能力が高い）
+
+---
+
+### ModelTier
+
+```protobuf
+enum ModelTier {
+  MODEL_TIER_UNSPECIFIED = 0;
+  MODEL_TIER_SMALL = 1;    // GPT-5-nano/mini, Haikuなど（50%ターゲット）
+  MODEL_TIER_MEDIUM = 2;   // GPT-5, Sonnetなど（40%ターゲット）
+  MODEL_TIER_LARGE = 3;    // GPT-5-turbo, Opusなど（10%ターゲット）
+}
+```
+
+**コスト最適化**: Shannonは自動的にティア内のモデルを選択してコストを最適化します
+- 小: $0.001-0.002 / 1Kトークン
+- 中: $0.01-0.03 / 1Kトークン
+- 大: $0.03-0.075 / 1Kトークン
+
+---
+
+### StatusCode
+
+```protobuf
+enum StatusCode {
+  STATUS_CODE_UNSPECIFIED = 0;
+  STATUS_CODE_OK = 1;
+  STATUS_CODE_ERROR = 2;
+  STATUS_CODE_TIMEOUT = 3;
+  STATUS_CODE_RATE_LIMITED = 4;
+  STATUS_CODE_BUDGET_EXCEEDED = 5;
+}
+```
+
+---
+
+### TaskMetadata
+
+```protobuf
+message TaskMetadata {
+  string task_id = 1;
+  string user_id = 2;
+  string session_id = 3;
+  string tenant_id = 4;
+  google.protobuf.Timestamp created_at = 5;
+  map<string, string> labels = 6;
+  int32 max_agents = 7;       // 最大同時エージェント数（デフォルト: 5）
+  double token_budget = 8;     // このタスクのトークン予算
+}
+```
+
+**例**:
+```json
+{
+  "task_id": "task-123",
+  "user_id": "user-456",
+  "session_id": "sess-789",
+  "tenant_id": "tenant-001",
+  "labels": {
+    "environment": "production",
+    "priority": "high"
+  },
+  "max_agents": 10,
+  "token_budget": 50000
+}
+```
+
+---
+
+### TokenUsage
+
+```protobuf
+message TokenUsage {
+  int32 prompt_tokens = 1;
+  int32 completion_tokens = 2;
+  int32 total_tokens = 3;
+  double cost_usd = 4;
+  string model = 5;
+  ModelTier tier = 6;
+}
+```
+
+---
+
+### ExecutionMetrics
+
+```protobuf
+message ExecutionMetrics {
+  int64 latency_ms = 1;
+  TokenUsage token_usage = 2;
+  bool cache_hit = 3;
+  double cache_score = 4;
+  int32 agents_used = 5;
+  ExecutionMode mode = 6;
+}
+```
+
+---
+
+## OrchestratorService
+
+タスクオーケストレーションとワークフロー管理サービス。
+
+### サービス定義
+
+```protobuf
+service OrchestratorService {
+  rpc SubmitTask(SubmitTaskRequest) returns (SubmitTaskResponse);
+  rpc GetTaskStatus(GetTaskStatusRequest) returns (GetTaskStatusResponse);
+  rpc CancelTask(CancelTaskRequest) returns (CancelTaskResponse);
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse);
+  rpc GetSessionContext(GetSessionContextRequest) returns (GetSessionContextResponse);
+  rpc ListTemplates(ListTemplatesRequest) returns (ListTemplatesResponse);
+  rpc ApproveTask(ApproveTaskRequest) returns (ApproveTaskResponse);
+  rpc GetPendingApprovals(GetPendingApprovalsRequest) returns (GetPendingApprovalsResponse);
+}
+```
+
+---
+
+### SubmitTask
+
+新しいタスクを実行のために提出します。
+
+**リクエスト**:
+```protobuf
+message SubmitTaskRequest {
+  TaskMetadata metadata = 1;
+  string query = 2;
+  google.protobuf.Struct context = 3;
+  bool auto_decompose = 4;
+  TaskDecomposition manual_decomposition = 5;
+  SessionContext session_context = 6;
+  bool require_approval = 10;
+}
+```
+
+**レスポンス**:
+```protobuf
+message SubmitTaskResponse {
+  string workflow_id = 1;
+  string task_id = 2;
+  StatusCode status = 3;
+  TaskDecomposition decomposition = 4;
+  string message = 5;
+}
+```
+
+**例**（gRPC CLI）:
+```bash
+grpcurl -plaintext -d '{
+  "metadata": {
+    "user_id": "user-123",
+    "session_id": "sess-456",
+    "token_budget": 10000
+  },
+  "query": "Q4の売上データを分析し、視覚化を作成する",
+  "auto_decompose": true
+}' localhost:50052 shannon.orchestrator.OrchestratorService/SubmitTask
+```
+
+**レスポンス**:
+```json
+{
+  "workflow_id": "wf-550e8400-e29b-41d4-a716-446655440000",
+  "task_id": "task-789",
+  "status": "STATUS_CODE_OK",
+  "decomposition": {
+    "mode": "EXECUTION_MODE_COMPLEX",
+    "complexity_score": 0.78,
+    "agent_tasks": [
+      {
+        "agent_id": "data-loader",
+        "description": "Q4の売上データをロードする",
+        "required_tools": ["csv_loader"],
+        "model_tier": "MODEL_TIER_SMALL"
+      },
+      {
+        "agent_id": "analyst",
+        "description": "売上トレンドを分析する",
+        "dependencies": ["data-loader"],
+        "model_tier": "MODEL_TIER_MEDIUM"
+      },
+      {
+        "agent_id": "visualizer",
+        "description": "チャートを作成する",
+        "dependencies": ["analyst"],
+        "required_tools": ["matplotlib"],
+        "model_tier": "MODEL_TIER_SMALL"
+      }
+    ]
+  },
+  "message": "タスクが正常に提出されました"
+}
+```
+
+### GetTaskStatus
+
+タスクの現在のステータスと結果を取得します。
+
+**リクエスト**:
+```protobuf
+message GetTaskStatusRequest {
+  string task_id = 1;
+  bool include_details = 2;
+}
+```
+
+**レスポンス**:
+```protobuf
+message GetTaskStatusResponse {
+  string task_id = 1;
+  TaskStatus status = 2;
+  double progress = 3;              // 0.0 - 1.0
+  string result = 4;
+  ExecutionMetrics metrics = 5;
+  repeated AgentTaskStatus agent_statuses = 6;
+  string error_message = 7;
+}
+
+enum TaskStatus {
+  TASK_STATUS_UNSPECIFIED = 0;
+  TASK_STATUS_QUEUED = 1;
+  TASK_STATUS_RUNNING = 2;
+  TASK_STATUS_COMPLETED = 3;
+  TASK_STATUS_FAILED = 4;
+  TASK_STATUS_CANCELLED = 5;
+  TASK_STATUS_TIMEOUT = 6;
+}
+```
+
+**例**:
+```bash
+grpcurl -plaintext -d '{
+  "task_id": "task-789",
+  "include_details": true
+}' localhost:50052 shannon.orchestrator.OrchestratorService/GetTaskStatus
+```
+
+**レスポンス**:
+```json
+{
+  "task_id": "task-789",
+  "status": "TASK_STATUS_COMPLETED",
+  "progress": 1.0,
+  "result": "分析完了。Q4の収益は前年比15%増加...",
+  "metrics": {
+    "latency_ms": 45000,
+    "token_usage": {
+      "total_tokens": 5420,
+      "cost_usd": 0.0814,
+      "model": "gpt-5"
+    },
+    "agents_used": 3,
+    "mode": "EXECUTION_MODE_COMPLEX"
+  },
+  "agent_statuses": [
+    {
+      "agent_id": "data-loader",
+      "status": "TASK_STATUS_COMPLETED",
+      "result": "15,000件のレコードを読み込みました",
+      "token_usage": {
+        "total_tokens": 150,
+        "cost_usd": 0.0003
+      }
+    }
+  ]
+}
+```
+
+---
+
+### CancelTask
+
+実行中のタスクをキャンセルします。
+
+**リクエスト**:
+```protobuf
+message CancelTaskRequest {
+  string task_id = 1;
+  string reason = 2;
+}
+```
+
+**レスポンス**:
+```protobuf
+message CancelTaskResponse {
+  bool success = 1;
+  string message = 2;
+}
+```
+
+---
+
+### ListTasks
+
+タスクをリスト表示し、オプションでフィルタリングします。
+
+**リクエスト**:
+```protobuf
+message ListTasksRequest {
+  string user_id = 1;
+  string session_id = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+  TaskStatus filter_status = 5;
+}
+```
+
+**レスポンス**:
+```protobuf
+message ListTasksResponse {
+  repeated TaskSummary tasks = 1;
+  int32 total_count = 2;
+}
+
+message TaskSummary {
+  string task_id = 1;
+  string query = 2;
+  TaskStatus status = 3;
+  ExecutionMode mode = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp completed_at = 6;
+  TokenUsage total_token_usage = 7;
+}
+```
+
+---
+
+### GetSessionContext
+
+セッションのコンテキストと履歴を取得します。
+
+**リクエスト**:
+```protobuf
+message GetSessionContextRequest {
+  string session_id = 1;
+}
+```
+
+**レスポンス**:
+```protobuf
+message GetSessionContextResponse {
+  string session_id = 1;
+  google.protobuf.Struct context = 2;
+  repeated TaskSummary recent_tasks = 3;
+  TokenUsage session_token_usage = 4;
+}
+```
+
+---
+
+### ListTemplates
+
+利用可能なタスクテンプレートをリスト表示します。
+
+**リクエスト**:
+```protobuf
+message ListTemplatesRequest {}
+```
+
+**レスポンス**:
+```protobuf
+message ListTemplatesResponse {
+  repeated TemplateSummary templates = 1;
+}
+
+message TemplateSummary {
+  string name = 1;
+  string version = 2;
+  string key = 3;
+  string content_hash = 4;
+}
+```
+
+---
+
+### ApproveTask
+
+人間の承認が必要なタスクを承認または拒否します。
+
+**リクエスト**:
+```protobuf
+message ApproveTaskRequest {
+  string approval_id = 1;
+  string workflow_id = 2;
+  string run_id = 3;
+  bool approved = 4;
+  string feedback = 5;
+  string modified_action = 6;
+  string approved_by = 7;
+}
+```
+
+**レスポンス**:
+```protobuf
+message ApproveTaskResponse {
+  bool success = 1;
+  string message = 2;
+}
+```
+
+---
+
+### GetPendingApprovals
+
+保留中の承認リクエストをリスト表示します。
+
+**リクエスト**:
+```protobuf
+message GetPendingApprovalsRequest {
+  string user_id = 1;
+  string session_id = 2;
+}
+```
+
+**レスポンス**:
+```protobuf
+message GetPendingApprovalsResponse {
+  repeated PendingApproval approvals = 1;
+}
+
+message PendingApproval {
+  string approval_id = 1;
+  string workflow_id = 2;
+  string query = 3;
+  string proposed_action = 4;
+  string reason = 5;
+  google.protobuf.Timestamp requested_at = 6;
+  google.protobuf.Struct metadata = 7;
+}
+```
+
+---
+
+## StreamingService
+
+リアルタイムイベントストリーミングサービス。
+
+### サービス定義
+
+```protobuf
+service StreamingService {
+  rpc StreamTaskExecution(StreamRequest) returns (stream TaskUpdate);
+}
+```
+
+---
+
+### StreamTaskExecution
+
+タスクのリアルタイムイベントをストリームします（サーバーストリーミングRPC）。
+
+**リクエスト**:
+```protobuf
+message StreamRequest {
+  string workflow_id = 1;
+  repeated string types = 2;      // オプションのイベントタイプフィルタ
+  uint64 last_event_id = 3;       // このイベントから再開（後方互換性）
+  string last_stream_id = 4;      // RedisストリームIDから再開（推奨）
+}
+```
+
+**レスポンス**（ストリーム）:
+```protobuf
+message TaskUpdate {
+  string workflow_id = 1;
+  string type = 2;                // イベントタイプ（イベントタイプカタログを参照）
+  string agent_id = 3;
+  string message = 4;
+  google.protobuf.Timestamp timestamp = 5;
+  uint64 seq = 6;                 // シーケンス番号
+  string stream_id = 7;           // 再開用のRedisストリームID
+}
+```
+
+**例**（gRPC CLI）:
+```bash
+grpcurl -plaintext -d '{
+  "workflow_id": "wf-550e8400-e29b-41d4-a716-446655440000"
+}' localhost:50052 shannon.orchestrator.StreamingService/StreamTaskExecution
+```
+
+**レスポンスストリーム**:
+```json
+{"workflow_id": "wf-...", "type": "WORKFLOW_STARTED", "message": "タスクが開始されました", "seq": 1}
+{"workflow_id": "wf-...", "type": "AGENT_STARTED", "agent_id": "data-loader", "seq": 2}
+{"workflow_id": "wf-...", "type": "STATUS_UPDATE", "message": "データを読み込んでいます...", "seq": 3}
+{"workflow_id": "wf-...", "type": "TOOL_INVOKED", "message": "csv_loaderを呼び出しています", "seq": 4}
+{"workflow_id": "wf-...", "type": "TOOL_OBSERVATION", "message": "15,000行を読み込みました", "seq": 5}
+...
+{"workflow_id": "wf-...", "type": "WORKFLOW_COMPLETED", "message": "タスクが完了しました", "seq": 42}
+```
+
+**イベントタイプフィルタリング**:
+```bash
+# ワークフローライフサイクルイベントのみ
+grpcurl -plaintext -d '{
+  "workflow_id": "wf-...",
+  "types": ["WORKFLOW_STARTED", "WORKFLOW_COMPLETED", "ERROR_OCCURRED"]
+}' localhost:50052 shannon.orchestrator.StreamingService/StreamTaskExecution
+```
+
+**ストリーム再開**:
+```bash
+# 最後に見たイベントから再開
+grpcurl -plaintext -d '{
+  "workflow_id": "wf-...",
+  "last_stream_id": "1698765432000-0"
+}' localhost:50052 shannon.orchestrator.StreamingService/StreamTaskExecution
+```
+
+すべてのイベントタイプについては[イベントタイプカタログ](/en/api/event-types)を参照してください。
+
+---
+
+## AgentService
+
+エージェント実行およびツール管理サービス。
+
+### サービス定義
+
+```protobuf
+service AgentService {
+  rpc ExecuteTask(ExecuteTaskRequest) returns (ExecuteTaskResponse);
+  rpc StreamExecuteTask(ExecuteTaskRequest) returns (stream TaskUpdate);
+  rpc GetCapabilities(GetCapabilitiesRequest) returns (GetCapabilitiesResponse);
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+  rpc DiscoverTools(DiscoverToolsRequest) returns (DiscoverToolsResponse);
+  rpc GetToolCapability(GetToolCapabilityRequest) returns (GetToolCapabilityResponse);
+}
+```
+
+---
+
+### ExecuteTask
+
+単一エージェントでタスクを実行します（単一RPC）。
+
+**リクエスト**:
+```protobuf
+message ExecuteTaskRequest {
+  TaskMetadata metadata = 1;
+  string query = 2;
+  google.protobuf.Struct context = 3;
+  ExecutionMode mode = 4;
+  repeated string available_tools = 5;
+  AgentConfig config = 6;
+  SessionContext session_context = 7;
+}
+
+message AgentConfig {
+  int32 max_iterations = 1;
+  int32 timeout_seconds = 2;
+  bool enable_sandbox = 3;
+  int64 memory_limit_mb = 4;
+  bool enable_learning = 5;
+}
+```
+
+**レスポンス**:
+```protobuf
+message ExecuteTaskResponse {
+  string task_id = 1;
+  StatusCode status = 2;
+  string result = 3;
+  repeated ToolCall tool_calls = 4;
+  repeated ToolResult tool_results = 5;
+  ExecutionMetrics metrics = 6;
+  string error_message = 7;
+  AgentState final_state = 8;
+}
+
+enum AgentState {
+  AGENT_STATE_UNSPECIFIED = 0;
+  AGENT_STATE_IDLE = 1;
+  AGENT_STATE_PLANNING = 2;
+  AGENT_STATE_EXECUTING = 3;
+  AGENT_STATE_WAITING = 4;
+  AGENT_STATE_COMPLETED = 5;
+  AGENT_STATE_FAILED = 6;
+}
+```
+
+---
+
+### StreamExecuteTask
+
+ストリーミング更新でタスクを実行します（サーバーストリーミングRPC）。
+
+**リクエスト**: `ExecuteTask`と同じ
+
+**レスポンス**（ストリーム）:
+```protobuf
+message TaskUpdate {
+  string task_id = 1;
+  AgentState state = 2;
+  string message = 3;
+  ToolCall tool_call = 4;
+  ToolResult tool_result = 5;
+  double progress = 6;
+}
+```
+
+---
+
+### GetCapabilities
+
+エージェントの機能を取得します。
+
+**リクエスト**:
+```protobuf
+message GetCapabilitiesRequest {}
+```
+
+**レスポンス**:
+```protobuf
+message GetCapabilitiesResponse {
+  repeated string supported_tools = 1;
+  repeated ExecutionMode supported_modes = 2;
+  int64 max_memory_mb = 3;
+  int32 max_concurrent_tasks = 4;
+  string version = 5;
+}
+```
+
+---
+
+### HealthCheck
+
+エージェントサービスの健康状態を確認します。
+
+**リクエスト**:
+```protobuf
+message HealthCheckRequest {}
+```
+
+**レスポンス**:
+```protobuf
+message HealthCheckResponse {
+  bool healthy = 1;
+  string message = 2;
+  int64 uptime_seconds = 3;
+  int32 active_tasks = 4;
+  double memory_usage_percent = 5;
+}
+```
+
+---
+
+### DiscoverTools
+
+クエリまたはカテゴリによって利用可能なツールを発見します。
+
+**リクエスト**:
+```protobuf
+message DiscoverToolsRequest {
+  string query = 1;
+  repeated string categories = 2;
+  repeated string tags = 3;
+  bool exclude_dangerous = 4;
+  int32 max_results = 5;
+}
+```
+
+**レスポンス**:
+```protobuf
+message DiscoverToolsResponse {
+  repeated ToolCapability tools = 1;
+}
+
+message ToolCapability {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string category = 4;
+  google.protobuf.Struct input_schema = 5;
+  google.protobuf.Struct output_schema = 6;
+  repeated string required_permissions = 7;
+  int64 estimated_duration_ms = 8;
+  bool is_dangerous = 9;
+  string version = 10;
+  string author = 11;
+  repeated string tags = 12;
+  repeated ToolExample examples = 13;
+  RateLimit rate_limit = 14;
+  int64 cache_ttl_ms = 15;
+}
+```
+
+**例**:
+```bash
+grpcurl -plaintext -d '{
+  "query": "data analysis",
+  "categories": ["data"],
+  "exclude_dangerous": true,
+  "max_results": 10
+}' localhost:50051 shannon.agent.AgentService/DiscoverTools
+```
+
+---
+
+### GetToolCapability
+
+特定のツールの詳細な機能を取得します。
+
+**リクエスト**:
+```protobuf
+message GetToolCapabilityRequest {
+  string tool_id = 1;
+}
+```
+
+**レスポンス**:
+```protobuf
+message GetToolCapabilityResponse {
+  ToolCapability tool = 1;
+}
+```
+
+---
+
+## LLMService
+
+LLMプロバイダーゲートウェイサービス。
+
+### サービス定義
+
+```protobuf
+service LLMService {
+  rpc GenerateCompletion(GenerateCompletionRequest) returns (GenerateCompletionResponse);
+  rpc StreamCompletion(GenerateCompletionRequest) returns (stream CompletionChunk);
+  rpc EmbedText(EmbedTextRequest) returns (EmbedTextResponse);
+  rpc AnalyzeComplexity(AnalyzeComplexityRequest) returns (AnalyzeComplexityResponse);
+  rpc ListModels(ListModelsRequest) returns (ListModelsResponse);
+}
+```
+
+---
+
+### GenerateCompletion
+
+LLMの補完を生成します（単一RPC）。
+
+**リクエスト**:
+```protobuf
+message GenerateCompletionRequest {
+  repeated Message messages = 1;
+  ModelTier tier = 2;
+  string specific_model = 3;
+  GenerationConfig config = 4;
+  TaskMetadata metadata = 5;
+  repeated ToolDefinition available_tools = 6;
+}
+
+message Message {
+  string role = 1;
+  string content = 2;
+  repeated ToolCall tool_calls = 3;
+  string name = 4;
+}
+
+message GenerationConfig {
+  double temperature = 1;
+  double top_p = 2;
+  int32 max_tokens = 3;
+  repeated string stop_sequences = 4;
+  double presence_penalty = 5;
+  double frequency_penalty = 6;
+  bool enable_caching = 7;
+  string cache_key = 8;
+}
+```
+
+**レスポンス**:
+```protobuf
+message GenerateCompletionResponse {
+  string completion = 1;
+  repeated ToolCall tool_calls = 2;
+  TokenUsage usage = 3;
+  string model_used = 4;
+  Provider provider = 5;
+  bool cache_hit = 6;
+  string finish_reason = 7;
+}
+
+enum Provider {
+  PROVIDER_UNSPECIFIED = 0;
+  PROVIDER_OPENAI = 1;
+  PROVIDER_ANTHROPIC = 2;
+  PROVIDER_GOOGLE = 3;
+  PROVIDER_DEEPSEEK = 4;
+  PROVIDER_QWEN = 5;
+  PROVIDER_BEDROCK = 6;
+  PROVIDER_OLLAMA = 7;
+  PROVIDER_VLLM = 8;
+}
+```
+
+### StreamCompletion
+
+ストリーミング LLM 完成を生成します（サーバーストリーミング RPC）。
+
+**リクエスト**: `GenerateCompletion` と同様
+
+**レスポンス** (ストリーム):
+```protobuf
+message CompletionChunk {
+  string delta = 1;
+  ToolCall tool_call_delta = 2;
+  string finish_reason = 3;
+  TokenUsage usage = 4;
+}
+```
+
+---
+
+### EmbedText
+
+テキスト埋め込みを生成します。
+
+**リクエスト**:
+```protobuf
+message EmbedTextRequest {
+  repeated string texts = 1;
+  string model = 2;
+}
+```
+
+**レスポンス**:
+```protobuf
+message EmbedTextResponse {
+  repeated Embedding embeddings = 1;
+  int32 dimensions = 2;
+  string model_used = 3;
+}
+
+message Embedding {
+  repeated float vector = 1;
+  string text = 2;
+}
+```
+
+---
+
+### AnalyzeComplexity
+
+クエリの複雑さを分析し、実行モードを推奨します。
+
+**リクエスト**:
+```protobuf
+message AnalyzeComplexityRequest {
+  string query = 1;
+  google.protobuf.Struct context = 2;
+  repeated string available_tools = 3;
+}
+```
+
+**レスポンス**:
+```protobuf
+message AnalyzeComplexityResponse {
+  ExecutionMode recommended_mode = 1;
+  double complexity_score = 2;
+  repeated string required_capabilities = 3;
+  int32 estimated_agents = 4;
+  int32 estimated_tokens = 5;
+  double estimated_cost_usd = 6;
+  string reasoning = 7;
+}
+```
+
+**例**:
+```bash
+grpcurl -plaintext -d '{
+  "query": "Q4の売上データを分析し、視覚化を作成する",
+  "available_tools": ["csv_loader", "pandas", "matplotlib"]
+}' localhost:8000 shannon.llm.LLMService/AnalyzeComplexity
+```
+
+**レスポンス**:
+```json
+{
+  "recommended_mode": "EXECUTION_MODE_COMPLEX",
+  "complexity_score": 0.78,
+  "required_capabilities": ["data_loading", "analysis", "visualization"],
+  "estimated_agents": 3,
+  "estimated_tokens": 5000,
+  "estimated_cost_usd": 0.08,
+  "reasoning": "タスクにはデータの読み込み、統計分析、視覚化生成が必要です"
+}
+```
+
+---
+
+### ListModels
+
+利用可能な LLM モデルをリストします。
+
+**リクエスト**:
+```protobuf
+message ListModelsRequest {
+  ModelTier tier = 1;
+  Provider provider = 2;
+}
+```
+
+**レスポンス**:
+```protobuf
+message ListModelsResponse {
+  repeated ModelInfo models = 1;
+}
+
+message ModelInfo {
+  string id = 1;
+  string name = 2;
+  Provider provider = 3;
+  ModelTier tier = 4;
+  int32 context_window = 5;
+  double cost_per_1k_prompt_tokens = 6;
+  double cost_per_1k_completion_tokens = 7;
+  bool supports_tools = 8;
+  bool supports_streaming = 9;
+  bool available = 10;
+}
+```
+
+---
+
+## SessionService
+
+マルチターン会話管理サービス。
+
+### サービス定義
+
+```protobuf
+service SessionService {
+  rpc CreateSession(CreateSessionRequest) returns (CreateSessionResponse);
+  rpc GetSession(GetSessionRequest) returns (GetSessionResponse);
+  rpc UpdateSession(UpdateSessionRequest) returns (UpdateSessionResponse);
+  rpc DeleteSession(DeleteSessionRequest) returns (DeleteSessionResponse);
+  rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse);
+  rpc AddMessage(AddMessageRequest) returns (AddMessageResponse);
+  rpc ClearHistory(ClearHistoryRequest) returns (ClearHistoryResponse);
+}
+```
+
+---
+
+### CreateSession
+
+新しい会話セッションを作成します。
+
+**リクエスト**:
+```protobuf
+message CreateSessionRequest {
+  string user_id = 1;
+  google.protobuf.Struct initial_context = 2;
+  int32 max_history = 3;       // 保存する最大メッセージ数
+  int32 ttl_seconds = 4;        // セッションのTTL
+}
+```
+
+**レスポンス**:
+```protobuf
+message CreateSessionResponse {
+  string session_id = 1;
+  google.protobuf.Timestamp created_at = 2;
+  google.protobuf.Timestamp expires_at = 3;
+  StatusCode status = 4;
+  string message = 5;
+}
+```
+
+---
+
+### GetSession
+
+セッションの詳細を取得します。
+
+**リクエスト**:
+```protobuf
+message GetSessionRequest {
+  string session_id = 1;
+  bool include_history = 2;
+}
+```
+
+**レスポンス**:
+```protobuf
+message GetSessionResponse {
+  Session session = 1;
+  StatusCode status = 2;
+  string message = 3;
+}
+
+message Session {
+  string id = 1;
+  string user_id = 2;
+  google.protobuf.Struct context = 3;
+  repeated Message history = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp last_active = 6;
+  google.protobuf.Timestamp expires_at = 7;
+  SessionMetrics metrics = 8;
+}
+```
+
+---
+
+### UpdateSession
+
+セッションのコンテキストを更新するか、TTLを延長します。
+
+**リクエスト**:
+```protobuf
+message UpdateSessionRequest {
+  string session_id = 1;
+  google.protobuf.Struct context_updates = 2;
+  int32 extend_ttl_seconds = 3;
+}
+```
+
+**レスポンス**:
+```protobuf
+message UpdateSessionResponse {
+  bool success = 1;
+  google.protobuf.Timestamp new_expires_at = 2;
+  StatusCode status = 3;
+  string message = 4;
+}
+```
+
+---
+
+### DeleteSession
+
+セッションを削除します。
+
+**リクエスト**:
+```protobuf
+message DeleteSessionRequest {
+  string session_id = 1;
+}
+```
+
+**レスポンス**:
+```protobuf
+message DeleteSessionResponse {
+  bool success = 1;
+  StatusCode status = 2;
+  string message = 3;
+}
+```
+
+---
+
+### ListSessions
+
+ユーザーのセッションをリストします。
+
+**リクエスト**:
+```protobuf
+message ListSessionsRequest {
+  string user_id = 1;
+  bool active_only = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+}
+```
+
+**レスポンス**:
+```protobuf
+message ListSessionsResponse {
+  repeated SessionSummary sessions = 1;
+  int32 total_count = 2;
+  StatusCode status = 3;
+  string message = 4;
+}
+
+message SessionSummary {
+  string id = 1;
+  string user_id = 2;
+  google.protobuf.Timestamp created_at = 3;
+  google.protobuf.Timestamp last_active = 4;
+  int32 message_count = 5;
+  int32 total_tokens = 6;
+  bool is_active = 7;
+}
+```
+
+### AddMessage
+
+セッション履歴にメッセージを追加します。
+
+**リクエスト**:
+```protobuf
+message AddMessageRequest {
+  string session_id = 1;
+  Message message = 2;
+}
+
+message Message {
+  string id = 1;
+  string role = 2;              // "user", "assistant", "system"
+  string content = 3;
+  google.protobuf.Timestamp timestamp = 4;
+  int32 tokens_used = 5;
+  google.protobuf.Struct metadata = 6;
+}
+```
+
+**レスポンス**:
+```protobuf
+message AddMessageResponse {
+  bool success = 1;
+  int32 history_size = 2;
+  StatusCode status = 3;
+  string message = 4;
+}
+```
+
+---
+
+### ClearHistory
+
+セッションメッセージ履歴をクリアします。
+
+**リクエスト**:
+```protobuf
+message ClearHistoryRequest {
+  string session_id = 1;
+  bool keep_context = 2;        // 永続的なコンテキストを保持
+}
+```
+
+**レスポンス**:
+```protobuf
+message ClearHistoryResponse {
+  bool success = 1;
+  StatusCode status = 2;
+  string message = 3;
+}
+```
+
+---
+
+## エラーハンドリング
+
+### ステータスコード
+
+すべてのレスポンスには `StatusCode` が含まれます:
+- `STATUS_CODE_OK (1)` - 成功
+- `STATUS_CODE_ERROR (2)` - 一般的なエラー
+- `STATUS_CODE_TIMEOUT (3)` - 操作タイムアウト
+- `STATUS_CODE_RATE_LIMITED (4)` - レート制限を超過
+- `STATUS_CODE_BUDGET_EXCEEDED (5)` - トークン/コスト予算を超過
+
+### gRPC ステータスコード
+
+使用される標準 gRPC ステータスコード:
+- `OK (0)` - 成功
+- `CANCELLED (1)` - リクエストがキャンセルされました
+- `INVALID_ARGUMENT (3)` - 無効なリクエストパラメータ
+- `DEADLINE_EXCEEDED (4)` - タイムアウト
+- `NOT_FOUND (5)` - リソースが見つかりません
+- `ALREADY_EXISTS (6)` - リソースはすでに存在します
+- `PERMISSION_DENIED (7)` - 権限が不十分です
+- `RESOURCE_EXHAUSTED (8)` - レート制限/クォータを超過
+- `UNAUTHENTICATED (16)` - 認証情報が欠落または無効です
+- `UNAVAILABLE (14)` - サービスが利用できません
+- `INTERNAL (13)` - 内部サーバーエラー
+
+### エラーハンドリングの例 (Python)
+
+```python
+import grpc
+from shannon.orchestrator import orchestrator_pb2, orchestrator_pb2_grpc
+
+channel = grpc.insecure_channel('localhost:50052')
+stub = orchestrator_pb2_grpc.OrchestratorServiceStub(channel)
+
+try:
+    response = stub.SubmitTask(
+        orchestrator_pb2.SubmitTaskRequest(
+            query="Analyze data",
+            metadata=orchestrator_pb2.TaskMetadata(user_id="user-123")
+        )
+    )
+
+    if response.status == orchestrator_pb2.STATUS_CODE_OK:
+        print(f"タスクが送信されました: {response.workflow_id}")
+    else:
+        print(f"エラー: {response.message}")
+
+except grpc.RpcError as e:
+    if e.code() == grpc.StatusCode.UNAUTHENTICATED:
+        print("認証が必要です")
+    elif e.code() == grpc.StatusCode.RESOURCE_EXHAUSTED:
+        print("レート制限を超過しました")
+    elif e.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
+        print("リクエストがタイムアウトしました")
+    else:
+        print(f"gRPC エラー: {e.code()} - {e.details()}")
+```
+
+---
+
+## サービスエンドポイント
+
+| サービス | デフォルトポート | プロトコル | TLS |
+|---------|-------------|----------|-----|
+| OrchestratorService | 50052 | gRPC (HTTP/2) | オプション |
+| StreamingService | 50052 | gRPC (HTTP/2) | オプション |
+| AgentService | 50051 | gRPC (HTTP/2) | オプション |
+| LLMService | 8000 | gRPC (HTTP/2) | オプション |
+| SessionService | 50052 | gRPC (HTTP/2) | オプション |
+
+**Gateway REST API** はポート 8080 でも利用可能です (gRPC の HTTP/REST ラッパー)。
+
+HTTP エンドポイントについては [REST API リファレンス](/en/api/rest/overview) を参照してください。
+
+---
+
+## コード生成
+
+.proto ファイルからクライアントコードを生成します:
+
+### Python
+```bash
+python -m grpc_tools.protoc \
+  -I protos \
+  --python_out=. \
+  --grpc_python_out=. \
+  protos/**/*.proto
+```
+
+### Go
+```bash
+protoc -I protos \
+  --go_out=. \
+  --go-grpc_out=. \
+  protos/**/*.proto
+```
+
+### TypeScript
+```bash
+protoc -I protos \
+  --ts_out=. \
+  --grpc_out=. \
+  protos/**/*.proto
+```
+
+---
+
+## 関連トピック
+
+<CardGroup cols={2}>
+  <Card title="REST API" icon="globe" href="/en/api/rest/overview">
+    HTTP REST エンドポイント
+  </Card>
+  <Card title="Event Types" icon="stream" href="/en/api/event-types">
+    ストリーミングイベントカタログ
+  </Card>
+  <Card title="Python SDK" icon="python" href="/en/sdk/python/quickstart">
+    Python クライアントライブラリ
+  </Card>
+  <Card title="Database Schema" icon="database" href="/en/architecture/database-schema">
+    データ永続化
+  </Card>
+</CardGroup>

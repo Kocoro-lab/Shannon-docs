@@ -1,0 +1,261 @@
+---
+title: "クイックスタート"
+description: "5分でShannonに最初のタスクを送信"
+---
+
+## 最初のタスク
+
+Shannonにシンプルなタスクを送信して、実際の動作を確認しましょう。このガイドは、[インストール](/ja/quickstart/installation)が完了していることを前提としています。
+
+## REST APIの使用
+
+Shannonと対話する最もシンプルな方法はREST APIを使用することです：
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Analyze the sentiment of: Shannon makes AI agents simple and reliable!"
+  }'
+```
+
+次のようなレスポンスが返されます：
+
+```json
+{
+  "task_id": "task-dev-1730000000",
+  "status": "TASK_STATUS_RUNNING",
+  "message": "Task submitted",
+  "created_at": "2024-10-22T10:30:00Z"
+}
+```
+
+## タスクステータスの確認
+
+`task_id`を使用してステータスを確認：
+
+```bash
+curl http://localhost:8080/api/v1/tasks/task-dev-1730000000
+```
+
+レスポンス：
+
+```json
+{
+  "task_id": "task-dev-1730000000",
+  "status": "TASK_STATUS_COMPLETED",
+  "response": { "result": "The sentiment is overwhelmingly positive..." },
+  "error": "",
+  "query": "Analyze the sentiment of: Shannon makes AI agents simple and reliable!",
+  "session_id": "...",
+  "mode": "EXECUTION_MODE_STANDARD",
+  "created_at": "2024-10-22T10:30:00Z",
+  "updated_at": "2024-10-22T10:30:25Z"
+}
+```
+
+## リアルタイムでイベントをストリーミング
+
+ShannonはServer-Sent Events (SSE)によるリアルタイム更新をサポートしています：
+
+```bash
+curl -N http://localhost:8080/api/v1/stream/sse?workflow_id=task-dev-1730000000
+```
+
+イベントがリアルタイムで表示されます：
+
+```
+event: LLM_PROMPT
+data: {"message":"Analyzing sentiment..."}
+
+event: WORKFLOW_COMPLETED
+data: {"result":"The sentiment is positive..."}
+```
+
+## Python SDKの使用
+
+より良い開発者体験のために、Python SDKを使用してください：
+
+### インストール
+
+```bash
+pip install shannon-sdk
+```
+
+### タスクの送信と監視
+
+```python
+from shannon import ShannonClient
+
+# HTTPクライアント（デフォルト: http://localhost:8080）
+client = ShannonClient()
+
+handle = client.submit_task(
+    query="Analyze the sentiment of: Shannon makes AI agents simple!"
+)
+print("Task submitted:", handle.task_id)
+
+# 完了を待機
+final = client.wait(handle.task_id, timeout=60)
+print("Result:", final.result)
+```
+
+### イベントのストリーミング
+
+```python
+# リアルタイムでイベントをストリーミング
+for event in client.stream(handle.workflow_id):
+    print(f"{event.type}: {event.message}")
+```
+
+## 実行モード
+
+Shannonはタスクの複雑さに基づいて内部的に実行モードを自動選択します。現時点では、REST APIは`mode`パラメータを受け付けません。
+
+## コスト管理
+
+予算管理はShannonによって管理されます。REST経由でのリクエストごとの明示的な予算設定はまだ利用できません。
+
+## マルチターン会話
+
+Shannonはセッションベースの会話をサポートしています：
+
+```python
+session_id = "my-conversation-123"
+
+# 最初のメッセージ
+handle1 = client.submit_task(
+    query="What is the capital of France?",
+    session_id=session_id
+)
+
+# フォローアップメッセージ（Shannonはコンテキストを記憶）
+handle2 = client.submit_task(
+    query="What's the population?",
+    session_id=session_id
+)
+
+# Shannonはパリの人口について尋ねていることを理解します
+```
+
+## Desktop Appの使用
+
+タスクとセッションのグラフィカルビューには、Shannon Desktop Application（Tauriベースのクライアント）を使用してください。インストールと使用方法の詳細については、[Desktop Application](/ja/quickstart/desktop-app)を参照してください。
+
+## ユースケース例
+
+<Note>
+Shannonはクエリの複雑さに基づいて適切な実行モードと認知戦略を自動的に選択します。これらのパラメータを指定する必要はありません。
+</Note>
+
+### 感情分析
+
+```python
+client.submit_task(
+    query="Analyze sentiment: The product exceeded my expectations!"
+)
+```
+
+### リサーチ & 要約
+
+```python
+client.submit_task(
+    query="Research quantum computing breakthroughs in 2024 and create a summary"
+)
+```
+
+### コード生成
+
+```python
+client.submit_task(
+    query="Write a Python function to calculate Fibonacci numbers with memoization"
+)
+```
+
+### コンテキスト付き複雑な分析
+
+```python
+client.submit_task(
+    query="Compare the pros and cons of microservices vs monolithic architecture",
+    context={
+        "domain": "software_architecture",
+        "depth": "comprehensive",
+        "include_examples": True
+    }
+)
+```
+
+## 次のステップ
+
+<CardGroup cols={2}>
+  <Card
+    title="コアコンセプト"
+    icon="book"
+    href="/ja/quickstart/concepts/agents"
+  >
+    Agent、Workflow、認知パターンについて学ぶ
+  </Card>
+  <Card
+    title="APIリファレンス"
+    icon="code"
+    href="/ja/api/overview"
+  >
+    すべてのAPIエンドポイントとパラメータを探索
+  </Card>
+  <Card
+    title="Python SDKガイド"
+    icon="python"
+    href="/ja/sdk/python/quickstart"
+  >
+    SDK機能と非同期使用の詳細
+  </Card>
+  <Card
+    title="設定"
+    icon="gear"
+    href="/ja/quickstart/configuration"
+  >
+    ニーズに合わせてShannonをカスタマイズ
+  </Card>
+</CardGroup>
+
+## トラブルシューティング
+
+<AccordionGroup>
+  <Accordion title="タスクが'running'状態のまま">
+    ログでエラーを確認してください：
+
+    ```bash
+    docker compose logs orchestrator
+    docker compose logs agent-core
+    ```
+
+    よくある原因：
+    - 無効なLLM APIキー
+    - LLMプロバイダーのレート制限
+    - ネットワーク接続の問題
+  </Accordion>
+
+  <Accordion title="認証エラー">
+    Shannonはデフォルトで認証を無効にして実行されます（`GATEWAY_SKIP_AUTH=1`）。認証を有効にしている場合は、APIキーを含めてください：
+
+    ```bash
+    curl -H "X-API-Key: sk_test_123456" \
+      http://localhost:8080/api/v1/tasks
+    ```
+  </Accordion>
+
+  <Accordion title="高コスト / トークン使用量">
+    予算制限は環境変数を介してプラットフォームレベルで設定されます：
+
+    ```bash
+    # .envファイル内
+    MAX_TOKENS_PER_REQUEST=10000
+    MAX_COST_PER_REQUEST=0.50
+
+    # 変更を有効にするためにサービスを再起動
+    docker compose restart
+    ```
+
+    タスクごとの監視については、ステータスエンドポイントまたはストリーミングイベントを介してコストを確認してください。
+  </Accordion>
+</AccordionGroup>

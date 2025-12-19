@@ -1,0 +1,369 @@
+---
+title: "機能フラグ"
+description: "Shannonの機能フラグシステム"
+---
+
+## 概要
+
+Shannonは**フィーチャーフラグ**を使用して、コードを変更することなくオプション機能、実験的機能、エンタープライズ拡張を制御します。これにより、以下のクリーンな分離が可能になります：
+
+- **オープンソースのコア機能**（すべての人が利用可能）
+- **エンタープライズ/プライベート機能**（フラグの背後に制限）
+- **実験的機能**（テスト用に切り替え可能）
+
+<CardGroup cols={2}>
+  <Card title="ゼロ再コンパイル" icon="toggle-on">
+    サービスを再構築せずに機能を有効/無効にする
+  </Card>
+  <Card title="環境ベース" icon="layer-group">
+    開発/ステージング/本番用の異なるフラグ
+  </Card>
+  <Card title="クリーンな分離" icon="shield-check">
+    OSSコアから隔離されたエンタープライズ機能
+  </Card>
+  <Card title="段階的ロールアウト" icon="gauge-high">
+    完全な展開前に新機能をテストする
+  </Card>
+</CardGroup>
+
+## 設定
+
+### 設定ファイル
+
+フィーチャーフラグは、`config/shannon.yaml`の`features`セクションで定義されています：
+
+```yaml
+# config/shannon.yaml
+features:
+  # エンタープライズワークフロー機能
+  ads_research: false              # 広告リサーチワークフロー（エンタープライズ）
+  advanced_synthesis: false        # 高度な合成テンプレート
+
+  # 実験的機能
+  parallel_streaming: true         # マルチエージェントの並列ストリーミング
+  enhanced_memory: false           # 拡張ベクトルメモリ
+
+  # カスタム統合
+  vendor_tools_enabled: false      # ベンダー固有のツールを有効にする
+```
+
+### 環境変数
+
+フィーチャーフラグは環境変数で上書きできます：
+
+```bash
+# .env
+SHANNON_FEATURE_ADS_RESEARCH=true
+SHANNON_FEATURE_PARALLEL_STREAMING=false
+```
+
+**命名規則**: `SHANNON_FEATURE_<FLAG_NAME_UPPERCASE>`
+
+### 優先順位
+
+1. **環境変数**（最優先）
+2. **設定オーバーレイ**（`config/overlays/shannon.{env}.yaml`）
+3. **ベース設定**（`config/shannon.yaml`）
+4. **コードデフォルト**（最低優先）
+
+## 使用パターン
+
+### Goコード内（オーケストレーター）
+
+```go
+package main
+
+import (
+    "github.com/Kocoro-lab/Shannon/go/orchestrator/internal/config"
+)
+
+func routeWorkflow(ctx context.Context, req *pb.Request) error {
+    cfg, _ := config.LoadShannon()
+
+    // フィーチャーフラグをチェック
+    if cfg.Features.AdsResearch {
+        return routeToAdsResearchWorkflow(ctx, req)
+    }
+
+    return routeToStandardWorkflow(ctx, req)
+}
+```
+
+### Pythonコード内（LLMサービス）
+
+```python
+from llm_service.config import load_shannon_config
+
+config = load_shannon_config()
+
+# フィーチャーフラグをチェック
+if config.get("features", {}).get("vendor_tools_enabled"):
+    from llm_service.tools.vendor import register_vendor_tools
+    register_vendor_tools()
+```
+
+### 条件付きインポートパターン
+
+フィーチャーフラグを使用して条件付きインポートを行い、クリーンな分離を実現します：
+
+```python
+# roles/presets.py
+_PRESETS = {
+    "general": GENERAL_PRESET,
+    "research": RESEARCH_PRESET,
+}
+
+# エンタープライズロールを条件付きで読み込む
+if config.get("features", {}).get("ads_research"):
+    try:
+        from .enterprise.ads_analyst import ADS_ANALYST_PRESET
+        _PRESETS["ads_analyst"] = ADS_ANALYST_PRESET
+    except ImportError:
+        pass  # Shannonはエンタープライズモジュールなしで動作します
+```
+
+## 一般的なフィーチャーフラグ
+
+| フラグ名 | タイプ | 説明 | デフォルト |
+|-----------|------|-------------|---------|
+| `ads_research` | エンタープライズ | 市場分析を伴う広告リサーチワークフロー | `false` |
+| `parallel_streaming` | 実験的 | マルチエージェントの並列SSEストリーミング | `true` |
+| `advanced_synthesis` | エンタープライズ | カスタム合成テンプレート | `false` |
+| `vendor_tools_enabled` | 統合 | ベンダー固有のツールアダプターを有効にする | `false` |
+| `enhanced_memory` | 実験的 | ハイブリッド検索を伴う高度なベクトルメモリ | `false` |
+
+## ベストプラクティス
+
+### 1. デフォルトは無効にする
+
+新機能はベース設定で`false`にデフォルト設定するべきです：
+
+```yaml
+# config/shannon.yaml
+features:
+  new_feature: false  # ✅ 安全なデフォルト
+```
+
+### 2. 環境オーバーレイを使用する
+
+異なるデプロイメント用に環境固有のオーバーレイを作成します：
+
+```yaml
+# config/overlays/shannon.production.yaml
+features:
+  ads_research: true
+  parallel_streaming: true
+  enhanced_memory: false  # まだテスト中
+```
+
+次のように読み込みます：
+
+```bash
+SHANNON_CONFIG_PATH=config/overlays/shannon.production.yaml
+```
+
+### 3. Try/Exceptでガードする
+
+エンタープライズ/オプション機能には常に優雅なフォールバックを使用します：
+
+```python
+if config.features.vendor_tools_enabled:
+    try:
+        from .vendor import CustomVendorTool
+    except ImportError:
+        logger.warning("ベンダーツールが利用できないため、標準ツールを使用します")
+```
+
+### 4. フィーチャー要件を文書化する
+
+```yaml
+features:
+  # GA4_SERVICE_ACCOUNT_KEY環境変数が必要
+  # ベンダーモジュール: llm_service/tools/vendor_adapters/ga4/
+  ga4_integration: false
+```
+
+## エンタープライズフィーチャーパターン
+
+Shannonは**OSSコア**と**エンタープライズ拡張**をフィーチャーフラグを使用して分離します：
+
+### ファイル構造
+
+```
+Shannon/
+├── config/
+│   ├── shannon.yaml                    # ベース設定（OSS）
+│   └── overlays/
+│       └── shannon.enterprise.yaml     # エンタープライズフラグ
+├── go/orchestrator/
+│   └── internal/workflows/
+│       ├── standard_workflow.go        # OSSワークフロー
+│       └── enterprise/                 # エンタープライズワークフロー
+│           └── ads_research.go         # フラグで制限
+└── python/llm-service/
+    └── llm_service/
+        ├── roles/
+        │   ├── presets.py              # OSSロール + 条件付き読み込み
+        │   └── enterprise/             # エンタープライズロール
+        │       └── ads_analyst.py      # フラグで制限
+        └── tools/
+            └── vendor_adapters/        # ベンダーツール（制限付き）
+```
+
+### 条件付きワークフロールーティング
+
+```go
+// orchestrator/internal/workflows/router.go
+func SelectWorkflow(ctx context.Context, cfg *config.Shannon, req *pb.Request) Workflow {
+    // エンタープライズ機能フラグの確認
+    if cfg.Features.AdsResearch && req.Context["workflow_type"] == "ads_research" {
+        return NewAdsResearchWorkflow()
+    }
+
+    // OSSワークフローにフォールバック
+    return NewStandardWorkflow()
+}
+```
+
+## 機能フラグを用いたテスト
+
+### ユニットテスト
+
+```go
+func TestAdsResearchWorkflow(t *testing.T) {
+    cfg := &config.Shannon{
+        Features: config.FeatureFlagsConfig{
+            AdsResearch: true,  // テスト用に有効化
+        },
+    }
+
+    workflow := SelectWorkflow(context.Background(), cfg, testReq)
+    assert.IsType(t, &AdsResearchWorkflow{}, workflow)
+}
+```
+
+### 統合テスト
+
+```bash
+# 機能を有効にしてテストを実行
+SHANNON_FEATURE_ADS_RESEARCH=true go test ./...
+
+# 機能を無効にしてテストを実行（OSSモード）
+SHANNON_FEATURE_ADS_RESEARCH=false go test ./...
+```
+
+## デプロイメント戦略
+
+### カナリアデプロイメント
+
+ユーザーのサブセットに対して機能を有効化：
+
+```go
+func isFeatureEnabled(userID string, featureName string) bool {
+    // ユーザー固有の機能フラグを確認（例：データベースから）
+    if userHasAccess(userID, featureName) {
+        return true
+    }
+
+    // グローバル設定にフォールバック
+    return cfg.Features.Get(featureName)
+}
+```
+
+### A/B テスト
+
+機能フラグに基づいてトラフィックをルーティング：
+
+```go
+if experimentGroup(userID) == "variant_a" && cfg.Features.EnhancedMemory {
+    return useEnhancedMemory(ctx, req)
+}
+return useStandardMemory(ctx, req)
+```
+
+## モニタリングと可観測性
+
+デバッグ用に機能フラグの使用をログに記録：
+
+```go
+logger.Info("Feature flag check",
+    zap.String("feature", "ads_research"),
+    zap.Bool("enabled", cfg.Features.AdsResearch),
+    zap.String("user_id", userID),
+)
+```
+
+メトリクスを追加：
+
+```go
+featureFlagGauge.WithLabelValues("ads_research").Set(
+    boolToFloat64(cfg.Features.AdsResearch),
+)
+```
+
+## マイグレーションガイド
+
+### 新しい機能フラグの追加
+
+<Steps>
+  <Step title="設定でフラグを定義">
+    `config/shannon.yaml`に追加：
+
+```yaml
+features:
+  my_new_feature: false  # デフォルトは無効
+```
+  </Step>
+
+  <Step title="Go構造体を更新">
+    `go/orchestrator/internal/config/shannon.go`にフィールドを追加：
+
+```go
+type FeatureFlagsConfig struct {
+    // ... 既存のフラグ
+    MyNewFeature bool `json:"my_new_feature" yaml:"my_new_feature"`
+}
+```
+  </Step>
+
+  <Step title="コードで使用">
+    機能を制御：
+
+```go
+if cfg.Features.MyNewFeature {
+    return newFeatureBehavior()
+}
+return existingBehavior()
+```
+  </Step>
+
+  <Step title="テストを追加">
+    有効/無効の状態をテスト：
+
+```go
+func TestMyNewFeature_Enabled(t *testing.T) { /* ... */ }
+func TestMyNewFeature_Disabled(t *testing.T) { /* ... */ }
+```
+  </Step>
+
+  <Step title="文書化">
+    このページと環境変数の文書を更新。
+  </Step>
+</Steps>
+
+## 関連文書
+
+<CardGroup cols={2}>
+  <Card title="環境変数" icon="gear" href="/en/deployment/environment-variables">
+    設定オプションの完全なリスト
+  </Card>
+  <Card title="ベンダーアダプター" icon="puzzle-piece" href="/en/tutorials/vendor-adapters">
+    ベンダー固有の統合を構築
+  </Card>
+  <Card title="設定ガイド" icon="sliders" href="/en/quickstart/configuration">
+    Shannonの設定概要
+  </Card>
+  <Card title="Shannonの拡張" icon="code" href="/en/tutorials/extending-shannon">
+    カスタム機能とワークフローを追加
+  </Card>
+</CardGroup>

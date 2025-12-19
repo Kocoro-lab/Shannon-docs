@@ -1,0 +1,772 @@
+---
+title: "タスク送信"
+description: "新しいタスクをShannonに送信"
+---
+
+## エンドポイント
+
+```
+POST http://localhost:8080/api/v1/tasks
+```
+
+## 説明
+
+Shannonに新しいタスクを実行するために送信します。タスクは即座にキューに追加され、Temporalワークフローエンジンによって非同期に処理されます。
+
+## 認証
+
+**必須**: はい
+
+ヘッダーにAPIキーを含めてください:
+```
+X-API-Key: sk_test_123456
+```
+
+## リクエスト
+
+### ヘッダー
+
+| ヘッダー | 必須 | 説明 | 例 |
+|----------|------|------|----|
+| `X-API-Key` | はい | 認証キー | `sk_test_123456` |
+| `Content-Type` | はい | `application/json`である必要があります | `application/json` |
+| `Idempotency-Key` | いいえ | 冪等性のためのユニークキー | `550e8400-e29b-41d4-a716-446655440000` |
+| `traceparent` | いいえ | W3Cトレースコンテキスト | `00-4bf92f...` |
+
+### ボディパラメータ
+
+| パラメータ | タイプ | 必須 | 説明 |
+|-------------|--------|------|------|
+| `query` | string | はい | 自然言語のタスク説明 |
+| `session_id` | string | いいえ | マルチターン会話のためのセッション識別子 |
+| `context` | object | いいえ | キーと値のペアとしての追加コンテキストデータ |
+| `mode` | string | いいえ | ワークフロールーティング: `simple`, `standard`, `complex`, または `supervisor` |
+| `model_tier` | string | いいえ | 希望するティア: `small`, `medium`, または `large` |
+| `model_override` | string | いいえ | 特定のモデル名（標準; 例: `gpt-5`, `claude-sonnet-4-5-20250929`） |
+| `provider_override` | string | いいえ | プロバイダーを強制指定（例: `openai`, `anthropic`, `google`） |
+
+### リクエストボディスキーマ
+
+**例 1: 一般的なAI駆動の実行**
+
+```json
+{
+  "query": "Analyze August website traffic trends",              // 必須: 実行するタスク
+  "session_id": "analytics-session-123",                        // 任意: マルチターン会話のためのセッションID（省略時は自動生成）
+  "mode": "supervisor",                                         // 任意: ワークフロールーティング - "simple", "standard", "complex", または "supervisor"（デフォルト: 自動検出）
+  "model_tier": "large",                                        // 任意: モデルサイズ - "small", "medium", または "large"（デフォルト: "small"）
+  "model_override": "gpt-5",                                   // 任意: 特定のモデル（標準ID）
+  "provider_override": "openai",                                // 任意: 特定のプロバイダーを強制指定
+  "context": {                                                  // 任意: 実行コンテキストオブジェクト
+    "role": "data_analytics",                                   // 任意: ロールプリセット名（例: "analysis", "research", "writer"）
+    "system_prompt": "You are a data analyst specializing in website analytics.",              // 任意: カスタムシステムプロンプト（ロールプリセットを上書き）
+    "prompt_params": {                                         // 任意: プロンプト/ツール/アダプター用の任意のキーと値のペア
+      "profile_id": "49598h6e",                                // 例: カスタムパラメータ（ツール/アダプターに渡される）
+      "aid": "fcb1cd29-9104-47b1-b914-31db6ba30c1a",          // 例: カスタムパラメータ（アプリケーションID）
+      "current_date": "2025-10-31"                             // 例: カスタムパラメータ（現在の日付）
+    },
+    "history_window_size": 75,                                 // 任意: 最大会話履歴メッセージ数（デフォルト: 50）
+    "primers_count": 3,                                        // 任意: 保持する初期メッセージの数（デフォルト: 5）
+    "recents_count": 20,                                       // 任意: 保持する最近のメッセージの数（デフォルト: 15）
+    "compression_trigger_ratio": 0.75,                         // 任意: ウィンドウの75%で圧縮をトリガー（デフォルト: 0.8）
+    "compression_target_ratio": 0.375                          // 任意: ウィンドウの37.5%に圧縮（デフォルト: 0.5）
+  }
+}
+```
+
+**例 2: テンプレートのみの実行（AIなし）**
+
+```json
+{
+  "query": "Generate weekly research briefing",                 // 必須: タスク説明
+  "session_id": "research-session-456",                        // 任意: セッションID
+  "context": {                                                  // 任意: コンテキストオブジェクト
+    "template": "research_summary",                            // 任意: 使用するテンプレート名
+    "template_version": "1.0.0",                               // 任意: テンプレートバージョン（デフォルト: 最新）
+    "disable_ai": true,                                        // 任意: テンプレートのみのモード、AIフォールバックなし（デフォルト: false）
+    "prompt_params": {                                         // 任意: テンプレートレンダリング用のパラメータ
+      "week": "2025-W44"                                       // 例: テンプレート用のカスタムパラメータ
+    }
+  }
+}
+```
+
+<Warning>
+**避けるべきパラメータの競合:**
+- `template`と`template_name`の両方を使用しないでください（エイリアスです - `template`のみを使用）
+- **`disable_ai: true`とモデル制御を組み合わせないでください** - 競合が検出されるとゲートウェイは400エラーを返します:
+  - `disable_ai: true` + `model_tier` → 400
+  - `disable_ai: true` + `model_override` → 400
+  - `disable_ai: true` + `provider_override` → 400
+- トップレベルのパラメータはコンテキストの同等物を上書きします:
+  - トップレベルの`model_tier`は`context.model_tier`を上書きします
+  - トップレベルの`model_override`は`context.model_override`を上書きします
+  - トップレベルの`provider_override`は`context.provider_override`を上書きします
+</Warning>
+
+### コンテキストパラメータ (`context.*`)
+
+認識されたキー:
+
+- `role` — 役割プリセット（例: `analysis`, `research`, `writer`）
+- `system_prompt` — 役割プロンプトを上書き; `prompt_params`からの`${var}`をサポート
+- `prompt_params` — プロンプト/ツール/アダプタ用の任意のパラメータ
+- `model_tier` — トップレベルが提供されていない場合のフォールバック
+- `model_override` — 特定のモデル名（標準; 例: `gpt-5`, `claude-sonnet-4-5-20250929`）
+- `provider_override` — プロバイダーを強制（例: `openai`, `anthropic`, `google`）
+- `template` — テンプレート名（エイリアス: `template_name`）
+- `template_version` — テンプレートのバージョン
+- `disable_ai` — テンプレート専用モード（AIフォールバックなし） - **モデルコントロールと組み合わせることはできません**
+- ウィンドウコントロール: `history_window_size`, `use_case_preset`, `primers_count`, `recents_count`, `compression_trigger_ratio`, `compression_target_ratio`
+- **Deep Research 2.0 コントロール**（`force_research: true`の場合）:
+  - `iterative_research_enabled` — 反復カバレッジループの有効/無効（デフォルト: `true`）
+  - `iterative_max_iterations` — 最大反復回数 1-5（戦略プリセットのシードデフォルト; それ以外は`3`にフォールバック）
+  - `enable_fact_extraction` — 構造化された事実をメタデータに抽出（デフォルト: `false`）
+
+ルール:
+- トップレベルのパラメータはコンテキストの同等物を上書きします: `model_tier`, `model_override`, `provider_override`
+- `mode`は次をサポート: `simple|standard|complex|supervisor`（デフォルト: 自動検出）
+- `model_tier`は次をサポート: `small|medium|large`
+- **競合検証**: `disable_ai: true`は`model_tier`, `model_override`, または`provider_override`と組み合わせることはできません（400を返します）
+
+## レスポンス
+
+### 成功レスポンス
+
+**ステータス**: `200 OK`
+
+**ヘッダー**:
+- `X-Workflow-ID`: Temporalワークフロー識別子
+- `X-Session-ID`: セッション識別子（提供されていない場合は自動生成）
+
+**ボディ**:
+```json
+{
+  "task_id": "string",
+  "status": "string",
+  "message": "string (optional)",
+  "created_at": "timestamp"
+}
+```
+
+### レスポンスフィールド
+
+| フィールド | タイプ | 説明 |
+|------------|--------|------|
+| `task_id` | string | ユニークなタスク識別子（ワークフローIDでもある） |
+| `status` | string | 提出ステータス（例: `STATUS_CODE_OK`） |
+| `message` | string | オプションのステータスメッセージ |
+| `created_at` | timestamp | タスク作成時間（ISO 8601） |
+
+## 例
+
+### 基本タスク提出
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "フランスの首都は何ですか？"
+  }'
+```
+
+**レスポンス**:
+```json
+{
+  "task_id": "task_01HQZX3Y9K8M2P4N5S7T9W2V",
+  "status": "STATUS_CODE_OK",
+  "message": "タスクが正常に提出されました",
+  "created_at": "2025-10-22T10:30:00Z"
+}
+```
+
+### セッションIDを持つタスク（マルチターン）
+
+```bash
+# 最初のターン
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Pythonとは何ですか？",
+    "session_id": "user-123-chat"
+  }'
+
+# 2回目のターン（前のコンテキストを参照）
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "その主な利点は何ですか？",
+    "session_id": "user-123-chat"
+  }'
+```
+
+### コンテキストを持つタスク
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "このユーザーフィードバックを要約してください",
+    "context": {
+      "user_id": "user_12345",
+      "feedback_type": "bug_report",
+      "severity": "high",
+      "product": "mobile_app",
+      "role": "analysis",
+      "model_override": "gpt-5"
+    }
+  }'
+```
+
+### ティアを強制（トップレベル）
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "複雑な分析",
+    "model_tier": "large"
+  }'
+```
+
+### テンプレート専用実行
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "週次研究ブリーフィング",
+    "context": {"template": "research_summary", "template_version": "1.0.0", "disable_ai": true}
+  }'
+```
+
+### スーパーバイザーモード
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "システムの信頼性を評価する",
+    "mode": "supervisor"
+  }'
+```
+
+### Deep Research 2.0
+
+Deep Research 2.0は、包括的な研究タスクのための反復的なカバレッジ改善を提供します。
+
+```bash
+# 基本的なDeep Research（デフォルト設定を使用）
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "2025年のAIトレンド",
+    "context": {
+      "force_research": true
+    }
+  }'
+
+# カスタム反復（速いが、あまり徹底的ではない）
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "主要なLLMプロバイダーを比較する",
+    "context": {
+      "force_research": true,
+      "iterative_max_iterations": 2
+    }
+  }'
+
+# 反復モードを無効にする（レガシーリサーチを使用）
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "機械学習の基本を説明する",
+    "context": {
+      "force_research": true,
+      "iterative_research_enabled": false
+    }
+  }'
+```
+
+<Tip>
+**Deep Research 2.0**は、`force_research: true`のときにデフォルトで有効になります。包括的な結果を確保するために、カバレッジ評価を伴うマルチステージワークフローを使用します。深さを制御するには`iterative_max_iterations`を使用してください（1-5、デフォルト: 3）。
+</Tip>
+
+### 冪等性を持つ
+
+```bash
+# 冪等性キーを生成（UUIDを使用）
+IDEMPOTENCY_KEY=$(uuidgen)
+
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Idempotency-Key: $IDEMPOTENCY_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Q4の売上データを分析"
+  }'
+```
+
+### 分散トレーシングを使用
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "最新のAIトレンドを調査"
+  }'
+```
+
+## エラーレスポンス
+
+### 400 Bad Request
+
+**クエリが欠落**:
+```json
+{
+  "error": "クエリは必須です"
+}
+```
+
+**無効なJSON**:
+```json
+{
+  "error": "無効なリクエストボディ: 予期しないEOF"
+}
+```
+
+### 401 Unauthorized
+
+**APIキーが欠落**:
+```json
+{
+  "error": "認証されていません"
+}
+```
+
+**無効なAPIキー**:
+```json
+{
+  "error": "認証されていません"
+}
+```
+
+### 429 Too Many Requests
+
+```json
+{
+  "error": "レート制限を超えました"
+}
+```
+
+**ヘッダー**:
+- `X-RateLimit-Limit: 100`
+- `X-RateLimit-Remaining: 0`
+- `X-RateLimit-Reset: 1609459200`
+- `Retry-After: 60`
+
+### 500 Internal Server Error
+
+```json
+{
+  "error": "タスクの送信に失敗しました: データベース接続に失敗"
+}
+```
+
+## コード例
+
+### Python with httpx
+
+```python
+import httpx
+
+response = httpx.post(
+    "http://localhost:8080/api/v1/tasks",
+    headers={
+        "X-API-Key": "sk_test_123456",
+        "Content-Type": "application/json"
+    },
+    json={
+        "query": "フランスの首都はどこですか？"
+    }
+)
+
+if response.status_code == 200:
+    data = response.json()
+    print(f"タスクID: {data['task_id']}")
+    print(f"ステータス: {data['status']}")
+else:
+    print(f"エラー: {response.status_code}")
+    print(response.json())
+```
+
+### Python with requests
+
+```python
+import requests
+
+response = requests.post(
+    "http://localhost:8080/api/v1/tasks",
+    headers={
+        "X-API-Key": "sk_test_123456"
+    },
+    json={
+        "query": "顧客の感情を分析",
+        "context": {
+            "source": "twitter",
+            "date_range": "2025-10-01 to 2025-10-22"
+        }
+    }
+)
+
+task = response.json()
+print(f"タスクが送信されました: {task['task_id']}")
+```
+
+### JavaScript/Node.js
+
+```javascript
+const axios = require('axios');
+
+async function submitTask(query) {
+  try {
+    const response = await axios.post(
+      'http://localhost:8080/api/v1/tasks',
+      {
+        query: query
+      },
+      {
+        headers: {
+          'X-API-Key': 'sk_test_123456',
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    console.log('タスクID:', response.data.task_id);
+    console.log('ステータス:', response.data.status);
+
+    return response.data;
+  } catch (error) {
+    console.error('エラー:', error.response?.data || error.message);
+    throw error;
+  }
+}
+
+submitTask('量子コンピューティングとは何ですか？');
+```
+
+### cURL with Idempotency
+
+```bash
+#!/bin/bash
+
+API_KEY="sk_test_123456"
+IDEMPOTENCY_KEY=$(uuidgen)
+
+# タスクを送信
+RESPONSE=$(curl -s -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: $API_KEY" \
+  -H "Idempotency-Key: $IDEMPOTENCY_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Q4の収益トレンドを分析"
+  }')
+
+echo $RESPONSE | jq
+
+TASK_ID=$(echo $RESPONSE | jq -r '.task_id')
+echo "進捗を追跡: http://localhost:8088/workflows/$TASK_ID"
+```
+
+### Go
+
+```go
+package main
+
+import (
+    "bytes"
+    "encoding/json"
+    "fmt"
+    "net/http"
+)
+
+type TaskRequest struct {
+    Query     string                 `json:"query"`
+    SessionID string                 `json:"session_id,omitempty"`
+    Context   map[string]interface{} `json:"context,omitempty"`
+}
+
+type TaskResponse struct {
+    TaskID    string `json:"task_id"`
+    Status    string `json:"status"`
+    Message   string `json:"message,omitempty"`
+}
+
+func submitTask(query string) (*TaskResponse, error) {
+    req := TaskRequest{
+        Query: query,
+    }
+
+    body, _ := json.Marshal(req)
+
+    httpReq, _ := http.NewRequest(
+        "POST",
+        "http://localhost:8080/api/v1/tasks",
+        bytes.NewBuffer(body),
+    )
+
+    httpReq.Header.Set("X-API-Key", "sk_test_123456")
+    httpReq.Header.Set("Content-Type", "application/json")
+
+    client := &http.Client{}
+    resp, err := client.Do(httpReq)
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
+
+    var taskResp TaskResponse
+    json.NewDecoder(resp.Body).Decode(&taskResp)
+
+    return &taskResp, nil
+}
+
+func main() {
+    task, err := submitTask("機械学習とは何ですか？")
+    if err != nil {
+        fmt.Println("エラー:", err)
+        return
+    }
+
+    fmt.Printf("タスクID: %s\n", task.TaskID)
+    fmt.Printf("ステータス: %s\n", task.Status)
+}
+```
+
+## 実装の詳細
+
+### ワークフローの作成
+
+タスクを送信すると:
+
+1. **ゲートウェイがリクエストを受信** → 認証を検証し、レート制限を適用
+2. **セッションIDを生成** → 提供されていない場合はUUIDを自動生成
+3. **オーケストレーターgRPCを呼び出す** → `SubmitTask(metadata, query, context)`
+4. **オーケストレーターがTemporalワークフローを開始** → 耐久性のある実行
+5. **レスポンスが返される** → タスクID、初期ステータス
+6. **タスクが非同期に実行される** → HTTP接続とは独立して
+
+### 冪等性の動作
+
+冪等性キーを使用すると、重複タスクを作成することなく、安全にタスクの再送信が可能です。
+
+**動作の流れ**:
+1. **最初のリクエスト** `Idempotency-Key`を使用:
+   - Shannonがタスクを作成
+   - 24時間のTTLでRedisにレスポンスをキャッシュ
+   - タスクIDとステータスを返す
+
+2. **重複リクエスト**（同じ`Idempotency-Key`）:
+   - Shannonがキャッシュされたレスポンスを検出
+   - 新しいタスクを作成せずに**同じタスクID**を返す
+   - レスポンスは最初のリクエストと同一
+
+3. **24時間後**:
+   - キャッシュが期限切れ
+   - 同じキーでの新しいリクエストが新しいタスクを作成
+
+**キャッシュの詳細**:
+- **ストレージ**: Redis
+- **TTL**: 24時間（86400秒）
+- **キー形式**: `idempotency:<16-char-hash>`（冪等性キーにユーザーID、パス、リクエストボディを加えたSHA-256）
+- **スコープ**: 認証されたユーザーごと（ユーザーIDがハッシュの一部; 認証が無効な場合、ハッシュはヘッダー、パス、ボディに基づく）
+- **キャッシュされたレスポンス**: 2xxレスポンスのみが保存される; キャッシュヒットには`X-Idempotency-Cached: true`と`X-Idempotency-Key: <your-key>`が含まれる
+
+**ボディの動作**:
+リクエストボディが変更されると、キャッシュキーも変更されるため、ゲートウェイはそれを新しいリクエストとして扱います。重複検出は、ヘッダー、ユーザー、パス、ボディがすべて一致した場合にのみトリガーされます。
+
+**ベストプラクティス**: ユニークなリクエストボディごとにユニークなキーを生成すること。
+
+**例**:
+```python
+import uuid
+import httpx
+
+# ユニークキーを生成
+idempotency_key = str(uuid.uuid4())
+
+# 最初のリクエスト - タスクを作成
+response1 = httpx.post(
+    "http://localhost:8080/api/v1/tasks",
+    headers={"X-API-Key": "sk_test_123456", "Idempotency-Key": idempotency_key},
+    json={"query": "Q4の売上を分析"}
+)
+task_id_1 = response1.json()["task_id"]
+
+# 同じキーで再試行 - 同じタスクIDを返す
+response2 = httpx.post(
+    "http://localhost:8080/api/v1/tasks",
+    headers={"X-API-Key": "sk_test_123456", "Idempotency-Key": idempotency_key},
+    json={"query": "Q4の売上を分析"}
+)
+task_id_2 = response2.json()["task_id"]
+
+assert task_id_1 == task_id_2  # 同じタスク、重複なし
+```
+
+**使用するタイミング**:
+- ネットワーク再試行ロジック（タイムアウト時の重複タスクを避ける）
+- Webhook配信（重複Webhook呼び出しを処理）
+- 重要な操作（支払い、データ書き込み）
+- バックグラウンドジョブキュー（重複スケジューリングを防ぐ）
+
+### セッション管理
+
+- **セッションIDなし**: UUIDを自動生成し、新しいコンテキストを作成
+- **セッションIDあり**: Redisから以前の会話履歴を読み込む
+- **セッションの持続性**: デフォルトのTTLは30日
+- **マルチターン会話**: 同じ`session_id`を持つすべてのタスクがコンテキストを共有
+
+### コンテキストオブジェクト
+
+`context`オブジェクトはメタデータとして保存され、以下に渡されます:
+- エージェント実行環境
+- ツール呼び出し（`ctx.get("key")`でアクセス可能）
+- セッションメモリ（将来のターンで参照）
+
+**使用例**:
+- ユーザーの好み: `{"language": "spanish", "format": "markdown"}`
+- ビジネスコンテキスト: `{"company_id": "acme", "department": "sales"}`
+- 制約: `{"max_length": 500, "tone": "formal"}`
+
+## ベストプラクティス
+
+### 1. 重要なタスクには常に冪等性キーを使用
+
+```python
+import uuid
+
+idempotency_key = str(uuid.uuid4())
+
+response = httpx.post(
+    "http://localhost:8080/api/v1/tasks",
+    headers={
+        "X-API-Key": "sk_test_123456",
+        "Idempotency-Key": idempotency_key
+    },
+    json={"query": "注文 #12345 の支払いを処理"}
+)
+```
+
+### 2. 会話にはセッションを使用
+
+```python
+session_id = "user-456-chat"
+
+# ターン1
+httpx.post(..., json={
+    "query": "Q4の売上データを読み込む",
+    "session_id": session_id
+})
+
+# ターン2（ターン1のQ4データを参照）
+httpx.post(..., json={
+    "query": "Q3と比較する",
+    "session_id": session_id
+})
+```
+
+### 3. リッチなコンテキストを提供
+
+```python
+httpx.post(..., json={
+    "query": "この顧客フィードバックを分析",
+    "context": {
+        "customer_id": "cust_789",
+        "subscription_tier": "enterprise",
+        "account_age_days": 365,
+        "previous_tickets": 3,
+        "sentiment_history": ["positive", "neutral", "negative"]
+    }
+})
+```
+
+### 4. エラーを優雅に処理
+
+```python
+try:
+    response = httpx.post(..., timeout=30.0)
+    response.raise_for_status()
+    task = response.json()
+except httpx.TimeoutException:
+    print("リクエストがタイムアウトしました")
+except httpx.HTTPStatusError as e:
+    if e.response.status_code == 429:
+        retry_after = int(e.response.headers.get("Retry-After", 60))
+        time.sleep(retry_after)
+        # 再試行...
+    else:
+        print(f"エラー: {e.response.json()}")
+```
+
+### 5. タスクIDを保存して追跡
+
+```python
+response = httpx.post(...)
+task_id = response.json()["task_id"]
+workflow_id = response.headers["X-Workflow-ID"]
+
+# データベースに保存
+db.tasks.insert({
+    "task_id": task_id,
+    "workflow_id": workflow_id,
+    "user_id": "user_123",
+    "query": "...",
+    "created_at": datetime.now()
+})
+
+# 後で: ステータスを確認
+status = httpx.get(f"http://localhost:8080/api/v1/tasks/{task_id}")
+```
+
+## 一度の呼び出しで送信 + ストリーム
+
+<Tip>
+**リアルタイムの更新が必要ですか？** `POST /api/v1/tasks/stream`を使用して、タスクを送信し、ストリームURLを一度の呼び出しで取得できます。即時の進捗更新が必要なフロントエンドアプリケーションに最適です。
+
+例については[Unified Submit + Stream](/en/api/rest/streaming#unified-submit-stream-recommended)を参照してください。
+</Tip>
+
+## 関連エンドポイント
+
+<CardGroup cols={2}>
+  <Card title="送信 + ストリーム" icon="bolt" href="/en/api/rest/streaming#unified-submit-stream-recommended">
+    POST /api/v1/tasks/stream (UIに推奨)
+  </Card>
+  <Card title="タスクのステータスを取得" icon="circle-info" href="/en/api/rest/get-status">
+    GET /api/v1/tasks/{id}
+  </Card>
+  <Card title="ストリームイベント" icon="stream" href="/en/api/rest/streaming">
+    リアルタイムタスクイベント
+  </Card>
+  <Card title="タスクの一覧" icon="list" href="/en/api/rest/list-tasks">
+    GET /api/v1/tasks
+  </Card>
+  <Card title="Python SDK" icon="python" href="/en/sdk/python/quickstart">
+    代わりにSDKを使用
+  </Card>
+</CardGroup>

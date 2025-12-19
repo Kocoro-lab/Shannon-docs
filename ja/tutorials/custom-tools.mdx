@@ -1,0 +1,1085 @@
+---
+title: "カスタムツール"
+description: "Shannonのカスタムツールの作成"
+---
+
+## 概要
+
+Shannonは、カスタムツールを追加するための3つの方法をサポートしています。
+
+| 方法 | 最適 | コード変更 | 再起動が必要 |
+|------|------|------------|--------------|
+| **MCPツール** | 外部HTTP API、迅速なプロトタイピング | なし | ✅ サービスのみ |
+| **OpenAPIツール** | OpenAPI仕様のREST API | なし | ✅ サービスのみ |
+| **組み込みツール** | 複雑なロジック、データベースアクセス、パフォーマンス | Pythonコード | ✅ サービスのみ |
+
+<Note>
+Proto/Rust/Goの変更は不要 - すべてのツールは最大の柔軟性のために汎用コンテナを使用します。
+</Note>
+
+**主な機能:**
+- ✅ APIまたはYAML設定による動的登録
+- ✅ 組み込みのレート制限とサーキットブレーカー
+- ✅ セキュリティのためのドメイン許可リスト
+- ✅ コスト追跡と予算の強制
+
+## クイックスタート: MCPツールの追加
+
+MCP（Model Context Protocol）ツールを使用すると、HTTPエンドポイントをShannonツールとして統合することができ、コード変更は不要です。
+
+<Steps>
+  <Step title="ツール定義の追加">
+    `config/shannon.yaml`の`mcp_tools`セクションを編集します:
+
+```yaml
+mcp_tools:
+  weather_forecast:
+    enabled: true
+    url: "https://api.weather.com/v1/forecast"
+    func_name: "get_weather"
+    description: "特定の場所の天気予報を取得"
+    category: "data"
+    cost_per_use: 0.001
+    parameters:
+      - name: "location"
+        type: "string"
+        required: true
+        description: "都市名または座標"
+      - name: "units"
+        type: "string"
+        required: false
+        description: "温度単位 (摂氏/華氏)"
+        enum: ["celsius", "fahrenheit"]
+    headers:
+      X-API-Key: "${WEATHER_API_KEY}"  # .envから解決
+```
+
+必須フィールド:
+- `enabled`: `true`に設定して有効化
+- `url`: HTTPエンドポイント（POSTでなければならず、JSONを受け入れる）
+- `func_name`: 内部関数名
+- `description`: LLMに表示される明確な説明
+- `category`: ツールのカテゴリ（例: `search`, `data`, `analytics`, `code`）
+- `cost_per_use`: USDでの推定コスト
+- `parameters`: パラメータ定義の配列
+</Step>
+
+  <Step title="ドメインアクセスの設定">
+    **開発用（緩和）:**
+
+`.env`に追加:
+```bash
+MCP_ALLOWED_DOMAINS=*  # ワイルドカード - すべてのドメインを許可
+```
+
+**本番用（推奨）:**
+
+```bash
+MCP_ALLOWED_DOMAINS=localhost,127.0.0.1,api.weather.com,api.example.com
+```
+  </Step>
+
+  <Step title="APIキーの追加">
+    `.env`にAPIキーを追加:
+
+```bash
+# MCPツールAPIキー
+WEATHER_API_KEY=your_api_key_here
+STOCK_API_KEY=your_stock_key_here
+```
+  </Step>
+
+  <Step title="サービスの再起動">
+    <Warning>
+サービスを**再作成**する必要があります（単に再起動するだけではありません）:
+    </Warning>
+
+```bash
+docker compose -f deploy/compose/docker-compose.yml up -d --force-recreate llm-service
+```
+
+ヘルスチェックを待ちます:
+```bash
+docker inspect shannon-llm-service-1 --format='{{.State.Health.Status}}'
+```
+  </Step>
+
+  <Step title="登録の確認">
+    ログを確認:
+```bash
+docker compose logs llm-service | grep "Loaded MCP tool"
+```
+
+APIを介してツールをリスト:
+```bash
+curl http://localhost:8000/tools/list | jq .
+```
+
+ツールスキーマを取得:
+```bash
+curl http://localhost:8000/tools/weather_forecast/schema | jq .
+```
+  </Step>
+
+  <Step title="ツールのテスト">
+    **直接実行:**
+```bash
+curl -X POST http://localhost:8000/tools/execute \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tool_name": "weather_forecast",
+    "parameters": {"location": "Tokyo", "units": "celsius"}
+  }'
+```
+
+**ワークフロー経由:**
+```bash
+SESSION_ID="test-$(date +%s)" ./scripts/submit_task.sh "東京の天気予報は？"
+```
+  </Step>
+</Steps>
+
+### MCPリクエスト規約
+
+Shannonはこの形式でPOSTリクエストを送信します:
+
+```json
+{
+  "function": "get_weather",
+  "args": {
+    "location": "Tokyo",
+    "units": "celsius"
+  }
+}
+```
+
+あなたのエンドポイントはJSONを返す必要があります:
+```json
+{
+  "temperature": 18,
+  "condition": "Cloudy",
+  "humidity": 65
+}
+```
+
+### 代替: ランタイムAPI登録
+
+<Note>
+開発/テスト用のみ（再起動時にツールが失われます）:
+</Note>
+
+```bash
+# .envに管理者トークンを設定
+MCP_REGISTER_TOKEN=your_secret_token
+
+# ツールを登録
+curl -X POST http://localhost:8000/tools/mcp/register \
+  -H "Authorization: Bearer your_secret_token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "weather_forecast",
+    "url": "https://api.weather.com/v1/forecast",
+    "func_name": "get_weather",
+    "description": "天気予報を取得",
+    "category": "data",
+    "parameters": [
+      {"name": "location", "type": "string", "required": true},
+      {"name": "units", "type": "string", "enum": ["celsius", "fahrenheit"]}
+    ]
+  }'
+```
+
+## OpenAPIツールの追加
+
+OpenAPI 3.x仕様のREST APIの場合、Shannonはツールを自動的に生成できます。
+
+<Tip>
+カスタム変換が必要なドメイン固有のAPIについては、下記の[Vendor Adapter Pattern](#vendor-adapter-pattern)セクションまたは包括的な[Vendor Adapters Guide](/en/tutorials/vendor-adapters)を参照してください。
+</Tip>
+
+### 機能
+
+**サポートされている:**
+- ✅ OpenAPI 3.0および3.1仕様
+- ✅ URLベースまたはインライン仕様の読み込み
+- ✅ JSONリクエスト/レスポンスボディ
+- ✅ パスおよびクエリパラメータ
+- ✅ Bearer、APIキー（ヘッダー/クエリ）、Basic認証
+- ✅ operationIdまたはタグによる操作フィルタリング
+- ✅ サーキットブレーカー（5回の失敗 → 60秒のクールダウン）
+- ✅ 指数バックオフによるリトライロジック（3回のリトライ、`OPENAPI_RETRIES`で設定可能）
+- ✅ 設定可能なレート制限とタイムアウト
+- ✅ 相対サーバーURL（仕様URLに対して解決）
+- ✅ 基本的な`$ref`解決（`#/components/schemas/*`へのローカル参照）
+
+### 制限事項
+
+Shannon OpenAPI統合は、約70%のREST API（シンプルな認証を持つJSONベース）に対して本番環境で使用可能です。以下の機能は**まだサポートされていません：**
+
+<AccordionGroup>
+  <Accordion title="ファイルアップロードAPI (multipart/form-data)">
+    - ファイルやバイナリデータをアップロードできません
+    - **回避策**: JSONボディ内にbase64エンコードされたファイルを使用
+    - **影響を受ける**: 画像生成、ファイル処理、ドキュメントアップロードAPI
+  </Accordion>
+
+  <Accordion title="OAuth保護API">
+    - OAuth 2.0フロー（Authorization Code、Client Credentials）がありません
+    - Bearerトークン（手動取得のみ）を使用可能
+    - **影響を受ける**: Google APIs、GitHub、Slack、Twitterなど
+    - **回避策**: OAuthトークンを手動で取得し、`bearer` auth_typeを使用
+  </Accordion>
+
+  <Accordion title="複雑なパラメータエンコーディング">
+    - `style`、`explode`、または`deepObject`シリアル化がありません
+    - 基本的なパス/クエリパラメータの置換のみ
+    - **影響を受ける**: 複雑な配列/オブジェクトクエリパラメータを持つAPI
+  </Accordion>
+
+  <Accordion title="マルチファイルOpenAPI仕様">
+    - リモートの`$ref`解決がありません（例: `https://example.com/schemas/Pet.json`）
+    - ローカル参照（`#/components/...`）のみサポート
+    - **回避策**: 外部スキーマを単一の仕様ファイルに統合
+  </Accordion>
+
+  <Accordion title="高度なスキーマコンビネータ">
+    - `allOf`、`oneOf`、`anyOf`のサポートがありません
+    - 基本的な型マッピングのみ
+    - **影響を受ける**: 多態的な型や複雑なバリデーションを持つAPI
+  </Accordion>
+
+  <Accordion title="フォームエンコードされたリクエスト">
+    - `application/x-www-form-urlencoded`コンテンツタイプがありません
+    - JSONリクエストボディのみサポート
+ </Accordion>
+</AccordionGroup>
+
+**うまく機能するもの:**
+- ✅ JSONリクエスト/レスポンスを持つシンプルなREST API
+- ✅ Bearer/APIキー/基本認証を持つAPI
+- ✅ 読み取り重視の操作（GETリクエスト）
+- ✅ ローカル`$ref`参照を持つ構造化された仕様
+- ✅ パスおよびクエリパラメータ（プリミティブ）
+
+<Warning>
+相対サーバーURL（例: `/api/v3`）を持つ仕様の場合、Shannonが完全なベースURLを解決できるように、`spec_url`を介して仕様を提供する必要があります（`spec_inline`ではなく）。
+</Warning>
+
+### クイックスタート
+
+<Steps>
+  <Step title="ツール定義の追加">
+    `config/shannon.yaml`の`openapi_tools`を編集：
+
+```yaml
+openapi_tools:
+  petstore:
+    enabled: true
+    spec_url: "https://petstore3.swagger.io/api/v3/openapi.json"
+    # またはインライン仕様を使用：
+    # spec_inline: |
+    #   <ここにOpenAPI JSON/YAMLを貼り付け>
+
+    auth_type: "api_key"  # none|api_key|bearer|basic
+    auth_config:
+      api_key_name: "X-API-Key"           # ヘッダー名またはクエリパラメータ名
+      api_key_location: "header"          # header|query
+      api_key_value: "$PETSTORE_API_KEY"  # 環境変数には$プレフィックスを使用
+
+    category: "data"
+    base_cost_per_use: 0.001
+    rate_limit: 30                        # 分あたりのリクエスト数
+    timeout_seconds: 30                   # リクエストタイムアウト
+    max_response_bytes: 10485760          # 最大レスポンスサイズ（10MB）
+
+    # オプション: 特定の操作にフィルタリング
+    operations:
+      - "getPetById"
+      - "findPetsByStatus"
+
+    # オプション: タグによるフィルタリング
+    # tags:
+    #   - "pet"
+
+    # オプション: 仕様からベースURLをオーバーライド
+    # base_url: "https://custom-petstore.example.com"
+```
+  </Step>
+
+  <Step title="環境の設定">
+    `.env`に追加：
+
+```bash
+# OpenAPIセキュリティ
+OPENAPI_ALLOWED_DOMAINS=*                # 開発用には*、本番用には特定のドメインを使用
+OPENAPI_MAX_SPEC_SIZE=5242880            # デフォルトは5MB
+OPENAPI_FETCH_TIMEOUT=30                 # 秒数
+
+# APIキー
+PETSTORE_API_KEY=your_key_here
+GITHUB_TOKEN=ghp_xxxxxxxxxxxxx
+OPENWEATHER_API_KEY=your_key
+API_USERNAME=username
+API_PASSWORD=password
+
+# MCPと同じ登録トークン
+MCP_REGISTER_TOKEN=your_admin_token
+```
+  </Step>
+
+  <Step title="サービスの再起動">
+```bash
+docker compose -f deploy/compose/docker-compose.yml up -d --force-recreate llm-service
+```
+  </Step>
+
+  <Step title="検証とテスト">
+    **まず仕様を検証：**
+```bash
+curl -X POST http://localhost:8000/tools/openapi/validate \
+  -H "Content-Type: application/json" \
+  -d '{"spec_url": "https://petstore3.swagger.io/api/v3/openapi.json"}' | jq .
+```
+
+**レスポンス:**
+```json
+{
+  "valid": true,
+  "operations_count": 19,
+  "operations": [
+    {"operation_id": "getPetById", "method": "GET", "path": "/pet/{petId}"},
+    {"operation_id": "addPet", "method": "POST", "path": "/pet"}
+  ],
+  "base_url": "https://petstore3.swagger.io/api/v3"
+}
+```
+
+**ツールを実行：**
+```bash
+curl -X POST http://localhost:8000/tools/execute \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tool_name": "getPetById",
+    "parameters": {"petId": 1}
+  }' | jq .
+```
+  </Step>
+</Steps>
+
+### 認証の例
+
+<Tabs>
+  <Tab title="Bearerトークン">
+```yaml
+github:
+  enabled: true
+  spec_url: "https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.json"
+  auth_type: "bearer"
+  auth_config:
+    token: "$GITHUB_TOKEN"
+  operations:
+    - "repos/get"
+    - "repos/list-for-user"
+```
+  </Tab>
+
+  <Tab title="クエリ内のAPIキー">
+```yaml
+weather:
+  enabled: true
+  spec_url: "https://api.openweathermap.org/data/3.0/openapi.json"
+  auth_type: "api_key"
+  auth_config:
+    api_key_name: "appid"
+    api_key_location: "query"
+    api_key_value: "$OPENWEATHER_API_KEY"
+```
+  </Tab>
+
+  <Tab title="基本認証">
+```yaml
+custom_api:
+  enabled: true
+  spec_url: "https://api.example.com/openapi.json"
+  auth_type: "basic"
+  auth_config:
+    username: "$API_USERNAME"
+    password: "$API_PASSWORD"
+```
+  </Tab>
+
+  <Tab title="ヘッダー内のAPIキー">
+```yaml
+petstore:
+  enabled: true
+  spec_url: "https://petstore3.swagger.io/api/v3/openapi.json"
+  auth_type: "api_key"
+  auth_config:
+    api_key_name: "X-API-Key"
+    api_key_location: "header"
+    api_key_value: "$PETSTORE_API_KEY"
+```
+  </Tab>
+</Tabs>
+
+## ビルトインPythonツールの追加
+
+複雑なロジック、データベースアクセス、またはパフォーマンスが重要な操作のため。
+
+### ビルトインツールを使用するタイミング
+
+**ビルトインツールを使用する場合:**
+- データベース/Redisへの直接アクセスが必要
+- 複雑なPythonライブラリ（pandas、numpy）が必要
+- パフォーマンスが重要（HTTPラウンドトリップを避ける）
+- セッション状態管理が必要
+- セキュリティに敏感な操作を実装する
+
+**代わりにMCP/OpenAPIを使用する場合:**
+- 外部APIを統合する
+- ノーコードデプロイを希望する
+- 迅速にプロトタイピングする
+- サードパーティサービスを統合する
+
+<Steps>
+  <Step title="ツールクラスの作成">
+    `python/llm-service/llm_service/tools/builtin/my_custom_tool.py`にファイルを作成:
+
+```python
+from typing import Any, Dict, List, Optional
+from ..base import Tool, ToolMetadata, ToolParameter, ToolParameterType, ToolResult
+
+class MyCustomTool(Tool):
+    """
+    このツールの簡単な説明。
+    """
+
+    def _get_metadata(self) -> ToolMetadata:
+        """ツールのメタデータを定義します。"""
+        return ToolMetadata(
+            name="my_custom_tool",
+            version="1.0.0",
+            description="LLMがこのツールをいつ/どのように使用するかを理解するための明確な説明",
+            category="custom",  # search, data, analytics, code, file, custom
+            author="Your Name",
+            requires_auth=False,
+            timeout_seconds=30,
+            memory_limit_mb=128,
+            sandboxed=False,
+            session_aware=False,  # ツールがセッション状態を必要とする場合はTrueに設定
+            dangerous=False,      # ファイル書き込み、コード実行の場合はTrueに設定
+            cost_per_use=0.001,   # 呼び出しごとのUSD
+            rate_limit=60,        # 分あたりのリクエスト（基底クラスによって強制）
+        )
+
+    def _get_parameters(self) -> List[ToolParameter]:
+        """ツールパラメータを検証付きで定義します。"""
+        return [
+            ToolParameter(
+                name="required_param",
+                type=ToolParameterType.STRING,
+                description="LLMに表示される説明",
+                required=True,
+            ),
+            ToolParameter(
+                name="optional_number",
+                type=ToolParameterType.INTEGER,
+                description="オプションの数値パラメータ",
+                required=False,
+                default=10,
+                min_value=1,
+                max_value=100,
+            ),
+            ToolParameter(
+                name="choice_param",
+                type=ToolParameterType.STRING,
+                description="事前定義された選択肢を持つパラメータ",
+                required=False,
+                enum=["option1", "option2", "option3"],
+            ),
+        ]
+
+    async def _execute_impl(
+        self,
+        session_context: Optional[Dict] = None,
+        **kwargs
+    ) -> ToolResult:
+        """
+        ツールロジックを実行します。
+
+        Args:
+            session_context: session_aware=Trueの場合のセッションデータ
+            **kwargs: ツールパラメータ（自動的に検証されます）
+
+        Returns:
+            成功/エラーステータスを持つToolResult
+        """
+        try:
+            # パラメータを抽出（すでに基底クラスによって検証済み）
+            required_param = kwargs.get("required_param")
+            optional_number = kwargs.get("optional_number", 10)
+            choice_param = kwargs.get("choice_param")
+
+            # ツールロジックをここに記述
+            result = self._do_work(required_param, optional_number, choice_param)
+
+            return ToolResult(
+                success=True,
+                output=result,
+                metadata={"processed": True},
+                execution_time_ms=50,
+            )
+
+        except Exception as e:
+            return ToolResult(
+                success=False,
+                output=None,
+                error=f"ツールの実行に失敗しました: {str(e)}"
+            )
+
+    def _do_work(self, param1, param2, param3):
+        """実際の実装。"""
+        # 例: データベースクエリ、API呼び出し、計算
+        return {"result": "success", "data": [1, 2, 3]}
+```
+  </Step>
+
+  <Step title="ランタイム登録（オプション）">
+    APIを介してOpenAPIツールを動的に登録します（MCPと同じ管理トークンを使用）:
+
+```bash
+curl -X POST http://localhost:8000/tools/openapi/register \
+  -H "Authorization: Bearer $MCP_REGISTER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "petstore",
+    "spec_url": "https://petstore3.swagger.io/api/v3/openapi.json",
+    "auth_type": "none",
+    "operations": ["getPetById"],
+    "rate_limit": 30,
+    "timeout_seconds": 30
+  }'
+```
+
+レスポンスには登録された操作と有効な制限が含まれます。
+  </Step>
+
+  <Step title="ツールの登録">
+    `python/llm-service/llm_service/api/tools.py`の228行目付近を編集:
+
+```python
+# 上部にインポートを追加
+from ..tools.builtin.my_custom_tool import MyCustomTool
+
+# startup_event()の登録リストに追加
+@router.on_event("startup")
+async def startup_event():
+    registry = get_registry()
+
+    tools_to_register = [
+        WebSearchTool,
+        CalculatorTool,
+        FileReadTool,
+        FileWriteTool,
+        PythonWasiExecutorTool,
+        MyCustomTool,  # ここにツールを追加
+    ]
+
+    for tool_class in tools_to_register:
+        try:
+            registry.register(tool_class)
+            logger.info(f"登録されたツール: {tool_class.__name__}")
+        except Exception as e:
+            logger.error(f"{tool_class.__name__}の登録に失敗しました: {e}")
+```
+  </Step>
+
+  <Step title="サービスの再起動">
+```bash
+docker compose -f deploy/compose/docker-compose.yml up -d --force-recreate llm-service
+```
+  </Step>
+
+  <Step title="ツールのテスト">
+```bash
+# 登録を確認
+curl http://localhost:8000/tools/list | grep my_custom_tool
+
+# スキーマを取得
+curl http://localhost:8000/tools/my_custom_tool/schema | jq .
+
+# 実行
+curl -X POST http://localhost:8000/tools/execute \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tool_name": "my_custom_tool",
+    "parameters": {
+      "required_param": "test",
+      "optional_number": 42,
+      "choice_param": "option1"
+    }
+  }' | jq .
+```
+  </Step>
+</Steps>
+
+### 高度な: セッション対応ツール
+
+状態を保持するツールのために:
+
+```python
+class SessionAwareTool(Tool):
+    def _get_metadata(self) -> ToolMetadata:
+        return ToolMetadata(
+            name="session_tool",
+            session_aware=True,  # セッションコンテキストを有効にする
+            ...
+        )
+
+    async def _execute_impl(
+        self,
+        session_context: Optional[Dict] = None,
+        **kwargs
+    ) -> ToolResult:
+        # セッションデータにアクセス
+        session_id = session_context.get("session_id") if session_context else None
+        user_id = session_context.get("user_id") if session_context else None
+
+        # セッション固有のデータを保存/取得
+        # 例: Redis、データベース、メモリキャッシュ
+
+        return ToolResult(success=True, output={"session": session_id})
+```
+
+## 設定リファレンス
+
+### MCP ツール設定
+
+```yaml
+mcp_tools:
+  tool_name:
+    enabled: true                    # 必須: ツールの有効/無効
+    url: "https://api.example.com"   # 必須: HTTP エンドポイント
+    func_name: "function_name"       # 必須: リモート関数名
+    description: "Tool description"  # 必須: LLM 可視の説明
+    category: "data"                 # 必須: ツールカテゴリ
+    cost_per_use: 0.001             # 必須: USD でのコスト
+    parameters:                      # 必須: パラメータ定義
+      - name: "param1"
+        type: "string"               # string|integer|float|boolean|array|object
+        required: true
+        description: "Param description"
+        enum: ["val1", "val2"]       # オプション: 許可される値
+        default: "val1"              # オプション: デフォルト値
+    headers:                         # オプション: HTTP ヘッダー
+      X-API-Key: "${API_KEY_VAR}"   # 環境変数には ${} を使用
+```
+
+### OpenAPI ツール設定
+
+```yaml
+openapi_tools:
+  collection_name:
+    enabled: true
+    spec_url: "https://api.example.com/openapi.json"  # または spec_inline
+    auth_type: "none"                # none|api_key|bearer|basic
+    auth_config:                     # auth_type != "none" の場合必須
+      # api_key の場合:
+      api_key_name: "X-API-Key"
+      api_key_location: "header"     # header|query
+      api_key_value: "$API_KEY"
+      # bearer の場合:
+      token: "$BEARER_TOKEN"
+      # basic の場合:
+      username: "$USERNAME"
+      password: "$PASSWORD"
+    category: "api"
+    base_cost_per_use: 0.001
+    rate_limit: 30                   # 分あたりのリクエスト数
+    timeout_seconds: 30              # リクエストタイムアウト
+    max_response_bytes: 10485760     # 最大レスポンスサイズ (バイト)
+    operations:                      # オプション: 操作をフィルタリング
+      - "operationId1"
+      - "operationId2"
+    tags:                            # オプション: タグでフィルタリング
+      - "tag1"
+    base_url: "https://override.com" # オプション: スペックのベースURLをオーバーライド
+```
+
+### 環境変数
+
+**MCP 設定:**
+```bash
+# ドメインセキュリティ
+MCP_ALLOWED_DOMAINS=localhost,127.0.0.1,api.example.com  # または開発用に *
+ 
+# サーキットブレーカー
+MCP_CB_FAILURES=5                    # サーキットが開く前の失敗回数
+MCP_CB_RECOVERY_SECONDS=60           # サーキットオープンの期間
+
+# リクエスト制限
+MCP_MAX_RESPONSE_BYTES=10485760      # デフォルトは10MB
+MCP_RETRIES=3                        # リトライ回数
+MCP_TIMEOUT_SECONDS=10               # リクエストタイムアウト
+
+# 登録セキュリティ
+MCP_REGISTER_TOKEN=your_secret       # API 登録保護
+```
+
+**OpenAPI 設定:**
+```bash
+# ドメインセキュリティ
+OPENAPI_ALLOWED_DOMAINS=*            # カンマ区切りまたは開発用に *
+OPENAPI_MAX_SPEC_SIZE=5242880        # スペックサイズ制限は5MB
+OPENAPI_FETCH_TIMEOUT=30             # スペック取得タイムアウト
+
+# リクエスト動作
+OPENAPI_RETRIES=2                    # リトライ回数 (デフォルト: 2)
+```
+
+## テスト & 検証
+
+### ヘルスチェック
+
+```bash
+# 管理サービスのヘルスチェック
+curl http://localhost:8081/health/ready | jq .
+curl http://localhost:8081/health/live | jq .
+
+# LLM サービスのステータスチェック
+docker inspect shannon-llm-service-1 --format='{{.State.Health.Status}}'
+```
+
+### ツールのリスト
+
+```bash
+# すべてのツール
+curl http://localhost:8000/tools/list | jq .
+
+# カテゴリ別
+curl "http://localhost:8000/tools/list?category=data" | jq .
+
+# 危険なものを除外
+curl "http://localhost:8000/tools/list?exclude_dangerous=true" | jq .
+
+# カテゴリのリスト
+curl http://localhost:8000/tools/categories | jq .
+```
+
+### ツールの実行
+
+**直接実行:**
+```bash
+curl -X POST http://localhost:8000/tools/execute \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tool_name": "calculator",
+    "parameters": {"expression": "sqrt(144) + 2^3"}
+  }' | jq .
+```
+
+**バッチ実行:**
+```bash
+curl -X POST http://localhost:8000/tools/batch-execute \
+  -H "Content-Type: application/json" \
+  -d '[
+    {"tool_name": "calculator", "parameters": {"expression": "2+2"}},
+    {"tool_name": "calculator", "parameters": {"expression": "10*5"}}
+  ]' | jq .
+```
+
+**ワークフロー経由:**
+```bash
+SESSION_ID="test-$(date +%s)" ./scripts/submit_task.sh "Calculate 2+2 and then multiply by 5"
+```
+
+## トラブルシューティング
+
+<AccordionGroup>
+  <Accordion title="ツールが登録されていない">
+    症状: ツールが `/tools/list` に表示されない
+
+デバッグ手順:
+```bash
+# 1. YAML 構文を確認
+yamllint config/shannon.yaml
+
+# 2. エラーログを確認
+docker compose logs llm-service | grep -i error
+
+# 3. 有効フラグを確認
+grep -A 10 "my_tool" config/shannon.yaml | grep enabled
+
+# 4. サービスを強制再作成
+docker compose -f deploy/compose/docker-compose.yml up -d --force-recreate llm-service
+
+# 5. ヘルスチェックを待つ
+sleep 10
+docker inspect shannon-llm-service-1 --format='{{.State.Health.Status}}'
+```
+  </Accordion>
+
+  <Accordion title="ドメイン検証エラー">
+    症状: `URL host 'example.com' not in allowed domains`
+
+解決策:
+
+1. 開発: ワイルドカードを使用
+   ```bash
+   # .env
+   MCP_ALLOWED_DOMAINS=*
+   OPENAPI_ALLOWED_DOMAINS=*
+   ```
+
+2. 本番: 特定のドメインを追加
+   ```bash
+   # .env
+   MCP_ALLOWED_DOMAINS=localhost,127.0.0.1,api.example.com
+   OPENAPI_ALLOWED_DOMAINS=api.example.com,api.github.com
+   ```
+  </Accordion>
+
+  <Accordion title="ツールの実行に失敗">
+    症状: `ToolResult { success: false, error: "..." }`
+
+デバッグ:
+```bash
+# 1. ツールを直接テスト
+curl -X POST http://localhost:8000/tools/execute \
+  -H "Content-Type: application/json" \
+  -d '{"tool_name":"my_tool","parameters":{...}}' | jq .
+
+# 2. パラメータの型を確認
+curl http://localhost:8000/tools/my_tool/schema | jq '.parameters'
+
+# 3. エージェントコアのログを確認
+docker logs shannon-agent-core-1 | grep "Tool execution error"
+
+# 4. LLM サービスのログを確認
+docker logs shannon-llm-service-1 | grep my_tool
+```
+  </Accordion>
+
+  <Accordion title="サーキットブレーカーがトリガーされた">
+    症状: `Circuit breaker open for <url> (too many failures)`
+
+デバッグ:
+```bash
+# 最近のエラーを確認
+docker logs shannon-llm-service-1 --tail 100 | grep -i "circuit\|failure"
+
+# 回復を待つ（デフォルト 60秒）
+sleep 60
+
+# または再起動してリセット
+docker compose restart llm-service
+```
+
+防止策:
+
+<ul>
+  <li>失敗の閾値を増加: <code>MCP_CB_FAILURES=10</code></li>
+  <li>回復時間を増加: <code>MCP_CB_RECOVERY_SECONDS=120</code></li>
+  <li>根本的な API の問題を修正</li>
+</ul>
+
+</Accordion>
+</AccordionGroup>
+
+## セキュリティベストプラクティス
+
+### ドメインの許可リスト
+
+<Tabs>
+  <Tab title="開発">
+```bash
+# テスト用に緩和
+MCP_ALLOWED_DOMAINS=*
+OPENAPI_ALLOWED_DOMAINS=*
+```
+  </Tab>
+
+  <Tab title="ステージング">
+```bash
+# 特定のドメイン + localhost
+MCP_ALLOWED_DOMAINS=localhost,127.0.0.1,staging-api.example.com
+```
+  </Tab>
+
+  <Tab title="本番">
+```bash
+# 明示的な許可リストのみ
+MCP_ALLOWED_DOMAINS=api.example.com,api.partner.com
+OPENAPI_ALLOWED_DOMAINS=api.github.com,api.openweathermap.org
+```
+  </Tab>
+</Tabs>
+
+### API キー管理
+
+<Warning>
+API キーを設定ファイルにハードコーディングしないでください！
+</Warning>
+
+**❌ 悪い例:**
+```yaml
+headers:
+  X-API-Key: "sk-1234567890abcdef"
+```
+
+**✅ 良い例:**
+```yaml
+headers:
+  X-API-Key: "${WEATHER_API_KEY}"
+```
+
+**`.env` に保存（git で追跡されない）:**
+```bash
+# .env
+WEATHER_API_KEY=sk-real-key-here
+STOCK_API_KEY=your-stock-key
+```
+
+**本番用:** シークレット管理を使用
+- Docker シークレット
+- Kubernetes シークレット
+- HashiCorp Vault
+- AWS Secrets Manager
+
+### 危険なツール
+
+状態を変更したり、機密リソースにアクセスするツールにマークを付ける:
+
+```python
+ToolMetadata(
+    name="file_write",
+    dangerous=True,        # OPA ポリシーチェックをトリガー
+    requires_auth=True,    # ユーザー認証が必要
+    ...
+)
+```
+
+## ベンダーアダプターパターン
+
+**ドメイン特有の API とカスタムエージェント用**
+
+プロプライエタリまたは内部 API を統合する際に、ドメイン特有の変換が必要な場合は、**ベンダーアダプターパターン**を使用して、ベンダーロジックを Shannon のコアインフラストラクチャから分離します。
+
+### 使用するタイミング
+
+API 統合が次のことを必要とする場合にベンダーアダプタを使用します:
+- カスタムフィールド名のエイリアス（例: `users` → `my:unique_users`）
+- リクエスト/レスポンスの変換
+- セッションコンテキストからの動的パラメータの注入
+- ドメイン特有の検証または正規化
+- カスタムシステムプロンプトを持つ専門的なエージェントロール
+
+### クイック例
+
+<Steps>
+  <Step title="ベンダーアダプタを作成">
+    `python/llm-service/llm_service/tools/vendor_adapters/myvendor.py`:
+
+```python
+class MyVendorAdapter:
+    def transform_body(self, body, operation_id, prompt_params):
+        # フィールド名を変換
+        if isinstance(body.get("metrics"), list):
+            body["metrics"] = [m.replace("users", "my:users") for m in body["metrics"]]
+
+        # セッションパラメータを注入
+        if prompt_params and "account_id" in prompt_params:
+            body["account_id"] = prompt_params["account_id"]
+
+        return body
+```
+  </Step>
+
+  <Step title="アダプタを登録">
+    `python/llm-service/llm_service/tools/vendor_adapters/__init__.py`:
+
+```python
+def get_vendor_adapter(name: str):
+    if name.lower() == "myvendor":
+        from .myvendor import MyVendorAdapter
+        return MyVendorAdapter()
+    return None
+```
+  </Step>
+
+  <Step title="ベンダーフラグで設定">
+    `config/overlays/shannon.myvendor.yaml`:
+
+```yaml
+openapi_tools:
+  myvendor_api:
+    enabled: true
+    spec_url: file:///app/config/openapi_specs/myvendor_api.yaml
+    auth_type: bearer
+    auth_config:
+      vendor: myvendor  # アダプタの読み込みをトリガー
+      token: "${MYVENDOR_API_TOKEN}"
+    category: custom
+```
+  </Step>
+
+  <Step title="環境を使用">
+```bash
+SHANNON_CONFIG_PATH=config/overlays/shannon.myvendor.yaml
+MYVENDOR_API_TOKEN=your_token_here
+```
+  </Step>
+</Steps>
+
+### 利点
+
+- ✅ **クリーンな分離:** ベンダーコードがShannonコアから隔離されている
+- ✅ **コアの変更なし:** Shannonインフラストラクチャは汎用的なまま
+- ✅ **条件付きロード:** ベンダーモジュールが利用できない場合の優雅なフォールバック
+- ✅ **簡単なテスト:** アダプターを単体でテスト可能
+- ✅ **シークレット管理:** すべてのトークンは環境変数経由
+
+### 完全ガイド
+
+以下を含む包括的なガイド:
+- 専門分野向けのカスタムエージェントロール
+- セッションコンテキスト注入パターン
+- テスト戦略
+- ベストプラクティスとトラブルシューティング
+
+<Card title="Vendor Adapters Guide" icon="plug" href="/en/tutorials/vendor-adapters">
+  アダプターパターンを使用してベンダー特有の統合を構築する方法を学ぶ
+</Card>
+
+## 概要
+
+**ツールを追加する3つの方法:**
+
+| 方法 | コマンド | 設定ファイル | コード変更 |
+|------|----------|--------------|-------------|
+| **MCP** | `docker compose up -d --force-recreate llm-service` | `config/shannon.yaml` | なし |
+| **OpenAPI** | `docker compose up -d --force-recreate llm-service` | `config/shannon.yaml` | なし |
+| **組み込み** | `docker compose up -d --force-recreate llm-service` | `api/tools.py` + 新しいファイル | Pythonのみ |
+
+**重要なポイント:**
+- ✅ プロトタイプ/Rust/Goの変更なし（汎用的な`google.protobuf.Struct`コンテナ）
+- ✅ セキュリティが組み込まれている（ドメインホワイトリスト、レート制限、サーキットブレーカー）
+- ✅ コスト追跡が自動（メタデータに`cost_per_use`を設定）
+- ✅ スキーマ駆動（OpenAI互換のJSONスキーマ）
+
+## 次のステップ
+
+<CardGroup cols={2}>
+  <Card title="Vendor Adapters" icon="plug" href="/en/tutorials/vendor-adapters">
+    ベンダー特有の統合を構築する
+  </Card>
+  <Card title="Extending Shannon" icon="puzzle-piece" href="/en/tutorials/extending-shannon">
+    すべての拡張方法を探る
+  </Card>
+  <Card title="Configuration" icon="gear" href="/en/quickstart/configuration">
+    完全な設定リファレンス
+  </Card>
+  <Card title="API Reference" icon="code" href="/en/api/overview">
+    REST APIを探る
+  </Card>
+</CardGroup>

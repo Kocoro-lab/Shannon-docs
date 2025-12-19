@@ -1,0 +1,677 @@
+---
+title: "ベンダーアダプター"
+description: "新しいLLMプロバイダーの追加"
+---
+
+## 概要
+
+**ベンダーアダプターパターン**は、ドメイン特化型エージェントやツールをShannonに統合することを可能にし、コアコードベースを汚染しません。このパターンは、以下の間にクリーンな分離を維持します：
+
+- **汎用Shannonインフラストラクチャ**（オープンソースにコミット）
+- **ベンダー特有の実装**（プライベートまたは別のリポジトリに保持）
+
+<CardGroup cols={2}>
+  <Card title="コア変更なし" icon="code">
+    Shannonのコアコードベースに変更は不要
+  </Card>
+  <Card title="クリーンな分離" icon="layer-group">
+    汎用インフラストラクチャとベンダー特有のロジック
+  </Card>
+  <Card title="簡単なメンテナンス" icon="screwdriver-wrench">
+    ベンダーロジックは別のディレクトリに隔離
+  </Card>
+  <Card title="優雅なフォールバック" icon="shield-check">
+    ベンダーモジュールがなくてもShannonは動作
+  </Card>
+</CardGroup>
+
+## ベンダーアダプタを使用するタイミング
+
+<Tip>
+ドメイン特有の要件を持つ独自または内部APIを統合する際にベンダーアダプタを使用してください。
+</Tip>
+
+**ベンダーアダプタを使用する場合：**
+- 独自/内部APIをドメイン特有の要件と統合する
+- OpenAPIツール用のカスタムリクエスト/レスポンス変換が必要
+- 特定のビジネスドメイン向けの専門的なエージェントを構築する
+- フィールド名の命名規則が内部システムと異なる
+- セッションコンテキストからの動的パラメータ注入が必要
+- カスタム認証またはヘッダーロジックが必要
+
+**使用例：**
+- アナリティクスプラットフォーム（メトリクスのエイリアス、時間範囲の正規化）
+- Eコマースシステム（製品フィールドのマッピング、SKUの変換）
+- CRM統合（連絡先フィールドの正規化）
+- 内部マイクロサービス（カスタム認証トークン、テナントID）
+- ドメイン特有のデータ検証
+
+## アーキテクチャ
+
+### ファイル構造
+
+```
+Shannon/
+├── config/
+│   ├── shannon.yaml                          # ベース設定（汎用、コミット済み）
+│   └── overlays/
+│       └── shannon.myvendor.yaml             # ベンダーオーバーレイ（未コミット）
+├── config/openapi_specs/
+│   └── myvendor_api.yaml                     # ベンダーAPI仕様（未コミット）
+├── python/llm-service/llm_service/
+│   ├── roles/
+│   │   ├── presets.py                        # 汎用ロール + 条件付きインポート
+│   │   └── myvendor/                         # ベンダーロールモジュール（未コミット）
+│   │       ├── __init__.py
+│   │       └── custom_agent.py               # 専門的なエージェントロール
+│   └── tools/
+│       ├── openapi_tool.py                   # 汎用OpenAPIローダー（コミット済み）
+│       └── vendor_adapters/                  # ベンダーアダプタ（未コミット）
+│           ├── __init__.py                   # アダプタレジストリ
+│           └── myvendor.py                   # ベンダー特有の変換
+```
+
+### コンポーネントの責任
+
+| コンポーネント | 責任 | OSSへのコミット |
+|----------------|------|------------------|
+| **設定オーバーレイ** | ベンダー特有のツール設定 | ❌ いいえ |
+| **OpenAPI仕様** | APIスキーマ定義 | ❌ いいえ |
+| **ベンダーアダプタ** | リクエスト/レスポンス変換 | ❌ いいえ |
+| **ベンダーロール** | 専門的なエージェントシステムプロンプト | ❌ いいえ |
+| **汎用インフラストラクチャ** | コアOpenAPI/ロールシステム | ✅ はい |
+
+## クイックスタート例
+
+架空のアナリティクスプラットフォーム「DataInsight」の完全なベンダー統合を作成しましょう。
+
+<Steps>
+  <Step title="ベンダーアダプタの作成">
+    `python/llm-service/llm_service/tools/vendor_adapters/datainsight.py`を作成します：
+
+```python
+"""DataInsight Analytics APIのためのベンダーアダプタ。"""
+from typing import Any, Dict, List, Optional
+
+
+class DataInsightAdapter:
+    """DataInsight APIの規約に合わせてリクエストを変換します。"""
+
+    def transform_body(
+        self,
+        body: Dict[str, Any],
+        operation_id: str,
+        prompt_params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        DataInsight API用にリクエストボディを変換します。
+
+        Args:
+            body: LLMからの元のリクエストボディ
+            operation_id: OpenAPI操作ID
+            prompt_params: セッションコンテキストパラメータ（オーケストレーターによって注入）
+
+        Returns:
+            DataInsight APIの期待に合った変換されたボディ
+        """
+        if not isinstance(body, dict):
+            return body
+
+        # セッションコンテキストを注入（prompt_paramsからのaccount_id、user_id）
+        if prompt_params and isinstance(prompt_params, dict):
+            if "account_id" in prompt_params and "account_id" not in body:
+                body["account_id"] = prompt_params["account_id"]
+            if "user_id" in prompt_params and "user_id" not in body:
+                body["user_id"] = prompt_params["user_id"]
+
+        # 操作特有の変換
+        if operation_id == "queryMetrics":
+            body = self._transform_query_metrics(body)
+        elif operation_id == "getDimensionValues":
+            body = self._transform_dimension_values(body)
+
+        return body
+
+    def _transform_query_metrics(self, body: Dict) -> Dict:
+        """メトリクスクエリリクエストを変換します。"""
+        # メトリクス名を正規化（省略形をサポート）
+        metric_aliases = {
+            "users": "di:unique_users",
+            "sessions": "di:total_sessions",
+            "pageviews": "di:page_views",
+            "bounce_rate": "di:bounce_rate",
+        }
+
+        if isinstance(body.get("metrics"), list):
+            body["metrics"] = [
+                metric_aliases.get(m, m) for m in body["metrics"]
+            ]
+
+        # 時間範囲フォーマットを正規化
+        if "timeRange" in body and isinstance(body["timeRange"], dict):
+            tr = body["timeRange"]
+            # startTime/endTimeを確保（start/endではなく）
+            if "start" in tr:
+                tr["startTime"] = tr.pop("start")
+            if "end" in tr:
+                tr["endTime"] = tr.pop("end")
+
+        # sortを期待されるフォーマットに変換
+        if isinstance(body.get("sort"), dict):
+            field = body["sort"].get("field")
+            order = body["sort"].get("order", "DESC").upper()
+            body["sort"] = {"field": field, "direction": order}
+
+        return body
+
+    def _transform_dimension_values(self, body: Dict) -> Dict:
+        """次元値リクエストを変換します。"""
+        dimension_aliases = {
+            "country": "di:geo_country",
+            "device": "di:device_type",
+            "source": "di:traffic_source",
+        }
+
+        if "dimension" in body:
+            body["dimension"] = dimension_aliases.get(
+                body["dimension"], body["dimension"]
+            )
+
+        return body
+```
+  </Step>
+
+  <Step title="アダプタの登録">
+    `python/llm-service/llm_service/tools/vendor_adapters/__init__.py`を編集します：
+
+```python
+from typing import Optional
+
+
+def get_vendor_adapter(name: str):
+    """名前によってベンダーアダプタインスタンスを返す。利用できない場合はNoneを返す。"""
+    if not name:
+        return None
+    try:
+        if name.lower() == "datainsight":
+            from .datainsight import DataInsightAdapter
+            return DataInsightAdapter()
+        # ここに他のベンダーを追加
+        # elif name.lower() == "othervendor":
+        #     from .othervendor import OtherVendorAdapter
+        #     return OtherVendorAdapter()
+    except Exception:
+        return None
+    return None
+```
+  </Step>
+
+  <Step title="設定オーバーレイの作成">
+    `config/overlays/shannon.datainsight.yaml`を作成します：
+
+```yaml
+# DataInsight Analytics統合
+# 使用法: SHANNON_CONFIG_PATH=config/overlays/shannon.datainsight.yaml
+
+openapi_tools:
+  datainsight_analytics:
+    enabled: true
+    spec_path: config/openapi_specs/datainsight_api.yaml
+    auth_type: bearer
+    auth_config:
+      vendor: datainsight  # これがアダプタの読み込みをトリガー
+      token: "${DATAINSIGHT_API_TOKEN}"
+      extra_headers:
+        X-Account-ID: "{{body.account_id}}"  # リクエストボディから動的
+        X-User-ID: "${DATAINSIGHT_USER_ID}"   # 環境から静的
+    category: analytics
+    base_cost_per_use: 0.002
+    rate_limit: 60
+    timeout_seconds: 30
+    operations:
+      - queryMetrics
+      - getDimensionValues
+```
+  </Step>
+
+  <Step title="ベンダーロールの作成（オプション）">
+    `python/llm-service/llm_service/roles/datainsight/analytics_agent.py`を作成します：
+
+```python
+"""DataInsight Analyticsエージェントロールプリセット。"""
+
+ANALYTICS_AGENT_PRESET = {
+    "name": "datainsight_analytics",
+    "system_prompt": """あなたはDataInsight Analytics APIにアクセスできる専門的なデータアナリティクスエージェントです。
+
+あなたの使命：ウェブアナリティクスデータから実用的な洞察を提供すること。
+
+## 利用可能なツール
+- queryMetrics: ユーザー、セッション、ページビュー、バウンス率などのメトリクスを取得
+- getDimensionValues: 次元値を取得（国、デバイス、トラフィックソース）
+
+## 出力フォーマット
+常に応答を次のように構成してください：
+1. **dataResult**ブロック（JSON） - 可視化用
+2. **Summary**セクション - 主要な発見
+3. **Insights**セクション - 実用的な推奨事項
+
+## ベストプラクティス
+- 常にクエリに時間範囲を含める
+- メトリクスエイリアスを使用する："users"、"sessions"、"pageviews"（自動変換）
+- コンテキストに関連する次元をリクエストする
+- 可能な場合は比較分析を提供する
+- 異常やトレンドを強調する
+
+覚えておいてください：あなたの目標は、ユーザーがデータを理解し、より良い意思決定を行うのを助けることです。""",
+
+    "allowed_tools": [
+        "queryMetrics",
+        "getDimensionValues",
+    ],
+
+    "temperature": 0.7,
+    "response_format": None,
+}
+```
+
+> 注：`allowed_tools`の意味は`/agent/query`に対して：
+> - 省略/`null` → ロールプリセットがツールを有効にする可能性あり
+> - `[]` → ツール無効
+> - `["name", …]` → これらのツールのみが利用可能（名前は登録されたツールと一致する必要あり）
+
+`python/llm-service/llm_service/roles/presets.py`に登録します：
+
+```python
+# _load_presets()関数の最後に：
+try:
+    from .datainsight.analytics_agent import ANALYTICS_AGENT_PRESET
+    _PRESETS["datainsight_analytics"] = ANALYTICS_AGENT_PRESET
+except ImportError:
+    pass  # ベンダーモジュールが利用できない場合の優雅なフォールバック
+```
+  </Step>
+
+  <Step title="環境変数の追加">
+    `.env`に追加します：
+
+```bash
+# DataInsight設定
+SHANNON_CONFIG_PATH=config/overlays/shannon.datainsight.yaml
+DATAINSIGHT_API_TOKEN=your_bearer_token_here
+DATAINSIGHT_USER_ID=your_user_id_here
+
+# ドメイン許可リスト（開発：*を使用、製品：特定のドメイン）
+OPENAPI_ALLOWED_DOMAINS=api.datainsight.com
+```
+  </Step>
+
+  <Step title="統合のテスト">
+    再構築してテストします：
+
+```bash
+# サービスを再構築
+docker compose -f deploy/compose/docker-compose.yml build --no-cache llm-service orchestrator
+docker compose -f deploy/compose/docker-compose.yml up -d
+
+# 健康状態を待つ
+sleep 10
+
+# gRPC経由でテスト
+SESSION_ID="test-$(date +%s)"
+grpcurl -plaintext -d '{
+  "metadata": {
+    "user_id": "test-user",
+    "session_id": "'$SESSION_ID'"
+  },
+  "query": "過去30日間のユーザー成長トレンドを見せて",
+  "context": {
+    "role": "datainsight_analytics",
+    "prompt_params": {
+      "account_id": "acct_12345",
+      "user_id": "user_67890"
+    }
+  }
+}' localhost:50052 shannon.orchestrator.OrchestratorService/SubmitTask
+```
+  </Step>
+</Steps>
+
+## コンポーネントガイド
+
+### 1. ベンダーアダプタークラス
+
+**目的:** ベンダー固有のAPI規約に合わせてリクエスト/レスポンスを変換する
+
+**一般的な変換パターン:**
+- **フィールドエイリアス**: `revenue` → `total_revenue`
+- **メトリックプレフィックス**: `users` → `my:users`
+- **時間範囲の正規化**: `{start, end}` → `{startTime, endTime}`
+- **ソート形式の変換**: `{field, order}` → `{column, direction}`
+- **フィルタ構造の再構築**: リスト → 論理演算子を持つオブジェクト
+- **デフォルトの注入**: セッションコンテキストから不足している必須フィールドを追加
+
+### 2. 設定オーバーレイ
+
+**目的:** 基本設定を変更せずにベンダー固有のツール設定を定義する
+
+**ヘッダー値:**
+- `"${ENV_VAR}"` - 環境変数から解決される
+- 静的文字列 - そのまま使用
+
+<Note>
+リクエストボディからの動的ヘッダーテンプレート（例: `{{body.field}}`）はサポートされていません。ヘッダーがボディ/セッションの値に依存する必要がある場合は、次のいずれかを行ってください:
+- OpenAPI仕様で明示的なヘッダーとして定義し、ツールパラメータとして渡す、または
+- ベンダーアダプターを使用してリクエストボディを整形し、ヘッダーは静的/環境駆動のままにする。
+</Note>
+
+### 3. ベンダー役割
+
+**目的:** ドメイン固有の知識とツール制限を持つ専門のエージェント
+
+**テンプレート:**
+```python
+"""ベンダー固有のエージェント役割。"""
+
+MY_AGENT_PRESET = {
+    "name": "my_agent",
+
+    "system_prompt": """あなたは[domain]の専門エージェントです。
+
+あなたの使命: [clear objective]
+
+## 利用可能なツール
+- tool1: [description]
+- tool2: [description]
+
+## 出力形式
+[specific format requirements]
+
+## ベストプラクティス
+- [guideline 1]
+- [guideline 2]
+
+覚えておいてください: [key instruction]""",
+
+    "allowed_tools": [
+        "tool1",
+        "tool2",
+    ],
+
+    "temperature": 0.7,
+    "response_format": None,  # または {"type": "json_object"}
+}
+```
+
+> 注: `allowed_tools`を明示的に渡すと、リストに記載されたツールのみがLLMに利用可能になります。ツールを無効にするには空のリスト`[]`を渡してください。
+
+## ベストプラクティス
+
+<AccordionGroup>
+  <Accordion title="アダプターを一般化する">
+    **✅ 良い例:** フィールド名を変換し、デフォルトを注入
+
+```python
+def transform_body(self, body, operation_id, prompt_params):
+    # 一般的なフィールドの正規化
+    if "start_date" in body and "startTime" not in body:
+        body["startTime"] = body.pop("start_date")
+    return body
+```
+
+**❌ 悪い例:** アダプター内のビジネスロジック
+
+```python
+def transform_body(self, body, operation_id, prompt_params):
+    # ここで複雑なビジネスロジックを行わない
+    if body["revenue"] > 1000000:
+        body["alert"] = "high_revenue"  # アプリケーション層に属する
+```
+  </Accordion>
+
+  <Accordion title="優雅なフォールバックを使用する">
+```python
+try:
+    from .myvendor import MyVendorAdapter
+    return MyVendorAdapter()
+except ImportError:
+    pass  # Shannonはベンダーモジュールなしで動作します
+except Exception as e:
+    logger.warning(f"ベンダーアダプターの読み込みに失敗しました: {e}")
+return None
+```
+  </Accordion>
+
+  <Accordion title="変換を文書化する">
+```python
+def transform_body(self, body, operation_id, prompt_params):
+    """
+    MyVendor API用にボディを変換します。
+
+    変換内容:
+    - メトリック名: "users" → "mv:unique_users"
+    - 時間範囲: {start, end} → {startTime, endTime}
+    - ソート形式: {field, order} → {column, direction}
+    - prompt_paramsからtenant_idを注入
+    """
+```
+  </Accordion>
+
+  <Accordion title="秘密は環境に保管する">
+    **✅ 良い例:**
+```yaml
+auth_config:
+  token: "${MYVENDOR_TOKEN}"
+```
+
+**❌ 悪い例:**
+```yaml
+auth_config:
+  token: "sk-1234567890abcdef"  # ハードコーディングは避ける！
+```
+  </Accordion>
+
+  <Accordion title="孤立してテストする">
+```python
+# tests/test_myvendor_adapter.py
+def test_metric_aliasing():
+    adapter = MyVendorAdapter()
+    body = {"metrics": ["users", "sessions"]}
+    result = adapter.transform_body(body, "queryMetrics", None)
+    assert result["metrics"] == ["mv:unique_users", "mv:total_sessions"]
+```
+  </Accordion>
+
+  <Accordion title="変換前に検証する">
+```python
+def transform_body(self, body, operation_id, prompt_params):
+    if not isinstance(body, dict):
+        return body  # dict以外は変換しない
+
+    # 必須フィールドの検証
+    if operation_id == "queryData" and "metrics" not in body:
+        return body  # APIに検証エラーを返させる
+```
+  </Accordion>
+</AccordionGroup>
+
+## テストと検証
+
+### ユニットテストアダプター
+
+```python
+# tests/vendor/test_datainsight_adapter.py
+import pytest
+from llm_service.tools.vendor_adapters.datainsight import DataInsightAdapter
+
+
+def test_metric_aliasing():
+    adapter = DataInsightAdapter()
+    body = {"metrics": ["users", "pageviews"]}
+    result = adapter.transform_body(body, "queryMetrics", None)
+    assert result["metrics"] == ["di:unique_users", "di:page_views"]
+
+
+def test_session_param_injection():
+    adapter = DataInsightAdapter()
+    body = {}
+    prompt_params = {"account_id": "acct_123", "user_id": "user_456"}
+    result = adapter.transform_body(body, "queryMetrics", prompt_params)
+    assert result["account_id"] == "acct_123"
+    assert result["user_id"] == "user_456"
+
+
+def test_time_range_normalization():
+    adapter = DataInsightAdapter()
+    body = {"timeRange": {"start": "2025-01-01", "end": "2025-01-31"}}
+    result = adapter.transform_body(body, "queryMetrics", None)
+    assert result["timeRange"]["startTime"] == "2025-01-01"
+    assert result["timeRange"]["endTime"] == "2025-01-31"
+    assert "start" not in result["timeRange"]
+```
+
+### 統合テスト
+
+```bash
+#!/bin/bash
+# tests/e2e/test_datainsight_integration.sh
+
+SESSION_ID="test-datainsight-$(date +%s)"
+
+# テストクエリを送信
+grpcurl -plaintext -d '{
+  "metadata": {"user_id": "test", "session_id": "'$SESSION_ID'"},
+  "query": "Show user growth for the past week",
+  "context": {
+    "role": "datainsight_analytics",
+    "prompt_params": {
+      "account_id": "test_account",
+      "user_id": "test_user"
+    }
+  }
+}' localhost:50052 shannon.orchestrator.OrchestratorService/SubmitTask
+
+# アダプターアプリケーションのログを確認
+docker logs shannon-llm-service-1 --tail 100 | grep "datainsight"
+```
+
+## トラブルシューティング
+
+<AccordionGroup>
+  <Accordion title="アダプターが読み込まれない">
+    症状: ログに「Vendor adapter '' applied」と表示される（空文字）
+
+修正:
+```yaml
+# 設定オーバーレイでベンダー名が設定されていることを確認
+auth_config:
+  vendor: myvendor  # アダプター名と一致する必要があります
+```
+  </Accordion>
+
+  <Accordion title="インポートに失敗する">
+    症状: `ImportError: No module named 'myvendor'`
+
+修正:
+```python
+# __init__.pyでtry/exceptを使用
+try:
+    from .myvendor import MyVendorAdapter
+    return MyVendorAdapter()
+except ImportError as e:
+    logger.warning(f"Vendor adapter not available: {e}")
+    return None
+```
+  </Accordion>
+
+  <Accordion title="変換が適用されない">
+    症状: APIが元のボディを受け取る（変換されていない）
+
+デバッグ:
+```python
+# アダプターにロギングを追加
+def transform_body(self, body, operation_id, prompt_params):
+    logger.info(f"BEFORE transform: {body}")
+    # ... 変換処理 ...
+    logger.info(f"AFTER transform: {body}")
+    return body
+```
+
+確認:
+
+1. `__init__.py`にアダプターが登録されている
+2. 設定でベンダー名が一致している
+3. `auth_config.vendor`フィールドが存在する
+4. アダプターが修正された辞書を返す（Noneではない）
+  </Accordion>
+
+  <Accordion title="セッションパラメータが注入されない">
+    症状: アダプター内の`prompt_params`がNone
+
+原因: オーケストレーターがセッションコンテキストを送信していない
+
+修正: gRPCリクエストでコンテキストが送信されていることを確認:
+```json
+{
+  "context": {
+    "role": "my_agent",
+    "prompt_params": {
+      "account_id": "123",
+      "user_id": "456"
+    }
+  }
+}
+```
+  </Accordion>
+</AccordionGroup>
+
+## 概要
+
+<Card title="ベンダーアダプターの利点" icon="check">
+  - ✅ クリーンな分離: 一般的なコードとベンダー固有のコード
+  - ✅ Shannonコアの変更は不要
+  - ✅ 優雅なフォールバックを伴う条件付き読み込み
+  - ✅ 環境ベースのシークレット管理
+  - ✅ 隔離してテスト可能
+  - ✅ メンテナンスと拡張が容易
+</Card>
+
+**3つのコンポーネント:**
+1. **ベンダーアダプター** - リクエスト/レスポンスの変換
+2. **設定オーバーレイ** - ツールの設定
+3. **ベンダーロール** - 専門的なエージェント（オプション）
+
+**クイックリファレンス:**
+```bash
+# 構造
+config/overlays/shannon.myvendor.yaml
+config/openapi_specs/myvendor_api.yaml
+python/llm-service/llm_service/tools/vendor_adapters/myvendor.py
+python/llm-service/llm_service/roles/myvendor/my_agent.py
+
+# 環境
+SHANNON_CONFIG_PATH=config/overlays/shannon.myvendor.yaml
+MYVENDOR_API_TOKEN=your_token
+
+# テスト
+docker compose build --no-cache llm-service orchestrator
+docker compose up -d
+./scripts/submit_task.sh "Your query here"
+```
+
+## 次のステップ
+
+<CardGroup cols={2}>
+  <Card title="カスタムツール" icon="wrench" href="/en/tutorials/custom-tools">
+    カスタムツールの追加方法を学ぶ
+  </Card>
+  <Card title="Shannonの拡張" icon="puzzle-piece" href="/en/tutorials/extending-shannon">
+    他の拡張方法を探る
+  </Card>
+  <Card title="設定" icon="gear" href="/en/quickstart/configuration">
+    設定の完全なリファレンス
+  </Card>
+  <Card title="アーキテクチャ" icon="sitemap" href="/en/architecture/overview">
+    Shannonのアーキテクチャを理解する
+  </Card>
+</CardGroup>

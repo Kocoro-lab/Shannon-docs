@@ -1,0 +1,580 @@
+---
+title: "OpenAPIツール"
+description: "OpenAPI仕様をShannonに統合"
+---
+
+## 概要
+
+ShannonはOpenAPI 3.x仕様からツールを自動生成でき、コードを書くことなく任意のREST APIを統合できます。OpenAPIローダーは以下の機能を持っています：
+
+- ✅ OpenAPI 3.0/3.1仕様を解析
+- ✅ 操作ごとに1つのツールを生成
+- ✅ 認証を処理（Bearer、API Key、Basic）
+- ✅ パス/クエリ/ヘッダーのパラメータをサポート
+- ✅ サーキットブレーカーとレート制限を含む
+- ✅ スキーマに対してリクエストを検証
+- ✅ `$ref`参照をローカルで解決
+
+<Tip>
+**クイックスタート**: ステップバイステップの手順については[カスタムツールの追加ガイド](/en/tutorials/custom-tools#adding-openapi-tools)を参照してください。
+</Tip>
+
+## 設定リファレンス
+
+### 基本設定
+
+```yaml
+# config/shannon.yaml または config/overlays/shannon.myvendor.yaml
+openapi_tools:
+  tool_collection_name:
+    enabled: true | false                   # このツールコレクションを有効/無効にする
+    spec_path: string                       # OpenAPI仕様ファイルのパス
+    spec_url: string                        # または: 仕様を取得するためのURL
+    spec_inline: string                     # または: インラインYAML/JSON仕様
+
+    auth_type: none | api_key | bearer | basic
+    auth_config: object                     # 認証設定（下記参照）
+
+    category: string                        # ツールカテゴリ（例: "analytics", "data"）
+    base_cost_per_use: float               # 操作ごとの推定コスト（USD）
+    rate_limit: integer                     # 分あたりのリクエスト数（デフォルト: 30）
+    timeout_seconds: float                  # リクエストタイムアウト（デフォルト: 30）
+    max_response_bytes: integer             # 最大レスポンスサイズ（デフォルト: 10MB）
+
+    operations: [string]                    # オプション: operationIdでフィルタリング
+    tags: [string]                          # オプション: タグでフィルタリング
+    base_url: string                        # オプション: 仕様のベースURLをオーバーライド
+```
+
+### フィールドの説明
+
+| フィールド | 型 | 必須 | デフォルト | 説明 |
+|-------|------|----------|---------|-------------|
+| `enabled` | boolean | はい | - | このツールコレクションを有効にする |
+| `spec_path` | string | spec_*のいずれか | - | OpenAPI仕様のローカルファイルパス |
+| `spec_url` | string | spec_*のいずれか | - | 仕様を取得するためのURL（相対サーバーURLをサポート） |
+| `spec_inline` | string | spec_*のいずれか | - | インラインYAML/JSON仕様の内容 |
+| `auth_type` | enum | はい | `none` | 認証方法 |
+| `auth_config` | object | auth ≠ noneの場合 | `{}` | 認証設定（タイプによって異なる） |
+| `category` | string | いいえ | `"api"` | 組織のためのツールカテゴリ |
+| `base_cost_per_use` | float | いいえ | `0.001` | 呼び出しごとの推定コスト（USD） |
+| `rate_limit` | integer | いいえ | `30` | ツールごとの分あたりの最大リクエスト数 |
+| `timeout_seconds` | float | いいえ | `30.0` | HTTPリクエストのタイムアウト |
+| `max_response_bytes` | integer | いいえ | `10485760` | 最大レスポンスサイズ（10MB） |
+| `operations` | array[string] | いいえ | すべて | 特定のoperationIdsでフィルタリング |
+| `tags` | array[string] | いいえ | すべて | タグで操作をフィルタリング |
+| `base_url` | string | いいえ | 仕様から | APIのベースURLをオーバーライド |
+
+## 認証タイプ
+
+### 認証なし
+
+```yaml
+openapi_tools:
+  public_api:
+    enabled: true
+    spec_url: https://api.example.com/openapi.json
+    auth_type: none
+```
+
+### Bearerトークン
+
+使用例: GitHub、GitLab、ほとんどの最新API
+
+```yaml
+openapi_tools:
+  github_api:
+    enabled: true
+    spec_url: https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.json
+    auth_type: bearer
+    auth_config:
+      token: "${GITHUB_TOKEN}"              # 環境変数から
+      # または:
+      # token: "ghp_xxxxxxxxxxxxx"          # ハードコーディング（推奨されません）
+```
+
+**環境変数**:
+```bash
+GITHUB_TOKEN=ghp_your_token_here
+```
+
+**送信されるヘッダー**:
+```
+Authorization: Bearer ghp_your_token_here
+```
+
+### ヘッダー内のAPIキー
+
+使用例: OpenAI、Anthropic、多くのSaaS API
+
+```yaml
+openapi_tools:
+  openai_api:
+    enabled: true
+    spec_url: https://raw.githubusercontent.com/openai/openai-openapi/master/openapi.yaml
+    auth_type: api_key
+    auth_config:
+      api_key_name: Authorization                # ヘッダー名
+      api_key_location: header                   # "header"または"query"
+      api_key_value: "Bearer ${OPENAI_API_KEY}"  # プレフィックス付きの値
+```
+
+**環境変数**:
+```bash
+OPENAI_API_KEY=sk-your-key-here
+```
+
+**送信されるヘッダー**:
+```
+Authorization: Bearer sk-your-key-here
+```
+
+### クエリパラメータ内のAPIキー
+
+使用例: OpenWeather、一部のレガシーAPI
+
+```yaml
+openapi_tools:
+  weather_api:
+    enabled: true
+    spec_url: https://api.openweathermap.org/data/3.0/openapi.json
+    auth_type: api_key
+    auth_config:
+      api_key_name: appid                   # クエリパラメータ名
+      api_key_location: query               # "query"、ヘッダーではない
+      api_key_value: "${OPENWEATHER_KEY}"
+```
+
+**リクエストURL**:
+```
+GET https://api.openweathermap.org/data/3.0/weather?appid=your_key_here&q=London
+```
+
+### Basic認証
+
+使用例: レガシーAPI、内部サービス
+
+```yaml
+openapi_tools:
+  legacy_api:
+    enabled: true
+    spec_path: config/openapi_specs/legacy_api.yaml
+    auth_type: basic
+    auth_config:
+      username: "${API_USERNAME}"
+      password: "${API_PASSWORD}"
+```
+
+**環境変数**:
+```bash
+API_USERNAME=admin
+API_PASSWORD=secret123
+```
+
+**送信されるヘッダー**:
+```
+Authorization: Basic YWRtaW46c2VjcmV0MTIz
+```
+
+### カスタムヘッダー
+
+ベンダー固有の認証のために:
+
+```yaml
+openapi_tools:
+  custom_api:
+    enabled: true
+    spec_url: https://api.custom.com/v1/openapi.json
+    auth_type: api_key
+    auth_config:
+      vendor: myvendor                      # ベンダーアダプターをトリガー
+      api_key_name: X-API-Key
+      api_key_location: header
+      api_key_value: "${CUSTOM_API_KEY}"
+      extra_headers:
+        X-Account-ID: "{{body.account_id}}"  # リクエストボディから動的に
+        X-User-ID: "${CUSTOM_USER_ID}"       # 環境から静的に
+        X-Timestamp: "{{timestamp}}"          # 動的テンプレート
+```
+
+<Note>
+**動的ヘッダーテンプレート**:
+- `"${ENV_VAR}"` - 環境から解決
+- `"{{body.field}}"` - 実行時にリクエストボディから解決
+- 静的文字列 - そのまま使用
+</Note>
+
+## 高度な機能
+
+### 操作フィルタリング
+
+**operationIdによるフィルタリング**（推奨）:
+```yaml
+openapi_tools:
+  petstore:
+    spec_url: https://petstore3.swagger.io/api/v3/openapi.json
+    operations:
+      - getPetById              # この操作のツールのみ生成
+      - findPetsByStatus
+      - addPet
+```
+
+**タグによるフィルタリング**:
+```yaml
+openapi_tools:
+  petstore:
+    spec_url: https://petstore3.swagger.io/api/v3/openapi.json
+    tags:
+      - pet                     # "pet" タグの操作のみ
+      - user
+```
+
+### ベースURLのオーバーライド
+
+仕様からベースURLをオーバーライド:
+
+```yaml
+openapi_tools:
+  api_staging:
+    spec_url: https://api.example.com/openapi.json
+    base_url: https://staging-api.example.com  # ステージングを使用
+```
+
+**ユースケース**:
+- ステージング/開発環境でのテスト
+- 内部プロキシやゲートウェイ
+- ローカル開発
+
+### レート制限
+
+外部APIを過負荷から保護:
+
+```yaml
+openapi_tools:
+  expensive_api:
+    spec_url: https://expensive.api.com/openapi.json
+    rate_limit: 10              # 1分あたり10リクエストのみ
+    timeout_seconds: 60         # 遅い操作のための60秒タイムアウト
+```
+
+**ツールごとの制限**: 仕様から生成された各操作はこの制限を継承します。
+
+**動作**:
+- トークンバケットアルゴリズムで強制
+- すべてのツールインスタンスで共有（単一のShannonインスタンス）
+- 制限を超えた場合はエラーを返す
+
+### サーキットブレーカー
+
+自動的な障害保護:
+
+**設定**（環境経由）:
+```bash
+# 5回の失敗後にサーキットブレーカーが開く
+# 再試行を許可する前に60秒間オープンのまま
+# （これらはデフォルトで、ツールごとに直接設定可能ではない）
+```
+
+**状態**:
+1. **閉じた**（通常）: すべてのリクエストが通過
+2. **開いた**（失敗中）: すべてのリクエストが即座に拒否
+3. **半開き**（テスト中）: 1回の試行リクエストが許可される
+
+**動作**:
+- 5回連続で失敗 → サーキットを開く
+- サーキットは60秒間オープンのまま
+- その後、1回の試行リクエストを許可（半開き）
+- 成功 → サーキットを閉じる
+- 失敗 → さらに60秒間再オープン
+
+### レスポンスサイズ制限
+
+メモリの枯渇を防ぐ:
+
+```yaml
+openapi_tools:
+  api_with_large_responses:
+    spec_url: https://api.example.com/openapi.json
+    max_response_bytes: 52428800  # 50MB制限
+```
+
+**動作**:
+- 制限を超えるレスポンスは切り捨てられる
+- 切り捨てマーカー付きのエラーが返される
+
+## トラブルシューティング
+
+### ツールが登録されていない
+
+**症状**: ツールが `/tools/list` に表示されない
+
+**デバッグ**:
+```bash
+# 1. 仕様が有効か確認
+curl -X POST http://localhost:8000/tools/openapi/validate \
+  -H "Content-Type: application/json" \
+  -d '{"spec_url": "https://api.example.com/openapi.json"}'
+
+# 2. ログを確認
+docker logs shannon-llm-service-1 | grep -i "openapi"
+
+# 3. 有効フラグを確認
+grep -A 5 "my_tool" config/shannon.yaml | grep enabled
+```
+
+**一般的な原因**:
+- config内の `enabled: false`
+- 無効なOpenAPI仕様
+- `OPENAPI_ALLOWED_DOMAINS` にドメインが含まれていない
+- 仕様取得タイムアウト
+- 循環参照の `$ref`
+
+### ドメイン検証エラー
+
+**症状**: `URL host 'example.com' not in allowed domains`
+
+**修正**:
+```bash
+# 開発: すべてを許可
+OPENAPI_ALLOWED_DOMAINS=*
+
+# 本番: 特定のドメイン
+OPENAPI_ALLOWED_DOMAINS=api.github.com,api.example.com,api.partner.com
+```
+
+**docker-compose.yml内**:
+```yaml
+services:
+  llm-service:
+    environment:
+      - OPENAPI_ALLOWED_DOMAINS=api.example.com
+```
+
+### 仕様取得タイムアウト
+
+**症状**: `Failed to fetch OpenAPI spec: timeout`
+
+**修正**:
+```bash
+# タイムアウトを増加（デフォルト: 30s）
+OPENAPI_FETCH_TIMEOUT=60
+
+# またはローカル仕様ファイルを使用
+openapi_tools:
+  my_api:
+    spec_path: config/openapi_specs/my_api.yaml  # ローカルファイル
+```
+
+### サーキットブレーカーがトリガーされた
+
+**症状**: `Circuit breaker open for https://api.example.com`
+
+**デバッグ**:
+```bash
+# 最近のエラーを確認
+docker logs shannon-llm-service-1 --tail 100 | grep -i "circuit\|failure"
+```
+
+**修正**:
+- 自動回復のために60秒待つ
+- 基本的なAPIの問題を修正
+- APIが遅い場合はタイムアウトを増加:
+  ```yaml
+  timeout_seconds: 60
+  ```
+
+### レート制限超過
+
+**症状**: `Rate limit exceeded for tool my_tool`
+
+**修正**:
+```yaml
+# 制限を増加
+openapi_tools:
+  my_api:
+    rate_limit: 120  # 1分あたり120リクエスト
+```
+
+### 認証失敗
+
+**症状**: `401 Unauthorized` または `403 Forbidden`
+
+**デバッグ**:
+```bash
+# 環境変数を確認
+env | grep API_KEY
+
+# トークンを手動でテスト
+curl -H "Authorization: Bearer $YOUR_TOKEN" https://api.example.com/endpoint
+```
+
+**一般的な原因**:
+- 環境変数が設定されていない
+- トークンが期限切れ
+- 認証タイプが間違っている（`api_key` ではなく `bearer` であるべき）
+- APIキー認証のための `Bearer` プレフィックスが欠落
+
+## 例
+
+### 例 1: GitHub API
+
+```yaml
+openapi_tools:
+  github:
+    enabled: true
+    spec_url: https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.json
+    auth_type: bearer
+    auth_config:
+      token: "${GITHUB_TOKEN}"
+    category: development
+    rate_limit: 60
+    operations:
+      - repos/get
+      - repos/list-for-user
+      - issues/list-for-repo
+```
+
+**使用法**:
+```bash
+./scripts/submit_task.sh "ユーザー octocat のすべてのリポジトリをリストする"
+```
+
+### 例 2: OpenWeather API
+
+```yaml
+openapi_tools:
+  openweather:
+    enabled: true
+    spec_url: https://api.openweathermap.org/data/3.0/openapi.json
+    auth_type: api_key
+    auth_config:
+      api_key_name: appid
+      api_key_location: query
+      api_key_value: "${OPENWEATHER_API_KEY}"
+    category: data
+    rate_limit: 60
+```
+
+**使用法**:
+```bash
+./scripts/submit_task.sh "東京の天気予報は？"
+```
+
+### 例 3: ベンダーアダプターを使用した内部API
+
+```yaml
+openapi_tools:
+  internal_analytics:
+    enabled: true
+    spec_path: config/openapi_specs/internal_analytics.yaml
+    auth_type: bearer
+    auth_config:
+      vendor: mycompany                     # ベンダーアダプターをトリガー
+      token: "${ANALYTICS_API_TOKEN}"
+      extra_headers:
+        X-Tenant-ID: "{{body.tenant_id}}"
+    category: analytics
+    base_cost_per_use: 0.005
+```
+
+**ベンダーアダプター** (`python/llm-service/llm_service/tools/vendor_adapters/mycompany.py`):
+```python
+class MyCompanyAdapter:
+    def transform_body(self, body, operation_id, prompt_params):
+        # テナントコンテキストを追加
+        if prompt_params and "tenant_id" in prompt_params:
+            body["tenant_id"] = prompt_params["tenant_id"]
+
+        # メトリック名を変換
+        if "metrics" in body:
+            body["metrics"] = [f"myco:{m}" for m in body["metrics"]]
+
+        return body
+```
+
+## セキュリティベストプラクティス
+
+<AccordionGroup>
+  <Accordion title="シークレットをハードコーディングしない">
+    ```yaml
+    # ❌ 悪い例
+    auth_config:
+      token: "sk-1234567890"
+
+    # ✅ 良い例
+    auth_config:
+      token: "${API_TOKEN}"
+    ```
+  </Accordion>
+
+  <Accordion title="ドメインのホワイトリストを使用する">
+    ```bash
+    # 本番環境
+    OPENAPI_ALLOWED_DOMAINS=api.trusted.com,api.partner.com
+
+    # これはダメ: OPENAPI_ALLOWED_DOMAINS=*
+    ```
+  </Accordion>
+
+  <Accordion title="適切なレート制限を設定する">
+    ```yaml
+    rate_limit: 60  # APIプロバイダーの制限に合わせる
+    ```
+  </Accordion>
+
+  <Accordion title="HTTPSを使用する">
+    - Shannonは外部APIのHTTPを自動的にHTTPSにアップグレードします
+    - localhost/127.0.0.1は開発用にHTTPで許可されています
+  </Accordion>
+
+  <Accordion title="レスポンスサイズを制限する">
+    ```yaml
+    max_response_bytes: 10485760  # デフォルトは10MB
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## 関連情報
+
+<CardGroup cols={2}>
+  <Card title="カスタムツールの追加" icon="wrench" href="/en/tutorials/custom-tools">
+    ツール統合ガイド
+  </Card>
+  <Card title="ベンダーアダプター" icon="plug" href="/en/tutorials/vendor-adapters">
+    ドメイン特化型統合
+  </Card>
+  <Card title="Shannonの拡張" icon="code-branch" href="/en/tutorials/extending-shannon">
+    その他の拡張方法
+  </Card>
+  <Card title="OpenAPIテスト" icon="flask" href="https://github.com/Kocoro-lab/Shannon/tree/main/python/llm-service/tests">
+    テスト例と検証
+  </Card>
+</CardGroup>
+
+## クイックリファレンス
+
+```bash
+# スペックを検証
+curl -X POST http://localhost:8000/tools/openapi/validate \
+  -d '{"spec_url": "https://api.example.com/openapi.json"}' | jq .
+
+# 登録されたツールをリスト
+curl http://localhost:8000/tools/list | jq .
+
+# ツールスキーマを取得
+curl http://localhost:8000/tools/myTool/schema | jq .
+
+# ツールを実行
+curl -X POST http://localhost:8000/tools/execute \
+  -d '{"tool_name":"myTool","parameters":{...}}' | jq .
+
+# ワークフローを介してテスト
+./scripts/submit_task.sh "ツールを使用したあなたのクエリ"
+```
+
+<Tip>
+**ヘルプが必要ですか？**
+- 問題を報告: [GitHub Issues](https://github.com/Kocoro-lab/Shannon/issues)
+- コミュニティ: [Discord](https://discord.gg/NB7C2fMcQR)
+- 例: `tests/e2e/06_openapi_petstore_test.sh`
+</Tip>
