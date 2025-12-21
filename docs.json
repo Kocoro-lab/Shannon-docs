@@ -28,11 +28,6 @@
       "name": "GitHub",
       "icon": "github",
       "url": "https://github.com/Kocoro-lab/Shannon"
-    },
-    {
-      "name": "Community",
-      "icon": "discord",
-      "url": "https://discord.gg/NB7C2fMcQR"
     }
   ],
   "navigation": {

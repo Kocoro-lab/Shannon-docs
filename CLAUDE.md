@@ -353,7 +353,6 @@ result = client.submit_task("Your task here")
 
 - Main Shannon repo: https://github.com/Kocoro-lab/Shannon
 - Company site: https://kocoro.ai
-- Discord community: https://discord.gg/NB7C2fMcQR
 - Twitter: https://x.com/shannon_agents
 
 ## Development Status
