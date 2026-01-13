@@ -1,0 +1,312 @@
+---
+title: "LLM Caching"
+description: "Intelligent prompt caching for faster responses and reduced costs"
+---
+
+## Overview
+
+Shannon implements a multi-layered caching system for LLM responses, providing significant cost savings and latency reduction for repeated or similar queries. The caching system supports both in-memory and Redis backends.
+
+## Architecture
+
+```mermaid
+graph TB
+    subgraph Request Flow
+        Request[Completion Request] --> KeyGen[Generate Cache Key]
+        KeyGen --> Check{Cache Hit?}
+        Check -->|Yes| Return[Return Cached Response]
+        Check -->|No| Provider[LLM Provider]
+        Provider --> Validate{Valid Response?}
+        Validate -->|Yes| Store[Store in Cache]
+        Validate -->|No| Skip[Skip Caching]
+        Store --> Return2[Return Response]
+        Skip --> Return2
+    end
+
+    subgraph Cache Backends
+        Memory[(In-Memory LRU)]
+        Redis[(Redis)]
+    end
+
+    Check --> Memory
+    Check --> Redis
+    Store --> Memory
+    Store --> Redis
+```
+
+## Cache Backends
+
+### In-Memory Cache (Default)
+
+The default caching backend uses an LRU (Least Recently Used) dictionary with automatic eviction.
+
+**Features:**
+- Zero external dependencies
+- Fast lookup (O(1) average)
+- Automatic eviction when capacity reached
+- Hit rate tracking
+
+**Limitations:**
+- Not shared across instances
+- Lost on service restart
+
+### Redis Cache
+
+For production deployments, Redis provides distributed caching across multiple instances.
+
+**Features:**
+- Distributed across all LLM service instances
+- Persistent storage
+- Automatic TTL expiration
+- High availability with Redis Sentinel/Cluster
+
+**Configuration:**
+```bash
+# Option 1: Full URL
+export REDIS_URL="redis://localhost:6379"
+
+# Option 2: Individual components
+export REDIS_HOST="redis"
+export REDIS_PORT="6379"
+export REDIS_PASSWORD="your-password"  # Optional
+```
+
+## Configuration
+
+### Global Settings
+
+Configure caching in `config/models.yaml`:
+
+```yaml
+prompt_cache:
+  enabled: true
+  ttl_seconds: 3600           # Default 1 hour
+  max_cache_size_mb: 2048     # Memory limit
+  similarity_threshold: 0.95   # Semantic similarity threshold
+```
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `enabled` | `true` | Master switch for caching |
+| `ttl_seconds` | `3600` | Default cache entry lifetime |
+| `max_cache_size_mb` | `2048` | Maximum cache size in MB |
+| `similarity_threshold` | `0.95` | Threshold for semantic matching |
+
+### Per-Request Override
+
+Override cache behavior on individual requests:
+
+```python
+from shannon import Client
+
+client = Client()
+response = client.complete(
+    messages=[{"role": "user", "content": "Explain quantum computing"}],
+    cache_key="quantum-intro",  # Custom cache key
+    cache_ttl=7200              # 2 hours for this request
+)
+
+# Check if response was cached
+if response.cached:
+    print("Response served from cache")
+```
+
+## Cache Key Generation
+
+Cache keys are generated deterministically from request parameters:
+
+```python
+key_data = {
+    "messages": messages,
+    "model_tier": model_tier,
+    "model": model,
+    "temperature": temperature,
+    "max_tokens": max_tokens,
+    "functions": functions,
+    "seed": seed,
+}
+# SHA-256 hash of sorted JSON
+```
+
+### Included Parameters
+- Message content and roles
+- Model tier and specific model
+- Temperature and max_tokens
+- Function definitions
+- Random seed
+
+### Excluded Parameters
+- Streaming flag (streaming not cached)
+- Session/task IDs (cache is request-based)
+
+## Caching Rules
+
+### When Responses Are Cached
+
+Responses are cached when:
+- Caching is enabled globally
+- Request is non-streaming
+- Response has non-empty content OR has function_call
+- Finish reason is not "length" (truncated) or "content_filter"
+- For JSON mode: content is valid JSON object
+
+### When Responses Are NOT Cached
+
+<Warning>
+The following responses are never cached to ensure quality:
+- Streaming responses
+- Truncated responses (finish_reason: "length")
+- Content-filtered responses
+- Empty responses without function calls
+- Invalid JSON in strict JSON mode
+</Warning>
+
+## Cache Validation
+
+Before serving cached responses, Shannon validates:
+
+1. **Finish Reason Check**: Skips truncated or filtered responses
+2. **JSON Mode Validation**: Ensures valid JSON object for JSON mode
+3. **Content Presence**: Requires non-empty content or function_call
+
+```python
+def _should_cache_response(self, request, response) -> bool:
+    # Check finish_reason
+    fr = (response.finish_reason or "").lower()
+    if fr in {"length", "content_filter"}:
+        return False
+
+    # For strict JSON mode
+    if is_strict_json_mode(request):
+        try:
+            obj = json.loads(response.content or "")
+            if not isinstance(obj, dict):
+                return False
+        except:
+            return False
+
+    # Require content or function_call
+    if not response.content.strip() and not response.function_call:
+        return False
+
+    return True
+```
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `REDIS_URL` | - | Full Redis connection URL |
+| `LLM_REDIS_URL` | - | Alternative Redis URL |
+| `REDIS_HOST` | `redis` | Redis hostname |
+| `REDIS_PORT` | `6379` | Redis port |
+| `REDIS_PASSWORD` | - | Optional Redis password |
+
+## Performance Impact
+
+### Latency Reduction
+
+| Scenario | Latency |
+|----------|---------|
+| Cache hit | 1-5ms |
+| Cache miss (small model) | 500-2000ms |
+| Cache miss (large model) | 2000-10000ms |
+
+### Cost Savings
+
+Cache hits eliminate LLM provider costs entirely:
+- Typical hit rates: 20-40% for diverse workloads
+- High hit rates: 60-80% for repetitive queries
+- Potential cost reduction: 20-80% depending on workload
+
+## Monitoring
+
+### Cache Metrics
+
+The LLM service exposes cache metrics:
+
+```python
+# Access hit rate
+cache_hit_rate = manager.cache.hit_rate
+
+# Response includes cache status
+response = await manager.complete(...)
+print(f"Cached: {response.cached}")
+```
+
+### API Response Fields
+
+```json
+{
+  "content": "...",
+  "cached": true,
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 50,
+    "completion_tokens": 100
+  }
+}
+```
+
+## Best Practices
+
+### Maximize Cache Hits
+
+1. **Normalize prompts**: Consistent formatting improves hit rates
+2. **Use deterministic seeds**: Set `seed` for reproducible outputs
+3. **Standardize temperatures**: Use consistent temperature values
+4. **Reuse system prompts**: Keep system messages consistent
+
+### Cache Key Strategy
+
+```python
+# Good: Specific, reusable cache key
+cache_key="product-summary-v1-{product_id}"
+
+# Avoid: Generic keys that may collide
+cache_key="summary"
+```
+
+### Redis Configuration
+
+For production:
+```yaml
+# Redis with persistence
+redis:
+  appendonly: yes
+  maxmemory: 2gb
+  maxmemory-policy: allkeys-lru
+```
+
+## Troubleshooting
+
+### Low Hit Rate
+
+- Check prompt normalization
+- Verify temperature consistency
+- Review cache TTL settings
+- Monitor cache eviction rate
+
+### Cache Not Working
+
+1. Verify `prompt_cache.enabled: true` in config
+2. Check Redis connection (if using Redis)
+3. Ensure requests are non-streaming
+4. Verify responses are not being filtered
+
+### Memory Issues
+
+- Reduce `max_cache_size_mb`
+- Use Redis for large-scale deployments
+- Implement cache partitioning by tenant
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Model Selection" icon="microchip" href="/en/tutorials/model-selection">
+    Configure model tiers and routing
+  </Card>
+  <Card title="Cost Control" icon="dollar-sign" href="/en/quickstart/concepts/cost-control">
+    Understand budget management
+  </Card>
+</CardGroup>

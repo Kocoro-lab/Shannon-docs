@@ -215,6 +215,7 @@
                 "pages": [
                   "en/architecture/temporal-workflows",
                   "en/architecture/vector-memory",
+                  "en/architecture/llm-caching",
                   "en/architecture/tool-execution"
                 ]
               }
@@ -405,6 +406,7 @@
                 "pages": [
                   "cn/architecture/temporal-workflows",
                   "cn/architecture/vector-memory",
+                  "cn/architecture/llm-caching",
                   "cn/architecture/tool-execution"
                 ]
               }
@@ -595,6 +597,7 @@
                 "pages": [
                   "ja/architecture/temporal-workflows",
                   "ja/architecture/vector-memory",
+                  "ja/architecture/llm-caching",
                   "ja/architecture/tool-execution"
                 ]
               }
