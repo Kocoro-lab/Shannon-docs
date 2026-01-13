@@ -129,15 +129,15 @@ small_models = response.json()
 快速、成本优化的基础任务模型：
 - **OpenAI**: gpt-5-nano-2025-08-07
 - **Anthropic**: claude-haiku-4-5-20251001
-- **xAI**: grok-4-fast-non-reasoning
+- **xAI**: grok-3-mini
 - **Google**: gemini-2.5-flash-lite
 - **DeepSeek**: deepseek-chat
 
 ### 中型层级（目标工作负载的 40%）
 平衡能力/成本的模型：
-- **OpenAI**: gpt-5-2025-08-07
+- **OpenAI**: gpt-5-mini-2025-08-07
 - **Anthropic**: claude-sonnet-4-5-20250929
-- **xAI**: grok-4
+- **xAI**: grok-4-fast-non-reasoning
 - **Google**: gemini-2.5-flash
 - **Meta**: llama-4-scout
 
@@ -224,7 +224,7 @@ Object.entries(models).forEach(([provider, modelList]) => {
 ```bash
 # 特定阶段覆盖
 COMPLEXITY_MODEL_ID=gpt-5-mini-2025-08-07
-DECOMPOSITION_MODEL_ID=gpt-5-2025-08-07
+DECOMPOSITION_MODEL_ID=gpt-5-mini-2025-08-07
 DEFAULT_MODEL_TIER=small
 ```
 

@@ -129,15 +129,15 @@ Models are organized into three tiers based on capability and cost:
 Fast, cost-optimized models for basic tasks:
 - **OpenAI**: gpt-5-nano-2025-08-07
 - **Anthropic**: claude-haiku-4-5-20251001
-- **xAI**: grok-4-fast-non-reasoning
+- **xAI**: grok-3-mini
 - **Google**: gemini-2.5-flash-lite
 - **DeepSeek**: deepseek-chat
 
 ### Medium Tier (Priority for 40% of workload)
 Balanced capability/cost models:
-- **OpenAI**: gpt-5-2025-08-07
+- **OpenAI**: gpt-5-mini-2025-08-07
 - **Anthropic**: claude-sonnet-4-5-20250929
-- **xAI**: grok-4
+- **xAI**: grok-4-fast-non-reasoning
 - **Google**: gemini-2.5-flash
 - **Meta**: llama-4-scout
 
@@ -224,7 +224,7 @@ Override model selections with environment variables:
 ```bash
 # Stage-specific overrides
 COMPLEXITY_MODEL_ID=gpt-5-mini-2025-08-07
-DECOMPOSITION_MODEL_ID=gpt-5-2025-08-07
+DECOMPOSITION_MODEL_ID=gpt-5-mini-2025-08-07
 DEFAULT_MODEL_TIER=small
 ```
 
