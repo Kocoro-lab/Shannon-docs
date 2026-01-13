@@ -27,11 +27,13 @@ cd Shannon
 
 # Initialize configuration and generate protocol buffers
 make setup
+```
 
 <Note>
 Tip: `make setup` is the one‑stop setup (creates `.env` and generates protobufs). If you only need the environment file, use `make setup-env`. You can also regenerate protobufs anytime with `make proto`.
 </Note>
 
+```bash
 # Add your LLM API key
 echo "OPENAI_API_KEY=sk-your-key-here" >> .env
 
@@ -54,7 +56,7 @@ The `make dev` command starts the following services via Docker Compose:
 | **Orchestrator** | 50052 | gRPC orchestration service |
 | **Agent Core** | 50051 | Rust-based agent execution |
 | **LLM Service** | 8000 | Python LLM provider gateway |
-| **Desktop App** | — | Native monitoring UI (Tauri) |
+| **Playwright Service** | 8002 | Browser automation service |
 | **PostgreSQL** | 5432 | Persistent storage |
 | **Redis** | 6379 | Caching and pub/sub |
 | **Qdrant** | 6333 | Vector database |

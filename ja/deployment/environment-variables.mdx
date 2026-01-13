@@ -123,7 +123,7 @@ Claudeモデル用のAnthropic APIキー。
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-**有効なモデル**: Claude 3.5 Sonnet, Claude 3 Opus, Claude 3 Haiku
+**有効なモデル**: Claude 4.5 Sonnet, Claude 4.1 Opus, Claude 4.5 Haiku
 
 ### GOOGLE_API_KEY
 
@@ -233,16 +233,16 @@ ZAI_API_KEY=...
 
 ### WEB_SEARCH_PROVIDER
 
-**タイプ**: String  
-**デフォルト**: `google`  
-**有効な値**: `google`, `serper`, `bing`, `exa`, `firecrawl`  
-**サービス**: LLMサービス  
+**タイプ**: String
+**デフォルト**: `serpapi`
+**有効な値**: `google`, `serper`, `serpapi`, `bing`, `exa`, `firecrawl`
+**サービス**: LLMサービス
 **ホットリロード**: はい
 
 アクティブなウェブ検索プロバイダー。
 
 ```bash
-WEB_SEARCH_PROVIDER=google
+WEB_SEARCH_PROVIDER=serpapi
 ```
 
 ### GOOGLE_SEARCH_API_KEY
@@ -655,14 +655,14 @@ COMPLEXITY_MODEL_ID=gpt-5
 ### DECOMPOSITION_MODEL_ID
 
 **タイプ**: 文字列  
-**デフォルト**: `claude-sonnet-4-20250514`  
+**デフォルト**: `claude-sonnet-4-5-20250929`  
 **サービス**: Orchestrator  
 **ホットリロード**: はい  
 
 タスク分解に使用されるモデルです。
 
 ```bash
-DECOMPOSITION_MODEL_ID=claude-sonnet-4-20250514
+DECOMPOSITION_MODEL_ID=claude-sonnet-4-5-20250929
 ```
 
 ### MAX_TOKENS
@@ -1040,15 +1040,15 @@ COMPRESSION_TARGET_RATIO=0.375
 
 ### ENFORCE_TIMEOUT_SECONDS
 
-**タイプ**: 整数  
-**デフォルト**: `90`  
-**サービス**: Agent Core  
-**ホットリロード**: はい  
+**タイプ**: 整数
+**デフォルト**: `120`
+**サービス**: Agent Core
+**ホットリロード**: はい
 
 ツール実行のタイムアウト。
 
 ```bash
-ENFORCE_TIMEOUT_SECONDS=90
+ENFORCE_TIMEOUT_SECONDS=120
 ```
 
 ### ENFORCE_MAX_TOKENS

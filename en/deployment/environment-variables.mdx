@@ -123,7 +123,7 @@ Anthropic API key for Claude models.
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-**Models Enabled**: Claude 3.5 Sonnet, Claude 3 Opus, Claude 3 Haiku
+**Models Enabled**: Claude 4.5 Sonnet, Claude 4.1 Opus, Claude 4.5 Haiku
 
 ### GOOGLE_API_KEY
 
@@ -234,15 +234,15 @@ ZAI_API_KEY=...
 ### WEB_SEARCH_PROVIDER
 
 **Type**: String
-**Default**: `google`
-**Valid Values**: `google`, `serper`, `bing`, `exa`, `firecrawl`
+**Default**: `serpapi`
+**Valid Values**: `google`, `serper`, `serpapi`, `bing`, `exa`, `firecrawl`
 **Services**: LLM Service
 **Hot-Reload**: Yes
 
 Active web search provider.
 
 ```bash
-WEB_SEARCH_PROVIDER=google
+WEB_SEARCH_PROVIDER=serpapi
 ```
 
 ### GOOGLE_SEARCH_API_KEY
@@ -655,14 +655,14 @@ COMPLEXITY_MODEL_ID=gpt-5
 ### DECOMPOSITION_MODEL_ID
 
 **Type**: String
-**Default**: `claude-sonnet-4-20250514`
+**Default**: `claude-sonnet-4-5-20250929`
 **Services**: Orchestrator
 **Hot-Reload**: Yes
 
 Model used for task decomposition.
 
 ```bash
-DECOMPOSITION_MODEL_ID=claude-sonnet-4-20250514
+DECOMPOSITION_MODEL_ID=claude-sonnet-4-5-20250929
 ```
 
 ### MAX_TOKENS
@@ -1041,14 +1041,14 @@ COMPRESSION_TARGET_RATIO=0.375
 ### ENFORCE_TIMEOUT_SECONDS
 
 **Type**: Integer
-**Default**: `90`
+**Default**: `120`
 **Services**: Agent Core
 **Hot-Reload**: Yes
 
 Tool execution timeout.
 
 ```bash
-ENFORCE_TIMEOUT_SECONDS=90
+ENFORCE_TIMEOUT_SECONDS=120
 ```
 
 ### ENFORCE_MAX_TOKENS

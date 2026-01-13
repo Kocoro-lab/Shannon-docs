@@ -27,11 +27,13 @@ cd Shannon
 
 # 初始化配置并生成 protocol buffers
 make setup
+```
 
 <Note>
 提示：`make setup` 是一站式设置（创建 `.env` 并生成 protobufs）。如果只需要环境文件，请使用 `make setup-env`。您也可以随时使用 `make proto` 重新生成 protobufs。
 </Note>
 
+```bash
 # 添加您的 LLM API 密钥
 echo "OPENAI_API_KEY=sk-your-key-here" >> .env
 
@@ -54,7 +56,7 @@ make dev
 | **Orchestrator** | 50052 | gRPC 编排服务 |
 | **Agent Core** | 50051 | 基于 Rust 的智能体执行 |
 | **LLM Service** | 8000 | Python LLM 提供商网关 |
-| **Desktop App** | — | 原生监控 UI（Tauri 桌面应用） |
+| **Playwright Service** | 8002 | 浏览器自动化服务 |
 | **PostgreSQL** | 5432 | 持久化存储 |
 | **Redis** | 6379 | 缓存和发布/订阅 |
 | **Qdrant** | 6333 | 向量数据库 |

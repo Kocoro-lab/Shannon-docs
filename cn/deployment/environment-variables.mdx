@@ -123,7 +123,7 @@ OPENAI_API_KEY=sk-...
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-**启用的模型**: Claude 3.5 Sonnet, Claude 3 Opus, Claude 3 Haiku
+**启用的模型**: Claude 4.5 Sonnet, Claude 4.1 Opus, Claude 4.5 Haiku
 
 ### GOOGLE_API_KEY
 
@@ -234,15 +234,15 @@ ZAI_API_KEY=...
 ### WEB_SEARCH_PROVIDER
 
 **类型**: String
-**默认值**: `google`
-**有效值**: `google`, `serper`, `bing`, `exa`, `firecrawl`
+**默认值**: `serpapi`
+**有效值**: `google`, `serper`, `serpapi`, `bing`, `exa`, `firecrawl`
 **服务**: LLM Service
 **热重载**: 是
 
 活动的网页搜索提供商。
 
 ```bash
-WEB_SEARCH_PROVIDER=google
+WEB_SEARCH_PROVIDER=serpapi
 ```
 
 ### GOOGLE_SEARCH_API_KEY
@@ -655,14 +655,14 @@ COMPLEXITY_MODEL_ID=gpt-5
 ### DECOMPOSITION_MODEL_ID
 
 **类型**: String
-**默认值**: `claude-sonnet-4-20250514`
+**默认值**: `claude-sonnet-4-5-20250929`
 **服务**: Orchestrator
 **热重载**: 是
 
 用于任务分解的模型。
 
 ```bash
-DECOMPOSITION_MODEL_ID=claude-sonnet-4-20250514
+DECOMPOSITION_MODEL_ID=claude-sonnet-4-5-20250929
 ```
 
 ### MAX_TOKENS
@@ -1041,14 +1041,14 @@ COMPRESSION_TARGET_RATIO=0.375
 ### ENFORCE_TIMEOUT_SECONDS
 
 **类型**: Integer
-**默认值**: `90`
+**默认值**: `120`
 **服务**: Agent Core
 **热重载**: 是
 
 工具执行超时时间。
 
 ```bash
-ENFORCE_TIMEOUT_SECONDS=90
+ENFORCE_TIMEOUT_SECONDS=120
 ```
 
 ### ENFORCE_MAX_TOKENS

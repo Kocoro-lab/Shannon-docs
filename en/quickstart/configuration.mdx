@@ -103,7 +103,7 @@ Optional but **highly recommended** for research and data gathering tasks.
 
 | Variable | Type | Default | Options |
 |----------|------|---------|---------|
-| `WEB_SEARCH_PROVIDER` | string | `google` | `google`, `serper`, `bing`, `exa`, `firecrawl` |
+| `WEB_SEARCH_PROVIDER` | string | `serpapi` | `google`, `serper`, `serpapi`, `bing`, `exa`, `firecrawl` |
 
 **Provider-Specific Keys**:
 | Variable | Provider | Get Key From |
@@ -117,9 +117,8 @@ Optional but **highly recommended** for research and data gathering tasks.
 
 **Example**:
 ```bash
-WEB_SEARCH_PROVIDER=google
-GOOGLE_SEARCH_API_KEY=AIzaSyAbc123...
-GOOGLE_SEARCH_ENGINE_ID=0123456789abcdef
+WEB_SEARCH_PROVIDER=serpapi
+SERPAPI_API_KEY=your-serpapi-key
 ```
 
 ---
@@ -210,7 +209,7 @@ Control LLM selection, token limits, and cost management.
 |----------|------|---------|-------------|
 | `DEFAULT_MODEL_TIER` | string | `small` | Default model size: `small`, `medium`, `large` |
 | `COMPLEXITY_MODEL_ID` | string | `gpt-5` | Model for complexity analysis |
-| `DECOMPOSITION_MODEL_ID` | string | `claude-sonnet-4-20250514` | Model for task decomposition |
+| `DECOMPOSITION_MODEL_ID` | string | `claude-sonnet-4-5-20250929` | Model for task decomposition |
 | `MAX_TOKENS` | integer | `2000` | Default max output tokens |
 | `TEMPERATURE` | float | `0.7` | Default sampling temperature (0.0-1.0) |
 | `MAX_TOKENS_PER_REQUEST` | integer | `10000` | Maximum tokens per API request |
@@ -282,7 +281,7 @@ Fine-tune parallelism, timeouts, and execution behavior.
 | `STREAMING_RING_CAPACITY` | integer | `1000` | - | Event stream buffer size |
 | `COMPRESSION_TRIGGER_RATIO` | float | `0.75` | 0.0-1.0 | Context compression trigger threshold |
 | `COMPRESSION_TARGET_RATIO` | float | `0.375` | 0.0-1.0 | Target compression ratio |
-| `ENFORCE_TIMEOUT_SECONDS` | integer | `90` | - | Hard timeout for operations |
+| `ENFORCE_TIMEOUT_SECONDS` | integer | `120` | - | Hard timeout for operations |
 | `ENFORCE_MAX_TOKENS` | integer | `32768` | - | Absolute maximum tokens |
 | `ENFORCE_RATE_RPS` | integer | `20` | - | Requests per second limit |
 

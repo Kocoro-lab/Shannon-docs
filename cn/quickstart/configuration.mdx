@@ -103,7 +103,7 @@ curl https://api.anthropic.com/v1/messages \
 
 | 变量 | 类型 | 默认值 | 选项 |
 |----------|------|---------|---------|
-| `WEB_SEARCH_PROVIDER` | string | `google` | `google`、`serper`、`bing`、`exa`、`firecrawl` |
+| `WEB_SEARCH_PROVIDER` | string | `serpapi` | `google`、`serper`、`serpapi`、`bing`、`exa`、`firecrawl` |
 
 **提供商特定密钥**：
 | 变量 | 提供商 | 获取密钥地址 |
@@ -117,9 +117,8 @@ curl https://api.anthropic.com/v1/messages \
 
 **示例**：
 ```bash
-WEB_SEARCH_PROVIDER=google
-GOOGLE_SEARCH_API_KEY=AIzaSyAbc123...
-GOOGLE_SEARCH_ENGINE_ID=0123456789abcdef
+WEB_SEARCH_PROVIDER=serpapi
+SERPAPI_API_KEY=your-serpapi-key
 ```
 
 ---
@@ -210,7 +209,7 @@ QDRANT_URL=http://vector-db.example.com:6333
 |----------|------|---------|-------------|
 | `DEFAULT_MODEL_TIER` | string | `small` | 默认模型大小：`small`、`medium`、`large` |
 | `COMPLEXITY_MODEL_ID` | string | `gpt-5` | 复杂度分析模型 |
-| `DECOMPOSITION_MODEL_ID` | string | `claude-sonnet-4-20250514` | 任务分解模型 |
+| `DECOMPOSITION_MODEL_ID` | string | `claude-sonnet-4-5-20250929` | 任务分解模型 |
 | `MAX_TOKENS` | integer | `2000` | 默认最大输出令牌数 |
 | `TEMPERATURE` | float | `0.7` | 默认采样温度（0.0-1.0） |
 | `MAX_TOKENS_PER_REQUEST` | integer | `10000` | 每个 API 请求的最大令牌数 |
@@ -282,7 +281,7 @@ RATE_LIMIT_WINDOW=60
 | `STREAMING_RING_CAPACITY` | integer | `1000` | - | 事件流缓冲区大小 |
 | `COMPRESSION_TRIGGER_RATIO` | float | `0.75` | 0.0-1.0 | 上下文压缩触发阈值 |
 | `COMPRESSION_TARGET_RATIO` | float | `0.375` | 0.0-1.0 | 目标压缩比率 |
-| `ENFORCE_TIMEOUT_SECONDS` | integer | `90` | - | 操作的硬超时 |
+| `ENFORCE_TIMEOUT_SECONDS` | integer | `120` | - | 操作的硬超时 |
 | `ENFORCE_MAX_TOKENS` | integer | `32768` | - | 绝对最大令牌数 |
 | `ENFORCE_RATE_RPS` | integer | `20` | - | 每秒请求数限制 |
 

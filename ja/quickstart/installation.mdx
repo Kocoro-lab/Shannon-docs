@@ -27,11 +27,13 @@ cd Shannon
 
 # 設定を初期化しprotocol buffersを生成
 make setup
+```
 
 <Note>
 ヒント: `make setup`はワンストップセットアップです（`.env`を作成しprotobufを生成）。環境ファイルのみが必要な場合は`make setup-env`を使用してください。`make proto`でいつでもprotobufを再生成できます。
 </Note>
 
+```bash
 # LLM APIキーを追加
 echo "OPENAI_API_KEY=sk-your-key-here" >> .env
 
@@ -54,7 +56,7 @@ make dev
 | **Orchestrator** | 50052 | gRPCオーケストレーションサービス |
 | **Agent Core** | 50051 | RustベースのAgent実行 |
 | **LLM Service** | 8000 | Python LLMプロバイダーGateway |
-| **Desktop App** | — | ネイティブ監視UI (Tauri) |
+| **Playwright Service** | 8002 | ブラウザ自動化サービス |
 | **PostgreSQL** | 5432 | 永続ストレージ |
 | **Redis** | 6379 | キャッシングとpub/sub |
 | **Qdrant** | 6333 | ベクトルデータベース |
