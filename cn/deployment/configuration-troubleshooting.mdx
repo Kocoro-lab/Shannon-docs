@@ -450,7 +450,7 @@ MAX_TOKENS_PER_REQUEST=20000  # 从 10000 提高
 docker compose restart orchestrator
 
 # 或使用更便宜的模型
-DEFAULT_MODEL_TIER=small  # 使用 GPT-5o-mini 代替 GPT-5
+DEFAULT_MODEL_TIER=small  # 使用 GPT-5-nano 代替 GPT-5
 ```
 
 #### 预算执行未生效
@@ -522,7 +522,7 @@ docker compose restart llm-service
 **解决方案 3**: 优化模型选择
 ```bash
 # 使用更快的模型
-DEFAULT_MODEL_TIER=small  # GPT-5o-mini 比 GPT-5 快 10 倍
+DEFAULT_MODEL_TIER=small  # GPT-5-nano 比 GPT-5 快 10 倍
 ```
 
 #### 高内存使用

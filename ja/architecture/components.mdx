@@ -91,7 +91,7 @@ sequenceDiagram
     Orchestrator->>Temporal: StartWorkflow
     Temporal->>Orchestrator: WorkflowStarted
     Orchestrator->>AgentCore: ExecuteAgent (gRPC)
-    AgentCore->>LLMService: GetCompletion (gRPC)
+    AgentCore->>LLMService: GetCompletion (HTTP)
     LLMService-->>AgentCore: LLM Response
     AgentCore-->>Orchestrator: Agent Result
     Orchestrator-->>Gateway: Task Submitted

@@ -450,7 +450,7 @@ MAX_TOKENS_PER_REQUEST=20000  # 10000 から増加
 docker compose restart orchestrator
 
 # または安価なモデルを使用
-DEFAULT_MODEL_TIER=small  # GPT-5o-mini を GPT-5 の代わりに使用
+DEFAULT_MODEL_TIER=small  # GPT-5-nano を GPT-5 の代わりに使用
 ```
 
 #### 予算の強制が機能していない
@@ -522,7 +522,7 @@ docker compose restart llm-service
 **解決策 3**: モデル選択を最適化
 ```bash
 # より高速なモデルを使用
-DEFAULT_MODEL_TIER=small  # GPT-5o-mini は GPT-5 の 10 倍速い
+DEFAULT_MODEL_TIER=small  # GPT-5-nano は GPT-5 の 10 倍速い
 ```
 
 #### 高いメモリ使用量
