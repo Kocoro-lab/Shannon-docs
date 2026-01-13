@@ -104,6 +104,12 @@
                 ]
               },
               {
+                "group": "Schedules",
+                "pages": [
+                  "en/api/rest/schedules"
+                ]
+              },
+              {
                 "group": "Streaming",
                 "pages": [
                   "en/api/rest/streaming"
@@ -288,6 +294,12 @@
                 ]
               },
               {
+                "group": "定时任务",
+                "pages": [
+                  "cn/api/rest/schedules"
+                ]
+              },
+              {
                 "group": "流式",
                 "pages": [
                   "cn/api/rest/streaming"
@@ -469,6 +481,12 @@
                 "group": "セッション",
                 "pages": [
                   "ja/api/rest/sessions"
+                ]
+              },
+              {
+                "group": "スケジュール",
+                "pages": [
+                  "ja/api/rest/schedules"
                 ]
               },
               {

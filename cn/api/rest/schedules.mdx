@@ -1,0 +1,329 @@
+---
+title: "定时任务 API"
+description: "创建和管理定期任务调度"
+---
+
+## 概述
+
+Shannon 使用 Temporal 的原生 Schedule API 支持定期任务执行。创建基于 cron 的调度，在指定间隔自动执行任务。
+
+## 功能特性
+
+- **基于 Cron 的调度**，支持时区设置
+- **资源限制**，防止滥用
+- **预算控制**，每次执行独立计费
+- **执行历史**，带成本追踪
+- **暂停/恢复/删除**操作
+- **多租户隔离**，用户/租户所有权
+
+## 创建调度
+
+创建新的定期任务调度。
+
+<CodeGroup>
+```bash curl
+curl -X POST http://localhost:8080/api/v1/schedules \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "name": "每日摘要",
+    "description": "生成每日活动摘要",
+    "cron_expression": "0 9 * * *",
+    "timezone": "Asia/Shanghai",
+    "task_query": "总结昨天的活动",
+    "task_context": {
+      "report_format": "markdown"
+    },
+    "max_budget_per_run_usd": 5.0,
+    "timeout_seconds": 600
+  }'
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient()
+schedule = client.create_schedule(
+    name="每日摘要",
+    cron_expression="0 9 * * *",
+    timezone="Asia/Shanghai",
+    task_query="总结昨天的活动",
+    max_budget_per_run_usd=5.0
+)
+print(f"调度已创建: {schedule.id}")
+```
+</CodeGroup>
+
+### 请求体
+
+| 字段 | 类型 | 必填 | 描述 |
+|-------|------|----------|-------------|
+| `name` | string | 是 | 调度名称（最多 255 字符） |
+| `description` | string | 否 | 可选描述 |
+| `cron_expression` | string | 是 | Cron 调度（5 字段格式） |
+| `timezone` | string | 否 | IANA 时区（默认：UTC） |
+| `task_query` | string | 是 | 要执行的查询 |
+| `task_context` | object | 否 | 任务的附加上下文 |
+| `max_budget_per_run_usd` | number | 否 | 每次执行的最大预算（默认：10.0） |
+| `timeout_seconds` | integer | 否 | 执行超时（默认：600） |
+
+### 响应
+
+```json
+{
+  "schedule_id": "550e8400-e29b-41d4-a716-446655440000",
+  "message": "Schedule created successfully",
+  "next_run_at": "2025-12-16T09:00:00+08:00"
+}
+```
+
+## 列出调度
+
+列出调度，支持分页和过滤。
+
+```bash
+curl "http://localhost:8080/api/v1/schedules?page=1&page_size=50&status=ACTIVE" \
+  -H "Authorization: Bearer <token>"
+```
+
+### 查询参数
+
+| 参数 | 类型 | 默认值 | 描述 |
+|-----------|------|---------|-------------|
+| `page` | integer | 1 | 页码 |
+| `page_size` | integer | 50 | 每页条数（最大 100） |
+| `status` | string | - | 按状态过滤（ACTIVE, PAUSED） |
+
+### 响应
+
+```json
+{
+  "schedules": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "name": "每日摘要",
+      "cron_expression": "0 9 * * *",
+      "timezone": "Asia/Shanghai",
+      "status": "ACTIVE",
+      "next_run_at": "2025-12-16T09:00:00+08:00",
+      "total_runs": 45,
+      "successful_runs": 43,
+      "failed_runs": 2
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "page_size": 50
+}
+```
+
+## 获取调度详情
+
+获取特定调度的详细信息。
+
+```bash
+curl "http://localhost:8080/api/v1/schedules/{id}" \
+  -H "Authorization: Bearer <token>"
+```
+
+### 响应
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "每日摘要",
+  "description": "生成每日活动摘要",
+  "cron_expression": "0 9 * * *",
+  "timezone": "Asia/Shanghai",
+  "task_query": "总结昨天的活动",
+  "task_context": {"report_format": "markdown"},
+  "max_budget_per_run_usd": 5.0,
+  "timeout_seconds": 600,
+  "status": "ACTIVE",
+  "created_at": "2025-01-01T00:00:00Z",
+  "updated_at": "2025-01-15T10:00:00Z",
+  "next_run_at": "2025-01-16T09:00:00+08:00",
+  "last_run_at": "2025-01-15T09:00:00+08:00",
+  "total_runs": 45,
+  "successful_runs": 43,
+  "failed_runs": 2
+}
+```
+
+## 更新调度
+
+更新现有调度。
+
+```bash
+curl -X PUT "http://localhost:8080/api/v1/schedules/{id}" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "cron_expression": "0 10 * * *",
+    "max_budget_per_run_usd": 8.0
+  }'
+```
+
+### 请求体
+
+所有字段均为可选。仅更新提供的字段。
+
+| 字段 | 类型 | 描述 |
+|-------|------|-------------|
+| `name` | string | 新调度名称 |
+| `description` | string | 新描述 |
+| `cron_expression` | string | 新 cron 调度 |
+| `timezone` | string | 新时区 |
+| `task_query` | string | 新任务查询 |
+| `task_context` | object | 新上下文 |
+| `max_budget_per_run_usd` | number | 新预算限制 |
+| `timeout_seconds` | integer | 新超时时间 |
+
+## 获取执行历史
+
+获取调度的执行历史。
+
+```bash
+curl "http://localhost:8080/api/v1/schedules/{id}/runs?page=1&page_size=20" \
+  -H "Authorization: Bearer <token>"
+```
+
+### 响应
+
+```json
+{
+  "runs": [
+    {
+      "id": "run-123",
+      "schedule_id": "550e8400-e29b-41d4-a716-446655440000",
+      "task_id": "task-dev-456",
+      "status": "COMPLETED",
+      "started_at": "2025-01-15T09:00:00Z",
+      "completed_at": "2025-01-15T09:02:30Z",
+      "duration_seconds": 150,
+      "cost_usd": 0.45,
+      "tokens_used": 12500
+    }
+  ],
+  "total": 45,
+  "page": 1,
+  "page_size": 20
+}
+```
+
+## 暂停调度
+
+暂停调度以停止后续执行。
+
+```bash
+curl -X POST "http://localhost:8080/api/v1/schedules/{id}/pause" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{"reason": "临时维护"}'
+```
+
+### 响应
+
+```json
+{
+  "message": "Schedule paused successfully",
+  "paused_at": "2025-01-15T10:00:00Z"
+}
+```
+
+## 恢复调度
+
+恢复已暂停的调度。
+
+```bash
+curl -X POST "http://localhost:8080/api/v1/schedules/{id}/resume" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{"reason": "维护完成"}'
+```
+
+### 响应
+
+```json
+{
+  "message": "Schedule resumed successfully",
+  "next_run_at": "2025-01-16T09:00:00+08:00"
+}
+```
+
+## 删除调度
+
+永久删除调度。
+
+```bash
+curl -X DELETE "http://localhost:8080/api/v1/schedules/{id}" \
+  -H "Authorization: Bearer <token>"
+```
+
+### 响应
+
+```json
+{
+  "message": "Schedule deleted successfully"
+}
+```
+
+## Cron 表达式格式
+
+使用标准 cron 语法（5 个字段）：
+
+```
+┌───────────── 分钟 (0 - 59)
+│ ┌───────────── 小时 (0 - 23)
+│ │ ┌───────────── 日期 (1 - 31)
+│ │ │ ┌───────────── 月份 (1 - 12)
+│ │ │ │ ┌───────────── 星期 (0 - 6)（周日到周六）
+│ │ │ │ │
+* * * * *
+```
+
+### 常用示例
+
+| 表达式 | 描述 |
+|------------|-------------|
+| `0 9 * * *` | 每天上午 9:00 |
+| `0 */4 * * *` | 每 4 小时 |
+| `0 0 * * 1` | 每周一午夜 |
+| `30 8 1 * *` | 每月 1 日上午 8:30 |
+| `0 12 * * 1-5` | 工作日中午 |
+| `0 0 1,15 * *` | 每月 1 日和 15 日 |
+
+## 资源限制
+
+Shannon 强制执行资源限制以防止滥用：
+
+| 限制 | 默认值 | 环境变量 |
+|-------|---------|---------------------|
+| 每用户最大调度数 | 50 | `SCHEDULE_MAX_PER_USER` |
+| 最小间隔 | 60 分钟 | `SCHEDULE_MIN_INTERVAL_MINS` |
+| 每次运行最大预算 | $10.00 | `SCHEDULE_MAX_BUDGET_USD` |
+
+<Warning>
+超出预算限制的调度将自动暂停。
+</Warning>
+
+## 错误响应
+
+| 状态码 | 错误 | 描述 |
+|--------|-------|-------------|
+| 400 | Invalid cron expression | Cron 语法错误 |
+| 400 | Interval too short | 低于最小间隔 |
+| 403 | Schedule limit reached | 超出每用户最大调度数 |
+| 404 | Schedule not found | 无效的调度 ID |
+| 409 | Schedule already paused | 无法暂停已暂停的调度 |
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="提交任务" icon="paper-plane" href="/cn/api/rest/submit-task">
+    一次性任务提交
+  </Card>
+  <Card title="Temporal 工作流" icon="clock" href="/cn/architecture/temporal-workflows">
+    了解工作流执行
+  </Card>
+</CardGroup>

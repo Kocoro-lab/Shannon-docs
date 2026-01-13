@@ -1,10 +1,168 @@
 ---
 title: "Vector Memory"
-description: "Semantic memory with Qdrant"
+description: "Semantic memory with Qdrant for intelligent context retrieval"
 ---
 
-## Coming Soon - Phase 2
+## Overview
 
-**Estimated availability**: Phase 2 (Month 1-2)
+Shannon's memory system provides intelligent context retention and retrieval across user sessions, enabling agents to maintain conversational continuity and leverage historical interactions for improved responses.
 
-See [Architecture Overview](/en/architecture/overview) for context.
+## Architecture
+
+```mermaid
+graph TB
+    subgraph Storage
+        PG[(PostgreSQL)]
+        Redis[(Redis)]
+        Qdrant[(Qdrant)]
+    end
+
+    subgraph Memory Types
+        Session[Session Memory]
+        Semantic[Semantic Memory]
+        Agent[Agent Memory]
+        Supervisor[Supervisor Memory]
+    end
+
+    Query[User Query] --> Retrieval[Memory Retrieval]
+    Retrieval --> Session
+    Retrieval --> Semantic
+    Retrieval --> Qdrant
+
+    Agent --> PG
+    Session --> Redis
+    Semantic --> Qdrant
+```
+
+## Storage Layers
+
+### PostgreSQL
+- **Session Context**: Session-level state and metadata
+- **Execution Persistence**: Agent and tool execution history
+- **Task Tracking**: High-level task and workflow metadata
+
+### Redis
+- **Session Cache**: Fast access to active session data (TTL: 3600s)
+- **Token Budgets**: Real-time token usage tracking
+- **Compression State**: Tracks context compression status
+
+### Qdrant (Vector Store)
+- **Semantic Memory**: High-performance vector similarity search
+- **Collection Organization**: task_embeddings, summaries, tool_results, document_chunks
+- **Hybrid Search**: Combines recency and semantic relevance
+
+## Memory Types
+
+### Hierarchical Memory (Default)
+Combines multiple retrieval strategies:
+- **Recent Memory**: Last N interactions from current session
+- **Semantic Memory**: Contextually relevant based on query similarity
+- **Compressed Summaries**: Condensed representations of older conversations
+
+### Session Memory
+Chronological retrieval of recent interactions within a session.
+
+### Agent Memory
+Individual agent execution records including:
+- Input queries and generated responses
+- Token usage and model information
+- Tool executions and results
+
+### Supervisor Memory
+Strategic memory for intelligent task decomposition:
+- **Decomposition Patterns**: Successful task breakdowns for reuse
+- **Strategy Performance**: Aggregated metrics per strategy type
+- **Failure Patterns**: Known failures with mitigation strategies
+
+## Configuration
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `QDRANT_HOST` | `qdrant` | Qdrant server hostname |
+| `QDRANT_PORT` | `6333` | Qdrant server port |
+| `REDIS_TTL_SECONDS` | `3600` | Session cache TTL |
+
+### Embedding Requirements
+
+<Warning>
+Memory features require OpenAI API access for text embeddings.
+</Warning>
+
+- **Default Model**: `text-embedding-3-small` (1536 dimensions)
+- **Fallback Behavior**: If OpenAI key is not configured, memory operations silently degrade - workflows continue without historical context
+
+## Key Features
+
+### Intelligent Chunking
+- Splits long answers (>2000 tokens) into manageable chunks
+- 200-token overlap for context preservation
+- Batch embeddings for efficiency
+
+### MMR (Maximal Marginal Relevance)
+- Diversity-aware reranking balances relevance with information diversity
+- Default lambda=0.7 optimizes for relevant yet diverse context
+- Fetches 3x requested items, then reranks for diversity
+
+### Context Compression
+- Automatic triggers based on message count and token estimates
+- Rate limiting prevents excessive compression
+- Model-aware thresholds for different tiers
+
+## Memory Retrieval Flow
+
+<Steps>
+  <Step title="Query Analysis">
+    Incoming query is analyzed for semantic content
+  </Step>
+  <Step title="Recent Fetch">
+    Retrieves last N messages from current session via Redis
+  </Step>
+  <Step title="Semantic Search">
+    Performs vector similarity search in Qdrant
+  </Step>
+  <Step title="Merge & Deduplicate">
+    Combines results and removes duplicates
+  </Step>
+  <Step title="Context Injection">
+    Injects relevant memory into agent context
+  </Step>
+</Steps>
+
+## Privacy & Data Governance
+
+### PII Protection
+- Data minimization: Store only essential fields
+- Anonymization: UUIDs instead of real identities
+- Automatic PII detection and redaction
+
+### Data Retention
+- **Conversation History**: 30-day default retention
+- **Decomposition Patterns**: 90-day retention
+- **User Preferences**: Session-based, 24-hour expiry
+
+## Performance Optimizations
+
+- **Batch Processing**: Single API call for multiple chunks (5x faster)
+- **Smart Caching**: LRU (2048 entries) + Redis
+- **Payload Indexes**: 50-90% faster filtering on session_id, tenant_id, user_id
+- **Optimized HNSW**: m=16, ef_construct=100 for fast similarity search
+
+## Limitations
+
+- Memory retrieval adds latency (mitigated by caching)
+- Vector similarity may miss exact keyword matches
+- Compression is lossy (preserves key points only)
+- Cross-session memory requires explicit session linking
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture Overview" icon="sitemap" href="/en/architecture/overview">
+    System architecture
+  </Card>
+  <Card title="Sessions API" icon="messages" href="/en/api/rest/sessions">
+    Session management
+  </Card>
+</CardGroup>

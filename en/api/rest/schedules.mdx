@@ -1,0 +1,329 @@
+---
+title: "Schedules API"
+description: "Create and manage recurring task schedules"
+---
+
+## Overview
+
+Shannon supports recurring task execution using Temporal's native Schedule API. Create cron-based schedules that automatically execute tasks at specified intervals.
+
+## Features
+
+- **Cron-based scheduling** with timezone support
+- **Resource limits** to prevent abuse
+- **Budget control** per execution
+- **Execution history** with cost tracking
+- **Pause/Resume/Delete** operations
+- **Multi-tenant isolation** with user/tenant ownership
+
+## Create Schedule
+
+Create a new recurring task schedule.
+
+<CodeGroup>
+```bash curl
+curl -X POST http://localhost:8080/api/v1/schedules \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "name": "Daily summary",
+    "description": "Generate daily activity summary",
+    "cron_expression": "0 9 * * *",
+    "timezone": "America/New_York",
+    "task_query": "Summarize yesterday'\''s activity",
+    "task_context": {
+      "report_format": "markdown"
+    },
+    "max_budget_per_run_usd": 5.0,
+    "timeout_seconds": 600
+  }'
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient()
+schedule = client.create_schedule(
+    name="Daily summary",
+    cron_expression="0 9 * * *",
+    timezone="America/New_York",
+    task_query="Summarize yesterday's activity",
+    max_budget_per_run_usd=5.0
+)
+print(f"Schedule created: {schedule.id}")
+```
+</CodeGroup>
+
+### Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Schedule name (max 255 chars) |
+| `description` | string | No | Optional description |
+| `cron_expression` | string | Yes | Cron schedule (5-field format) |
+| `timezone` | string | No | IANA timezone (default: UTC) |
+| `task_query` | string | Yes | Query to execute |
+| `task_context` | object | No | Additional context for the task |
+| `max_budget_per_run_usd` | number | No | Max budget per execution (default: 10.0) |
+| `timeout_seconds` | integer | No | Execution timeout (default: 600) |
+
+### Response
+
+```json
+{
+  "schedule_id": "550e8400-e29b-41d4-a716-446655440000",
+  "message": "Schedule created successfully",
+  "next_run_at": "2025-12-16T09:00:00-05:00"
+}
+```
+
+## List Schedules
+
+List schedules with pagination and filtering.
+
+```bash
+curl "http://localhost:8080/api/v1/schedules?page=1&page_size=50&status=ACTIVE" \
+  -H "Authorization: Bearer <token>"
+```
+
+### Query Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `page` | integer | 1 | Page number |
+| `page_size` | integer | 50 | Items per page (max 100) |
+| `status` | string | - | Filter by status (ACTIVE, PAUSED) |
+
+### Response
+
+```json
+{
+  "schedules": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "name": "Daily summary",
+      "cron_expression": "0 9 * * *",
+      "timezone": "America/New_York",
+      "status": "ACTIVE",
+      "next_run_at": "2025-12-16T09:00:00-05:00",
+      "total_runs": 45,
+      "successful_runs": 43,
+      "failed_runs": 2
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "page_size": 50
+}
+```
+
+## Get Schedule
+
+Get details of a specific schedule.
+
+```bash
+curl "http://localhost:8080/api/v1/schedules/{id}" \
+  -H "Authorization: Bearer <token>"
+```
+
+### Response
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "Daily summary",
+  "description": "Generate daily activity summary",
+  "cron_expression": "0 9 * * *",
+  "timezone": "America/New_York",
+  "task_query": "Summarize yesterday's activity",
+  "task_context": {"report_format": "markdown"},
+  "max_budget_per_run_usd": 5.0,
+  "timeout_seconds": 600,
+  "status": "ACTIVE",
+  "created_at": "2025-01-01T00:00:00Z",
+  "updated_at": "2025-01-15T10:00:00Z",
+  "next_run_at": "2025-01-16T09:00:00-05:00",
+  "last_run_at": "2025-01-15T09:00:00-05:00",
+  "total_runs": 45,
+  "successful_runs": 43,
+  "failed_runs": 2
+}
+```
+
+## Update Schedule
+
+Update an existing schedule.
+
+```bash
+curl -X PUT "http://localhost:8080/api/v1/schedules/{id}" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "cron_expression": "0 10 * * *",
+    "max_budget_per_run_usd": 8.0
+  }'
+```
+
+### Request Body
+
+All fields are optional. Only provided fields will be updated.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | New schedule name |
+| `description` | string | New description |
+| `cron_expression` | string | New cron schedule |
+| `timezone` | string | New timezone |
+| `task_query` | string | New task query |
+| `task_context` | object | New context |
+| `max_budget_per_run_usd` | number | New budget limit |
+| `timeout_seconds` | integer | New timeout |
+
+## Get Execution History
+
+Get execution history for a schedule.
+
+```bash
+curl "http://localhost:8080/api/v1/schedules/{id}/runs?page=1&page_size=20" \
+  -H "Authorization: Bearer <token>"
+```
+
+### Response
+
+```json
+{
+  "runs": [
+    {
+      "id": "run-123",
+      "schedule_id": "550e8400-e29b-41d4-a716-446655440000",
+      "task_id": "task-dev-456",
+      "status": "COMPLETED",
+      "started_at": "2025-01-15T09:00:00Z",
+      "completed_at": "2025-01-15T09:02:30Z",
+      "duration_seconds": 150,
+      "cost_usd": 0.45,
+      "tokens_used": 12500
+    }
+  ],
+  "total": 45,
+  "page": 1,
+  "page_size": 20
+}
+```
+
+## Pause Schedule
+
+Pause a schedule to stop future executions.
+
+```bash
+curl -X POST "http://localhost:8080/api/v1/schedules/{id}/pause" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{"reason": "Temporary maintenance"}'
+```
+
+### Response
+
+```json
+{
+  "message": "Schedule paused successfully",
+  "paused_at": "2025-01-15T10:00:00Z"
+}
+```
+
+## Resume Schedule
+
+Resume a paused schedule.
+
+```bash
+curl -X POST "http://localhost:8080/api/v1/schedules/{id}/resume" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{"reason": "Maintenance complete"}'
+```
+
+### Response
+
+```json
+{
+  "message": "Schedule resumed successfully",
+  "next_run_at": "2025-01-16T09:00:00-05:00"
+}
+```
+
+## Delete Schedule
+
+Delete a schedule permanently.
+
+```bash
+curl -X DELETE "http://localhost:8080/api/v1/schedules/{id}" \
+  -H "Authorization: Bearer <token>"
+```
+
+### Response
+
+```json
+{
+  "message": "Schedule deleted successfully"
+}
+```
+
+## Cron Expression Format
+
+Uses standard cron syntax (5 fields):
+
+```
+┌───────────── minute (0 - 59)
+│ ┌───────────── hour (0 - 23)
+│ │ ┌───────────── day of month (1 - 31)
+│ │ │ ┌───────────── month (1 - 12)
+│ │ │ │ ┌───────────── day of week (0 - 6) (Sunday to Saturday)
+│ │ │ │ │
+* * * * *
+```
+
+### Common Examples
+
+| Expression | Description |
+|------------|-------------|
+| `0 9 * * *` | Daily at 9:00 AM |
+| `0 */4 * * *` | Every 4 hours |
+| `0 0 * * 1` | Every Monday at midnight |
+| `30 8 1 * *` | First day of month at 8:30 AM |
+| `0 12 * * 1-5` | Weekdays at noon |
+| `0 0 1,15 * *` | 1st and 15th of each month |
+
+## Resource Limits
+
+Shannon enforces resource limits to prevent abuse:
+
+| Limit | Default | Environment Variable |
+|-------|---------|---------------------|
+| Max schedules per user | 50 | `SCHEDULE_MAX_PER_USER` |
+| Minimum interval | 60 minutes | `SCHEDULE_MIN_INTERVAL_MINS` |
+| Max budget per run | $10.00 | `SCHEDULE_MAX_BUDGET_USD` |
+
+<Warning>
+Schedules that exceed budget limits will be paused automatically.
+</Warning>
+
+## Error Responses
+
+| Status | Error | Description |
+|--------|-------|-------------|
+| 400 | Invalid cron expression | Cron syntax error |
+| 400 | Interval too short | Below minimum interval |
+| 403 | Schedule limit reached | Max schedules per user exceeded |
+| 404 | Schedule not found | Invalid schedule ID |
+| 409 | Schedule already paused | Cannot pause paused schedule |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Submit Tasks" icon="paper-plane" href="/en/api/rest/submit-task">
+    One-time task submission
+  </Card>
+  <Card title="Temporal Workflows" icon="clock" href="/en/architecture/temporal-workflows">
+    Understand workflow execution
+  </Card>
+</CardGroup>

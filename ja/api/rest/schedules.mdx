@@ -1,0 +1,329 @@
+---
+title: "スケジュールAPI"
+description: "定期タスクスケジュールの作成と管理"
+---
+
+## 概要
+
+ShannonはTemporalのネイティブSchedule APIを使用して定期タスク実行をサポートします。指定した間隔で自動的にタスクを実行するcronベースのスケジュールを作成できます。
+
+## 機能
+
+- **cronベースのスケジューリング**（タイムゾーン対応）
+- **リソース制限**による乱用防止
+- **予算管理**（実行ごとの課金）
+- **実行履歴**（コスト追跡付き）
+- **一時停止/再開/削除**操作
+- **マルチテナント分離**（ユーザー/テナント所有権）
+
+## スケジュール作成
+
+新しい定期タスクスケジュールを作成します。
+
+<CodeGroup>
+```bash curl
+curl -X POST http://localhost:8080/api/v1/schedules \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "name": "日次サマリー",
+    "description": "日次アクティビティサマリーを生成",
+    "cron_expression": "0 9 * * *",
+    "timezone": "Asia/Tokyo",
+    "task_query": "昨日のアクティビティを要約",
+    "task_context": {
+      "report_format": "markdown"
+    },
+    "max_budget_per_run_usd": 5.0,
+    "timeout_seconds": 600
+  }'
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient()
+schedule = client.create_schedule(
+    name="日次サマリー",
+    cron_expression="0 9 * * *",
+    timezone="Asia/Tokyo",
+    task_query="昨日のアクティビティを要約",
+    max_budget_per_run_usd=5.0
+)
+print(f"スケジュール作成完了: {schedule.id}")
+```
+</CodeGroup>
+
+### リクエストボディ
+
+| フィールド | 型 | 必須 | 説明 |
+|-------|------|----------|-------------|
+| `name` | string | はい | スケジュール名（最大255文字） |
+| `description` | string | いいえ | オプションの説明 |
+| `cron_expression` | string | はい | Cronスケジュール（5フィールド形式） |
+| `timezone` | string | いいえ | IANAタイムゾーン（デフォルト: UTC） |
+| `task_query` | string | はい | 実行するクエリ |
+| `task_context` | object | いいえ | タスクの追加コンテキスト |
+| `max_budget_per_run_usd` | number | いいえ | 実行ごとの最大予算（デフォルト: 10.0） |
+| `timeout_seconds` | integer | いいえ | 実行タイムアウト（デフォルト: 600） |
+
+### レスポンス
+
+```json
+{
+  "schedule_id": "550e8400-e29b-41d4-a716-446655440000",
+  "message": "Schedule created successfully",
+  "next_run_at": "2025-12-16T09:00:00+09:00"
+}
+```
+
+## スケジュール一覧
+
+ページネーションとフィルタリングでスケジュールを一覧表示します。
+
+```bash
+curl "http://localhost:8080/api/v1/schedules?page=1&page_size=50&status=ACTIVE" \
+  -H "Authorization: Bearer <token>"
+```
+
+### クエリパラメータ
+
+| パラメータ | 型 | デフォルト | 説明 |
+|-----------|------|---------|-------------|
+| `page` | integer | 1 | ページ番号 |
+| `page_size` | integer | 50 | ページあたりのアイテム数（最大100） |
+| `status` | string | - | ステータスでフィルタ（ACTIVE, PAUSED） |
+
+### レスポンス
+
+```json
+{
+  "schedules": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "name": "日次サマリー",
+      "cron_expression": "0 9 * * *",
+      "timezone": "Asia/Tokyo",
+      "status": "ACTIVE",
+      "next_run_at": "2025-12-16T09:00:00+09:00",
+      "total_runs": 45,
+      "successful_runs": 43,
+      "failed_runs": 2
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "page_size": 50
+}
+```
+
+## スケジュール詳細取得
+
+特定のスケジュールの詳細を取得します。
+
+```bash
+curl "http://localhost:8080/api/v1/schedules/{id}" \
+  -H "Authorization: Bearer <token>"
+```
+
+### レスポンス
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "日次サマリー",
+  "description": "日次アクティビティサマリーを生成",
+  "cron_expression": "0 9 * * *",
+  "timezone": "Asia/Tokyo",
+  "task_query": "昨日のアクティビティを要約",
+  "task_context": {"report_format": "markdown"},
+  "max_budget_per_run_usd": 5.0,
+  "timeout_seconds": 600,
+  "status": "ACTIVE",
+  "created_at": "2025-01-01T00:00:00Z",
+  "updated_at": "2025-01-15T10:00:00Z",
+  "next_run_at": "2025-01-16T09:00:00+09:00",
+  "last_run_at": "2025-01-15T09:00:00+09:00",
+  "total_runs": 45,
+  "successful_runs": 43,
+  "failed_runs": 2
+}
+```
+
+## スケジュール更新
+
+既存のスケジュールを更新します。
+
+```bash
+curl -X PUT "http://localhost:8080/api/v1/schedules/{id}" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "cron_expression": "0 10 * * *",
+    "max_budget_per_run_usd": 8.0
+  }'
+```
+
+### リクエストボディ
+
+すべてのフィールドはオプションです。指定されたフィールドのみ更新されます。
+
+| フィールド | 型 | 説明 |
+|-------|------|-------------|
+| `name` | string | 新しいスケジュール名 |
+| `description` | string | 新しい説明 |
+| `cron_expression` | string | 新しいcronスケジュール |
+| `timezone` | string | 新しいタイムゾーン |
+| `task_query` | string | 新しいタスククエリ |
+| `task_context` | object | 新しいコンテキスト |
+| `max_budget_per_run_usd` | number | 新しい予算制限 |
+| `timeout_seconds` | integer | 新しいタイムアウト |
+
+## 実行履歴取得
+
+スケジュールの実行履歴を取得します。
+
+```bash
+curl "http://localhost:8080/api/v1/schedules/{id}/runs?page=1&page_size=20" \
+  -H "Authorization: Bearer <token>"
+```
+
+### レスポンス
+
+```json
+{
+  "runs": [
+    {
+      "id": "run-123",
+      "schedule_id": "550e8400-e29b-41d4-a716-446655440000",
+      "task_id": "task-dev-456",
+      "status": "COMPLETED",
+      "started_at": "2025-01-15T09:00:00Z",
+      "completed_at": "2025-01-15T09:02:30Z",
+      "duration_seconds": 150,
+      "cost_usd": 0.45,
+      "tokens_used": 12500
+    }
+  ],
+  "total": 45,
+  "page": 1,
+  "page_size": 20
+}
+```
+
+## スケジュール一時停止
+
+スケジュールを一時停止して今後の実行を停止します。
+
+```bash
+curl -X POST "http://localhost:8080/api/v1/schedules/{id}/pause" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{"reason": "一時的なメンテナンス"}'
+```
+
+### レスポンス
+
+```json
+{
+  "message": "Schedule paused successfully",
+  "paused_at": "2025-01-15T10:00:00Z"
+}
+```
+
+## スケジュール再開
+
+一時停止したスケジュールを再開します。
+
+```bash
+curl -X POST "http://localhost:8080/api/v1/schedules/{id}/resume" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{"reason": "メンテナンス完了"}'
+```
+
+### レスポンス
+
+```json
+{
+  "message": "Schedule resumed successfully",
+  "next_run_at": "2025-01-16T09:00:00+09:00"
+}
+```
+
+## スケジュール削除
+
+スケジュールを完全に削除します。
+
+```bash
+curl -X DELETE "http://localhost:8080/api/v1/schedules/{id}" \
+  -H "Authorization: Bearer <token>"
+```
+
+### レスポンス
+
+```json
+{
+  "message": "Schedule deleted successfully"
+}
+```
+
+## Cron式フォーマット
+
+標準のcron構文（5フィールド）を使用します:
+
+```
+┌───────────── 分 (0 - 59)
+│ ┌───────────── 時 (0 - 23)
+│ │ ┌───────────── 日 (1 - 31)
+│ │ │ ┌───────────── 月 (1 - 12)
+│ │ │ │ ┌───────────── 曜日 (0 - 6)（日曜日から土曜日）
+│ │ │ │ │
+* * * * *
+```
+
+### よく使う例
+
+| 式 | 説明 |
+|------------|-------------|
+| `0 9 * * *` | 毎日午前9時 |
+| `0 */4 * * *` | 4時間ごと |
+| `0 0 * * 1` | 毎週月曜日の午前0時 |
+| `30 8 1 * *` | 毎月1日の午前8時30分 |
+| `0 12 * * 1-5` | 平日の正午 |
+| `0 0 1,15 * *` | 毎月1日と15日 |
+
+## リソース制限
+
+Shannonは乱用を防ぐためリソース制限を強制します:
+
+| 制限 | デフォルト | 環境変数 |
+|-------|---------|---------------------|
+| ユーザーあたりの最大スケジュール数 | 50 | `SCHEDULE_MAX_PER_USER` |
+| 最小間隔 | 60分 | `SCHEDULE_MIN_INTERVAL_MINS` |
+| 実行あたりの最大予算 | $10.00 | `SCHEDULE_MAX_BUDGET_USD` |
+
+<Warning>
+予算制限を超過したスケジュールは自動的に一時停止されます。
+</Warning>
+
+## エラーレスポンス
+
+| ステータス | エラー | 説明 |
+|--------|-------|-------------|
+| 400 | Invalid cron expression | Cron構文エラー |
+| 400 | Interval too short | 最小間隔未満 |
+| 403 | Schedule limit reached | ユーザーあたりの最大スケジュール数超過 |
+| 404 | Schedule not found | 無効なスケジュールID |
+| 409 | Schedule already paused | 既に一時停止中のスケジュールは一時停止不可 |
+
+## 次のステップ
+
+<CardGroup cols={2}>
+  <Card title="タスク送信" icon="paper-plane" href="/ja/api/rest/submit-task">
+    1回限りのタスク送信
+  </Card>
+  <Card title="Temporal Workflow" icon="clock" href="/ja/architecture/temporal-workflows">
+    Workflow実行を理解する
+  </Card>
+</CardGroup>
