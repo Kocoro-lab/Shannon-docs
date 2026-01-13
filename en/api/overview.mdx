@@ -38,8 +38,18 @@ curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id=task-dev-1234567890
 | `/api/v1/tasks/stream` | POST | Submit task and get stream URL (201) |
 | `/api/v1/tasks` | GET | List tasks with filters |
 | `/api/v1/tasks/{id}` | GET | Get task status and result |
+| `/api/v1/tasks/{id}/stream` | GET | Stream events for a specific task |
 | `/api/v1/tasks/{id}/events` | GET | Get task event history |
 | `/api/v1/tasks/{id}/timeline` | GET | Get Temporal execution timeline |
+
+### Task Control
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/tasks/{id}/cancel` | POST | Cancel a running task |
+| `/api/v1/tasks/{id}/pause` | POST | Pause task at next checkpoint |
+| `/api/v1/tasks/{id}/resume` | POST | Resume a paused task |
+| `/api/v1/tasks/{id}/control-state` | GET | Get task control state (paused/running) |
 
 ### Real-Time Streaming
 
@@ -58,6 +68,48 @@ curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id=task-dev-1234567890
 | `/api/v1/sessions/{sessionId}/events` | GET | Get session events (grouped by turn) |
 | `/api/v1/sessions/{sessionId}` | PATCH | Update session title (UUID or external_id) |
 | `/api/v1/sessions/{sessionId}` | DELETE | Delete session (soft delete; 204 idempotent) |
+
+### Schedules (Recurring Tasks)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/schedules` | POST | Create a new schedule |
+| `/api/v1/schedules` | GET | List schedules with filters |
+| `/api/v1/schedules/{id}` | GET | Get schedule details |
+| `/api/v1/schedules/{id}/runs` | GET | Get schedule execution history |
+| `/api/v1/schedules/{id}` | PUT | Update schedule configuration |
+| `/api/v1/schedules/{id}/pause` | POST | Pause a schedule |
+| `/api/v1/schedules/{id}/resume` | POST | Resume a paused schedule |
+| `/api/v1/schedules/{id}` | DELETE | Delete a schedule |
+
+### Authentication
+
+| Endpoint | Method | Description | Auth Required |
+|----------|--------|-------------|---------------|
+| `/api/v1/auth/register` | POST | Register a new user | No |
+| `/api/v1/auth/login` | POST | Login and get JWT tokens | No |
+| `/api/v1/auth/refresh` | POST | Refresh JWT access token | No |
+| `/api/v1/auth/me` | GET | Get current user info | Yes |
+| `/api/v1/auth/refresh-key` | POST | Regenerate API key | Yes |
+| `/api/v1/auth/api-keys` | GET | List user's API keys | Yes |
+| `/api/v1/auth/api-keys` | POST | Create new API key | Yes |
+| `/api/v1/auth/api-keys/{id}` | DELETE | Revoke an API key | Yes |
+
+### Approvals
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/approvals/decision` | POST | Submit approval decision for human-in-the-loop tasks |
+
+### OpenAI-Compatible API
+
+Shannon provides an OpenAI-compatible API for easy integration with existing tools:
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/v1/chat/completions` | POST | Chat completions (streaming supported) |
+| `/v1/models` | GET | List available models |
+| `/v1/models/{model}` | GET | Get specific model details |
 
 ### Health & Observability
 
@@ -217,6 +269,12 @@ curl -X POST http://localhost:8080/api/v1/tasks \
   </Card>
   <Card title="Sessions API" icon="messages" href="/en/api/rest/sessions">
     Session management
+  </Card>
+  <Card title="Authentication" icon="lock" href="/en/api/rest/authentication">
+    API keys and JWT authentication
+  </Card>
+  <Card title="Task Control" icon="pause" href="/en/api/rest/pause-task">
+    Pause, resume, and cancel tasks
   </Card>
   <Card title="Python SDK" icon="python" href="/en/sdk/python/quickstart">
     Get started with Python

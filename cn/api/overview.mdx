@@ -38,8 +38,18 @@ curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id=task-dev-1234567890
 | `/api/v1/tasks/stream` | POST | 提交任务并获取流 URL（201）|
 | `/api/v1/tasks` | GET | 使用过滤器列出任务 |
 | `/api/v1/tasks/{id}` | GET | 获取任务状态和结果 |
+| `/api/v1/tasks/{id}/stream` | GET | 流式传输特定任务的事件 |
 | `/api/v1/tasks/{id}/events` | GET | 获取任务事件历史 |
 | `/api/v1/tasks/{id}/timeline` | GET | 获取 Temporal 执行时间线 |
+
+### 任务控制
+
+| 端点 | 方法 | 描述 |
+|----------|--------|-------------|
+| `/api/v1/tasks/{id}/cancel` | POST | 取消正在运行的任务 |
+| `/api/v1/tasks/{id}/pause` | POST | 在下一个检查点暂停任务 |
+| `/api/v1/tasks/{id}/resume` | POST | 恢复已暂停的任务 |
+| `/api/v1/tasks/{id}/control-state` | GET | 获取任务控制状态（暂停/运行）|
 
 ### 实时流式传输
 
@@ -58,6 +68,48 @@ curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id=task-dev-1234567890
 | `/api/v1/sessions/{sessionId}/events` | GET | 获取会话事件（按轮次分组）|
 | `/api/v1/sessions/{sessionId}` | PATCH | 更新会话标题（UUID 或 external_id） |
 | `/api/v1/sessions/{sessionId}` | DELETE | 删除会话（软删除；幂等 204）|
+
+### 定时任务（周期性任务）
+
+| 端点 | 方法 | 描述 |
+|----------|--------|-------------|
+| `/api/v1/schedules` | POST | 创建新的定时任务 |
+| `/api/v1/schedules` | GET | 列出定时任务（支持过滤）|
+| `/api/v1/schedules/{id}` | GET | 获取定时任务详情 |
+| `/api/v1/schedules/{id}/runs` | GET | 获取定时任务执行历史 |
+| `/api/v1/schedules/{id}` | PUT | 更新定时任务配置 |
+| `/api/v1/schedules/{id}/pause` | POST | 暂停定时任务 |
+| `/api/v1/schedules/{id}/resume` | POST | 恢复定时任务 |
+| `/api/v1/schedules/{id}` | DELETE | 删除定时任务 |
+
+### 认证
+
+| 端点 | 方法 | 描述 | 需要认证 |
+|----------|--------|-------------|---------------|
+| `/api/v1/auth/register` | POST | 注册新用户 | 否 |
+| `/api/v1/auth/login` | POST | 登录并获取 JWT 令牌 | 否 |
+| `/api/v1/auth/refresh` | POST | 刷新 JWT 访问令牌 | 否 |
+| `/api/v1/auth/me` | GET | 获取当前用户信息 | 是 |
+| `/api/v1/auth/refresh-key` | POST | 重新生成 API 密钥 | 是 |
+| `/api/v1/auth/api-keys` | GET | 列出用户的 API 密钥 | 是 |
+| `/api/v1/auth/api-keys` | POST | 创建新的 API 密钥 | 是 |
+| `/api/v1/auth/api-keys/{id}` | DELETE | 撤销 API 密钥 | 是 |
+
+### 审批
+
+| 端点 | 方法 | 描述 |
+|----------|--------|-------------|
+| `/api/v1/approvals/decision` | POST | 提交人工审批决策（人机协作任务）|
+
+### OpenAI 兼容 API
+
+Shannon 提供与 OpenAI 兼容的 API，便于与现有工具集成：
+
+| 端点 | 方法 | 描述 |
+|----------|--------|-------------|
+| `/v1/chat/completions` | POST | 聊天补全（支持流式传输）|
+| `/v1/models` | GET | 列出可用模型 |
+| `/v1/models/{model}` | GET | 获取特定模型详情 |
 
 ### 健康检查和可观测性
 
@@ -217,6 +269,12 @@ curl -X POST http://localhost:8080/api/v1/tasks \
   </Card>
   <Card title="会话 API" icon="messages" href="/cn/api/rest/sessions">
     会话管理
+  </Card>
+  <Card title="认证" icon="lock" href="/cn/api/rest/authentication">
+    API 密钥和 JWT 认证
+  </Card>
+  <Card title="任务控制" icon="pause" href="/cn/api/rest/pause-task">
+    暂停、恢复和取消任务
   </Card>
   <Card title="Python SDK" icon="python" href="/cn/sdk/python/quickstart">
     Python 入门

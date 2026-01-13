@@ -42,6 +42,29 @@ Shannon REST APIはHTTPベースのインターフェースでタスクの送信
   </Card>
 </CardGroup>
 
+## スケジュール（定期タスク）
+
+| エンドポイント | メソッド | 説明 |
+|----------|--------|-------------|
+| `/api/v1/schedules` | POST | 新しいスケジュールを作成 |
+| `/api/v1/schedules` | GET | スケジュール一覧を取得 |
+| `/api/v1/schedules/{id}` | GET | スケジュール詳細を取得 |
+| `/api/v1/schedules/{id}/runs` | GET | スケジュール実行履歴を取得 |
+| `/api/v1/schedules/{id}` | PUT | スケジュール設定を更新 |
+| `/api/v1/schedules/{id}/pause` | POST | スケジュールを一時停止 |
+| `/api/v1/schedules/{id}/resume` | POST | スケジュールを再開 |
+| `/api/v1/schedules/{id}` | DELETE | スケジュールを削除 |
+
+## OpenAI互換API
+
+ShannonはOpenAI互換APIを提供し、既存ツールとの統合を容易にします：
+
+| エンドポイント | メソッド | 説明 |
+|----------|--------|-------------|
+| `/v1/chat/completions` | POST | チャット補完（ストリーミング対応）|
+| `/v1/models` | GET | 利用可能なモデル一覧 |
+| `/v1/models/{model}` | GET | 特定モデルの詳細 |
+
 ## 次のステップ
 
 <CardGroup cols={2}>
