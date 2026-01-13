@@ -5,20 +5,20 @@ description: "Shannon 内部 gRPC 服务的完整 Protocol Buffer 定义"
 
 ## 概述
 
-Shannon 的内部架构使用 **gRPC**（HTTP/2 + Protocol Buffers）实现高性能服务间通信。本文档提供了所有 5 个服务和 27 个 RPC 方法的完整 Protocol Buffer 定义。
+Shannon 的内部架构使用 **gRPC**（HTTP/2 + Protocol Buffers）实现高性能服务间通信。本文档提供了所有 5 个服务和 37 个 RPC 方法的完整 Protocol Buffer 定义。
 
 <Note>
 公共 vs 内部 API：gRPC 服务为内部接口，不通过公共 SDK 暴露。应用集成请使用网关 REST API（`http://localhost:8080/api/v1/*`）或 Python SDK（`ShannonClient(base_url=...)`）。
 </Note>
 
 **服务**：
-- **OrchestratorService**（8 个 RPC）- 任务编排和工作流管理
+- **OrchestratorService**（18 个 RPC）- 任务编排、工作流管理和调度
 - **StreamingService**（1 个 RPC）- 实时事件流
 - **AgentService**（6 个 RPC）- Agent 执行和工具管理
 - **LLMService**（5 个 RPC）- LLM 提供商网关
 - **SessionService**（7 个 RPC）- 多轮对话管理
 
-**总计**：27 个 RPC 方法
+**总计**：37 个 RPC 方法
 
 ## 通用类型
 

@@ -179,9 +179,9 @@ Shannon automatically selects models based on the configured tier:
 
 | Tier | Models | Use Case | Cost |
 |------|--------|----------|------|
-| **SMALL** | gpt-5-mini, claude-haiku | Simple queries, high volume | $ |
-| **MEDIUM** | gpt-5, claude-sonnet | General purpose | $$ |
-| **LARGE** | gpt-5-thinking, claude-opus | Complex reasoning, critical tasks | $$$ |
+| **SMALL** | gpt-5-nano, claude-haiku | Simple queries, high volume | $ |
+| **MEDIUM** | gpt-5-mini, claude-sonnet | General purpose | $$ |
+| **LARGE** | gpt-5.1, claude-opus | Complex reasoning, critical tasks | $$$ |
 
 <Tip>
 Shannon's intelligent router selects the most cost-effective model for each task, often yielding 60–90% savings compared to always using premium models (workload‑dependent).
@@ -285,9 +285,9 @@ Monitor costs via task status:
 
 ```python
 status = client.get_status(task_id, include_details=True)
-if status.metrics:
-    print(f"Cost: ${status.metrics.cost_usd:.4f}")
-    print(f"Tokens: {status.metrics.tokens_used}")
+if status.token_usage:
+    print(f"Cost: ${status.token_usage.cost_usd:.4f}")
+    print(f"Tokens: {status.token_usage.total_tokens}")
 ```
 
 ### 3. Use Sessions for Context
@@ -306,10 +306,9 @@ Check metrics to optimize:
 ```python
 # Wait for task to complete
 status = client.wait(handle.task_id, timeout=300)
-if status.metrics:
-    print(f"Tokens used: {status.metrics.tokens_used}")
-    print(f"Cost: ${status.metrics.cost_usd:.4f}")
-    print(f"Duration: {status.metrics.duration_seconds:.2f}s")
+if status.token_usage:
+    print(f"Tokens used: {status.token_usage.total_tokens}")
+    print(f"Cost: ${status.token_usage.cost_usd:.4f}")
 ```
 
 ## Next Steps

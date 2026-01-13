@@ -30,9 +30,9 @@ Shannon categorizes models into tiers based on capability and cost:
 
 | Tier | Models | Cost per 1M tokens | Use Case |
 |------|--------|-------------------|----------|
-| **SMALL** | gpt-5-mini<br/>claude-haiku | $0.15 - $0.25 | Simple queries, high volume |
-| **MEDIUM** | gpt-5<br/>claude-sonnet | $3.00 - $15.00 | General purpose tasks |
-| <strong>LARGE</strong> | gpt-5-thinking<br/>claude-opus | $15.00 - $75.00 | Complex reasoning, critical tasks |
+| **SMALL** | gpt-5-nano<br/>claude-haiku | $0.15 - $0.25 | Simple queries, high volume |
+| **MEDIUM** | gpt-5-mini<br/>claude-sonnet | $3.00 - $15.00 | General purpose tasks |
+| **LARGE** | gpt-5.1<br/>claude-opus | $15.00 - $75.00 | Complex reasoning, critical tasks |
 
 ### Explicit Tier Preference
 
@@ -61,9 +61,9 @@ Traditional: Always use GPT-5 → $0.50 per task
 
 # With Shannon's routing
 Shannon:
-  - 70% routed to gpt-5-mini → $0.01
-  - 25% routed to gpt-5 → $0.15
-  - 5% routed to gpt-5-thinking → $0.50
+  - 70% routed to gpt-5-nano → $0.01
+  - 25% routed to gpt-5-mini → $0.15
+  - 5% routed to gpt-5.1 → $0.50
 Example average: $0.05 per task (~90% savings)
 ```
 
@@ -73,8 +73,8 @@ Use the dashboard or SDK status to review costs:
 
 ```python
 status = client.wait(handle.task_id)
-if status.metrics:
-    print(f"Cost (USD): {status.metrics.cost_usd:.4f}")
+if status.token_usage:
+    print(f"Cost (USD): {status.token_usage.cost_usd:.4f}")
 ```
 
 ## Response Caching
@@ -102,11 +102,11 @@ Task 2: "What is Python?" → $0.000 (cached)
 
 ```python
 status = client.wait(handle.task_id)
-if status.metrics:
-    if status.metrics.cost_usd == 0:
+if status.token_usage:
+    if status.token_usage.cost_usd == 0:
         print("Likely served from cache (no LLM cost)")
     else:
-        print(f"Cost: ${status.metrics.cost_usd:.4f}")
+        print(f"Cost: ${status.token_usage.cost_usd:.4f}")
 ```
 
 ## Provider Rate Limits
@@ -140,9 +140,9 @@ When approaching limits:
 
 ```python
 status = client.wait(handle.task_id)
-if status.metrics:
-    print(f"Tokens used: {status.metrics.tokens_used}")
-    print(f"Cost: ${status.metrics.cost_usd:.4f}")
+if status.token_usage:
+    print(f"Tokens used: {status.token_usage.total_tokens}")
+    print(f"Cost: ${status.token_usage.cost_usd:.4f}")
 ```
 
 ### Aggregate Metrics
@@ -219,9 +219,9 @@ logging.basicConfig(level=logging.INFO)
 total_cost = 0.0
 for t in tasks:
     st = client.wait(t.task_id)
-    if st.metrics:
-        total_cost += st.metrics.cost_usd
-        print(f"Task: ${st.metrics.cost_usd:.4f}, Running total: ${total_cost:.4f}")
+    if st.token_usage:
+        total_cost += st.token_usage.cost_usd
+        print(f"Task: ${st.token_usage.cost_usd:.4f}, Running total: ${total_cost:.4f}")
 ```
 
 ### 5. Use Smaller Models First
@@ -241,7 +241,7 @@ client.submit_task(query="...")  # Auto-selects tier
   - [ ] Set budget env vars (`MAX_COST_PER_REQUEST`, `MAX_TOKENS_PER_REQUEST`)
   - [ ] Use `# Mode auto-selected` for straightforward queries
   - [ ] Enable response caching (default: enabled)
-  - [ ] Use `model_tier="SMALL"` when appropriate
+  - [ ] Use `model_tier="small"` when appropriate
   - [ ] Standardize query phrasing for cache hits
   - [ ] Monitor cost metrics in dashboard
   - [ ] Set up budget alerts (via Prometheus)
@@ -268,8 +268,8 @@ total_cost = 0
 for query in simple_tasks:
     handle = client.submit_task(query=query)
     status = client.wait(handle.task_id)
-    if status.metrics:
-        total_cost += status.metrics.cost_usd
+    if status.token_usage:
+        total_cost += status.token_usage.cost_usd
 
 print(f"Total cost for 3 tasks: ${total_cost:.4f}")
 # Example: ~$0.006 (~90% savings vs always GPT-5)

@@ -179,9 +179,9 @@ Shannon 根据配置的层级自动选择模型：
 
 | 层级 | 模型 | 用例 | 成本 |
 |------|--------|----------|------|
-| **SMALL** | gpt-5-mini、claude-haiku | 简单查询、高容量 | $ |
-| **MEDIUM** | gpt-5、claude-sonnet | 通用目的 | $$ |
-| **LARGE** | gpt-5-thinking、claude-opus | 复杂推理、关键任务 | $$$ |
+| **SMALL** | gpt-5-nano、claude-haiku | 简单查询、高容量 | $ |
+| **MEDIUM** | gpt-5-mini、claude-sonnet | 通用目的 | $$ |
+| **LARGE** | gpt-5.1、claude-opus | 复杂推理、关键任务 | $$$ |
 
 <Tip>
 Shannon 的智能路由器为每个任务选择最具成本效益的模型，通常可节省 60–90% 的成本（取决于工作负载）。
@@ -285,9 +285,9 @@ MAX_COST_PER_REQUEST=1.0
 
 ```python
 status = client.get_status(task_id, include_details=True)
-if status.metrics:
-    print(f"成本：${status.metrics.cost_usd:.4f}")
-    print(f"令牌：{status.metrics.tokens_used}")
+if status.token_usage:
+    print(f"成本：${status.token_usage.cost_usd:.4f}")
+    print(f"令牌：{status.token_usage.total_tokens}")
 ```
 
 ### 3. 使用会话保持上下文
@@ -306,10 +306,9 @@ client.submit_task(query="...", session_id=session_id)
 ```python
 # 等待任务完成
 status = client.wait(handle.task_id, timeout=300)
-if status.metrics:
-    print(f"使用的令牌：{status.metrics.tokens_used}")
-    print(f"成本：${status.metrics.cost_usd:.4f}")
-    print(f"持续时间：{status.metrics.duration_seconds:.2f}秒")
+if status.token_usage:
+    print(f"使用的令牌：{status.token_usage.total_tokens}")
+    print(f"成本：${status.token_usage.cost_usd:.4f}")
 ```
 
 ## 下一步

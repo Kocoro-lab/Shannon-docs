@@ -179,9 +179,9 @@ Shannonは設定されたティアに基づいてモデルを自動選択しま�
 
 | ティア | モデル | ユースケース | コスト |
 |------|--------|----------|------|
-| **SMALL** | gpt-5-mini、claude-haiku | シンプルなクエリ、大量処理 | $ |
-| **MEDIUM** | gpt-5、claude-sonnet | 汎用目的 | $$ |
-| **LARGE** | gpt-5-thinking、claude-opus | 複雑な推論、重要なタスク | $$$ |
+| **SMALL** | gpt-5-nano、claude-haiku | シンプルなクエリ、大量処理 | $ |
+| **MEDIUM** | gpt-5-mini、claude-sonnet | 汎用目的 | $$ |
+| **LARGE** | gpt-5.1、claude-opus | 複雑な推論、重要なタスク | $$$ |
 
 <Tip>
 Shannonのインテリジェントルーターは各タスクに最もコスト効率の良いモデルを選択し、常にプレミアムモデルを使用する場合と比較して60～90%の節約を実現します（ワークロード依存）。
@@ -285,9 +285,9 @@ MAX_COST_PER_REQUEST=1.0
 
 ```python
 status = client.get_status(task_id, include_details=True)
-if status.metrics:
-    print(f"Cost: ${status.metrics.cost_usd:.4f}")
-    print(f"Tokens: {status.metrics.tokens_used}")
+if status.token_usage:
+    print(f"Cost: ${status.token_usage.cost_usd:.4f}")
+    print(f"Tokens: {status.token_usage.total_tokens}")
 ```
 
 ### 3. コンテキストにセッションを使用
@@ -306,10 +306,9 @@ client.submit_task(query="...", session_id=session_id)
 ```python
 # タスクの完了を待機
 status = client.wait(handle.task_id, timeout=300)
-if status.metrics:
-    print(f"Tokens used: {status.metrics.tokens_used}")
-    print(f"Cost: ${status.metrics.cost_usd:.4f}")
-    print(f"Duration: {status.metrics.duration_seconds:.2f}s")
+if status.token_usage:
+    print(f"Tokens used: {status.token_usage.total_tokens}")
+    print(f"Cost: ${status.token_usage.cost_usd:.4f}")
 ```
 
 ## 次のステップ

@@ -30,9 +30,9 @@ Shannon 根据能力和成本将模型分为不同层级：
 
 | 层级 | 模型 | 每百万令牌成本 | 用例 |
 |------|--------|-------------------|----------|
-| **SMALL** | gpt-5-mini<br/>claude-haiku | $0.15 - $0.25 | 简单查询、高容量 |
-| **MEDIUM** | gpt-5<br/>claude-sonnet | $3.00 - $15.00 | 通用任务 |
-| <strong>LARGE</strong> | gpt-5-thinking<br/>claude-opus | $15.00 - $75.00 | 复杂推理、关键任务 |
+| **SMALL** | gpt-5-nano<br/>claude-haiku | $0.15 - $0.25 | 简单查询、高容量 |
+| **MEDIUM** | gpt-5-mini<br/>claude-sonnet | $3.00 - $15.00 | 通用任务 |
+| **LARGE** | gpt-5.1<br/>claude-opus | $15.00 - $75.00 | 复杂推理、关键任务 |
 
 ### 显式层级偏好
 
@@ -61,9 +61,9 @@ Shannon 的学习路由器自动选择能够处理每个任务的最便宜模型
 
 # 使用 Shannon 的路由
 Shannon:
-  - 70% 路由到 gpt-5-mini → $0.01
-  - 25% 路由到 gpt-5 → $0.15
-  - 5% 路由到 gpt-5-thinking → $0.50
+  - 70% 路由到 gpt-5-nano → $0.01
+  - 25% 路由到 gpt-5-mini → $0.15
+  - 5% 路由到 gpt-5.1 → $0.50
 示例平均：每个任务 $0.05（约 90% 节省）
 ```
 
@@ -73,8 +73,8 @@ Shannon:
 
 ```python
 status = client.wait(handle.task_id)
-if status.metrics:
-    print(f"成本（USD）：{status.metrics.cost_usd:.4f}")
+if status.token_usage:
+    print(f"成本（USD）：{status.token_usage.cost_usd:.4f}")
 ```
 
 ## 响应缓存
@@ -102,11 +102,11 @@ Shannon 缓存 LLM 响应以消除冗余 API 调用：
 
 ```python
 status = client.wait(handle.task_id)
-if status.metrics:
-    if status.metrics.cost_usd == 0:
+if status.token_usage:
+    if status.token_usage.cost_usd == 0:
         print("很可能来自缓存（无 LLM 成本）")
     else:
-        print(f"成本：${status.metrics.cost_usd:.4f}")
+        print(f"成本：${status.token_usage.cost_usd:.4f}")
 ```
 
 ## 提供商速率限制
@@ -140,9 +140,9 @@ providers:
 
 ```python
 status = client.wait(handle.task_id)
-if status.metrics:
-    print(f"使用的令牌：{status.metrics.tokens_used}")
-    print(f"成本：${status.metrics.cost_usd:.4f}")
+if status.token_usage:
+    print(f"使用的令牌：{status.token_usage.total_tokens}")
+    print(f"成本：${status.token_usage.cost_usd:.4f}")
 ```
 
 ### 聚合指标
@@ -219,9 +219,9 @@ logging.basicConfig(level=logging.INFO)
 total_cost = 0.0
 for t in tasks:
     st = client.wait(t.task_id)
-    if st.metrics:
-        total_cost += st.metrics.cost_usd
-        print(f"任务：${st.metrics.cost_usd:.4f}，累计：${total_cost:.4f}")
+    if st.token_usage:
+        total_cost += st.token_usage.cost_usd
+        print(f"任务：${st.token_usage.cost_usd:.4f}，累计：${total_cost:.4f}")
 ```
 
 ### 5. 首先使用较小的模型
@@ -241,7 +241,7 @@ client.submit_task(query="...")  # 自动选择层级
   - [ ] 在所有任务上设置 `max_cost_usd`
   - [ ] 对直接查询使用 `# 自动选择模式`
   - [ ] 启用响应缓存（默认：已启用）
-  - [ ] 在适当时使用 `model_tier="SMALL"`
+  - [ ] 在适当时使用 `model_tier="small"`
   - [ ] 标准化查询措辞以实现缓存命中
   - [ ] 在仪表板中监控成本指标
   - [ ] 设置预算警报（通过 Prometheus）
@@ -268,8 +268,8 @@ total_cost = 0
 for query in simple_tasks:
     handle = client.submit_task(query=query)
     status = client.wait(handle.task_id)
-    if status.metrics:
-        total_cost += status.metrics.cost_usd
+    if status.token_usage:
+        total_cost += status.token_usage.cost_usd
 
 print(f"3 个任务的总成本：${total_cost:.4f}")
 # 示例：约 $0.006（与始终使用 GPT-5 相比约 90% 节省）

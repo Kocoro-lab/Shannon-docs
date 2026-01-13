@@ -30,9 +30,9 @@ Shannonは機能とコストに基づいてモデルをティアに分類しま�
 
 | ティア | モデル | 100万トークンあたりのコスト | ユースケース |
 |------|--------|-------------------|----------|
-| **SMALL** | gpt-5-mini<br/>claude-haiku | $0.15 - $0.25 | シンプルなクエリ、大量処理 |
-| **MEDIUM** | gpt-5<br/>claude-sonnet | $3.00 - $15.00 | 汎用タスク |
-| **LARGE** | gpt-5-thinking<br/>claude-opus | $15.00 - $75.00 | 複雑な推論、重要なタスク |
+| **SMALL** | gpt-5-nano<br/>claude-haiku | $0.15 - $0.25 | シンプルなクエリ、大量処理 |
+| **MEDIUM** | gpt-5-mini<br/>claude-sonnet | $3.00 - $15.00 | 汎用タスク |
+| **LARGE** | gpt-5.1<br/>claude-opus | $15.00 - $75.00 | 複雑な推論、重要なタスク |
 
 ### 明示的なティア設定
 
@@ -61,9 +61,9 @@ Shannonの学習ルーターは、各タスクを処理できる最も安価な�
 
 # Shannonのルーティング付き
 Shannon:
-  - 70%がgpt-5-miniにルーティング → $0.01
-  - 25%がgpt-5にルーティング → $0.15
-  - 5%がgpt-5-thinkingにルーティング → $0.50
+  - 70%がgpt-5-nanoにルーティング → $0.01
+  - 25%がgpt-5-miniにルーティング → $0.15
+  - 5%がgpt-5.1にルーティング → $0.50
 例の平均: タスクあたり$0.05（約90%の節約）
 ```
 
@@ -73,8 +73,8 @@ Shannon:
 
 ```python
 status = client.wait(handle.task_id)
-if status.metrics:
-    print(f"Cost (USD): {status.metrics.cost_usd:.4f}")
+if status.token_usage:
+    print(f"Cost (USD): {status.token_usage.cost_usd:.4f}")
 ```
 
 ## レスポンスキャッシング
@@ -102,11 +102,11 @@ Shannonは冗長なAPI呼び出しを排除するためにLLMレスポンスを�
 
 ```python
 status = client.wait(handle.task_id)
-if status.metrics:
-    if status.metrics.cost_usd == 0:
+if status.token_usage:
+    if status.token_usage.cost_usd == 0:
         print("Likely served from cache (no LLM cost)")
     else:
-        print(f"Cost: ${status.metrics.cost_usd:.4f}")
+        print(f"Cost: ${status.token_usage.cost_usd:.4f}")
 ```
 
 ## プロバイダーレート制限
@@ -140,9 +140,9 @@ providers:
 
 ```python
 status = client.wait(handle.task_id)
-if status.metrics:
-    print(f"Tokens used: {status.metrics.tokens_used}")
-    print(f"Cost: ${status.metrics.cost_usd:.4f}")
+if status.token_usage:
+    print(f"Tokens used: {status.token_usage.total_tokens}")
+    print(f"Cost: ${status.token_usage.cost_usd:.4f}")
 ```
 
 ### 集計メトリクス
@@ -219,9 +219,9 @@ logging.basicConfig(level=logging.INFO)
 total_cost = 0.0
 for t in tasks:
     st = client.wait(t.task_id)
-    if st.metrics:
-        total_cost += st.metrics.cost_usd
-        print(f"Task: ${st.metrics.cost_usd:.4f}, Running total: ${total_cost:.4f}")
+    if st.token_usage:
+        total_cost += st.token_usage.cost_usd
+        print(f"Task: ${st.token_usage.cost_usd:.4f}, Running total: ${total_cost:.4f}")
 ```
 
 ### 5. 最初に小さいモデルを使用
@@ -241,7 +241,7 @@ client.submit_task(query="...")  # ティアを自動選択
   - [ ] 予算環境変数を設定（`MAX_COST_PER_REQUEST`、`MAX_TOKENS_PER_REQUEST`）
   - [ ] 直接的なクエリには`# モード自動選択`を使用
   - [ ] レスポンスキャッシングを有効化（デフォルト: 有効）
-  - [ ] 適切な場合は`model_tier="SMALL"`を使用
+  - [ ] 適切な場合は`model_tier="small"`を使用
   - [ ] キャッシュヒットのためにクエリ表現を標準化
   - [ ] ダッシュボードでコストメトリクスを監視
   - [ ] 予算アラートを設定（Prometheus経由）
@@ -268,8 +268,8 @@ total_cost = 0
 for query in simple_tasks:
     handle = client.submit_task(query=query)
     status = client.wait(handle.task_id)
-    if status.metrics:
-        total_cost += status.metrics.cost_usd
+    if status.token_usage:
+        total_cost += status.token_usage.cost_usd
 
 print(f"Total cost for 3 tasks: ${total_cost:.4f}")
 # 例: ~$0.006（常にGPT-5と比較して約90%の節約）
