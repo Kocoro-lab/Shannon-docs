@@ -207,10 +207,12 @@ curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
   -d '{
     "query": "Survey of attention mechanisms in modern NLP architectures",
-    "context": { "force_research": true },
-    "research_strategy": "academic"
+   "context": { "force_research": true },
+   "research_strategy": "academic"
   }'
 ```
+
+**Quick strategy behavior:** uses the lightweight `quick_research_agent` prompt, always takes the parallel execution path, and skips the Deep Research iterative loop and gap-filling stages—optimized for fast summaries where depth is not required.
 
 **Available Presets**: `quick` | `standard` | `deep` | `academic`
 
