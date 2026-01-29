@@ -1,48 +1,282 @@
 ---
 title: "API概要"
-description: "Shannon APIリファレンス"
+description: "ShannonのREST APIとgRPC API（AIエージェントオーケストレーション用）"
 ---
 
-## 概要
+## はじめに
 
-ShannonはREST APIとgRPC APIの両方を提供し、プログラムでタスクを送信し、実行を監視できます。
+Shannonはタスクの送信、結果のストリーミング、AIエージェントワークフローの管理のためのHTTP REST APIとgRPC APIを提供します。
 
-## API タイプ
+**ベースURL**: `http://localhost:8080`（開発環境）
 
-<CardGroup cols={2}>
-  <Card title="REST API" icon="brackets-curly" href="/ja/api/rest/overview">
-    HTTPベースのREST API
-  </Card>
-  <Card title="gRPC API" icon="code" href="/ja/architecture/grpc-api">
-    高性能gRPC API
-  </Card>
-</CardGroup>
+## クイックスタート
+
+```bash
+# タスクを送信
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"query": "感情分析: Shannonは AI をシンプルにする"}'
+
+# レスポンス
+{
+  "task_id": "task-dev-1234567890",
+  "status": "submitted",
+  "created_at": "2025-01-20T10:00:00Z"
+}
+
+# リアルタイムイベントをストリーム
+curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id=task-dev-1234567890"
+```
+
+## APIエンドポイント
+
+### コアタスク操作
+
+| エンドポイント | メソッド | 説明 |
+|--------------|--------|------|
+| `/api/v1/tasks` | POST | 新しいタスクを送信 |
+| `/api/v1/tasks/stream` | POST | タスクを送信してストリームURLを取得（201） |
+| `/api/v1/tasks` | GET | フィルタ付きでタスクを一覧表示 |
+| `/api/v1/tasks/{id}` | GET | タスクのステータスと結果を取得 |
+| `/api/v1/tasks/{id}/stream` | GET | 特定のタスクのイベントをストリーム |
+| `/api/v1/tasks/{id}/events` | GET | タスクのイベント履歴を取得 |
+| `/api/v1/tasks/{id}/timeline` | GET | Temporal実行タイムラインを取得 |
+
+### タスク制御
+
+| エンドポイント | メソッド | 説明 |
+|--------------|--------|------|
+| `/api/v1/tasks/{id}/cancel` | POST | 実行中のタスクをキャンセル |
+| `/api/v1/tasks/{id}/pause` | POST | 次のチェックポイントでタスクを一時停止 |
+| `/api/v1/tasks/{id}/resume` | POST | 一時停止したタスクを再開 |
+| `/api/v1/tasks/{id}/control-state` | GET | タスクの制御状態（一時停止/実行中）を取得 |
+
+### リアルタイムストリーミング
+
+| エンドポイント | メソッド | 説明 |
+|--------------|--------|------|
+| `/api/v1/stream/sse?workflow_id={id}` | GET | Server-Sent Eventsストリーム |
+| `/api/v1/stream/ws?workflow_id={id}` | GET | WebSocketストリーム |
+
+### セッション管理
+
+| エンドポイント | メソッド | 説明 |
+|--------------|--------|------|
+| `/api/v1/sessions` | GET | ページネーション付きでセッションを一覧表示 |
+| `/api/v1/sessions/{sessionId}` | GET | セッションの詳細を取得 |
+| `/api/v1/sessions/{sessionId}/history` | GET | セッションのチャット履歴を取得 |
+| `/api/v1/sessions/{sessionId}/events` | GET | セッションイベントを取得（ターンごとにグループ化） |
+| `/api/v1/sessions/{sessionId}` | PATCH | セッションタイトルを更新（UUIDまたはexternal_id） |
+| `/api/v1/sessions/{sessionId}` | DELETE | セッションを削除（ソフト削除、204冪等） |
+
+### スケジュール（定期タスク）
+
+| エンドポイント | メソッド | 説明 |
+|--------------|--------|------|
+| `/api/v1/schedules` | POST | 新しいスケジュールを作成 |
+| `/api/v1/schedules` | GET | フィルタ付きでスケジュールを一覧表示 |
+| `/api/v1/schedules/{id}` | GET | スケジュールの詳細を取得 |
+| `/api/v1/schedules/{id}/runs` | GET | スケジュールの実行履歴を取得 |
+| `/api/v1/schedules/{id}` | PUT | スケジュール設定を更新 |
+| `/api/v1/schedules/{id}/pause` | POST | スケジュールを一時停止 |
+| `/api/v1/schedules/{id}/resume` | POST | 一時停止したスケジュールを再開 |
+| `/api/v1/schedules/{id}` | DELETE | スケジュールを削除 |
+
+### 認証
+
+| エンドポイント | メソッド | 説明 | 認証必須 |
+|--------------|--------|------|---------|
+| `/api/v1/auth/register` | POST | 新規ユーザー登録 | いいえ |
+| `/api/v1/auth/login` | POST | ログインしてJWTトークンを取得 | いいえ |
+| `/api/v1/auth/refresh` | POST | JWTアクセストークンを更新 | いいえ |
+| `/api/v1/auth/me` | GET | 現在のユーザー情報を取得 | はい |
+| `/api/v1/auth/refresh-key` | POST | APIキーを再生成 | はい |
+| `/api/v1/auth/api-keys` | GET | ユーザーのAPIキーを一覧表示 | はい |
+| `/api/v1/auth/api-keys` | POST | 新しいAPIキーを作成 | はい |
+| `/api/v1/auth/api-keys/{id}` | DELETE | APIキーを無効化 | はい |
+
+### 承認
+
+| エンドポイント | メソッド | 説明 |
+|--------------|--------|------|
+| `/api/v1/approvals/decision` | POST | Human-in-the-loopタスクの承認決定を送信 |
+
+### OpenAI互換API
+
+Shannonは既存ツールとの簡単な統合のためにOpenAI互換APIを提供します：
+
+| エンドポイント | メソッド | 説明 |
+|--------------|--------|------|
+| `/v1/chat/completions` | POST | チャット補完（ストリーミング対応） |
+| `/v1/models` | GET | 利用可能なモデルを一覧表示 |
+| `/v1/models/{model}` | GET | 特定のモデルの詳細を取得 |
+
+### ヘルス＆オブザーバビリティ
+
+| エンドポイント | メソッド | 説明 | 認証必須 |
+|--------------|--------|------|---------|
+| `/health` | GET | ヘルスチェック | いいえ |
+| `/readiness` | GET | レディネスプローブ | いいえ |
+| `/openapi.json` | GET | OpenAPI 3.0仕様 | いいえ |
 
 ## 認証
 
-<Card title="認証" icon="key" href="/ja/api/authentication">
-  APIキーと認証方法
-</Card>
+<Note>
+**開発デフォルト**: 認証は**無効**（`GATEWAY_SKIP_AUTH=1`）です。本番環境では有効にしてください。
+</Note>
 
-## イベントタイプ
+有効な場合、ヘッダーでAPIキーを渡します：
 
-<Card title="イベントタイプ" icon="bell" href="/ja/api/event-types">
-  ストリーミングイベントリファレンス
-</Card>
+```bash
+curl -H "X-API-Key: sk_test_123456" \
+  http://localhost:8080/api/v1/tasks
+```
 
-## モデル
+<Warning>
+SSEストリーミング: ブラウザの`EventSource`はカスタムヘッダーを送信できません。
 
-<Card title="モデル" icon="cube" href="/ja/api/models/overview">
-  データモデルとスキーマ
-</Card>
+- 開発: `GATEWAY_SKIP_AUTH=1`を設定して認証をスキップ。
+- 本番: バックエンド（またはエッジ）からSSEを開始し、`X-API-Key`または`Authorization: Bearer`ヘッダーを注入。
+- URLクエリパラメータでAPIキーを渡さないでください。
+</Warning>
+
+## レスポンス形式
+
+すべてのエンドポイントは一貫したエラー形式でJSONを返します：
+
+**成功（200）**:
+```json
+{
+  "task_id": "task-dev-1234567890",
+  "status": "COMPLETED",
+  "result": "感情: ポジティブ"
+}
+```
+
+**エラー（400/401/404/429/500）**:
+```json
+{
+  "error": "Task not found"
+}
+```
+
+## レート制限
+
+- **デフォルト**: APIキーあたり60リクエスト/分
+- **ヘッダー**: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
+- **429レスポンス**: `Retry-After`ヘッダーを含む
+
+## イベントストリーミング
+
+Shannonはリアルタイム監視のために26種類のイベントタイプを発行します：
+
+**コアイベント**:
+- `WORKFLOW_STARTED`, `WORKFLOW_COMPLETED`
+- `AGENT_STARTED`, `AGENT_COMPLETED`
+- `STATUS_UPDATE`, `DATA_PROCESSING`
+- `ERROR_OCCURRED`
+
+**LLMイベント**:
+- `LLM_PROMPT`, `LLM_OUTPUT`, `LLM_PARTIAL`
+
+**ツールイベント**:
+- `TOOL_INVOKED`, `TOOL_OBSERVATION`
+
+完全なリストは[イベントタイプリファレンス](/ja/api/rest/streaming#event-types)を参照してください。
+
+Python SDK: フィルタリングとチェックには`EventType`列挙型を使用。[SDKストリーミング](/ja/sdk/python/streaming)を参照。
+
+## クライアントアクセス
+
+Gateway REST APIまたはPython SDK（HTTPのみ）を使用：
+
+- RESTエンドポイント: `http://localhost:8080/api/v1/*`
+- Python SDK: `ShannonClient(base_url="http://localhost:8080")`
+
+注意: gRPCサービスは内部用であり、パブリックSDKの一部ではありません。OpenAI互換の`/v1/chat/completions`エンドポイントは互換性のためのものです。完全なShannon機能（スキル、セッションワークスペース、研究戦略）を使用するには、`/api/v1/tasks`および関連エンドポイントを使用してください。
+
+## ベストプラクティス
+
+### 1. コンテキストのためにセッションIDを使用
+
+```json
+{
+  "query": "Q2はどうですか？",
+  "session_id": "user-123-analytics"
+}
+```
+
+### 2. 長時間タスクにはイベントをストリーム
+
+```python
+import requests
+
+r = requests.get(
+    f"http://localhost:8080/api/v1/stream/sse?workflow_id={task_id}",
+    stream=True
+)
+
+for line in r.iter_lines():
+    if line:
+        event = parse_sse(line)
+        print(event['type'])
+```
+
+### 3. レート制限を処理
+
+```python
+import time
+
+def submit_with_retry(query, max_retries=3):
+    for attempt in range(max_retries):
+        response = requests.post(url, json={"query": query})
+
+        if response.status_code == 429:
+            retry_after = int(response.headers.get("Retry-After", 60))
+            time.sleep(retry_after)
+            continue
+
+        return response
+```
+
+### 4. 冪等性キーを使用
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{"query": "一度だけ処理"}'
+```
+
+## SDK
+
+<CardGroup cols={2}>
+  <Card title="Python SDK" icon="python" href="/ja/sdk/python/quickstart">
+    ストリーミング対応の公式Pythonクライアント
+  </Card>
+  <Card title="RESTクライアント" icon="code">
+    任意のHTTPクライアントライブラリを使用
+  </Card>
+</CardGroup>
 
 ## 次のステップ
 
 <CardGroup cols={2}>
-  <Card title="クイックスタート" icon="rocket" href="/ja/quickstart/quickstart">
-    最初のタスクを送信
+  <Card title="タスク送信" icon="paper-plane" href="/ja/api/rest/submit-task">
+    タスク送信API
+  </Card>
+  <Card title="イベントストリーム" icon="stream" href="/ja/api/rest/streaming">
+    リアルタイムイベントストリーミング
+  </Card>
+  <Card title="セッションAPI" icon="messages" href="/ja/api/rest/sessions">
+    セッション管理
+  </Card>
+  <Card title="認証" icon="lock" href="/ja/api/rest/authentication">
+    APIキーとJWT認証
+  </Card>
+  <Card title="タスク制御" icon="pause" href="/ja/api/rest/pause-task">
+    一時停止、再開、キャンセル
   </Card>
   <Card title="Python SDK" icon="python" href="/ja/sdk/python/quickstart">
-    Python SDKを使用
+    Pythonを始める
   </Card>
 </CardGroup>

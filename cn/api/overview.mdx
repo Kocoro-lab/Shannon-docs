@@ -193,7 +193,7 @@ Python SDK：通过 `EventType` 枚举进行过滤与判断，参见[SDK 流式�
 - REST 端点：`http://localhost:8080/api/v1/*`
 - Python SDK：`ShannonClient(base_url="http://localhost:8080")`
 
-说明：gRPC 服务为内部接口，不属于公共 SDK 的一部分。
+说明：gRPC 服务为内部接口，不属于公共 SDK 的一部分。OpenAI 兼容端点 `/v1/chat/completions` 仅用于兼容性。如需完整的 Shannon 功能（技能、会话工作区、研究策略），请使用 `/api/v1/tasks` 及相关端点。
 
 ## 最佳实践
 

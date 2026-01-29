@@ -1,0 +1,298 @@
+---
+title: "スキル API"
+description: "Shannonスキルの一覧取得、詳細取得、管理"
+---
+
+## 概要
+
+スキル APIを使用すると、利用可能なスキルの一覧表示、スキルの詳細取得、バージョン履歴の確認ができます。スキルは、事前定義されたシステムプロンプトと設定でシングルエージェント実行を駆動するMarkdownベースのワークフロー定義です。
+
+## エンドポイント
+
+| エンドポイント | メソッド | 説明 |
+|--------------|--------|------|
+| `/api/v1/skills` | GET | すべてのスキルを一覧表示 |
+| `/api/v1/skills/{name}` | GET | スキルの詳細を取得 |
+| `/api/v1/skills/{name}/versions` | GET | スキルのバージョン履歴を取得 |
+
+---
+
+## スキル一覧
+
+```
+GET /api/v1/skills
+```
+
+利用可能なすべてのスキルを返します。カテゴリでフィルタリングできます。
+
+### クエリパラメータ
+
+| パラメータ | 型 | 必須 | 説明 |
+|----------|------|------|------|
+| `category` | string | いいえ | カテゴリでフィルタ（例: `research`, `development`, `analysis`） |
+
+### レスポンス
+
+```json
+{
+  "skills": [
+    {
+      "name": "deep-research",
+      "version": "1.0.0",
+      "category": "research",
+      "description": "引用と検証を伴う包括的な調査",
+      "requires_tools": ["web_search", "web_fetch"],
+      "dangerous": false,
+      "enabled": true
+    },
+    {
+      "name": "code-review",
+      "version": "1.0.0",
+      "category": "development",
+      "description": "バグと改善点のコードレビュー",
+      "requires_tools": ["file_read"],
+      "dangerous": false,
+      "enabled": true
+    }
+  ],
+  "count": 2,
+  "categories": ["research", "development", "analysis"]
+}
+```
+
+### 例
+
+```bash
+# すべてのスキルを一覧表示
+curl http://localhost:8080/api/v1/skills \
+  -H "X-API-Key: sk_test_123456"
+
+# カテゴリでフィルタ
+curl "http://localhost:8080/api/v1/skills?category=research" \
+  -H "X-API-Key: sk_test_123456"
+```
+
+---
+
+## スキル取得
+
+```
+GET /api/v1/skills/{name}
+```
+
+特定のスキルの詳細情報（コンテンツとメタデータを含む）を返します。
+
+### パスパラメータ
+
+| パラメータ | 型 | 必須 | 説明 |
+|----------|------|------|------|
+| `name` | string | はい | スキル名（例: `deep-research`） |
+
+### レスポンス
+
+```json
+{
+  "skill": {
+    "name": "deep-research",
+    "version": "1.0.0",
+    "category": "research",
+    "description": "引用と検証を伴う包括的な調査",
+    "content": "# ディープリサーチスキル\n\nあなたは調査エージェントです...",
+    "requires_role": "research",
+    "requires_tools": ["web_search", "web_fetch"],
+    "dangerous": false,
+    "enabled": true,
+    "budget_max": 50000
+  },
+  "metadata": {
+    "source_path": "config/skills/research/deep-research.md",
+    "content_hash": "sha256:abc123...",
+    "loaded_at": "2025-01-20T10:00:00Z"
+  }
+}
+```
+
+### 例
+
+```bash
+curl http://localhost:8080/api/v1/skills/deep-research \
+  -H "X-API-Key: sk_test_123456"
+```
+
+### エラーレスポンス
+
+**404 Not Found**:
+```json
+{
+  "error": "Skill not found"
+}
+```
+
+---
+
+## スキルバージョン取得
+
+```
+GET /api/v1/skills/{name}/versions
+```
+
+スキルの利用可能なすべてのバージョンを返します。
+
+### パスパラメータ
+
+| パラメータ | 型 | 必須 | 説明 |
+|----------|------|------|------|
+| `name` | string | はい | スキル名（例: `deep-research`） |
+
+### レスポンス
+
+```json
+{
+  "name": "deep-research",
+  "versions": [
+    {
+      "name": "deep-research",
+      "version": "1.0.0",
+      "category": "research",
+      "description": "引用を伴う包括的な調査",
+      "requires_tools": ["web_search", "web_fetch"],
+      "dangerous": false,
+      "enabled": true
+    },
+    {
+      "name": "deep-research",
+      "version": "0.9.0",
+      "category": "research",
+      "description": "ベータ調査スキル",
+      "requires_tools": ["web_search"],
+      "dangerous": false,
+      "enabled": false
+    }
+  ],
+  "count": 2
+}
+```
+
+### 例
+
+```bash
+curl http://localhost:8080/api/v1/skills/deep-research/versions \
+  -H "X-API-Key: sk_test_123456"
+```
+
+---
+
+## タスクでスキルを使用する
+
+タスク送信時に `skill` パラメータを含めます：
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "量子コンピューティングの最新の発展を調査",
+    "skill": "deep-research"
+  }'
+```
+
+### バージョン選択
+
+`name@version` 構文でバージョンを指定：
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "このプルリクエストをレビュー",
+    "skill": "code-review@1.0.0"
+  }'
+```
+
+<Note>
+スキルはシステムプロンプトのオーバーライドとオプションのロール割り当てに展開されます。コードを変更せずに再利用可能なワークフローを定義する方法を提供します。
+</Note>
+
+---
+
+## スキル構造
+
+スキルはYAML frontmatter付きのMarkdownファイルとして定義されます：
+
+```markdown
+---
+name: my-skill
+version: "1.0.0"
+category: development
+description: "このスキルの機能の説明"
+requires_role: developer
+requires_tools:
+  - file_read
+  - file_write
+dangerous: false
+enabled: true
+budget_max: 50000
+---
+
+# スキル指示
+
+あなたは専門エージェントです...
+
+## ガイドライン
+
+1. まず、リクエストを分析
+2. 次に、適切なアクションを実行
+3. 最後に、結果を報告
+```
+
+### Frontmatterフィールド
+
+| フィールド | 型 | 必須 | 説明 |
+|----------|------|------|------|
+| `name` | string | はい | スキル識別子 |
+| `version` | string | はい | セマンティックバージョン |
+| `category` | string | いいえ | グループ化カテゴリ |
+| `description` | string | いいえ | 人間が読める説明 |
+| `requires_role` | string | いいえ | 使用するロールプリセット |
+| `requires_tools` | array | いいえ | 必要なツール |
+| `dangerous` | boolean | いいえ | 昇格された権限が必要 |
+| `enabled` | boolean | いいえ | スキルがアクティブかどうか |
+| `budget_max` | integer | いいえ | 最大トークン予算 |
+
+---
+
+## 危険なスキル
+
+`dangerous: true` とマークされたスキルは特別な認可が必要です：
+
+- AdminまたはOwnerロール、または
+- APIキーに明示的な `skills:dangerous` スコープ
+
+```bash
+# 危険なスキルの呼び出し（認可が必要）
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_admin_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "システムメンテナンスを実行",
+    "skill": "system-admin"
+  }'
+```
+
+<Warning>
+危険なスキルは特権操作を実行できます。信頼できるAPIキーにのみ `skills:dangerous` スコープを付与してください。
+</Warning>
+
+---
+
+## 関連
+
+<CardGroup cols={2}>
+  <Card title="タスク送信" icon="paper-plane" href="/ja/api/rest/submit-task">
+    タスク送信時にスキルを使用
+  </Card>
+  <Card title="カスタムツール" icon="wrench" href="/ja/tutorials/custom-tools">
+    スキルが使用するツールを追加
+  </Card>
+</CardGroup>

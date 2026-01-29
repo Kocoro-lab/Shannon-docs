@@ -1,0 +1,298 @@
+---
+title: "技能 API"
+description: "列出、获取和管理 Shannon 技能"
+---
+
+## 概述
+
+技能 API 允许您列出可用技能、获取技能详情和查看版本历史。技能是基于 Markdown 的工作流定义，用于驱动具有预定义系统提示和配置的单代理执行。
+
+## 端点
+
+| 端点 | 方法 | 描述 |
+|------|------|------|
+| `/api/v1/skills` | GET | 列出所有技能 |
+| `/api/v1/skills/{name}` | GET | 获取技能详情 |
+| `/api/v1/skills/{name}/versions` | GET | 获取技能版本历史 |
+
+---
+
+## 列出技能
+
+```
+GET /api/v1/skills
+```
+
+返回所有可用技能，可按类别筛选。
+
+### 查询参数
+
+| 参数 | 类型 | 必需 | 描述 |
+|------|------|------|------|
+| `category` | string | 否 | 按类别筛选（如 `research`、`development`、`analysis`） |
+
+### 响应
+
+```json
+{
+  "skills": [
+    {
+      "name": "deep-research",
+      "version": "1.0.0",
+      "category": "research",
+      "description": "带引用和验证的全面研究",
+      "requires_tools": ["web_search", "web_fetch"],
+      "dangerous": false,
+      "enabled": true
+    },
+    {
+      "name": "code-review",
+      "version": "1.0.0",
+      "category": "development",
+      "description": "审查代码中的问题和改进点",
+      "requires_tools": ["file_read"],
+      "dangerous": false,
+      "enabled": true
+    }
+  ],
+  "count": 2,
+  "categories": ["research", "development", "analysis"]
+}
+```
+
+### 示例
+
+```bash
+# 列出所有技能
+curl http://localhost:8080/api/v1/skills \
+  -H "X-API-Key: sk_test_123456"
+
+# 按类别筛选
+curl "http://localhost:8080/api/v1/skills?category=research" \
+  -H "X-API-Key: sk_test_123456"
+```
+
+---
+
+## 获取技能
+
+```
+GET /api/v1/skills/{name}
+```
+
+返回特定技能的详细信息，包括内容和元数据。
+
+### 路径参数
+
+| 参数 | 类型 | 必需 | 描述 |
+|------|------|------|------|
+| `name` | string | 是 | 技能名称（如 `deep-research`） |
+
+### 响应
+
+```json
+{
+  "skill": {
+    "name": "deep-research",
+    "version": "1.0.0",
+    "category": "research",
+    "description": "带引用和验证的全面研究",
+    "content": "# 深度研究技能\n\n你是一个研究代理...",
+    "requires_role": "research",
+    "requires_tools": ["web_search", "web_fetch"],
+    "dangerous": false,
+    "enabled": true,
+    "budget_max": 50000
+  },
+  "metadata": {
+    "source_path": "config/skills/research/deep-research.md",
+    "content_hash": "sha256:abc123...",
+    "loaded_at": "2025-01-20T10:00:00Z"
+  }
+}
+```
+
+### 示例
+
+```bash
+curl http://localhost:8080/api/v1/skills/deep-research \
+  -H "X-API-Key: sk_test_123456"
+```
+
+### 错误响应
+
+**404 Not Found**：
+```json
+{
+  "error": "Skill not found"
+}
+```
+
+---
+
+## 获取技能版本
+
+```
+GET /api/v1/skills/{name}/versions
+```
+
+返回技能的所有可用版本。
+
+### 路径参数
+
+| 参数 | 类型 | 必需 | 描述 |
+|------|------|------|------|
+| `name` | string | 是 | 技能名称（如 `deep-research`） |
+
+### 响应
+
+```json
+{
+  "name": "deep-research",
+  "versions": [
+    {
+      "name": "deep-research",
+      "version": "1.0.0",
+      "category": "research",
+      "description": "带引用的全面研究",
+      "requires_tools": ["web_search", "web_fetch"],
+      "dangerous": false,
+      "enabled": true
+    },
+    {
+      "name": "deep-research",
+      "version": "0.9.0",
+      "category": "research",
+      "description": "Beta 研究技能",
+      "requires_tools": ["web_search"],
+      "dangerous": false,
+      "enabled": false
+    }
+  ],
+  "count": 2
+}
+```
+
+### 示例
+
+```bash
+curl http://localhost:8080/api/v1/skills/deep-research/versions \
+  -H "X-API-Key: sk_test_123456"
+```
+
+---
+
+## 在任务中使用技能
+
+提交任务时使用 `skill` 参数：
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "研究量子计算的最新发展",
+    "skill": "deep-research"
+  }'
+```
+
+### 版本选择
+
+使用 `name@version` 语法指定版本：
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "审查这个 Pull Request",
+    "skill": "code-review@1.0.0"
+  }'
+```
+
+<Note>
+技能会展开为系统提示覆盖和可选的角色分配。它们提供了一种无需修改代码即可定义可重用工作流的方式。
+</Note>
+
+---
+
+## 技能结构
+
+技能定义为带有 YAML frontmatter 的 Markdown 文件：
+
+```markdown
+---
+name: my-skill
+version: "1.0.0"
+category: development
+description: "描述此技能的功能"
+requires_role: developer
+requires_tools:
+  - file_read
+  - file_write
+dangerous: false
+enabled: true
+budget_max: 50000
+---
+
+# 技能指令
+
+你是一个专业代理...
+
+## 指南
+
+1. 首先，分析请求
+2. 然后，执行相应操作
+3. 最后，报告结果
+```
+
+### Frontmatter 字段
+
+| 字段 | 类型 | 必需 | 描述 |
+|------|------|------|------|
+| `name` | string | 是 | 技能标识符 |
+| `version` | string | 是 | 语义版本 |
+| `category` | string | 否 | 分组类别 |
+| `description` | string | 否 | 可读描述 |
+| `requires_role` | string | 否 | 使用的角色预设 |
+| `requires_tools` | array | 否 | 所需工具 |
+| `dangerous` | boolean | 否 | 需要提升权限 |
+| `enabled` | boolean | 否 | 技能是否启用 |
+| `budget_max` | integer | 否 | 最大 token 预算 |
+
+---
+
+## 危险技能
+
+标记为 `dangerous: true` 的技能需要特殊授权：
+
+- Admin 或 Owner 角色，或
+- API key 中显式的 `skills:dangerous` 范围
+
+```bash
+# 危险技能调用（需要授权）
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_admin_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "执行系统维护",
+    "skill": "system-admin"
+  }'
+```
+
+<Warning>
+危险技能可以执行特权操作。仅向可信的 API key 授予 `skills:dangerous` 范围。
+</Warning>
+
+---
+
+## 相关内容
+
+<CardGroup cols={2}>
+  <Card title="提交任务" icon="paper-plane" href="/cn/api/rest/submit-task">
+    提交任务时使用技能
+  </Card>
+  <Card title="自定义工具" icon="wrench" href="/cn/tutorials/custom-tools">
+    添加技能可用的工具
+  </Card>
+</CardGroup>

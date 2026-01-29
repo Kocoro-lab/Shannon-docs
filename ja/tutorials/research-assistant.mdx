@@ -212,6 +212,8 @@ curl -X POST http://localhost:8080/api/v1/tasks \
   }'
 ```
 
+**クイックストラテジーの動作**: 軽量な `quick_research_agent` プロンプトを使用し、常に並列実行パスを取り、反復カバレッジループとギャップフィリングステージをスキップします。これは深さを必要としない高速なサマリーに最適化されています。
+
 **利用可能なプリセット**: `quick` | `standard` | `deep` | `academic`
 
 | ストラテジー | react_max_iterations | max_concurrent_agents | verification | gap_filling |
@@ -237,7 +239,7 @@ curl -X POST http://localhost:8080/api/v1/tasks \
 - `gap_filling_check_citations` (bool): ギャップの指標として引用密度をチェックします。
 
 <Note>
-**デフォルトプリセット**: `standard`（指定がない場合）。プリセットは、コンテキストに既に設定されていない場合にのみフラグを設定します。Gatewayは、`/api/v1/tasks`および`/api/v1/tasks/stream`の両方でトップレベルの`research_strategy`を受け入れ、コンテキストにマッピングします。プリセットのデフォルトは`config/research_strategies.yaml`から読み込まれます。
+**デフォルトプリセット**: `standard`（指定がない場合）。プリセットは、コンテキストに既に設定されていない場合にのみフラグを設定します。Gatewayは、`/api/v1/tasks`および`/api/v1/tasks/stream`の両方でトップレベルの`research_strategy`を受け入れ、コンテキストにマッピングします。プリセットのデフォルトは`config/research_strategies.yaml`から読み込まれます。クイックストラテジーは反復カバレッジループとギャップフィリングステージをスキップします。
 </Note>
 
 ## Python SDK

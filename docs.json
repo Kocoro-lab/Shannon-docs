@@ -104,6 +104,12 @@
                 ]
               },
               {
+                "group": "Skills",
+                "pages": [
+                  "en/api/rest/skills"
+                ]
+              },
+              {
                 "group": "Schedules",
                 "pages": [
                   "en/api/rest/schedules"
@@ -295,6 +301,12 @@
                 ]
               },
               {
+                "group": "技能",
+                "pages": [
+                  "cn/api/rest/skills"
+                ]
+              },
+              {
                 "group": "定时任务",
                 "pages": [
                   "cn/api/rest/schedules"
@@ -483,6 +495,12 @@
                 "group": "セッション",
                 "pages": [
                   "ja/api/rest/sessions"
+                ]
+              },
+              {
+                "group": "スキル",
+                "pages": [
+                  "ja/api/rest/skills"
                 ]
               },
               {

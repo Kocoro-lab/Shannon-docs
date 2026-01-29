@@ -212,6 +212,8 @@ curl -X POST http://localhost:8080/api/v1/tasks \
   }'
 ```
 
+**快速策略行为**：使用轻量级 `quick_research_agent` 提示，始终采用并行执行路径，跳过迭代覆盖循环和缺口补全阶段——专为无需深度的快速摘要场景优化。
+
 **可用预设**：`quick` | `standard` | `deep` | `academic`
 
 | 策略 | react_max_iterations | max_concurrent_agents | verification | gap_filling |
@@ -237,7 +239,7 @@ curl -X POST http://localhost:8080/api/v1/tasks \
 - `gap_filling_check_citations`（布尔）：检查引用密度作为缺口指标
 
 <Note>
-默认预设：`standard`（未指定时）。若上下文已有值，预设不会覆盖。Gateway 在 `/api/v1/tasks` 与 `/api/v1/tasks/stream` 顶层接受 `research_strategy` 并映射到上下文。预设默认值来自 `config/research_strategies.yaml`。
+**默认预设**：`standard`（未指定时）。若上下文已有值，预设不会覆盖。Gateway 在 `/api/v1/tasks` 与 `/api/v1/tasks/stream` 顶层接受 `research_strategy` 并映射到上下文。预设默认值来自 `config/research_strategies.yaml`。快速策略会跳过迭代覆盖循环和缺口补全阶段。
 </Note>
 
 ## Python SDK

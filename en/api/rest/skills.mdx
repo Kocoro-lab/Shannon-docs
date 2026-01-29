@@ -1,0 +1,298 @@
+---
+title: "Skills API"
+description: "List, retrieve, and manage Shannon skills"
+---
+
+## Overview
+
+The Skills API allows you to list available skills, retrieve skill details, and check version history. Skills are markdown-based workflow definitions that drive single-agent execution with predefined system prompts and configurations.
+
+## Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/skills` | GET | List all skills |
+| `/api/v1/skills/{name}` | GET | Get skill details |
+| `/api/v1/skills/{name}/versions` | GET | Get skill version history |
+
+---
+
+## List Skills
+
+```
+GET /api/v1/skills
+```
+
+Returns all available skills, optionally filtered by category.
+
+### Query Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `category` | string | No | Filter by category (e.g., `research`, `development`, `analysis`) |
+
+### Response
+
+```json
+{
+  "skills": [
+    {
+      "name": "deep-research",
+      "version": "1.0.0",
+      "category": "research",
+      "description": "Comprehensive research with citations and verification",
+      "requires_tools": ["web_search", "web_fetch"],
+      "dangerous": false,
+      "enabled": true
+    },
+    {
+      "name": "code-review",
+      "version": "1.0.0",
+      "category": "development",
+      "description": "Review code for bugs and improvements",
+      "requires_tools": ["file_read"],
+      "dangerous": false,
+      "enabled": true
+    }
+  ],
+  "count": 2,
+  "categories": ["research", "development", "analysis"]
+}
+```
+
+### Example
+
+```bash
+# List all skills
+curl http://localhost:8080/api/v1/skills \
+  -H "X-API-Key: sk_test_123456"
+
+# Filter by category
+curl "http://localhost:8080/api/v1/skills?category=research" \
+  -H "X-API-Key: sk_test_123456"
+```
+
+---
+
+## Get Skill
+
+```
+GET /api/v1/skills/{name}
+```
+
+Returns detailed information about a specific skill, including its content and metadata.
+
+### Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | string | Yes | Skill name (e.g., `deep-research`) |
+
+### Response
+
+```json
+{
+  "skill": {
+    "name": "deep-research",
+    "version": "1.0.0",
+    "category": "research",
+    "description": "Comprehensive research with citations and verification",
+    "content": "# Deep Research Skill\n\nYou are a research agent...",
+    "requires_role": "research",
+    "requires_tools": ["web_search", "web_fetch"],
+    "dangerous": false,
+    "enabled": true,
+    "budget_max": 50000
+  },
+  "metadata": {
+    "source_path": "config/skills/research/deep-research.md",
+    "content_hash": "sha256:abc123...",
+    "loaded_at": "2025-01-20T10:00:00Z"
+  }
+}
+```
+
+### Example
+
+```bash
+curl http://localhost:8080/api/v1/skills/deep-research \
+  -H "X-API-Key: sk_test_123456"
+```
+
+### Error Responses
+
+**404 Not Found**:
+```json
+{
+  "error": "Skill not found"
+}
+```
+
+---
+
+## Get Skill Versions
+
+```
+GET /api/v1/skills/{name}/versions
+```
+
+Returns all available versions of a skill.
+
+### Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | string | Yes | Skill name (e.g., `deep-research`) |
+
+### Response
+
+```json
+{
+  "name": "deep-research",
+  "versions": [
+    {
+      "name": "deep-research",
+      "version": "1.0.0",
+      "category": "research",
+      "description": "Comprehensive research with citations",
+      "requires_tools": ["web_search", "web_fetch"],
+      "dangerous": false,
+      "enabled": true
+    },
+    {
+      "name": "deep-research",
+      "version": "0.9.0",
+      "category": "research",
+      "description": "Beta research skill",
+      "requires_tools": ["web_search"],
+      "dangerous": false,
+      "enabled": false
+    }
+  ],
+  "count": 2
+}
+```
+
+### Example
+
+```bash
+curl http://localhost:8080/api/v1/skills/deep-research/versions \
+  -H "X-API-Key: sk_test_123456"
+```
+
+---
+
+## Using Skills in Tasks
+
+To use a skill when submitting a task, include the `skill` parameter:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Research the latest developments in quantum computing",
+    "skill": "deep-research"
+  }'
+```
+
+### Version Selection
+
+Specify a version using `name@version` syntax:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Review this pull request",
+    "skill": "code-review@1.0.0"
+  }'
+```
+
+<Note>
+Skills expand into system prompt overrides and optional role assignments. They provide a way to define reusable workflows without modifying code.
+</Note>
+
+---
+
+## Skill Structure
+
+Skills are defined as markdown files with YAML frontmatter:
+
+```markdown
+---
+name: my-skill
+version: "1.0.0"
+category: development
+description: "Description of what this skill does"
+requires_role: developer
+requires_tools:
+  - file_read
+  - file_write
+dangerous: false
+enabled: true
+budget_max: 50000
+---
+
+# Skill Instructions
+
+You are a specialized agent that...
+
+## Guidelines
+
+1. First, analyze the request
+2. Then, execute the appropriate actions
+3. Finally, report the results
+```
+
+### Frontmatter Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Skill identifier |
+| `version` | string | Yes | Semantic version |
+| `category` | string | No | Grouping category |
+| `description` | string | No | Human-readable description |
+| `requires_role` | string | No | Role preset to use |
+| `requires_tools` | array | No | Required tools |
+| `dangerous` | boolean | No | Requires elevated permissions |
+| `enabled` | boolean | No | Whether skill is active |
+| `budget_max` | integer | No | Max token budget |
+
+---
+
+## Dangerous Skills
+
+Skills marked as `dangerous: true` require special authorization:
+
+- Admin or Owner role, OR
+- Explicit `skills:dangerous` scope in API key
+
+```bash
+# Dangerous skill invocation (requires authorization)
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_admin_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Execute system maintenance",
+    "skill": "system-admin"
+  }'
+```
+
+<Warning>
+Dangerous skills can execute privileged operations. Only grant `skills:dangerous` scope to trusted API keys.
+</Warning>
+
+---
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Submit Task" icon="paper-plane" href="/en/api/rest/submit-task">
+    Use skills when submitting tasks
+  </Card>
+  <Card title="Custom Tools" icon="wrench" href="/en/tutorials/custom-tools">
+    Add tools for skills to use
+  </Card>
+</CardGroup>
