@@ -1,0 +1,63 @@
+# Shannon
+
+> Shannon is a production-grade AI agent orchestration platform built with Go, Rust, and Python. It provides durable workflows via Temporal, secure code execution via WASI sandboxing, multi-provider LLM support, and cost control with 85-95% token savings.
+
+Shannon orchestrates AI agents through a distributed microservices architecture:
+- **Gateway** (Go): REST API, authentication, SSE streaming
+- **Orchestrator** (Go + Temporal): Workflow coordination, cognitive patterns (CoT, ToT, ReAct)
+- **Agent Core** (Rust): WASI sandboxing, tool execution, circuit breakers
+- **LLM Service** (Python): Multi-provider gateway (OpenAI, Anthropic, Google, etc.)
+
+## Documentation
+
+- [Quick Start](https://docs.shannon.run/en/quickstart): Get Shannon running in minutes
+- [Installation](https://docs.shannon.run/en/quickstart/installation): System requirements and setup
+- [Configuration](https://docs.shannon.run/en/quickstart/configuration): Environment variables and settings
+
+## Core Concepts
+
+- [Agents](https://docs.shannon.run/en/quickstart/concepts/agents): AI agents with roles and capabilities
+- [Workflows](https://docs.shannon.run/en/quickstart/concepts/workflows): Temporal-based durable workflows
+- [Cost Control](https://docs.shannon.run/en/quickstart/concepts/cost-control): Budget management and token limits
+- [Streaming](https://docs.shannon.run/en/quickstart/concepts/streaming): Real-time SSE event streaming
+
+## API Reference
+
+- [API Overview](https://docs.shannon.run/en/api/overview): REST and gRPC API introduction
+- [Authentication](https://docs.shannon.run/en/api/authentication): API key authentication
+- [Submit Task](https://docs.shannon.run/en/api/rest/submit-task): POST /api/v1/tasks
+- [Task Status](https://docs.shannon.run/en/api/rest/get-status): GET /api/v1/tasks/{id}
+- [Streaming](https://docs.shannon.run/en/api/rest/streaming): SSE endpoint for real-time events
+- [Event Types](https://docs.shannon.run/en/api/event-types): SSE event schema reference
+
+## SDKs
+
+- [Python SDK Installation](https://docs.shannon.run/en/sdk/python/installation): pip install shannon
+- [Python SDK Quickstart](https://docs.shannon.run/en/sdk/python/quickstart): Basic usage examples
+- [Async Usage](https://docs.shannon.run/en/sdk/python/async-usage): AsyncShannonClient for concurrent tasks
+
+## Deployment
+
+- [Docker Compose](https://docs.shannon.run/en/deployment/docker-compose): Local development setup
+- [Kubernetes](https://docs.shannon.run/en/deployment/kubernetes): Production K8s deployment
+- [AWS](https://docs.shannon.run/en/deployment/aws): EKS deployment guide
+- [Environment Variables](https://docs.shannon.run/en/deployment/environment-variables): Configuration reference
+
+## Architecture
+
+- [System Overview](https://docs.shannon.run/en/architecture/overview): Component architecture
+- [Components](https://docs.shannon.run/en/architecture/components): Service deep dive
+- [Temporal Workflows](https://docs.shannon.run/en/architecture/temporal-workflows): Workflow patterns
+- [Tool Execution](https://docs.shannon.run/en/architecture/tool-execution): WASI sandbox architecture
+
+## Tutorials
+
+- [Custom Tools](https://docs.shannon.run/en/tutorials/custom-tools): Building custom agent tools
+- [OpenAPI Tools](https://docs.shannon.run/en/tutorials/openapi-tools): Auto-generate tools from OpenAPI specs
+- [Research Assistant](https://docs.shannon.run/en/tutorials/research-assistant): Build a research agent
+
+## Links
+
+- [GitHub Repository](https://github.com/Kocoro-lab/Shannon)
+- [Documentation](https://docs.shannon.run)
+- [Twitter](https://x.com/shannon_agents)
