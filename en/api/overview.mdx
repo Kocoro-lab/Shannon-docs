@@ -193,7 +193,7 @@ Use the Gateway REST API or the Python SDK (HTTP-only):
 - REST endpoints: `http://localhost:8080/api/v1/*`
 - Python SDK: `ShannonClient(base_url="http://localhost:8080")`
 
-Note: gRPC services are internal and not part of the public SDK surface.
+Note: gRPC services are internal and not part of the public SDK surface. The OpenAI-compatible `/v1/chat/completions` endpoint is intended for compatibility. For full Shannon features (skills, session workspaces, research strategies), use `/api/v1/tasks` and related endpoints.
 
 ## Best Practices
 
