@@ -207,8 +207,8 @@ curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
   -d '{
     "query": "Survey of attention mechanisms in modern NLP architectures",
-   "context": { "force_research": true },
-   "research_strategy": "academic"
+    "context": { "force_research": true },
+    "research_strategy": "academic"
   }'
 ```
 
@@ -239,7 +239,7 @@ curl -X POST http://localhost:8080/api/v1/tasks \
 - `gap_filling_check_citations` (bool): Check citation density as gap indicator
 
 <Note>
-**Default preset**: `standard` (if not specified). Presets seed flags only if not already set in context. The Gateway accepts top‑level `research_strategy` on both `/api/v1/tasks` and `/api/v1/tasks/stream` and maps it into context. Preset defaults are loaded from `config/research_strategies.yaml`.
+**Default preset**: `standard` (if not specified). Presets seed flags only if not already set in context. The Gateway accepts top‑level `research_strategy` on both `/api/v1/tasks` and `/api/v1/tasks/stream` and maps it into context. Preset defaults are loaded from `config/research_strategies.yaml`. Quick strategy skips the Deep Research iterative coverage loop and gap-filling stages (the same iterative loop referenced elsewhere as "iterative coverage loop").
 </Note>
 
 ## Python SDK
