@@ -212,7 +212,7 @@ curl -X POST http://localhost:8080/api/v1/tasks \
   }'
 ```
 
-**Quick strategy behavior:** uses the lightweight `quick_research_agent` prompt, always takes the parallel execution path, and skips the Deep Research iterative loop and gap-filling stages—optimized for fast summaries where depth is not required.
+**Quick strategy behavior:** uses the lightweight `quick_research_agent` prompt, always takes the parallel execution path, and skips the iterative coverage loop and gap-filling stages—optimized for fast summaries where depth is not required.
 
 **Available Presets**: `quick` | `standard` | `deep` | `academic`
 
@@ -239,7 +239,7 @@ curl -X POST http://localhost:8080/api/v1/tasks \
 - `gap_filling_check_citations` (bool): Check citation density as gap indicator
 
 <Note>
-**Default preset**: `standard` (if not specified). Presets seed flags only if not already set in context. The Gateway accepts top‑level `research_strategy` on both `/api/v1/tasks` and `/api/v1/tasks/stream` and maps it into context. Preset defaults are loaded from `config/research_strategies.yaml`. Quick strategy skips the Deep Research iterative coverage loop and gap-filling stages (the same iterative loop referenced elsewhere as "iterative coverage loop").
+**Default preset**: `standard` (if not specified). Presets seed flags only if not already set in context. The Gateway accepts top‑level `research_strategy` on both `/api/v1/tasks` and `/api/v1/tasks/stream` and maps it into context. Preset defaults are loaded from `config/research_strategies.yaml`. Quick strategy skips the iterative coverage loop and gap-filling stages.
 </Note>
 
 ## Python SDK
