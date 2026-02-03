@@ -14,30 +14,7 @@ ShannonのWorkflowは、AI Agentを調整して複雑なタスクを完了する
 
 ## Workflowアーキテクチャ
 
-```mermaid
-graph TD
-    A[Task Submitted] -->|複雑さ分析| B{Complexity Analysis}
-    B -->|Simple| C[SimpleWorkflow]
-    B -->|Standard| D[OrchestratorRouter]
-    B -->|Complex| D
-
-    D --> E{Pattern Selection}
-    E -->|Sequential| F[Chain-of-Thought]
-    E -->|Exploratory| G[Tree-of-Thoughts]
-    E -->|Interactive| H[ReAct]
-    E -->|Collaborative| I[Debate]
-
-    F --> J[Execute Agents]
-    G --> J
-    H --> J
-    I --> J
-
-    J --> K[Synthesize Results]
-    K --> L[Return to Client]
-
-    style D fill:#0070F3
-    style E fill:#00A3FF
-```
+![Workflowアーキテクチャ](../assets/workflow-architecture.svg)
 
 ## 認知パターン
 
@@ -55,7 +32,7 @@ Shannonは異なるタスクタイプに対して実証済みの認知パター�
 **例:**
 ```python
 client.submit_task(
-    query="Calculate the ROI of a $100k investment with 8% annual return over 5 years"
+    query="10万ドルの投資で年利8%、5年間のROIを計算してください"
 )
 ```
 
@@ -83,7 +60,7 @@ Shannonは順次的な数学的および分析的タスクに対してChain-of-T
 **例:**
 ```python
 client.submit_task(
-    query="Design a scalable message queue system. Evaluate multiple architectures and recommend the best approach."
+    query="スケーラブルなメッセージキューシステムを設計してください。複数のアーキテクチャを評価し、最適なアプローチを推奨してください。"
 )
 ```
 
@@ -123,7 +100,7 @@ Shannonは複数のソリューションパスを持つ設計および計画タ�
 **例:**
 ```python
 client.submit_task(
-    query="Find the latest Rust async runtime benchmarks"
+    query="最新のRust非同期ランタイムベンチマークを調べてください"
 )
 ```
 
@@ -155,7 +132,7 @@ Act: 結果をレポートに統合
 **例:**
 ```python
 client.submit_task(
-    query="Should we migrate our monolith to microservices? Provide arguments for and against, then recommend."
+    query="モノリスをマイクロサービスに移行すべきですか？賛成と反対の両方の議論を提供し、推奨事項を示してください。"
 )
 ```
 
@@ -187,22 +164,7 @@ Agent 3（統合者）:
 
 ### DAG（有向非巡回グラフ）実行
 
-```mermaid
-graph LR
-    A[Task: Research AI trends] --> B[Subtask 1: LLM advances]
-    A --> C[Subtask 2: Vision models]
-    A --> D[Subtask 3: Robotics AI]
-
-    B --> E[Synthesis]
-    C --> E
-    D --> E
-
-    E --> F[Final Report]
-
-    style A fill:#0070F3
-    style E fill:#00A3FF
-    style F fill:#4ECDC4
-```
+![DAG実行](../assets/dag-execution.svg)
 
 **並列実行:**
 依存関係のないサブタスクは並列に実行され、レイテンシを削減します。
@@ -211,7 +173,7 @@ graph LR
 ```python
 # このクエリは自動的に3つの並列サブタスクに分解されます
 client.submit_task(
-    query="Research: 1) GPT-5 capabilities, 2) Claude 3 features, 3) Gemini updates"
+    query="調査：1) GPT-5の機能、2) Claude 3の特徴、3) Geminiの更新"
 )
 ```
 
@@ -310,7 +272,7 @@ AGENT_TIMEOUT_SECONDS=600      # Agent実行タイムアウト（Orchestrator）
 ストリーミングイベントを介してWorkflow実行を監視：
 
 ```python
-handle = client.submit_task(query="Complex analysis task")
+handle = client.submit_task(query="複雑な分析タスク")
 
 # Workflowイベントをストリーミング
 for event in client.stream(handle.workflow_id):

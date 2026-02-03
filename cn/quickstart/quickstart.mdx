@@ -15,7 +15,7 @@ description: "5 分钟内向 Shannon 提交您的第一个任务"
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
   -d '{
-    "query": "Analyze the sentiment of: Shannon makes AI agents simple and reliable!"
+    "query": "分析以下句子的情感：Shannon 让 AI 智能体变得简单可靠！"
   }'
 ```
 
@@ -46,7 +46,7 @@ curl http://localhost:8080/api/v1/tasks/task-dev-1730000000
   "status": "TASK_STATUS_COMPLETED",
   "response": { "result": "The sentiment is overwhelmingly positive..." },
   "error": "",
-  "query": "Analyze the sentiment of: Shannon makes AI agents simple and reliable!",
+  "query": "分析以下句子的情感：Shannon 让 AI 智能体变得简单可靠！",
   "session_id": "...",
   "mode": "EXECUTION_MODE_STANDARD",
   "created_at": "2024-10-22T10:30:00Z",
@@ -91,7 +91,7 @@ from shannon import ShannonClient
 client = ShannonClient()
 
 handle = client.submit_task(
-    query="Analyze the sentiment of: Shannon makes AI agents simple!"
+    query="分析以下句子的情感：Shannon 让 AI 智能体变得简单！"
 )
 print("Task submitted:", handle.task_id)
 
@@ -125,13 +125,13 @@ session_id = "my-conversation-123"
 
 # 第一条消息
 handle1 = client.submit_task(
-    query="What is the capital of France?",
+    query="法国的首都是哪里？",
     session_id=session_id
 )
 
 # 后续消息（Shannon 记住上下文）
 handle2 = client.submit_task(
-    query="What's the population?",
+    query="人口是多少？",
     session_id=session_id
 )
 
@@ -152,7 +152,7 @@ Shannon 根据查询复杂度自动选择适当的执行模式和认知策略。
 
 ```python
 client.submit_task(
-    query="Analyze sentiment: The product exceeded my expectations!"
+    query="分析情感：这个产品超出了我的预期！"
 )
 ```
 
@@ -160,7 +160,7 @@ client.submit_task(
 
 ```python
 client.submit_task(
-    query="Research quantum computing breakthroughs in 2024 and create a summary"
+    query="研究 2024 年量子计算的突破性进展并创建摘要"
 )
 ```
 
@@ -168,7 +168,7 @@ client.submit_task(
 
 ```python
 client.submit_task(
-    query="Write a Python function to calculate Fibonacci numbers with memoization"
+    query="编写一个使用记忆化计算斐波那契数列的 Python 函数"
 )
 ```
 
@@ -176,7 +176,7 @@ client.submit_task(
 
 ```python
 client.submit_task(
-    query="Compare the pros and cons of microservices vs monolithic architecture",
+    query="比较微服务架构与单体架构的优缺点",
     context={
         "domain": "software_architecture",
         "depth": "comprehensive",

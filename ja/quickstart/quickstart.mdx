@@ -15,7 +15,7 @@ Shannonと対話する最もシンプルな方法はREST APIを使用するこ�
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
   -d '{
-    "query": "Analyze the sentiment of: Shannon makes AI agents simple and reliable!"
+    "query": "次の文の感情を分析してください：ShannonはAIエージェントをシンプルで信頼性の高いものにします！"
   }'
 ```
 
@@ -46,7 +46,7 @@ curl http://localhost:8080/api/v1/tasks/task-dev-1730000000
   "status": "TASK_STATUS_COMPLETED",
   "response": { "result": "The sentiment is overwhelmingly positive..." },
   "error": "",
-  "query": "Analyze the sentiment of: Shannon makes AI agents simple and reliable!",
+  "query": "次の文の感情を分析してください：ShannonはAIエージェントをシンプルで信頼性の高いものにします！",
   "session_id": "...",
   "mode": "EXECUTION_MODE_STANDARD",
   "created_at": "2024-10-22T10:30:00Z",
@@ -91,7 +91,7 @@ from shannon import ShannonClient
 client = ShannonClient()
 
 handle = client.submit_task(
-    query="Analyze the sentiment of: Shannon makes AI agents simple!"
+    query="次の文の感情を分析してください：ShannonはAIエージェントをシンプルにします！"
 )
 print("Task submitted:", handle.task_id)
 
@@ -125,13 +125,13 @@ session_id = "my-conversation-123"
 
 # 最初のメッセージ
 handle1 = client.submit_task(
-    query="What is the capital of France?",
+    query="フランスの首都はどこですか？",
     session_id=session_id
 )
 
 # フォローアップメッセージ（Shannonはコンテキストを記憶）
 handle2 = client.submit_task(
-    query="What's the population?",
+    query="人口はどのくらいですか？",
     session_id=session_id
 )
 
@@ -152,7 +152,7 @@ Shannonはクエリの複雑さに基づいて適切な実行モードと認知�
 
 ```python
 client.submit_task(
-    query="Analyze sentiment: The product exceeded my expectations!"
+    query="感情を分析してください：この製品は期待を超えました！"
 )
 ```
 
@@ -160,7 +160,7 @@ client.submit_task(
 
 ```python
 client.submit_task(
-    query="Research quantum computing breakthroughs in 2024 and create a summary"
+    query="2024年の量子コンピューティングのブレークスルーを調査し、要約を作成してください"
 )
 ```
 
@@ -168,7 +168,7 @@ client.submit_task(
 
 ```python
 client.submit_task(
-    query="Write a Python function to calculate Fibonacci numbers with memoization"
+    query="メモ化を使用してフィボナッチ数を計算するPython関数を書いてください"
 )
 ```
 
@@ -176,7 +176,7 @@ client.submit_task(
 
 ```python
 client.submit_task(
-    query="Compare the pros and cons of microservices vs monolithic architecture",
+    query="マイクロサービスとモノリシックアーキテクチャのメリットとデメリットを比較してください",
     context={
         "domain": "software_architecture",
         "depth": "comprehensive",

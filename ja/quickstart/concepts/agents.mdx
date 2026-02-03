@@ -30,29 +30,7 @@ Shannon Agentができること：
 
 Agentがタスクを処理する方法：
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Orchestrator
-    participant Agent
-    participant LLM
-    participant Tools
-
-    Client->>Orchestrator: Submit Task
-    Orchestrator->>Agent: Execute Task
-    Agent->>LLM: Analyze Task
-    LLM-->>Agent: Plan & Reasoning
-
-    loop Until Complete
-        Agent->>Tools: Invoke Tool
-        Tools-->>Agent: Tool Result
-        Agent->>LLM: Process Result
-        LLM-->>Agent: Next Action
-    end
-
-    Agent-->>Orchestrator: Final Result
-    Orchestrator-->>Client: Response
-```
+![Agentライフサイクル](../assets/agent-lifecycle.svg)
 
 <Steps>
   <Step title="タスク分析">
@@ -87,7 +65,7 @@ sequenceDiagram
 **例:**
 ```python
 client.submit_task(
-    query="What is the capital of France?"
+    query="フランスの首都はどこですか？"
 )
 ```
 
@@ -108,7 +86,7 @@ Shannonはシンプルなクエリに対して自動的にシングルAgentモ�
 **例:**
 ```python
 client.submit_task(
-    query="Research top 5 AI trends, analyze market impact, and create summary"
+    query="AIトレンドのトップ5を調査し、市場への影響を分析し、要約を作成してください"
 )
 ```
 

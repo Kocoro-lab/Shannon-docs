@@ -235,7 +235,7 @@ tracer = trace.get_tracer(__name__)
 
 with tracer.start_as_current_span("analyze_data"):
     client = ShannonClient()
-    handle = client.submit_task(query="Analyze dataset")
+    handle = client.submit_task(query="データセットを分析してください")
     result = client.get_status(handle.task_id)
 ```
 

@@ -179,13 +179,13 @@ client.submit_task(
 ```python
 # シンプルなクエリ: シンプルモードを使用
 client.submit_task(
-    query="What is the capital of France?",
+    query="フランスの首都はどこですか？",
     # モード自動選択  # シングルAgent、最小トークン
 )
 
 # 複雑なクエリ: 標準/複雑モードを使用
 client.submit_task(
-    query="Research and compare 5 database technologies",
+    query="5つのデータベース技術を調査し比較してください",
     # モード自動選択  # タスク分解が正当化される
 )
 ```
@@ -196,9 +196,9 @@ client.submit_task(
 
 ```python
 # ❌ 悪い: 異なる表現がキャッシュヒットを妨げる
-client.submit_task(query="What's Python?")
-client.submit_task(query="Tell me about Python")
-client.submit_task(query="Explain Python")
+client.submit_task(query="Pythonとは何ですか？")
+client.submit_task(query="Pythonについて教えてください")
+client.submit_task(query="Pythonを説明してください")
 
 # ✅ 良い: 一貫したクエリがキャッシュにヒット
 standard_query = "What is Python?"

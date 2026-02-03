@@ -194,7 +194,7 @@ curl -X POST http://localhost:8000/tools/mcp/register \
 OpenAPI 3.x仕様のREST APIの場合、Shannonはツールを自動的に生成できます。
 
 <Tip>
-カスタム変換が必要なドメイン固有のAPIについては、下記の[Vendor Adapter Pattern](#vendor-adapter-pattern)セクションまたは包括的な[Vendor Adapters Guide](/en/tutorials/vendor-adapters)を参照してください。
+カスタム変換が必要なドメイン固有のAPIについては、下記の[Vendor Adapter Pattern](#vendor-adapter-pattern)セクションまたは包括的な[Vendor Adapters Guide](/ja/tutorials/vendor-adapters)を参照してください。
 </Tip>
 
 ### 機能
@@ -790,7 +790,7 @@ curl -X POST http://localhost:8000/tools/batch-execute \
 
 **ワークフロー経由:**
 ```bash
-SESSION_ID="test-$(date +%s)" ./scripts/submit_task.sh "Calculate 2+2 and then multiply by 5"
+SESSION_ID="test-$(date +%s)" ./scripts/submit_task.sh "2+2を計算して、その結果を5倍してください"
 ```
 
 ## トラブルシューティング
@@ -1047,7 +1047,7 @@ MYVENDOR_API_TOKEN=your_token_here
 - テスト戦略
 - ベストプラクティスとトラブルシューティング
 
-<Card title="Vendor Adapters Guide" icon="plug" href="/en/tutorials/vendor-adapters">
+<Card title="ベンダーアダプターガイド" icon="plug" href="/ja/tutorials/vendor-adapters">
   アダプターパターンを使用してベンダー特有の統合を構築する方法を学ぶ
 </Card>
 
@@ -1070,16 +1070,16 @@ MYVENDOR_API_TOKEN=your_token_here
 ## 次のステップ
 
 <CardGroup cols={2}>
-  <Card title="Vendor Adapters" icon="plug" href="/en/tutorials/vendor-adapters">
+  <Card title="ベンダーアダプター" icon="plug" href="/ja/tutorials/vendor-adapters">
     ベンダー特有の統合を構築する
   </Card>
-  <Card title="Extending Shannon" icon="puzzle-piece" href="/en/tutorials/extending-shannon">
+  <Card title="Shannonの拡張" icon="puzzle-piece" href="/ja/tutorials/extending-shannon">
     すべての拡張方法を探る
   </Card>
-  <Card title="Configuration" icon="gear" href="/en/quickstart/configuration">
+  <Card title="設定" icon="gear" href="/ja/quickstart/configuration">
     完全な設定リファレンス
   </Card>
-  <Card title="API Reference" icon="code" href="/en/api/overview">
+  <Card title="APIリファレンス" icon="code" href="/ja/api/overview">
     REST APIを探る
   </Card>
 </CardGroup>
