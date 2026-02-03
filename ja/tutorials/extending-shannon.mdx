@@ -755,26 +755,7 @@ curl -X POST http://localhost:8080/api/v1/tasks \
 
 ## 拡張決定ツリー
 
-```mermaid
-graph TD
-    A[Shannonを拡張する必要がある] --> B{何を拡張するか?}
-
-    B -->|定義済みワークフロー| C[テンプレートを使用]
-    B -->|外部API| D{APIタイプ?}
-    B -->|カスタムロジック| E[組み込みPythonツール]
-    B -->|計画ロジック| F[カスタム分解]
-
-    D -->|シンプルHTTP| G[MCPツール]
-    D -->|OpenAPI仕様| H[OpenAPIツール]
-    D -->|ドメイン固有| I[ベンダーアダプタ]
-
-    C --> J[低複雑性]
-    G --> J
-    H --> J
-    E --> K[中複雑性]
-    I --> K
-    F --> L[高複雑性]
-```
+![拡張決定木 - 拡張タイプ（テンプレート、MCP/OpenAPIツール、組み込みツール、ベンダーアダプター、カスタム分解）と複雑性レベル（低、中、高）の選択を導く決定木 / Extension Decision Tree - Decision tree guiding selection of extension type (Templates, MCP/OpenAPI Tools, Built-in Tools, Vendor Adapters, Custom Decomposition) and complexity level (Low, Medium, High)](assets/extension-decision-tree.svg)
 
 ## 次のステップ
 

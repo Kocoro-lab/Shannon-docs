@@ -28,30 +28,7 @@ Shannon organizes models into three tiers:
 
 ## Selection Flow
 
-```mermaid
-graph TD
-    A[Task Submitted] --> B{Has model_override?}
-    B -->|Yes| C[Use Specific Model]
-    B -->|No| D{Has provider_override?}
-    D -->|Yes| E[Filter by Provider]
-    D -->|No| F{Has model_tier?}
-    F -->|Yes| G[Use Requested Tier]
-    F -->|No| H[Analyze Complexity]
-    H --> I{Complexity Score}
-    I -->|< 0.3| J[Small Tier]
-    I -->|0.3-0.7| K[Medium Tier]
-    I -->|> 0.7| L[Large Tier]
-    G --> M[Priority Ranking]
-    E --> M
-    J --> M
-    K --> M
-    L --> M
-    M --> N[Select Highest Priority Available]
-    N --> O{API Call Success?}
-    O -->|Yes| P[Execute Task]
-    O -->|No| Q[Try Next Priority]
-    Q --> O
-```
+![Model Selection Flow](assets/model-selection-flow.svg)
 
 ## Priority Ranking
 

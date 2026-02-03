@@ -1,0 +1,141 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600">
+  <defs>
+    <style>
+      .label { font: 500 10px 'SF Mono', 'PingFang SC', monospace; fill: #666; text-anchor: middle; }
+      .box-text { font: 600 11px 'SF Mono', 'PingFang SC', monospace; fill: #1a1a1a; text-anchor: middle; }
+      .title { font: 700 16px 'SF Mono', 'PingFang SC', sans-serif; fill: #1a1a1a; text-anchor: middle; }
+      .annotation { font: 400 9px 'SF Mono', 'PingFang SC', monospace; fill: #666; text-anchor: middle; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="900" height="600" fill="#fff"/>
+
+  <text x="450" y="30" class="title">扩展决策树</text>
+  <text x="450" y="47" class="label">EXTENSION DECISION TREE</text>
+
+  <!-- Root -->
+  <rect x="350" y="80" width="200" height="45" fill="#fef3c7" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="450" y="98" class="box-text">需要扩展 Shannon</text>
+  <text x="450" y="113" class="label">Need to Extend Shannon</text>
+
+  <line x1="450" y1="125" x2="450" y2="150" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Main decision -->
+  <path d="M 380 150 L 520 150 L 500 200 L 400 200 Z" fill="#e0f2fe" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="450" y="168" class="box-text">扩展什么?</text>
+  <text x="450" y="183" class="label">What to Extend?</text>
+
+  <!-- Branch 1: Predefined Workflows -->
+  <line x1="400" y1="175" x2="150" y2="230" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="280" y="205" class="annotation">预定义工作流</text>
+
+  <rect x="70" y="235" width="160" height="40" fill="#d1fae5" stroke="#10b981" stroke-width="1.5" rx="2"/>
+  <text x="150" y="253" class="box-text">使用模板</text>
+  <text x="150" y="268" class="label">Use Templates</text>
+
+  <rect x="70" y="290" width="160" height="30" fill="#a7f3d0" stroke="#1a1a1a" stroke-width="1" rx="2"/>
+  <text x="150" y="310" class="annotation">低复杂度 Low Complexity</text>
+
+  <line x1="150" y1="275" x2="150" y2="285" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Branch 2: External API -->
+  <line x1="430" y1="200" x2="350" y2="230" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="390" y="218" class="annotation">外部 API</text>
+
+  <path d="M 280 235 L 420 235 L 400 275 L 300 275 Z" fill="#dbeafe" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="350" y="253" class="box-text">API 类型?</text>
+  <text x="350" y="266" class="label">API Type?</text>
+
+  <!-- Simple HTTP -->
+  <line x1="300" y1="255" x2="210" y2="310" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="255" y="285" class="annotation">简单 HTTP</text>
+
+  <rect x="130" y="315" width="160" height="40" fill="#bfdbfe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="210" y="333" class="box-text">MCP 工具</text>
+  <text x="210" y="348" class="label">MCP Tools</text>
+
+  <rect x="130" y="370" width="160" height="30" fill="#a7f3d0" stroke="#1a1a1a" stroke-width="1" rx="2"/>
+  <text x="210" y="390" class="annotation">低复杂度 Low Complexity</text>
+
+  <line x1="210" y1="355" x2="210" y2="365" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- OpenAPI Spec -->
+  <line x1="350" y1="275" x2="400" y2="315" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="375" y="298" class="annotation">OpenAPI 规范</text>
+
+  <rect x="320" y="320" width="160" height="40" fill="#bfdbfe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="400" y="338" class="box-text">OpenAPI 工具</text>
+  <text x="400" y="353" class="label">OpenAPI Tools</text>
+
+  <rect x="320" y="375" width="160" height="30" fill="#a7f3d0" stroke="#1a1a1a" stroke-width="1" rx="2"/>
+  <text x="400" y="395" class="annotation">低复杂度 Low Complexity</text>
+
+  <line x1="400" y1="360" x2="400" y2="370" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Domain-specific -->
+  <line x1="400" y1="255" x2="590" y2="315" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="495" y="288" class="annotation">特定领域</text>
+
+  <rect x="510" y="320" width="160" height="40" fill="#c7d2fe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="590" y="338" class="box-text">供应商适配器</text>
+  <text x="590" y="353" class="label">Vendor Adapters</text>
+
+  <rect x="510" y="375" width="160" height="30" fill="#fde68a" stroke="#1a1a1a" stroke-width="1" rx="2"/>
+  <text x="590" y="395" class="annotation">中复杂度 Medium Complexity</text>
+
+  <line x1="590" y1="360" x2="590" y2="370" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Branch 3: Custom Logic -->
+  <line x1="470" y1="200" x2="580" y2="230" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="525" y="218" class="annotation">自定义逻辑</text>
+
+  <rect x="500" y="235" width="160" height="40" fill="#fde68a" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="580" y="253" class="box-text">内置 Python 工具</text>
+  <text x="580" y="268" class="label">Built-in Python Tools</text>
+
+  <rect x="500" y="290" width="160" height="30" fill="#fde68a" stroke="#1a1a1a" stroke-width="1" rx="2"/>
+  <text x="580" y="310" class="annotation">中复杂度 Medium Complexity</text>
+
+  <line x1="580" y1="275" x2="580" y2="285" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Branch 4: Planning Logic -->
+  <line x1="500" y1="175" x2="750" y2="230" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="620" y="205" class="annotation">规划逻辑</text>
+
+  <rect x="670" y="235" width="160" height="40" fill="#fecaca" stroke="#ef4444" stroke-width="1.5" rx="2"/>
+  <text x="750" y="253" class="box-text">自定义分解</text>
+  <text x="750" y="268" class="label">Custom Decomposition</text>
+
+  <rect x="670" y="290" width="160" height="30" fill="#fed7aa" stroke="#1a1a1a" stroke-width="1" rx="2"/>
+  <text x="750" y="310" class="annotation">高复杂度 High Complexity</text>
+
+  <line x1="750" y1="275" x2="750" y2="285" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Summary boxes -->
+  <rect x="50" y="440" width="250" height="120" fill="#f0fdf4" stroke="#10b981" stroke-width="1" rx="2"/>
+  <text x="175" y="460" class="box-text" fill="#059669">推荐方法 Recommended</text>
+  <text x="175" y="480" class="annotation">● 模板 Templates</text>
+  <text x="175" y="495" class="annotation">● MCP/OpenAPI 工具</text>
+  <text x="175" y="510" class="annotation">● 供应商适配器 Vendor Adapters</text>
+  <text x="175" y="530" class="annotation">平衡功能与简单性</text>
+  <text x="175" y="545" class="annotation">Balance function and simplicity</text>
+
+  <rect x="325" y="440" width="250" height="120" fill="#fef3c7" stroke="#eab308" stroke-width="1" rx="2"/>
+  <text x="450" y="460" class="box-text" fill="#854d0e">高级方法 Advanced</text>
+  <text x="450" y="480" class="annotation">● 内置 Python 工具</text>
+  <text x="450" y="495" class="annotation">● Built-in Python Tools</text>
+  <text x="450" y="515" class="annotation">需要更多开发工作</text>
+  <text x="450" y="530" class="annotation">Requires more development</text>
+  <text x="450" y="545" class="annotation">但更灵活 But more flexible</text>
+
+  <rect x="600" y="440" width="250" height="120" fill="#fee2e2" stroke="#ef4444" stroke-width="1" rx="2"/>
+  <text x="725" y="460" class="box-text" fill="#dc2626">复杂方法 Complex</text>
+  <text x="725" y="480" class="annotation">● 自定义分解</text>
+  <text x="725" y="495" class="annotation">● Custom Decomposition</text>
+  <text x="725" y="515" class="annotation">仅在必要时使用</text>
+  <text x="725" y="530" class="annotation">Use only when necessary</text>
+  <text x="725" y="545" class="annotation">需要深入了解 Shannon</text>
+</svg>

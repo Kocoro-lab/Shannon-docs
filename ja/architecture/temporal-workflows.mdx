@@ -9,27 +9,7 @@ Shannonは[Temporal](https://temporal.io)をWorkflowエンジンとして使用�
 
 ## アーキテクチャ
 
-```mermaid
-graph TB
-    subgraph クライアントレイヤー
-        Gateway[Gateway :8080]
-    end
-
-    subgraph オーケストレーションレイヤー
-        Orch[Orchestrator :50052]
-        Workers[Temporal Workers]
-    end
-
-    subgraph Temporal
-        Server[Temporal Server :7233]
-        UI[Temporal UI :8088]
-    end
-
-    Gateway -->|gRPC| Orch
-    Orch --> Workers
-    Workers --> Server
-    Server --> UI
-```
+![Temporalアーキテクチャ - Gateway、Orchestrator、Temporal Workers、Temporal Serverのレイヤー構造を示す図 / Temporal Architecture - Diagram showing layered structure of Gateway, Orchestrator, Temporal Workers, and Temporal Server](assets/temporal-architecture.svg)
 
 ## Workflowタイプ
 
@@ -56,21 +36,7 @@ cronスケジュールによる定期タスク実行用のラッパーWorkflow�
 
 ## Workflow選択ロジック
 
-```mermaid
-graph TD
-    A[クエリ入力] --> B{分解と分析}
-    B --> C{複雑度スコア}
-    C -->|< 0.3| D[シンプルタスク]
-    C -->|>= 0.3| E{認知戦略}
-
-    D --> F[ExecuteSimpleTask]
-
-    E -->|exploratory| G[ExploratoryWorkflow]
-    E -->|scientific| H[ScientificWorkflow]
-    E -->|react| I[ReactWorkflow]
-    E -->|research| J[ResearchWorkflow]
-    E -->|default| K[DAGWorkflow]
-```
+![Workflow選択ロジック - クエリの複雑度分析に基づく適切なワークフロータイプの選択フローを示す決定木 / Workflow Selection Logic - Decision tree showing selection of appropriate workflow type based on query complexity analysis](assets/workflow-selection.svg)
 
 ## 推論パターン
 

@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 400">
+  <defs>
+    <style>
+      .label { font: 500 10px 'SF Mono', 'PingFang SC', monospace; fill: #666; text-anchor: middle; }
+      .box-text { font: 600 13px 'SF Mono', 'PingFang SC', monospace; fill: #1a1a1a; text-anchor: middle; }
+      .box-text-sm { font: 600 11px 'SF Mono', 'PingFang SC', monospace; fill: #1a1a1a; text-anchor: middle; }
+      .title { font: 700 16px 'SF Mono', 'PingFang SC', sans-serif; fill: #1a1a1a; text-anchor: middle; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="700" height="400" fill="#fff"/>
+
+  <!-- Title -->
+  <text x="350" y="30" class="title">DAG 并行执行</text>
+  <text x="350" y="47" class="label">DAG PARALLEL EXECUTION</text>
+
+  <!-- Main Task -->
+  <rect x="270" y="70" width="160" height="50" fill="#0070F3" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="350" y="93" class="box-text" fill="#fff">任务：研究 AI 趋势</text>
+  <text x="350" y="108" class="label" fill="#fff">Research AI Trends</text>
+
+  <!-- Arrow down -->
+  <line x1="350" y1="120" x2="350" y2="145" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Subtasks (parallel) -->
+  <rect x="50" y="150" width="140" height="50" fill="#a5f3fc" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="120" y="173" class="box-text-sm">子任务 1：LLM 进展</text>
+  <text x="120" y="188" class="label">LLM Progress</text>
+
+  <rect x="230" y="150" width="140" height="50" fill="#a5f3fc" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="300" y="173" class="box-text-sm">子任务 2：视觉模型</text>
+  <text x="300" y="188" class="label">Vision Models</text>
+
+  <rect x="410" y="150" width="140" height="50" fill="#a5f3fc" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="480" y="173" class="box-text-sm">子任务 3：机器人 AI</text>
+  <text x="480" y="188" class="label">Robotics AI</text>
+
+  <!-- Arrows from main to subtasks -->
+  <line x1="320" y1="145" x2="120" y2="145" stroke="#666" stroke-width="1.5"/>
+  <line x1="120" y1="145" x2="120" y2="145" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <line x1="350" y1="145" x2="300" y2="145" stroke="#666" stroke-width="1.5"/>
+  <line x1="300" y1="145" x2="300" y2="145" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <line x1="380" y1="145" x2="480" y2="145" stroke="#666" stroke-width="1.5"/>
+  <line x1="480" y1="145" x2="480" y2="145" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Arrows to synthesis -->
+  <line x1="120" y1="200" x2="120" y2="250" stroke="#666" stroke-width="1.5"/>
+  <line x1="120" y1="250" x2="320" y2="250" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <line x1="300" y1="200" x2="300" y2="250" stroke="#666" stroke-width="1.5"/>
+  <line x1="300" y1="250" x2="330" y2="250" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <line x1="480" y1="200" x2="480" y2="250" stroke="#666" stroke-width="1.5"/>
+  <line x1="480" y1="250" x2="380" y2="250" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Synthesis -->
+  <rect x="270" y="255" width="110" height="50" fill="#00A3FF" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="325" y="278" class="box-text" fill="#fff">综合</text>
+  <text x="325" y="293" class="label" fill="#fff">Synthesis</text>
+
+  <!-- Arrow down -->
+  <line x1="325" y1="305" x2="325" y2="330" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Final Report -->
+  <rect x="250" y="335" width="150" height="40" fill="#4ECDC4" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="325" y="355" class="box-text" fill="#fff">最终报告</text>
+  <text x="325" y="368" class="label" fill="#fff">Final Report</text>
+
+  <!-- Legend -->
+  <rect x="30" y="360" width="60" height="14" fill="#0070F3" stroke="#1a1a1a" stroke-width="1"/>
+  <text x="95" y="367" class="label" text-anchor="start" dominant-baseline="middle">主任务 Main</text>
+
+  <rect x="170" y="360" width="60" height="14" fill="#a5f3fc" stroke="#1a1a1a" stroke-width="1"/>
+  <text x="235" y="367" class="label" text-anchor="start" dominant-baseline="middle">子任务 Subtask</text>
+
+  <rect x="320" y="360" width="60" height="14" fill="#00A3FF" stroke="#1a1a1a" stroke-width="1"/>
+  <text x="385" y="367" class="label" text-anchor="start" dominant-baseline="middle">综合 Synthesis</text>
+
+  <rect x="480" y="360" width="60" height="14" fill="#4ECDC4" stroke="#1a1a1a" stroke-width="1"/>
+  <text x="545" y="367" class="label" text-anchor="start" dominant-baseline="middle">输出 Output</text>
+</svg>

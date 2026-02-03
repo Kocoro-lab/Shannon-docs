@@ -30,29 +30,7 @@ Shannon agents can:
 
 Here's how an agent processes a task:
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Orchestrator
-    participant Agent
-    participant LLM
-    participant Tools
-
-    Client->>Orchestrator: Submit Task
-    Orchestrator->>Agent: Execute Task
-    Agent->>LLM: Analyze Task
-    LLM-->>Agent: Plan & Reasoning
-
-    loop Until Complete
-        Agent->>Tools: Invoke Tool
-        Tools-->>Agent: Tool Result
-        Agent->>LLM: Process Result
-        LLM-->>Agent: Next Action
-    end
-
-    Agent-->>Orchestrator: Final Result
-    Orchestrator-->>Client: Response
-```
+![Agent Lifecycle](assets/agent-lifecycle.svg)
 
 <Steps>
   <Step title="Task Analysis">

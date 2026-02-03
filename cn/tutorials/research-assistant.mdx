@@ -27,32 +27,7 @@ description: "使用 Shannon 的 ResearchWorkflow 构建支持记忆、实体过
 
 ResearchWorkflow 通过多个阶段协同，产出高质量且可溯源的研究结果：
 
-```mermaid
-flowchart TD
-    A[User Query] --> B[Memory Retrieval]
-    B --> C{Session > 20 messages?}
-    C -->|Yes| D[Context Compression]
-    C -->|No| E[Query Refinement]
-    D --> E
-    E --> F[Decomposition]
-    F --> G{Execution Pattern}
-    G -->|Complexity < 0.5| H[React Pattern]
-    G -->|No Dependencies| I[Parallel Pattern]
-    G -->|Has Dependencies| J[Hybrid Pattern]
-    G -->|Complexity > 0.7 + Deep| K[React Per Task]
-    H --> L[Entity Filtering]
-    I --> L
-    J --> L
-    K --> L
-    L --> M[Citation Collection]
-    M --> N[Gap Filling]
-    N --> O[Synthesis]
-    O --> P[Reflection]
-    P --> Q{Verification Enabled?}
-    Q -->|Yes| R[Verification]
-    Q -->|No| S[Final Report]
-    R --> S
-```
+![研究工作流程](assets/research-workflow.svg)
 
 **关键特性：**
 - 记忆感知：利用会话历史进行上下文研究

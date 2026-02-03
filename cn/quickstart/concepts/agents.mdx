@@ -30,29 +30,7 @@ Shannon 智能体可以：
 
 以下是智能体处理任务的流程：
 
-```mermaid
-sequenceDiagram
-    participant Client as 客户端
-    participant Orchestrator as 编排器
-    participant Agent as 智能体
-    participant LLM as 大语言模型
-    participant Tools as 工具
-
-    Client->>Orchestrator: 提交任务
-    Orchestrator->>Agent: 执行任务
-    Agent->>LLM: 分析任务
-    LLM-->>Agent: 计划与推理
-
-    loop 直到完成
-        Agent->>Tools: 调用工具
-        Tools-->>Agent: 工具结果
-        Agent->>LLM: 处理结果
-        LLM-->>Agent: 下一步行动
-    end
-
-    Agent-->>Orchestrator: 最终结果
-    Orchestrator-->>Client: 响应
-```
+![智能体生命周期 (Agent Lifecycle)](assets/agent-lifecycle.svg)
 
 <Steps>
   <Step title="任务分析">

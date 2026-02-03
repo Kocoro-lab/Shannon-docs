@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600">
+  <defs>
+    <style>
+      .label { font: 500 10px 'SF Mono', 'PingFang SC', 'Menlo', monospace; fill: #666; text-anchor: middle; }
+      .box-text { font: 600 12px 'SF Mono', 'PingFang SC', monospace; fill: #1a1a1a; text-anchor: middle; }
+      .title { font: 700 16px 'SF Mono', 'PingFang SC', sans-serif; fill: #1a1a1a; text-anchor: middle; }
+      .annotation { font: 400 9px 'SF Mono', 'PingFang SC', monospace; fill: #666; text-anchor: start; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+    </marker>
+    <marker id="arrow-back" markerWidth="10" markerHeight="7" refX="1" refY="3.5" orient="auto">
+      <polygon points="10 0, 0 3.5, 10 7" fill="#999"/>
+    </marker>
+  </defs>
+
+  <rect width="900" height="600" fill="#fff"/>
+
+  <text x="450" y="30" class="title">组件交互时序</text>
+  <text x="450" y="47" class="label">COMPONENT INTERACTION SEQUENCE</text>
+
+  <!-- Participants -->
+  <rect x="50" y="70" width="120" height="40" fill="#fef3c7" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="110" y="88" class="box-text">Client</text>
+  <text x="110" y="103" class="label">客户端</text>
+
+  <rect x="210" y="70" width="120" height="40" fill="#0070F3" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="270" y="93" class="box-text" fill="#fff">Gateway</text>
+
+  <rect x="370" y="70" width="120" height="40" fill="#00A3FF" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="430" y="88" class="box-text" fill="#fff">Orchestrator</text>
+  <text x="430" y="103" class="label" fill="#fff">编排器</text>
+
+  <rect x="530" y="70" width="120" height="40" fill="#FF6B6B" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="590" y="88" class="box-text" fill="#fff">AgentCore</text>
+  <text x="590" y="103" class="label" fill="#fff">代理核心</text>
+
+  <rect x="690" y="70" width="140" height="40" fill="#4ECDC4" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="760" y="88" class="box-text" fill="#fff">LLMService</text>
+  <text x="760" y="103" class="label" fill="#fff">LLM服务</text>
+
+  <!-- Lifelines -->
+  <line x1="110" y1="110" x2="110" y2="540" stroke="#ccc" stroke-width="1" stroke-dasharray="3,3"/>
+  <line x1="270" y1="110" x2="270" y2="540" stroke="#ccc" stroke-width="1" stroke-dasharray="3,3"/>
+  <line x1="430" y1="110" x2="430" y2="540" stroke="#ccc" stroke-width="1" stroke-dasharray="3,3"/>
+  <line x1="590" y1="110" x2="590" y2="540" stroke="#ccc" stroke-width="1" stroke-dasharray="3,3"/>
+  <line x1="760" y1="110" x2="760" y2="540" stroke="#ccc" stroke-width="1" stroke-dasharray="3,3"/>
+
+  <!-- Message 1: POST /api/v1/tasks -->
+  <line x1="110" y1="150" x2="270" y2="150" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="120" y="145" class="annotation">POST /api/v1/tasks</text>
+
+  <!-- Message 2: SubmitTask (gRPC) -->
+  <line x1="270" y1="180" x2="430" y2="180" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="280" y="175" class="annotation">SubmitTask (gRPC)</text>
+
+  <!-- Message 3: StartWorkflow -->
+  <rect x="420" y="200" width="20" height="60" fill="#00A3FF" opacity="0.3"/>
+  <text x="455" y="225" class="annotation">StartWorkflow</text>
+  <text x="455" y="240" class="annotation">(Temporal)</text>
+
+  <!-- Message 4: WorkflowStarted -->
+  <line x1="430" y1="280" x2="270" y2="280" stroke="#999" stroke-width="1.5" marker-end="url(#arrow-back)"/>
+  <text x="280" y="275" class="annotation">WorkflowStarted</text>
+
+  <!-- Message 5: ExecuteAgent (gRPC) -->
+  <line x1="430" y1="310" x2="590" y2="310" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="440" y="305" class="annotation">ExecuteAgent (gRPC)</text>
+
+  <!-- Message 6: GetCompletion (HTTP) -->
+  <line x1="590" y1="340" x2="760" y2="340" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="600" y="335" class="annotation">GetCompletion (HTTP)</text>
+
+  <!-- Message 7: LLM Response -->
+  <line x1="760" y1="370" x2="590" y2="370" stroke="#999" stroke-width="1.5" marker-end="url(#arrow-back)"/>
+  <text x="600" y="365" class="annotation">LLM Response</text>
+
+  <!-- Message 8: Agent Result -->
+  <line x1="590" y1="400" x2="430" y2="400" stroke="#999" stroke-width="1.5" marker-end="url(#arrow-back)"/>
+  <text x="440" y="395" class="annotation">Agent Result</text>
+
+  <!-- Message 9: Task Submitted -->
+  <line x1="430" y1="430" x2="270" y2="430" stroke="#999" stroke-width="1.5" marker-end="url(#arrow-back)"/>
+  <text x="280" y="425" class="annotation">Task Submitted</text>
+
+  <!-- Message 10: 200 OK + task_id -->
+  <line x1="270" y1="460" x2="110" y2="460" stroke="#999" stroke-width="1.5" marker-end="url(#arrow-back)"/>
+  <text x="120" y="455" class="annotation">200 OK + task_id</text>
+
+  <!-- Temporal note -->
+  <rect x="340" y="490" width="180" height="45" fill="#fce7f3" stroke="#999" stroke-width="1" rx="2"/>
+  <text x="430" y="508" class="annotation" text-anchor="middle">Temporal 提供持久化</text>
+  <text x="430" y="522" class="annotation" text-anchor="middle">Temporal provides durability</text>
+</svg>

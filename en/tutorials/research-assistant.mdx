@@ -27,32 +27,7 @@ This tutorial shows how to use Shannon's **ResearchWorkflow** for comprehensive,
 
 The ResearchWorkflow combines multiple stages to produce high-quality, cited research:
 
-```mermaid
-flowchart TD
-    A[User Query] --> B[Memory Retrieval]
-    B --> C{Session > 20 messages?}
-    C -->|Yes| D[Context Compression]
-    C -->|No| E[Query Refinement]
-    D --> E
-    E --> F[Decomposition]
-    F --> G{Execution Pattern}
-    G -->|Complexity < 0.5| H[React Pattern]
-    G -->|No Dependencies| I[Parallel Pattern]
-    G -->|Has Dependencies| J[Hybrid Pattern]
-    G -->|Complexity > 0.7 + Deep| K[React Per Task]
-    H --> L[Entity Filtering]
-    I --> L
-    J --> L
-    K --> L
-    L --> M[Citation Collection]
-    M --> N[Gap Filling]
-    N --> O[Synthesis]
-    O --> P[Reflection]
-    P --> Q{Verification Enabled?}
-    Q -->|Yes| R[Verification]
-    Q -->|No| S[Final Report]
-    R --> S
-```
+![Research Workflow](assets/research-workflow.svg)
 
 **Key Features:**
 - **Memory-aware**: Uses conversation history for contextual research

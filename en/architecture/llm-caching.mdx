@@ -9,30 +9,7 @@ Shannon implements a multi-layered caching system for LLM responses, providing s
 
 ## Architecture
 
-```mermaid
-graph TB
-    subgraph Request Flow
-        Request[Completion Request] --> KeyGen[Generate Cache Key]
-        KeyGen --> Check{Cache Hit?}
-        Check -->|Yes| Return[Return Cached Response]
-        Check -->|No| Provider[LLM Provider]
-        Provider --> Validate{Valid Response?}
-        Validate -->|Yes| Store[Store in Cache]
-        Validate -->|No| Skip[Skip Caching]
-        Store --> Return2[Return Response]
-        Skip --> Return2
-    end
-
-    subgraph Cache Backends
-        Memory[(In-Memory LRU)]
-        Redis[(Redis)]
-    end
-
-    Check --> Memory
-    Check --> Redis
-    Store --> Memory
-    Store --> Redis
-```
+![LLM Response Caching](assets/cache-flow.svg)
 
 ## Cache Backends
 

@@ -756,26 +756,7 @@ curl -X POST http://localhost:8080/api/v1/tasks \
 
 ## 扩展决策树
 
-```mermaid
-graph TD
-    A[需要扩展 Shannon] --> B{扩展什么？}
-
-    B -->|预定义工作流| C[使用模板]
-    B -->|外部 API| D{API 类型？}
-    B -->|自定义逻辑| E[内置 Python 工具]
-    B -->|规划逻辑| F[自定义分解]
-
-    D -->|简单 HTTP| G[MCP 工具]
-    D -->|OpenAPI 规范| H[OpenAPI 工具]
-    D -->|特定领域| I[供应商适配器]
-
-    C --> J[低复杂度]
-    G --> J
-    H --> J
-    E --> K[中复杂度]
-    I --> K
-    F --> L[高复杂度]
-```
+![扩展决策树](assets/extension-decision-tree.svg)
 
 ## 下一步
 

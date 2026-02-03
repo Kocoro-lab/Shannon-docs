@@ -7,37 +7,7 @@ description: "High-level overview of Shannon's architecture and components"
 
 Shannon is built as a distributed microservices system designed for production AI agent orchestration:
 
-```mermaid
-graph TB
-    Client[Client Applications]
-    Gateway[Gateway<br/>REST API :8080]
-    Orch[Orchestrator<br/>Go gRPC :50052]
-    AgentCore[Agent Core<br/>Rust gRPC :50051]
-    LLM[LLM Service<br/>Python :8000]
-
-    Temporal[Temporal<br/>Workflow Engine]
-    PG[(PostgreSQL<br/>State)]
-    Redis[(Redis<br/>Cache)]
-    Qdrant[(Qdrant<br/>Vectors)]
-
-    Providers[LLM Providers<br/>OpenAI, Anthropic, etc.]
-
-    Client -->|HTTP/JSON| Gateway
-    Gateway -->|gRPC| Orch
-    Orch -->|Workflows| Temporal
-    Orch -->|gRPC| AgentCore
-    AgentCore -->|HTTP| LLM
-    LLM --> Providers
-
-    Orch --> PG
-    Orch --> Redis
-    Orch --> Qdrant
-
-    style Gateway fill:#0070F3
-    style Orch fill:#00A3FF
-    style AgentCore fill:#FF6B6B
-    style LLM fill:#4ECDC4
-```
+![Shannon System Architecture](assets/system-architecture.svg)
 
 ## Core Components
 

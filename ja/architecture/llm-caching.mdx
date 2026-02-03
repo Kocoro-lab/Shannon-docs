@@ -9,30 +9,7 @@ ShannonはLLMレスポンス用のマルチレイヤーキャッシングシス�
 
 ## アーキテクチャ
 
-```mermaid
-graph TB
-    subgraph リクエストフロー
-        Request[完了リクエスト] --> KeyGen[キャッシュキー生成]
-        KeyGen --> Check{キャッシュヒット?}
-        Check -->|はい| Return[キャッシュレスポンス返却]
-        Check -->|いいえ| Provider[LLMプロバイダー]
-        Provider --> Validate{有効なレスポンス?}
-        Validate -->|はい| Store[キャッシュに保存]
-        Validate -->|いいえ| Skip[キャッシュスキップ]
-        Store --> Return2[レスポンス返却]
-        Skip --> Return2
-    end
-
-    subgraph キャッシュバックエンド
-        Memory[(インメモリLRU)]
-        Redis[(Redis)]
-    end
-
-    Check --> Memory
-    Check --> Redis
-    Store --> Memory
-    Store --> Redis
-```
+![LLMキャッシングフロー - キャッシュキー生成、ヒット/ミスチェック、検証、保存を含むLLMレスポンスキャッシングフローを示す図 / LLM Caching Flow - Diagram showing LLM response caching flow including cache key generation, hit/miss check, validation, and storage](assets/llm-caching-flow.svg)
 
 ## キャッシュバックエンド
 

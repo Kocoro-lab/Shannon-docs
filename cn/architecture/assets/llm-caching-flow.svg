@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 550">
+  <defs>
+    <style>
+      .label { font: 500 10px 'SF Mono', 'PingFang SC', monospace; fill: #666; text-anchor: middle; }
+      .box-text { font: 600 12px 'SF Mono', 'PingFang SC', monospace; fill: #1a1a1a; text-anchor: middle; }
+      .title { font: 700 16px 'SF Mono', 'PingFang SC', sans-serif; fill: #1a1a1a; text-anchor: middle; }
+      .annotation { font: 400 9px 'SF Mono', 'PingFang SC', monospace; fill: #666; text-anchor: middle; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+    </marker>
+    <marker id="arrow-green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#10b981"/>
+    </marker>
+    <marker id="arrow-red" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#ef4444"/>
+    </marker>
+  </defs>
+
+  <rect width="850" height="550" fill="#fff"/>
+
+  <text x="425" y="30" class="title">LLM 缓存流程</text>
+  <text x="425" y="47" class="label">LLM CACHING FLOW</text>
+
+  <!-- Request Flow -->
+  <rect x="50" y="80" width="750" height="450" fill="#f9fafb" stroke="#999" stroke-width="1" stroke-dasharray="5,5" rx="2"/>
+  <text x="425" y="100" class="label">请求流程 Request Flow</text>
+
+  <!-- Completion Request -->
+  <rect x="340" y="120" width="170" height="45" fill="#fef3c7" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="425" y="138" class="box-text">完成请求</text>
+  <text x="425" y="153" class="label">Completion Request</text>
+
+  <line x1="425" y1="165" x2="425" y2="190" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Generate Cache Key -->
+  <rect x="340" y="195" width="170" height="45" fill="#dbeafe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="425" y="213" class="box-text">生成缓存键</text>
+  <text x="425" y="228" class="label">Generate Cache Key</text>
+
+  <line x1="425" y1="240" x2="425" y2="265" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Cache Hit? Decision -->
+  <path d="M 365 265 L 485 265 L 465 315 L 385 315 Z" fill="#fce7f3" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="425" y="283" class="box-text">缓存命中?</text>
+  <text x="425" y="298" class="label">Cache Hit?</text>
+
+  <!-- YES Branch - Cache Hit -->
+  <line x1="365" y1="290" x2="200" y2="290" stroke="#10b981" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <text x="290" y="283" class="annotation" fill="#059669">是 Yes</text>
+
+  <rect x="110" y="270" width="180" height="45" fill="#d1fae5" stroke="#10b981" stroke-width="1.5" rx="2"/>
+  <text x="200" y="288" class="box-text" fill="#059669">返回缓存响应</text>
+  <text x="200" y="303" class="label">Return Cached Response</text>
+
+  <!-- Cache backends -->
+  <rect x="70" y="360" width="260" height="100" fill="#fff" stroke="#999" stroke-width="1" stroke-dasharray="3,3" rx="2"/>
+  <text x="200" y="378" class="label">缓存后端 Cache Backends</text>
+
+  <ellipse cx="140" cy="415" rx="55" ry="30" fill="#fce7f3" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="140" y="413" class="box-text">内存 LRU</text>
+  <text x="140" y="426" class="label">Memory</text>
+
+  <ellipse cx="260" cy="415" rx="55" ry="30" fill="#dbeafe" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="260" y="413" class="box-text">Redis</text>
+  <text x="260" y="426" class="label">Distributed</text>
+
+  <line x1="200" y1="315" x2="140" y2="385" stroke="#10b981" stroke-width="1.5"/>
+  <line x1="200" y1="315" x2="260" y2="385" stroke="#10b981" stroke-width="1.5"/>
+
+  <!-- NO Branch - Cache Miss -->
+  <line x1="465" y1="290" x2="590" y2="290" stroke="#ef4444" stroke-width="1.5" marker-end="url(#arrow-red)"/>
+  <text x="520" y="283" class="annotation" fill="#dc2626">否 No</text>
+
+  <rect x="540" y="270" width="180" height="45" fill="#fee2e2" stroke="#ef4444" stroke-width="1.5" rx="2"/>
+  <text x="630" y="288" class="box-text" fill="#dc2626">LLM 提供商</text>
+  <text x="630" y="303" class="label">LLM Provider</text>
+
+  <line x1="630" y1="315" x2="630" y2="340" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Validate Response -->
+  <path d="M 565 340 L 695 340 L 675 390 L 585 390 Z" fill="#fce7f3" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="630" y="358" class="box-text">有效响应?</text>
+  <text x="630" y="373" class="label">Valid Response?</text>
+
+  <!-- Valid - Store -->
+  <line x1="595" y1="390" x2="520" y2="420" stroke="#10b981" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <text x="560" y="408" class="annotation" fill="#059669">是 Yes</text>
+
+  <rect x="430" y="425" width="180" height="45" fill="#d1fae5" stroke="#10b981" stroke-width="1.5" rx="2"/>
+  <text x="520" y="443" class="box-text" fill="#059669">存入缓存</text>
+  <text x="520" y="458" class="label">Store in Cache</text>
+
+  <line x1="520" y1="470" x2="365" y2="490" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Invalid - Skip -->
+  <line x1="665" y1="390" x2="720" y2="420" stroke="#ef4444" stroke-width="1.5" marker-end="url(#arrow-red)"/>
+  <text x="700" y="408" class="annotation" fill="#dc2626">否 No</text>
+
+  <rect x="640" y="425" width="160" height="45" fill="#fee2e2" stroke="#ef4444" stroke-width="1.5" rx="2"/>
+  <text x="720" y="443" class="box-text" fill="#dc2626">跳过缓存</text>
+  <text x="720" y="458" class="label">Skip Cache</text>
+
+  <line x1="720" y1="470" x2="425" y2="490" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Return Response -->
+  <rect x="340" y="495" width="170" height="30" fill="#4ECDC4" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="425" y="515" class="box-text" fill="#fff">返回响应 Return Response</text>
+</svg>

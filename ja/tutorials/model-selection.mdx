@@ -28,30 +28,7 @@ Shannonはモデルを3つのティアに整理します：
 
 ## 選択フロー
 
-```mermaid
-graph TD
-    A[タスク提出] --> B{model_overrideはあるか?}
-    B -->|はい| C[特定のモデルを使用]
-    B -->|いいえ| D{provider_overrideはあるか?}
-    D -->|はい| E[プロバイダーでフィルタリング]
-    D -->|いいえ| F{model_tierはあるか?}
-    F -->|はい| G[リクエストされたティアを使用]
-    F -->|いいえ| H[複雑さを分析]
-    H --> I{複雑さスコア}
-    I -->|< 0.3| J[Smallティア]
-    I -->|0.3-0.7| K[Mediumティア]
-    I -->|> 0.7| L[Largeティア]
-    G --> M[優先順位ランキング]
-    E --> M
-    J --> M
-    K --> M
-    L --> M
-    M --> N[利用可能な最高優先順位を選択]
-    N --> O{APIコール成功?}
-    O -->|はい| P[タスクを実行]
-    O -->|いいえ| Q[次の優先順位を試す]
-    Q --> O
-```
+![モデル選択フロー - model_override、provider_override、model_tierチェック、複雑度分析、優先順位ランキング、APIコール成功チェックを含むモデル選択決定フローを示す図 / Model Selection Flow - Diagram showing model selection decision flow including model_override, provider_override, model_tier checks, complexity analysis, priority ranking, and API call success checks](assets/model-selection-flow.svg)
 
 ## 優先順位ランキング
 

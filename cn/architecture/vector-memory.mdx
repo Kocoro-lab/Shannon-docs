@@ -9,30 +9,7 @@ Shannon 的记忆系统提供跨用户会话的智能上下文保留和检索，
 
 ## 架构
 
-```mermaid
-graph TB
-    subgraph 存储层
-        PG[(PostgreSQL)]
-        Redis[(Redis)]
-        Qdrant[(Qdrant)]
-    end
-
-    subgraph 记忆类型
-        Session[会话记忆]
-        Semantic[语义记忆]
-        Agent[智能体记忆]
-        Supervisor[监督者记忆]
-    end
-
-    Query[用户查询] --> Retrieval[记忆检索]
-    Retrieval --> Session
-    Retrieval --> Semantic
-    Retrieval --> Qdrant
-
-    Agent --> PG
-    Session --> Redis
-    Semantic --> Qdrant
-```
+![向量记忆架构](assets/vector-memory-architecture.svg)
 
 ## 存储层
 

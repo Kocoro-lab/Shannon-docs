@@ -69,17 +69,7 @@ LLMプロバイダー間のシームレスな切り替え：
 
 Shannonは4つの主要コンポーネントで構成されています：
 
-```mermaid
-graph LR
-    A[Client] -->|REST/gRPC| B[Gateway :8080]
-    B --> C[Orchestrator :50052]
-    C --> D[Agent Core :50051]
-    D --> E[LLM Service :8000]
-    E --> F[OpenAI/Anthropic]
-    C --> G[(PostgreSQL)]
-    C --> H[(Redis)]
-    C --> I[(Qdrant)]
-```
+![Shannonシステムアーキテクチャ](assets/system-architecture.svg)
 
 <CardGroup cols={2}>
   <Card title="Gateway" icon="door-open">

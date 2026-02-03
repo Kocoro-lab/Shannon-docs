@@ -69,17 +69,7 @@ Get Shannon running in under 10 minutes:
 
 Shannon consists of four main components working together:
 
-```mermaid
-graph LR
-    A[Client] -->|REST/gRPC| B[Gateway :8080]
-    B --> C[Orchestrator :50052]
-    C --> D[Agent Core :50051]
-    D --> E[LLM Service :8000]
-    E --> F[OpenAI/Anthropic]
-    C --> G[(PostgreSQL)]
-    C --> H[(Redis)]
-    C --> I[(Qdrant)]
-```
+![Shannon Architecture](assets/architecture-overview.svg)
 
 <CardGroup cols={2}>
   <Card title="Gateway" icon="door-open">

@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 500">
+  <defs>
+    <style>
+      .label { font: 500 10px 'SF Mono', 'Hiragino Sans', 'Noto Sans JP', sans-serif; fill: #666; text-anchor: middle; }
+      .box-text { font: 600 13px 'SF Mono', 'Hiragino Sans', 'Noto Sans JP', sans-serif; fill: #1a1a1a; text-anchor: middle; dominant-baseline: middle; }
+      .port { font: 500 9px 'SF Mono', monospace; fill: #666; text-anchor: middle; }
+      .group-title { font: 600 12px 'SF Mono', 'Hiragino Sans', 'Noto Sans JP', sans-serif; fill: #666; text-anchor: start; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="700" height="500" fill="#fff"/>
+
+  <!-- Client Layer Group -->
+  <rect x="50" y="50" width="600" height="100" fill="none" stroke="#ddd" stroke-width="1" rx="4"/>
+  <text x="60" y="70" class="group-title">クライアントレイヤー / Client Layer</text>
+
+  <rect x="280" y="90" width="120" height="50" fill="#0070F3" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="340" y="115" class="box-text" fill="#fff">Gateway</text>
+  <text x="340" y="133" class="port" fill="#dbeafe">:8080</text>
+
+  <!-- Orchestration Layer Group -->
+  <rect x="50" y="180" width="600" height="120" fill="none" stroke="#ddd" stroke-width="1" rx="4"/>
+  <text x="60" y="200" class="group-title">オーケストレーションレイヤー / Orchestration Layer</text>
+
+  <rect x="150" y="230" width="120" height="50" fill="#00A3FF" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="210" y="248" class="box-text">Orchestrator</text>
+  <text x="210" y="265" class="port">:50052</text>
+
+  <rect x="390" y="230" width="140" height="50" fill="#bfdbfe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="460" y="248" class="box-text">Temporal Workers</text>
+  <text x="460" y="265" class="label">ワーカー</text>
+
+  <!-- Temporal Group -->
+  <rect x="50" y="330" width="600" height="140" fill="none" stroke="#ddd" stroke-width="1" rx="4"/>
+  <text x="60" y="350" class="group-title">Temporal</text>
+
+  <rect x="150" y="380" width="140" height="60" fill="#93c5fd" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="220" y="403" class="box-text">Temporal Server</text>
+  <text x="220" y="423" class="port">:7233</text>
+
+  <rect x="340" y="380" width="120" height="60" fill="#dbeafe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="400" y="403" class="box-text">Temporal UI</text>
+  <text x="400" y="423" class="port">:8088</text>
+
+  <!-- Arrows -->
+  <!-- Gateway to Orchestrator -->
+  <line x1="340" y1="140" x2="210" y2="220" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="280" y="175" class="label">gRPC</text>
+
+  <!-- Orchestrator to Workers -->
+  <line x1="270" y1="255" x2="380" y2="255" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Workers to Server -->
+  <line x1="460" y1="280" x2="280" y2="370" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Server to UI -->
+  <line x1="290" y1="410" x2="330" y2="410" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+</svg>

@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 650">
+  <defs>
+    <style>
+      .label { font: 500 10px 'SF Mono', 'Menlo', 'Monaco', monospace; fill: #666; text-anchor: middle; letter-spacing: 0.5px; }
+      .box-text { font: 600 13px 'SF Mono', 'Menlo', 'Monaco', monospace; fill: #1a1a1a; text-anchor: middle; }
+      .box-text-sm { font: 600 11px 'SF Mono', 'Menlo', 'Monaco', monospace; fill: #1a1a1a; text-anchor: middle; }
+      .title { font: 700 16px 'SF Mono', 'PingFang SC', sans-serif; fill: #1a1a1a; text-anchor: middle; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="650" fill="#fff"/>
+
+  <!-- Title -->
+  <text x="400" y="30" class="title">Workflow Architecture</text>
+
+  <!-- Task Submitted -->
+  <rect x="330" y="60" width="140" height="50" fill="#fef3c7" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="400" y="88" class="box-text">Task Submitted</text>
+
+  <line x1="400" y1="110" x2="400" y2="135" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Complexity Analysis Decision -->
+  <path d="M 400 140 L 460 180 L 400 220 L 340 180 Z" fill="#dbeafe" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="400" y="183" class="box-text-sm">Complexity</text>
+  <text x="400" y="198" class="box-text-sm">Analysis</text>
+
+  <!-- Simple path -->
+  <line x1="340" y1="180" x2="180" y2="180" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="260" y="175" class="label">Simple</text>
+
+  <rect x="80" y="155" width="100" height="50" fill="#d1fae5" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="130" y="183" class="box-text-sm">Simple</text>
+  <text x="130" y="198" class="box-text-sm">Workflow</text>
+
+  <!-- Standard/Complex path -->
+  <line x1="460" y1="180" x2="570" y2="180" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="515" y="175" class="label">Standard/Complex</text>
+
+  <rect x="575" y="155" width="140" height="50" fill="#67e8f9" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="645" y="183" class="box-text-sm">Orchestrator</text>
+  <text x="645" y="198" class="box-text-sm">Router</text>
+
+  <line x1="645" y1="205" x2="645" y2="245" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Pattern Selection Decision -->
+  <path d="M 645 250 L 705 290 L 645 330 L 585 290 Z" fill="#fce7f3" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="645" y="293" class="box-text-sm">Pattern</text>
+  <text x="645" y="308" class="box-text-sm">Selection</text>
+
+  <!-- CoT -->
+  <line x1="585" y1="290" x2="485" y2="290" stroke="#666" stroke-width="1.5"/>
+  <line x1="485" y1="290" x2="485" y2="380" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="540" y="285" class="label">Sequential</text>
+
+  <rect x="420" y="385" width="130" height="50" fill="#a5f3fc" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="485" y="408" class="box-text-sm">Chain-of-Thought</text>
+  <text x="485" y="423" class="label">CoT</text>
+
+  <!-- ToT -->
+  <line x1="645" y1="330" x2="645" y2="380" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="660" y="355" class="label">Exploratory</text>
+
+  <rect x="580" y="385" width="130" height="50" fill="#99f6e4" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="645" y="408" class="box-text-sm">Tree-of-Thoughts</text>
+  <text x="645" y="423" class="label">ToT</text>
+
+  <!-- ReAct -->
+  <line x1="705" y1="290" x2="760" y2="290" stroke="#666" stroke-width="1.5"/>
+  <line x1="760" y1="290" x2="760" y2="460" stroke="#666" stroke-width="1.5"/>
+  <line x1="760" y1="460" x2="250" y2="460" stroke="#666" stroke-width="1.5"/>
+  <line x1="250" y1="460" x2="250" y2="480" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="710" y="305" class="label">Interactive</text>
+
+  <rect x="185" y="485" width="130" height="50" fill="#f9a8d4" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="250" y="515" class="box-text-sm">ReAct</text>
+
+  <!-- Debate -->
+  <line x1="585" y1="290" x2="100" y2="290" stroke="#666" stroke-width="1.5"/>
+  <line x1="100" y1="290" x2="100" y2="480" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="540" y="305" class="label">Collaborative</text>
+
+  <rect x="35" y="485" width="130" height="50" fill="#fde047" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="100" y="515" class="box-text-sm">Debate</text>
+
+  <!-- Converge to Execute Agents -->
+  <line x1="250" y1="535" x2="250" y2="560" stroke="#666" stroke-width="1.5"/>
+  <line x1="250" y1="560" x2="395" y2="560" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <line x1="485" y1="435" x2="485" y2="560" stroke="#666" stroke-width="1.5"/>
+  <line x1="485" y1="560" x2="405" y2="560" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <line x1="645" y1="435" x2="645" y2="560" stroke="#666" stroke-width="1.5"/>
+  <line x1="645" y1="560" x2="415" y2="560" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <line x1="100" y1="535" x2="100" y2="560" stroke="#666" stroke-width="1.5"/>
+  <line x1="100" y1="560" x2="385" y2="560" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="325" y="535" width="150" height="50" fill="#60a5fa" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="400" y="565" class="box-text">Execute Agents</text>
+
+  <line x1="400" y1="585" x2="400" y2="605" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Synthesize Results -->
+  <rect x="310" y="610" width="180" height="25" fill="#e5e7eb" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="400" y="627" class="box-text-sm">Synthesize Results → Client</text>
+</svg>

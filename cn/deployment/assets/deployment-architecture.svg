@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500">
+  <defs>
+    <style>
+      .label { font: 500 10px 'SF Mono', 'PingFang SC', monospace; fill: #666; text-anchor: middle; }
+      .box-text { font: 600 12px 'SF Mono', 'PingFang SC', monospace; fill: #1a1a1a; text-anchor: middle; }
+      .title { font: 700 16px 'SF Mono', 'PingFang SC', sans-serif; fill: #1a1a1a; text-anchor: middle; }
+      .annotation { font: 400 9px 'SF Mono', 'PingFang SC', monospace; fill: #666; text-anchor: middle; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="800" height="500" fill="#fff"/>
+
+  <text x="400" y="30" class="title">部署架构</text>
+  <text x="400" y="47" class="label">DEPLOYMENT ARCHITECTURE</text>
+
+  <!-- Desktop App -->
+  <rect x="320" y="80" width="160" height="40" fill="#fef3c7" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="400" y="103" class="box-text">Desktop App</text>
+
+  <line x1="400" y1="120" x2="400" y2="145" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Gateway -->
+  <rect x="320" y="150" width="160" height="45" fill="#0070F3" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="400" y="168" class="box-text" fill="#fff">Gateway</text>
+  <text x="400" y="181" class="label" fill="#fff">:8080</text>
+
+  <line x1="400" y1="195" x2="400" y2="220" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Orchestrator -->
+  <rect x="280" y="225" width="240" height="45" fill="#00A3FF" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="400" y="243" class="box-text" fill="#fff">Orchestrator</text>
+  <text x="400" y="256" class="label" fill="#fff">:50052</text>
+
+  <!-- Orchestrator connections -->
+  <line x1="280" y1="247" x2="200" y2="290" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="520" y1="247" x2="580" y2="280" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="400" y1="270" x2="400" y2="315" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Agent Core -->
+  <rect x="540" y="285" width="200" height="45" fill="#FF6B6B" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="640" y="303" class="box-text" fill="#fff">Agent Core</text>
+  <text x="640" y="316" class="label" fill="#fff">:50051</text>
+
+  <!-- LLM Service -->
+  <rect x="540" y="355" width="200" height="45" fill="#4ECDC4" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="640" y="373" class="box-text" fill="#fff">LLM Service</text>
+  <text x="640" y="386" class="label" fill="#fff">:8000</text>
+
+  <line x1="640" y1="330" x2="640" y2="350" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Temporal -->
+  <rect x="60" y="295" width="180" height="45" fill="#fce7f3" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="150" y="313" class="box-text">Temporal</text>
+  <text x="150" y="326" class="label">:7233</text>
+
+  <!-- Data Stores -->
+  <rect x="240" y="320" width="320" height="155" fill="#f0f9ff" stroke="#999" stroke-width="1" stroke-dasharray="5,5" rx="2"/>
+  <text x="400" y="338" class="label">数据存储 Data Stores</text>
+
+  <ellipse cx="300" cy="390" rx="55" ry="30" fill="#dbeafe" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="300" y="388" class="box-text">PostgreSQL</text>
+  <text x="300" y="401" class="label">:5432</text>
+
+  <ellipse cx="400" cy="390" rx="55" ry="30" fill="#fce7f3" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="400" y="388" class="box-text">Redis</text>
+  <text x="400" y="401" class="label">:6379</text>
+
+  <ellipse cx="500" cy="390" rx="55" ry="30" fill="#d1fae5" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="500" y="388" class="box-text">Qdrant</text>
+  <text x="500" y="401" class="label">:6333</text>
+
+  <line x1="370" y1="320" x2="295" y2="360" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="400" y1="320" x2="400" y2="360" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="430" y1="320" x2="505" y2="360" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Scaling Info -->
+  <rect x="50" y="440" width="220" height="50" fill="#e5e7eb" stroke="#1a1a1a" stroke-width="1" rx="2"/>
+  <text x="160" y="458" class="annotation">核心服务 Core Services</text>
+  <text x="160" y="471" class="annotation">水平扩展 Horizontally Scalable</text>
+  <text x="160" y="484" class="annotation">Gateway, Orchestrator, Agent Core, LLM</text>
+
+  <rect x="290" y="440" width="220" height="50" fill="#e5e7eb" stroke="#1a1a1a" stroke-width="1" rx="2"/>
+  <text x="400" y="458" class="annotation">数据存储 Data Stores</text>
+  <text x="400" y="471" class="annotation">垂直扩展+只读副本 Vertical + Read Replicas</text>
+  <text x="400" y="484" class="annotation">PostgreSQL, Redis, Qdrant, Temporal</text>
+
+  <rect x="530" y="440" width="220" height="50" fill="#e5e7eb" stroke="#1a1a1a" stroke-width="1" rx="2"/>
+  <text x="640" y="458" class="annotation">负载均衡 Load Balancing</text>
+  <text x="640" y="471" class="annotation">推荐生产环境 Recommended for Production</text>
+  <text x="640" y="484" class="annotation">ALB/NLB, Ingress Controller</text>
+</svg>

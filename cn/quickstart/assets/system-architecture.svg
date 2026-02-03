@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500">
+  <defs>
+    <style>
+      .label { font: 500 10px 'SF Mono', 'PingFang SC', 'Menlo', monospace; fill: #666; text-anchor: middle; }
+      .box-text { font: 600 13px 'SF Mono', 'PingFang SC', monospace; fill: #1a1a1a; text-anchor: middle; }
+      .box-text-sm { font: 600 11px 'SF Mono', 'PingFang SC', monospace; fill: #1a1a1a; text-anchor: middle; }
+      .title { font: 700 16px 'SF Mono', 'PingFang SC', sans-serif; fill: #1a1a1a; text-anchor: middle; }
+      .annotation { font: 400 9px 'SF Mono', 'PingFang SC', monospace; fill: #666; text-anchor: middle; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="500" fill="#fff"/>
+
+  <!-- Title -->
+  <text x="400" y="30" class="title">Shannon 系统架构</text>
+  <text x="400" y="47" class="label">SHANNON SYSTEM ARCHITECTURE</text>
+
+  <!-- Client -->
+  <rect x="340" y="70" width="120" height="50" fill="#fef3c7" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="400" y="93" class="box-text">客户端</text>
+  <text x="400" y="108" class="label">Client</text>
+
+  <!-- Arrow -->
+  <line x1="400" y1="120" x2="400" y2="145" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="480" y="135" class="annotation">REST/gRPC</text>
+
+  <!-- Gateway -->
+  <rect x="340" y="150" width="120" height="50" fill="#0070F3" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="400" y="173" class="box-text" fill="#fff">Gateway</text>
+  <text x="400" y="188" class="label" fill="#fff">:8080</text>
+
+  <!-- Arrow down -->
+  <line x1="400" y1="200" x2="400" y2="225" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Orchestrator -->
+  <rect x="320" y="230" width="160" height="50" fill="#00A3FF" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="400" y="253" class="box-text" fill="#fff">Orchestrator</text>
+  <text x="400" y="268" class="label" fill="#fff">:50052</text>
+
+  <!-- Arrows from Orchestrator -->
+  <!-- To Agent Core -->
+  <line x1="480" y1="255" x2="550" y2="255" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Agent Core -->
+  <rect x="555" y="230" width="140" height="50" fill="#FF6B6B" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="625" y="253" class="box-text" fill="#fff">Agent Core</text>
+  <text x="625" y="268" class="label" fill="#fff">:50051</text>
+
+  <!-- Arrow from Agent Core to LLM -->
+  <line x1="625" y1="280" x2="625" y2="310" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- LLM Service -->
+  <rect x="555" y="315" width="140" height="50" fill="#4ECDC4" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="625" y="338" class="box-text" fill="#fff">LLM Service</text>
+  <text x="625" y="353" class="label" fill="#fff">:8000</text>
+
+  <!-- Arrow from LLM to Providers -->
+  <line x1="625" y1="365" x2="625" y2="390" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Providers -->
+  <rect x="540" y="395" width="170" height="40" fill="#e5e7eb" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="625" y="415" class="box-text-sm">OpenAI/Anthropic</text>
+  <text x="625" y="428" class="label">LLM Providers</text>
+
+  <!-- Data Stores -->
+  <!-- PostgreSQL -->
+  <ellipse cx="150" cy="320" rx="70" ry="35" fill="#dbeafe" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="150" y="318" class="box-text">PostgreSQL</text>
+  <text x="150" y="333" class="label">State</text>
+
+  <!-- Redis -->
+  <ellipse cx="150" cy="390" rx="70" ry="35" fill="#fce7f3" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="150" y="388" class="box-text">Redis</text>
+  <text x="150" y="403" class="label">Cache</text>
+
+  <!-- Qdrant -->
+  <ellipse cx="150" cy="460" rx="70" ry="35" fill="#d1fae5" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="150" y="458" class="box-text">Qdrant</text>
+  <text x="150" y="473" class="label">Vectors</text>
+
+  <!-- Arrows from Orchestrator to Data Stores -->
+  <line x1="320" y1="255" x2="220" y2="310" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="320" y1="260" x2="220" y2="375" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="320" y1="265" x2="220" y2="445" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Legend -->
+  <rect x="30" y="440" width="70" height="14" fill="#0070F3" stroke="#1a1a1a" stroke-width="1"/>
+  <text x="105" y="447" class="annotation" text-anchor="start" dominant-baseline="middle">API Layer</text>
+
+  <rect x="30" y="460" width="70" height="14" fill="#FF6B6B" stroke="#1a1a1a" stroke-width="1"/>
+  <text x="105" y="467" class="annotation" text-anchor="start" dominant-baseline="middle">Execution</text>
+
+  <rect x="190" y="440" width="70" height="14" fill="#4ECDC4" stroke="#1a1a1a" stroke-width="1"/>
+  <text x="265" y="447" class="annotation" text-anchor="start" dominant-baseline="middle">LLM Gateway</text>
+
+  <rect x="190" y="460" width="70" height="14" fill="#dbeafe" stroke="#1a1a1a" stroke-width="1"/>
+  <text x="265" y="467" class="annotation" text-anchor="start" dominant-baseline="middle">Data Store</text>
+</svg>

@@ -9,30 +9,7 @@ Shannon's memory system provides intelligent context retention and retrieval acr
 
 ## Architecture
 
-```mermaid
-graph TB
-    subgraph Storage
-        PG[(PostgreSQL)]
-        Redis[(Redis)]
-        Qdrant[(Qdrant)]
-    end
-
-    subgraph Memory Types
-        Session[Session Memory]
-        Semantic[Semantic Memory]
-        Agent[Agent Memory]
-        Supervisor[Supervisor Memory]
-    end
-
-    Query[User Query] --> Retrieval[Memory Retrieval]
-    Retrieval --> Session
-    Retrieval --> Semantic
-    Retrieval --> Qdrant
-
-    Agent --> PG
-    Session --> Redis
-    Semantic --> Qdrant
-```
+![Memory Architecture](assets/memory-architecture.svg)
 
 ## Storage Layers
 

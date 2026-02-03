@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 550">
+  <defs>
+    <style>
+      .label { font: 500 10px 'SF Mono', 'Menlo', 'Monaco', monospace; fill: #666; text-anchor: middle; letter-spacing: 0.5px; }
+      .box-text { font: 600 13px 'SF Mono', 'Menlo', 'Monaco', monospace; fill: #1a1a1a; text-anchor: middle; }
+      .box-text-sm { font: 600 11px 'SF Mono', 'Menlo', 'Monaco', monospace; fill: #1a1a1a; text-anchor: middle; }
+      .title { font: 700 16px 'SF Mono', 'PingFang SC', sans-serif; fill: #1a1a1a; text-anchor: middle; }
+      .group-label { font: 600 12px 'SF Mono', 'Menlo', 'Monaco', monospace; fill: #666; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="550" fill="#fff"/>
+
+  <!-- Title -->
+  <text x="400" y="30" class="title">Memory Architecture</text>
+
+  <!-- Storage Layer -->
+  <rect x="50" y="60" width="700" height="160" fill="none" stroke="#666" stroke-width="1.5" stroke-dasharray="4 2" rx="4"/>
+  <text x="70" y="80" class="group-label">Storage</text>
+
+  <!-- PostgreSQL -->
+  <ellipse cx="160" cy="145" rx="80" ry="50" fill="#d1fae5" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="160" y="143" class="box-text-sm">PostgreSQL</text>
+  <text x="160" y="158" class="label">Database</text>
+
+  <!-- Redis -->
+  <ellipse cx="370" cy="145" rx="80" ry="50" fill="#fbcfe8" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="370" y="143" class="box-text-sm">Redis</text>
+  <text x="370" y="158" class="label">Cache</text>
+
+  <!-- Qdrant -->
+  <ellipse cx="580" cy="145" rx="80" ry="50" fill="#f9a8d4" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="580" y="143" class="box-text-sm">Qdrant</text>
+  <text x="580" y="158" class="label">Vectors</text>
+
+  <!-- Memory Types Layer -->
+  <rect x="50" y="250" width="700" height="120" fill="none" stroke="#666" stroke-width="1.5" stroke-dasharray="4 2" rx="4"/>
+  <text x="70" y="270" class="group-label">Memory Types</text>
+
+  <!-- Memory type boxes -->
+  <rect x="80" y="290" width="140" height="60" fill="#dbeafe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="150" y="315" class="box-text-sm">Session</text>
+  <text x="150" y="330" class="box-text-sm">Memory</text>
+
+  <rect x="250" y="290" width="140" height="60" fill="#a5f3fc" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="320" y="315" class="box-text-sm">Semantic</text>
+  <text x="320" y="330" class="box-text-sm">Memory</text>
+
+  <rect x="420" y="290" width="140" height="60" fill="#99f6e4" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="490" y="315" class="box-text-sm">Agent</text>
+  <text x="490" y="330" class="box-text-sm">Memory</text>
+
+  <rect x="590" y="290" width="140" height="60" fill="#fde047" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="660" y="315" class="box-text-sm">Supervisor</text>
+  <text x="660" y="330" class="box-text-sm">Memory</text>
+
+  <!-- Query -->
+  <rect x="320" y="420" width="160" height="40" fill="#fef3c7" stroke="#1a1a1a" stroke-width="1.5" rx="4"/>
+  <text x="400" y="445" class="box-text">User Query</text>
+
+  <!-- Memory Retrieval -->
+  <rect x="300" y="490" width="200" height="40" fill="#fed7aa" stroke="#1a1a1a" stroke-width="1.5" rx="4"/>
+  <text x="400" y="515" class="box-text">Memory Retrieval</text>
+
+  <!-- Arrows -->
+  <!-- Query to Retrieval -->
+  <line x1="400" y1="460" x2="400" y2="485" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Retrieval to Memory Types -->
+  <line x1="350" y1="490" x2="150" y2="355" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="370" y1="490" x2="320" y2="355" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="430" y1="490" x2="490" y2="355" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Retrieval to Qdrant -->
+  <line x1="450" y1="490" x2="580" y2="200" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Memory Types to Storage -->
+  <line x1="150" y1="290" x2="160" y2="200" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="320" y1="290" x2="370" y2="200" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="490" y1="290" x2="370" y2="200" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="660" y1="290" x2="580" y2="200" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+</svg>

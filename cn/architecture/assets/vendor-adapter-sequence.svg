@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 950 550">
+  <defs>
+    <style>
+      .label { font: 500 10px 'SF Mono', 'PingFang SC', monospace; fill: #666; text-anchor: middle; }
+      .box-text { font: 600 11px 'SF Mono', 'PingFang SC', monospace; fill: #1a1a1a; text-anchor: middle; }
+      .title { font: 700 16px 'SF Mono', 'PingFang SC', sans-serif; fill: #1a1a1a; text-anchor: middle; }
+      .annotation { font: 400 9px 'SF Mono', 'PingFang SC', monospace; fill: #666; text-anchor: start; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+    </marker>
+    <marker id="arrow-back" markerWidth="10" markerHeight="7" refX="1" refY="3.5" orient="auto">
+      <polygon points="10 0, 0 3.5, 10 7" fill="#999"/>
+    </marker>
+  </defs>
+
+  <rect width="950" height="550" fill="#fff"/>
+
+  <text x="475" y="30" class="title">供应商适配器执行序列</text>
+  <text x="475" y="47" class="label">VENDOR ADAPTER EXECUTION SEQUENCE</text>
+
+  <!-- Participants -->
+  <rect x="50" y="70" width="110" height="35" fill="#00A3FF" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="105" y="92" class="box-text" fill="#fff">Orch</text>
+
+  <rect x="200" y="70" width="110" height="35" fill="#FF6B6B" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="255" y="92" class="box-text" fill="#fff">Agent</text>
+
+  <rect x="350" y="70" width="110" height="35" fill="#4ECDC4" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="405" y="92" class="box-text" fill="#fff">LLM</text>
+
+  <rect x="500" y="70" width="130" height="35" fill="#22c55e" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="565" y="84" class="box-text" fill="#fff">Adapter</text>
+  <text x="565" y="97" class="label" fill="#fff">供应商适配器</text>
+
+  <rect x="670" y="70" width="110" height="35" fill="#e5e7eb" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="725" y="92" class="box-text">API</text>
+
+  <!-- Lifelines -->
+  <line x1="105" y1="105" x2="105" y2="480" stroke="#ccc" stroke-width="1" stroke-dasharray="3,3"/>
+  <line x1="255" y1="105" x2="255" y2="480" stroke="#ccc" stroke-width="1" stroke-dasharray="3,3"/>
+  <line x1="405" y1="105" x2="405" y2="480" stroke="#ccc" stroke-width="1" stroke-dasharray="3,3"/>
+  <line x1="565" y1="105" x2="565" y2="480" stroke="#ccc" stroke-width="1" stroke-dasharray="3,3"/>
+  <line x1="725" y1="105" x2="725" y2="480" stroke="#ccc" stroke-width="1" stroke-dasharray="3,3"/>
+
+  <!-- Sequence -->
+  <line x1="105" y1="140" x2="255" y2="140" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="115" y="135" class="annotation">执行工具 (body, operation)</text>
+
+  <line x1="255" y1="170" x2="405" y2="170" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="265" y="165" class="annotation">工具请求 (body)</text>
+
+  <!-- Adapter check -->
+  <rect x="395" y="195" width="20" height="75" fill="#4ECDC4" opacity="0.3"/>
+  <text x="430" y="210" class="annotation">配置了供应商适配器?</text>
+  <text x="430" y="225" class="annotation">Vendor adapter configured?</text>
+
+  <line x1="405" y1="245" x2="565" y2="245" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="415" y="240" class="annotation">transform_body(body, op, params)</text>
+
+  <!-- Adapter processing -->
+  <rect x="555" y="270" width="20" height="85" fill="#22c55e" opacity="0.3"/>
+  <text x="590" y="285" class="annotation">字段别名 Field aliasing</text>
+  <text x="590" y="300" class="annotation">会话注入 Session injection</text>
+  <text x="590" y="315" class="annotation">规范化 Normalization</text>
+  <text x="590" y="330" class="annotation">格式转换 Format conversion</text>
+
+  <line x1="565" y1="360" x2="405" y2="360" stroke="#999" stroke-width="1.5" marker-end="url(#arrow-back)"/>
+  <text x="415" y="355" class="annotation">transformed_body</text>
+
+  <!-- HTTP request -->
+  <line x1="405" y1="390" x2="725" y2="390" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="415" y="385" class="annotation">HTTP 请求 (transformed body)</text>
+
+  <!-- Response -->
+  <line x1="725" y1="420" x2="405" y2="420" stroke="#999" stroke-width="1.5" marker-end="url(#arrow-back)"/>
+  <text x="415" y="415" class="annotation">响应 Response</text>
+
+  <line x1="405" y1="445" x2="255" y2="445" stroke="#999" stroke-width="1.5" marker-end="url(#arrow-back)"/>
+  <text x="265" y="440" class="annotation">工具结果 Tool result</text>
+
+  <line x1="255" y1="470" x2="105" y2="470" stroke="#999" stroke-width="1.5" marker-end="url(#arrow-back)"/>
+  <text x="115" y="465" class="annotation">结果 Result</text>
+
+  <!-- Note -->
+  <rect x="50" y="500" width="730" height="40" fill="#fef3c7" stroke="#999" stroke-width="1" rx="2"/>
+  <text x="415" y="517" class="annotation" text-anchor="middle">适配器优雅降级:若未配置,直接使用原始body请求API</text>
+  <text x="415" y="532" class="annotation" text-anchor="middle">Adapter graceful fallback: If not configured, use original body directly</text>
+</svg>

@@ -756,26 +756,7 @@ Selection is based on context and workflow signals:
 
 ## Extension Decision Tree
 
-```mermaid
-graph TD
-    A[Need to Extend Shannon] --> B{What to extend?}
-
-    B -->|Predefined Workflow| C[Use Templates]
-    B -->|External API| D{API Type?}
-    B -->|Custom Logic| E[Built-in Python Tool]
-    B -->|Planning Logic| F[Custom Decomposition]
-
-    D -->|Simple HTTP| G[MCP Tool]
-    D -->|OpenAPI Spec| H[OpenAPI Tool]
-    D -->|Domain-Specific| I[Vendor Adapter]
-
-    C --> J[Low Complexity]
-    G --> J
-    H --> J
-    E --> K[Medium Complexity]
-    I --> K
-    F --> L[High Complexity]
-```
+![Extension Decision Tree](assets/extension-decision-tree.svg)
 
 ## Next Steps
 

@@ -14,30 +14,7 @@ Workflows in Shannon are durable, stateful processes that orchestrate AI agents 
 
 ## Workflow Architecture
 
-```mermaid
-graph TD
-    A[Task Submitted] --> B{Complexity Analysis}
-    B -->|Simple| C[SimpleWorkflow]
-    B -->|Standard| D[OrchestratorRouter]
-    B -->|Complex| D
-
-    D --> E{Pattern Selection}
-    E -->|Sequential| F[Chain-of-Thought]
-    E -->|Exploratory| G[Tree-of-Thoughts]
-    E -->|Interactive| H[ReAct]
-    E -->|Collaborative| I[Debate]
-
-    F --> J[Execute Agents]
-    G --> J
-    H --> J
-    I --> J
-
-    J --> K[Synthesize Results]
-    K --> L[Return to Client]
-
-    style D fill:#0070F3
-    style E fill:#00A3FF
-```
+![Workflow Architecture](assets/workflow-architecture.svg)
 
 ## Cognitive Patterns
 
@@ -187,22 +164,7 @@ For complex tasks, Shannon automatically decomposes them into subtasks:
 
 ### DAG (Directed Acyclic Graph) Execution
 
-```mermaid
-graph LR
-    A[Task: Research AI trends] --> B[Subtask 1: LLM advances]
-    A --> C[Subtask 2: Vision models]
-    A --> D[Subtask 3: Robotics AI]
-
-    B --> E[Synthesis]
-    C --> E
-    D --> E
-
-    E --> F[Final Report]
-
-    style A fill:#0070F3
-    style E fill:#00A3FF
-    style F fill:#4ECDC4
-```
+![DAG Execution](assets/dag-execution.svg)
 
 **Parallel Execution:**
 Subtasks without dependencies run in parallel, reducing latency.

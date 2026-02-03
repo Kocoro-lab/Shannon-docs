@@ -27,32 +27,7 @@ description: "Shannonを使用したAI駆動のリサーチアシスタントの
 
 ResearchWorkflowは、複数のステージを組み合わせて高品質で引用された研究を生成します。
 
-```mermaid
-flowchart TD
-    A[User Query] --> B[Memory Retrieval]
-    B --> C{Session > 20 messages?}
-    C -->|Yes| D[Context Compression]
-    C -->|No| E[Query Refinement]
-    D --> E
-    E --> F[Decomposition]
-    F --> G{Execution Pattern}
-    G -->|Complexity < 0.5| H[React Pattern]
-    G -->|No Dependencies| I[Parallel Pattern]
-    G -->|Has Dependencies| J[Hybrid Pattern]
-    G -->|Complexity > 0.7 + Deep| K[React Per Task]
-    H --> L[Entity Filtering]
-    I --> L
-    J --> L
-    K --> L
-    L --> M[Citation Collection]
-    M --> N[Gap Filling]
-    N --> O[Synthesis]
-    O --> P[Reflection]
-    P --> Q{Verification Enabled?}
-    Q -->|Yes| R[Verification]
-    Q -->|No| S[Final Report]
-    R --> S
-```
+![リサーチワークフロー - メモリ取得、クエリ精錬、分解、実行パターン選択、エンティティフィルタリング、引用収集、ギャップ埋め、合成、検証を含む包括的な研究ワークフローを示すフローチャート / Research Workflow - Flowchart showing comprehensive research workflow including memory retrieval, query refinement, decomposition, execution pattern selection, entity filtering, citation collection, gap filling, synthesis, and verification](assets/research-workflow.svg)
 
 **主な機能:**
 - **メモリ対応**: 会話履歴を使用して文脈に基づいた研究を行う

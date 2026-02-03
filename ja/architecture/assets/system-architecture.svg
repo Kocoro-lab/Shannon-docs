@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 550">
+  <defs>
+    <style>
+      .label { font: 500 10px 'SF Mono', 'Hiragino Sans', 'Noto Sans JP', sans-serif; fill: #666; text-anchor: middle; }
+      .box-text { font: 600 13px 'SF Mono', 'Hiragino Sans', 'Noto Sans JP', sans-serif; fill: #1a1a1a; text-anchor: middle; }
+      .box-text-sm { font: 600 11px 'SF Mono', 'Hiragino Sans', 'Noto Sans JP', sans-serif; fill: #1a1a1a; text-anchor: middle; }
+      .port { font: 500 9px 'SF Mono', monospace; fill: #666; text-anchor: middle; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="550" fill="#fff"/>
+
+  <!-- Client -->
+  <rect x="50" y="250" width="120" height="60" fill="#e0f2fe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="110" y="272" class="box-text">Client</text>
+  <text x="110" y="288" class="label">クライアント</text>
+  <text x="110" y="300" class="label">アプリケーション</text>
+
+  <!-- Gateway -->
+  <rect x="220" y="250" width="120" height="60" fill="#0070F3" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="280" y="269" class="box-text" fill="#fff">Gateway</text>
+  <text x="280" y="284" class="label" fill="#fff">ゲートウェイ</text>
+  <text x="280" y="295" class="label" fill="#fff">REST API</text>
+  <text x="280" y="304" class="port" fill="#dbeafe">:8080</text>
+
+  <!-- Orchestrator -->
+  <rect x="390" y="250" width="120" height="60" fill="#00A3FF" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="450" y="267" class="box-text">Orchestrator</text>
+  <text x="450" y="282" class="label">オーケストレーター</text>
+  <text x="450" y="293" class="label">Go gRPC</text>
+  <text x="450" y="304" class="port">:50052</text>
+
+  <!-- Agent Core -->
+  <rect x="560" y="250" width="120" height="60" fill="#FF6B6B" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="620" y="267" class="box-text" fill="#fff">Agent Core</text>
+  <text x="620" y="282" class="label" fill="#fff">エージェントコア</text>
+  <text x="620" y="293" class="label" fill="#fff">Rust gRPC</text>
+  <text x="620" y="304" class="port" fill="#ffe5e5">:50051</text>
+
+  <!-- LLM Service -->
+  <rect x="730" y="250" width="120" height="60" fill="#4ECDC4" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="790" y="267" class="box-text">LLM Service</text>
+  <text x="790" y="282" class="label">LLMサービス</text>
+  <text x="790" y="293" class="label">Python</text>
+  <text x="790" y="304" class="port">:8000</text>
+
+  <!-- Temporal -->
+  <rect x="390" y="130" width="120" height="60" fill="#bfdbfe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="450" y="152" class="box-text">Temporal</text>
+  <text x="450" y="167" class="label">ワークフロー</text>
+  <text x="450" y="178" class="label">エンジン</text>
+
+  <!-- Providers -->
+  <rect x="730" y="380" width="120" height="60" fill="#dbeafe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="790" y="403" class="box-text-sm">LLM Providers</text>
+  <text x="790" y="418" class="label">プロバイダー</text>
+  <text x="790" y="429" class="label">OpenAI, Anthropic</text>
+
+  <!-- Storage -->
+  <!-- PostgreSQL -->
+  <ellipse cx="220" cy="410" rx="60" ry="35" fill="#fef3c7" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="220" y="403" class="box-text-sm">PostgreSQL</text>
+  <text x="220" y="418" class="label">状態</text>
+
+  <!-- Redis -->
+  <ellipse cx="350" cy="410" rx="50" ry="35" fill="#fde047" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="350" y="403" class="box-text-sm">Redis</text>
+  <text x="350" y="418" class="label">キャッシュ</text>
+
+  <!-- Qdrant -->
+  <ellipse cx="470" cy="410" rx="50" ry="35" fill="#d1fae5" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="470" y="403" class="box-text-sm">Qdrant</text>
+  <text x="470" y="418" class="label">ベクトル</text>
+
+  <!-- Arrows -->
+  <!-- Client to Gateway -->
+  <line x1="170" y1="280" x2="210" y2="280" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="190" y="272" class="label">HTTP/JSON</text>
+
+  <!-- Gateway to Orchestrator -->
+  <line x1="340" y1="280" x2="380" y2="280" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="360" y="272" class="label">gRPC</text>
+
+  <!-- Orchestrator to Agent Core -->
+  <line x1="510" y1="280" x2="550" y2="280" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="530" y="272" class="label">gRPC</text>
+
+  <!-- Agent Core to LLM Service -->
+  <line x1="680" y1="280" x2="720" y2="280" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="700" y="272" class="label">HTTP</text>
+
+  <!-- Orchestrator to Temporal -->
+  <line x1="450" y1="250" x2="450" y2="200" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="480" y="230" class="label">Workflow</text>
+
+  <!-- LLM to Providers -->
+  <line x1="790" y1="310" x2="790" y2="370" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Orchestrator to Storage -->
+  <line x1="410" y1="310" x2="250" y2="380" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="430" y1="310" x2="365" y2="380" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="450" y1="310" x2="465" y2="370" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+</svg>

@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 600">
+  <defs>
+    <style>
+      .label { font: 500 10px 'SF Mono', 'PingFang SC', monospace; fill: #666; text-anchor: middle; }
+      .box-text { font: 600 12px 'SF Mono', 'PingFang SC', monospace; fill: #1a1a1a; text-anchor: middle; }
+      .title { font: 700 16px 'SF Mono', 'PingFang SC', sans-serif; fill: #1a1a1a; text-anchor: middle; }
+      .group-title { font: 600 11px 'SF Mono', 'PingFang SC', monospace; fill: #333; text-anchor: middle; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="850" height="600" fill="#fff"/>
+
+  <text x="425" y="30" class="title">工具执行架构分层</text>
+  <text x="425" y="47" class="label">TOOL EXECUTION ARCHITECTURE LAYERS</text>
+
+  <!-- Orchestrator Layer -->
+  <rect x="50" y="80" width="750" height="110" fill="#e0f2fe" stroke="#999" stroke-width="1" stroke-dasharray="5,5" rx="2"/>
+  <text x="425" y="95" class="group-title">Orchestrator (Go)</text>
+
+  <rect x="120" y="110" width="150" height="40" fill="#00A3FF" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="195" y="133" class="box-text" fill="#fff">工作流 Workflow</text>
+
+  <line x1="270" y1="130" x2="300" y2="130" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="305" y="110" width="140" height="40" fill="#0ea5e9" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="375" y="133" class="box-text" fill="#fff">工具选择</text>
+
+  <line x1="445" y1="130" x2="470" y2="130" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="475" y="110" width="130" height="40" fill="#38bdf8" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="540" y="133" class="box-text" fill="#fff">预算检查</text>
+
+  <line x1="605" y1="130" x2="630" y2="130" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="635" y="110" width="130" height="40" fill="#7dd3fc" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="700" y="125" class="box-text">执行工具活动</text>
+  <text x="700" y="138" class="label">ExecuteTool</text>
+
+  <line x1="700" y1="150" x2="700" y2="175" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Agent Core Layer -->
+  <rect x="50" y="200" width="750" height="180" fill="#ffe4e6" stroke="#999" stroke-width="1" stroke-dasharray="5,5" rx="2"/>
+  <text x="425" y="215" class="group-title">Agent Core (Rust)</text>
+
+  <rect x="315" y="235" width="220" height="40" fill="#FF6B6B" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="425" y="255" class="box-text" fill="#fff">工具注册表 Tool Registry</text>
+
+  <line x1="425" y1="275" x2="425" y2="295" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <path d="M 370 295 L 480 295 L 460 335 L 390 335 Z" fill="#fecaca" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="425" y="315" class="box-text">工具类型?</text>
+  <text x="425" y="328" class="label">Tool Type</text>
+
+  <line x1="390" y1="315" x2="150" y2="340" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="270" y="330" class="label">内置 Built-in</text>
+
+  <line x1="425" y1="335" x2="425" y2="360" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="445" y="350" class="label">MCP</text>
+
+  <line x1="460" y1="315" x2="700" y2="340" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="580" y="330" class="label">OpenAPI</text>
+
+  <rect x="70" y="345" width="160" height="30" fill="#fca5a5" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="150" y="365" class="box-text" fill="#fff">WASI沙箱 Sandbox</text>
+
+  <rect x="345" y="365" width="160" height="30" fill="#f87171" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="425" y="385" class="box-text" fill="#fff">HTTP客户端 Client</text>
+
+  <rect x="620" y="345" width="160" height="30" fill="#ef4444" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="700" y="365" class="box-text" fill="#fff">OpenAPI执行器</text>
+
+  <!-- Converge to Circuit Breaker -->
+  <line x1="150" y1="375" x2="400" y2="410" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="425" y1="395" x2="425" y2="410" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="700" y1="375" x2="450" y2="410" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="345" y="415" width="160" height="35" fill="#dc2626" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="425" y="438" class="box-text" fill="#fff">熔断器 Circuit Breaker</text>
+
+  <line x1="425" y1="450" x2="425" y2="475" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- LLM Service Layer -->
+  <rect x="50" y="395" width="750" height="125" fill="#d1fae5" stroke="#999" stroke-width="1" stroke-dasharray="5,5" rx="2"/>
+  <text x="425" y="410" class="group-title" opacity="0.4">LLM Service (Python)</text>
+
+  <rect x="345" y="480" width="160" height="35" fill="#4ECDC4" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="425" y="503" class="box-text" fill="#fff">工具实现 Implementation</text>
+
+  <line x1="425" y1="515" x2="425" y2="535" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="315" y="540" width="220" height="35" fill="#22c55e" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="425" y="560" class="box-text" fill="#fff">供应商适配器 Vendor Adapter</text>
+
+  <!-- External API -->
+  <line x1="535" y1="557" x2="580" y2="557" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="585" y="540" width="160" height="35" fill="#e5e7eb" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="665" y="563" class="box-text">外部API External API</text>
+
+  <!-- Result flow back -->
+  <line x1="180" y1="450" x2="180" y2="545" stroke="#999" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <rect x="100" y="550" width="160" height="35" fill="#fef3c7" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="180" y="570" class="box-text">结果 Result</text>
+</svg>

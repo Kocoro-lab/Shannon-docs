@@ -69,17 +69,7 @@ Shannon 使用经过验证的认知模式（如思维链 (CoT)、思维树 (ToT)
 
 Shannon 由四个主要组件协同工作：
 
-```mermaid
-graph LR
-    A[客户端] -->|REST/gRPC| B[Gateway :8080]
-    B --> C[Orchestrator :50052]
-    C --> D[Agent Core :50051]
-    D --> E[LLM Service :8000]
-    E --> F[OpenAI/Anthropic]
-    C --> G[(PostgreSQL)]
-    C --> H[(Redis)]
-    C --> I[(Qdrant)]
-```
+![Shannon 系统架构 (Shannon System Architecture)](assets/system-architecture.svg)
 
 <CardGroup cols={2}>
   <Card title="Gateway" icon="door-open">

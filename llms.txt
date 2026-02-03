@@ -4,9 +4,13 @@
 
 Shannon orchestrates AI agents through a distributed microservices architecture:
 - **Gateway** (Go): REST API, authentication, SSE streaming
-- **Orchestrator** (Go + Temporal): Workflow coordination, cognitive patterns (CoT, ToT, ReAct)
+- **Orchestrator** (Go + Temporal): Workflow coordination, cognitive patterns (CoT, ToT, ReAct), budget enforcement
 - **Agent Core** (Rust): WASI sandboxing, tool execution, circuit breakers
-- **LLM Service** (Python): Multi-provider gateway (OpenAI, Anthropic, Google, etc.)
+- **LLM Service** (Python): Multi-provider gateway (OpenAI, Anthropic, Google, etc.), MCP tool integration
+
+**Key Features**: Temporal workflows, WASI Python sandbox, intelligent caching, 85-95% token savings, MCP tool protocol, vendor adapters, Skills API
+
+**Languages Available**: English | [中文](https://docs.shannon.run/cn) | [日本語](https://docs.shannon.run/ja)
 
 ## Documentation
 
@@ -24,11 +28,13 @@ Shannon orchestrates AI agents through a distributed microservices architecture:
 ## API Reference
 
 - [API Overview](https://docs.shannon.run/en/api/overview): REST and gRPC API introduction
-- [Authentication](https://docs.shannon.run/en/api/authentication): API key authentication
-- [Submit Task](https://docs.shannon.run/en/api/rest/submit-task): POST /api/v1/tasks
-- [Task Status](https://docs.shannon.run/en/api/rest/get-status): GET /api/v1/tasks/{id}
+- [Authentication](https://docs.shannon.run/en/api/authentication): API key authentication (skip with GATEWAY_SKIP_AUTH=1)
+- [Submit Task](https://docs.shannon.run/en/api/rest/submit-task): POST /api/v1/tasks - Start agent workflow
+- [Task Status](https://docs.shannon.run/en/api/rest/get-status): GET /api/v1/tasks/{id} - Check execution status
+- [List Tasks](https://docs.shannon.run/en/api/rest/list-tasks): GET /api/v1/tasks - List all tasks
 - [Streaming](https://docs.shannon.run/en/api/rest/streaming): SSE endpoint for real-time events
 - [Event Types](https://docs.shannon.run/en/api/event-types): SSE event schema reference
+- [Skills API](https://docs.shannon.run/en/api/rest/skills): POST /api/v1/skills - Dynamic skill execution
 
 ## SDKs
 
@@ -45,19 +51,55 @@ Shannon orchestrates AI agents through a distributed microservices architecture:
 
 ## Architecture
 
-- [System Overview](https://docs.shannon.run/en/architecture/overview): Component architecture
-- [Components](https://docs.shannon.run/en/architecture/components): Service deep dive
-- [Temporal Workflows](https://docs.shannon.run/en/architecture/temporal-workflows): Workflow patterns
-- [Tool Execution](https://docs.shannon.run/en/architecture/tool-execution): WASI sandbox architecture
+- [System Overview](https://docs.shannon.run/en/architecture/overview): Component architecture and data flow
+- [Components](https://docs.shannon.run/en/architecture/components): Service deep dive (Gateway, Orchestrator, Agent Core, LLM Service)
+- [Temporal Workflows](https://docs.shannon.run/en/architecture/temporal-workflows): Durable workflow patterns and retry logic
+- [Tool Execution](https://docs.shannon.run/en/architecture/tool-execution): WASI sandbox architecture and security
+- [LLM Caching](https://docs.shannon.run/en/architecture/llm-caching): Intelligent semantic caching strategy
+- [Vector Memory](https://docs.shannon.run/en/architecture/vector-memory): Qdrant-based long-term memory
 
 ## Tutorials
 
-- [Custom Tools](https://docs.shannon.run/en/tutorials/custom-tools): Building custom agent tools
+- [Custom Tools](https://docs.shannon.run/en/tutorials/custom-tools): Building custom agent tools with Python
 - [OpenAPI Tools](https://docs.shannon.run/en/tutorials/openapi-tools): Auto-generate tools from OpenAPI specs
-- [Research Assistant](https://docs.shannon.run/en/tutorials/research-assistant): Build a research agent
+- [Vendor Adapters](https://docs.shannon.run/en/tutorials/vendor-adapters): Request/response transformations for custom integrations
+- [Research Assistant](https://docs.shannon.run/en/tutorials/research-assistant): Build a multi-agent research system
+- [Model Selection](https://docs.shannon.run/en/tutorials/model-selection): Choose optimal LLMs per task
+- [Extending Shannon](https://docs.shannon.run/en/tutorials/extending-shannon): Custom roles, tools, and workflows
+
+## Quick Start Commands
+
+```bash
+# Clone and setup
+git clone https://github.com/Kocoro-lab/Shannon.git
+cd Shannon
+make setup
+echo "OPENAI_API_KEY=sk-your-key" >> .env
+./scripts/setup_python_wasi.sh
+
+# Run locally
+make dev
+
+# Submit a task
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Analyze the benefits of microservices architecture"}'
+```
+
+## Troubleshooting
+
+- [Common Issues](https://docs.shannon.run/en/quickstart/troubleshooting): Solutions for setup and runtime errors
+- Ports: Gateway (8080), Orchestrator (50052), Agent Core (50051), LLM Service (8000)
+- Authentication: Set `GATEWAY_SKIP_AUTH=1` for development
+- WASI Setup: Run `./scripts/setup_python_wasi.sh` for Python sandbox
 
 ## Links
 
 - [GitHub Repository](https://github.com/Kocoro-lab/Shannon)
 - [Documentation](https://docs.shannon.run)
 - [Twitter](https://x.com/shannon_agents)
+- [Company](https://kocoro.ai)
+
+---
+
+**For AI Agents**: This documentation covers Shannon's architecture, API reference, deployment guides, and tutorials. The platform supports custom tool development via Python, OpenAPI specs, and MCP protocol. All code examples are production-ready. For questions about specific components, see the Architecture section. For integration patterns, see Tutorials.

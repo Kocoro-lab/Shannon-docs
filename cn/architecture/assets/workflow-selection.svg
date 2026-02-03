@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 550">
+  <defs>
+    <style>
+      .label { font: 500 10px 'SF Mono', 'PingFang SC', 'Menlo', monospace; fill: #666; text-anchor: middle; }
+      .box-text { font: 600 12px 'SF Mono', 'PingFang SC', monospace; fill: #1a1a1a; text-anchor: middle; }
+      .title { font: 700 16px 'SF Mono', 'PingFang SC', sans-serif; fill: #1a1a1a; text-anchor: middle; }
+      .annotation { font: 400 9px 'SF Mono', 'PingFang SC', monospace; fill: #666; text-anchor: middle; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="900" height="550" fill="#fff"/>
+
+  <text x="450" y="30" class="title">工作流选择逻辑</text>
+  <text x="450" y="47" class="label">WORKFLOW SELECTION LOGIC</text>
+
+  <!-- Query Input -->
+  <rect x="380" y="80" width="140" height="45" fill="#fef3c7" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="450" y="100" class="box-text">查询输入</text>
+  <text x="450" y="115" class="label">Query Input</text>
+
+  <line x1="450" y1="125" x2="450" y2="155" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Decompose & Analyze -->
+  <path d="M 380 155 L 520 155 L 500 195 L 400 195 Z" fill="#e0f2fe" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="450" y="173" class="box-text">分解与分析</text>
+  <text x="450" y="188" class="annotation">Decompose & Analyze</text>
+
+  <line x1="450" y1="195" x2="450" y2="225" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Complexity Score -->
+  <path d="M 380 225 L 520 225 L 500 265 L 400 265 Z" fill="#fae8ff" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="450" y="243" class="box-text">复杂度评分</text>
+  <text x="450" y="258" class="annotation">Complexity Score</text>
+
+  <!-- Branch < 0.3 -->
+  <line x1="400" y1="245" x2="150" y2="300" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="280" y="275" class="annotation">< 0.3 简单</text>
+
+  <rect x="70" y="305" width="160" height="45" fill="#d1fae5" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="150" y="323" class="box-text">简单任务</text>
+  <text x="150" y="338" class="label">Simple Task</text>
+
+  <line x1="150" y1="350" x2="150" y2="380" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="70" y="385" width="160" height="45" fill="#d1fae5" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="150" y="403" class="box-text">ExecuteSimpleTask</text>
+  <text x="150" y="418" class="label">直接执行</text>
+
+  <!-- Branch >= 0.3 -->
+  <line x1="500" y1="245" x2="750" y2="300" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="620" y="275" class="annotation">≥ 0.3 复杂</text>
+
+  <path d="M 670 305 L 830 305 L 810 345 L 690 345 Z" fill="#fce7f3" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="750" y="323" class="box-text">认知策略</text>
+  <text x="750" y="338" class="annotation">Cognitive Strategy</text>
+
+  <!-- Strategy branches -->
+  <line x1="690" y1="325" x2="310" y2="385" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="510" y="360" class="annotation">exploratory</text>
+
+  <line x1="710" y1="345" x2="430" y2="415" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="580" y="385" class="annotation">scientific</text>
+
+  <line x1="730" y1="345" x2="590" y2="445" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="670" y="400" class="annotation">react</text>
+
+  <line x1="750" y1="345" x2="750" y2="475" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="790" y="415" class="annotation">research</text>
+
+  <!-- Workflow boxes -->
+  <rect x="250" y="390" width="160" height="40" fill="#bfdbfe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="330" y="408" class="box-text">ExploratoryWorkflow</text>
+  <text x="330" y="421" class="label">探索性工作流</text>
+
+  <rect x="370" y="420" width="160" height="40" fill="#c7d2fe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="450" y="438" class="box-text">ScientificWorkflow</text>
+  <text x="450" y="451" class="label">科学工作流</text>
+
+  <rect x="530" y="450" width="130" height="40" fill="#ddd6fe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="595" y="468" class="box-text">ReactWorkflow</text>
+  <text x="595" y="481" class="label">React工作流</text>
+
+  <rect x="680" y="480" width="150" height="40" fill="#e9d5ff" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="755" y="498" class="box-text">ResearchWorkflow</text>
+  <text x="755" y="511" class="label">研究工作流</text>
+
+  <!-- Default branch -->
+  <line x1="770" y1="345" x2="450" y2="490" stroke="#666" stroke-width="1.5" stroke-dasharray="5,5" marker-end="url(#arrow)"/>
+  <text x="620" y="430" class="annotation">default</text>
+
+  <rect x="370" y="495" width="160" height="40" fill="#fed7aa" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="450" y="513" class="box-text">DAGWorkflow</text>
+  <text x="450" y="526" class="label">DAG工作流</text>
+</svg>

@@ -30,34 +30,7 @@ Shannonのツール実行システムは、AIエージェントに外部機能�
 
 ## アーキテクチャレイヤー
 
-```mermaid
-graph TB
-    subgraph "Orchestrator (Go)"
-        A[Workflow] --> B[Tool Selection]
-        B --> C[Budget Check]
-        C --> D[Execute Tool Activity]
-    end
-
-    subgraph "Agent Core (Rust)"
-        D --> E[Tool Registry]
-        E --> F{Tool Type?}
-        F -->|Built-in| G[Python WASI Sandbox]
-        F -->|MCP| H[HTTP Client]
-        F -->|OpenAPI| I[OpenAPI Executor]
-        G --> J[Circuit Breaker]
-        H --> J
-        I --> J
-    end
-
-    subgraph "LLM Service (Python)"
-        J --> K[Tool Implementation]
-        K --> L[Vendor Adapter]
-        L --> M[External API]
-    end
-
-    J --> N[Result]
-    N --> D
-```
+![ツール実行アーキテクチャ - Orchestrator、Agent Core、LLM Service間のツール実行フローとコンポーネントレイヤーを示す図 / Tool Execution Architecture - Diagram showing tool execution flow and component layers across Orchestrator, Agent Core, and LLM Service](assets/tool-architecture.svg)
 
 ## ツールレジストリ
 
@@ -111,20 +84,7 @@ Pythonコードの実行は、セキュリティの隔離のためにWebAssembly
 
 ### アーキテクチャ
 
-```mermaid
-graph LR
-    A[Agent Core<br/>Rust] --> B[Wasmtime Runtime]
-    B --> C[Python 3.11<br/>WASI Interpreter]
-    C --> D[User Code]
-
-    B -.->|No Network| E[Network Stack]
-    B -.->|Read-Only| F[Filesystem]
-    B -->|Limited| G[Memory]
-
-    style E fill:#ff0000,color:#fff
-    style F fill:#ffaa00,color:#000
-    style G fill:#00aa00,color:#fff
-```
+![WASIサンドボックス - セキュアなPythonコード実行のためのWASI隔離環境とセキュリティ境界を示す図 / WASI Sandbox - Diagram showing WASI isolation environment and security boundaries for secure Python code execution](assets/wasi-sandbox.svg)
 
 ### セキュリティ境界
 
@@ -271,28 +231,7 @@ def resolve_ref(ref: str, spec: dict) -> dict:
 
 ### 実行フロー
 
-```mermaid
-sequenceDiagram
-    participant Orch as Orchestrator
-    participant Agent as Agent Core
-    participant LLM as LLM Service
-    participant Adapter as Vendor Adapter
-    participant API as External API
-
-    Orch->>Agent: ツール実行 (body, operation)
-    Agent->>LLM: ツールリクエスト (body)
-
-    alt ベンダーアダプターが設定されている
-        LLM->>Adapter: transform_body(body, operation, prompt_params)
-        Adapter->>Adapter: フィールドエイリアス<br/>セッション注入<br/>正規化
-        Adapter-->>LLM: 変換された body
-    end
-
-    LLM->>API: HTTP リクエスト (変換された body)
-    API-->>LLM: レスポンス
-    LLM-->>Agent: ツール結果
-    Agent-->>Orch: 結果
-```
+![ベンダーアダプターシーケンス - ベンダー固有のAPI変換を含むツール実行フローのシーケンス図 / Vendor Adapter Sequence - Sequence diagram of tool execution flow with vendor-specific API transformations](assets/vendor-adapter-sequence.svg)
 
 ### アダプターの読み込み
 
@@ -410,15 +349,7 @@ ENFORCE_CB_MIN_REQUESTS=20             # アクティベーション前の最小
 
 ### 状態
 
-```mermaid
-stateDiagram-v2
-    [*] --> Closed
-    Closed --> Open: 失敗 >= 閾値
-    Open --> HalfOpen: 回復タイムアウト後
-    HalfOpen --> Closed: 成功
-    HalfOpen --> Open: 失敗
-    Closed --> Closed: 成功
-```
+![サーキットブレーカー状態遷移 - Closed、Open、Half-Open状態間の遷移条件を示す状態遷移図 / Circuit Breaker State Transitions - State transition diagram showing transition conditions between Closed, Open, and Half-Open states](assets/circuit-breaker-states.svg)
 
 **Closed**: 通常の操作、すべてのリクエストが許可される
 

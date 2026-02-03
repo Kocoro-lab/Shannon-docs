@@ -30,34 +30,7 @@ Shannon 的工具执行系统提供了一个安全、可扩展的框架，用于
 
 ## 架构分层
 
-```mermaid
-graph TB
-    subgraph "Orchestrator (Go)"
-        A[工作流] --> B[工具选择]
-        B --> C[预算检查]
-        C --> D[执行工具活动]
-    end
-
-    subgraph "Agent Core (Rust)"
-        D --> E[工具注册表]
-        E --> F{工具类型?}
-        F -->|内置| G[Python WASI 沙箱]
-        F -->|MCP| H[HTTP 客户端]
-        F -->|OpenAPI| I[OpenAPI 执行器]
-        G --> J[熔断器]
-        H --> J
-        I --> J
-    end
-
-    subgraph "LLM Service (Python)"
-        J --> K[工具实现]
-        K --> L[供应商适配器]
-        L --> M[外部 API]
-    end
-
-    J --> N[结果]
-    N --> D
-```
+![工具执行架构分层](assets/tool-architecture-layers.svg)
 
 ## 工具注册表
 
@@ -111,20 +84,7 @@ Python 代码在 WebAssembly 系统接口 (WASI) 沙箱中执行，以实现安�
 
 ### 架构
 
-```mermaid
-graph LR
-    A[Agent Core<br/>Rust] --> B[Wasmtime 运行时]
-    B --> C[Python 3.11<br/>WASI 解释器]
-    C --> D[用户代码]
-
-    B -.->|无网络| E[网络堆栈]
-    B -.->|只读| F[文件系统]
-    B -->|有限| G[内存]
-
-    style E fill:#ff0000,color:#fff
-    style F fill:#ffaa00,color:#000
-    style G fill:#00aa00,color:#fff
-```
+![WASI 安全沙箱架构](assets/wasi-sandbox.svg)
 
 ### 安全边界
 
@@ -271,28 +231,7 @@ def resolve_ref(ref: str, spec: dict) -> dict:
 
 ### 执行流程
 
-```mermaid
-sequenceDiagram
-    participant Orch as Orchestrator
-    participant Agent as Agent Core
-    participant LLM as LLM Service
-    participant Adapter as 供应商适配器
-    participant API as 外部 API
-
-    Orch->>Agent: 执行工具 (body, operation)
-    Agent->>LLM: 工具请求 (body)
-
-    alt 配置了供应商适配器
-        LLM->>Adapter: transform_body(body, operation, prompt_params)
-        Adapter->>Adapter: 字段别名<br/>会话注入<br/>规范化
-        Adapter-->>LLM: 转换后的 body
-    end
-
-    LLM->>API: HTTP 请求 (转换后的 body)
-    API-->>LLM: 响应
-    LLM-->>Agent: 工具结果
-    Agent-->>Orch: 结果
-```
+![供应商适配器执行序列](assets/vendor-adapter-sequence.svg)
 
 ### 适配器加载
 
@@ -410,15 +349,7 @@ ENFORCE_CB_MIN_REQUESTS=20             # 激活前的最小请求数
 
 ### 状态
 
-```mermaid
-stateDiagram-v2
-    [*] --> Closed
-    Closed --> Open: 失败次数 >= 阈值
-    Open --> HalfOpen: 恢复超时后
-    HalfOpen --> Closed: 成功
-    HalfOpen --> Open: 失败
-    Closed --> Closed: 成功
-```
+![熔断器状态机](assets/circuit-breaker-states.svg)
 
 **Closed**: 正常操作，允许所有请求
 

@@ -14,30 +14,7 @@ Shannon 中的工作流是持久的、有状态的流程，用于编排 AI 智�
 
 ## 工作流架构
 
-```mermaid
-graph TD
-    A[提交任务] --> B{复杂度分析}
-    B -->|简单| C[简单工作流]
-    B -->|标准| D[编排路由器]
-    B -->|复杂| D
-
-    D --> E{模式选择}
-    E -->|顺序| F[思维链]
-    E -->|探索性| G[思维树]
-    E -->|交互式| H[ReAct]
-    E -->|协作| I[辩论]
-
-    F --> J[执行智能体]
-    G --> J
-    H --> J
-    I --> J
-
-    J --> K[综合结果]
-    K --> L[返回客户端]
-
-    style D fill:#0070F3
-    style E fill:#00A3FF
-```
+![工作流架构 (Workflow Architecture)](assets/workflow-architecture.svg)
 
 ## 认知模式
 
@@ -187,22 +164,7 @@ Shannon 会自动对需要多个视角的决策任务应用辩论模式。
 
 ### DAG（有向无环图）执行
 
-```mermaid
-graph LR
-    A[任务：研究 AI 趋势] --> B[子任务 1：LLM 进展]
-    A --> C[子任务 2：视觉模型]
-    A --> D[子任务 3：机器人 AI]
-
-    B --> E[综合]
-    C --> E
-    D --> E
-
-    E --> F[最终报告]
-
-    style A fill:#0070F3
-    style E fill:#00A3FF
-    style F fill:#4ECDC4
-```
+![DAG 并行执行 (DAG Parallel Execution)](assets/dag-execution.svg)
 
 **并行执行：**
 没有依赖关系的子任务并行运行，减少延迟。

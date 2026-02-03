@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500">
+  <defs>
+    <style>
+      .label { font: 500 10px 'SF Mono', 'PingFang SC', 'Menlo', monospace; fill: #666; text-anchor: middle; }
+      .box-text { font: 600 13px 'SF Mono', 'PingFang SC', monospace; fill: #1a1a1a; text-anchor: middle; }
+      .title { font: 700 16px 'SF Mono', 'PingFang SC', sans-serif; fill: #1a1a1a; text-anchor: middle; }
+      .annotation { font: 400 9px 'SF Mono', 'PingFang SC', monospace; fill: #666; text-anchor: middle; }
+      .group-title { font: 600 11px 'SF Mono', 'PingFang SC', monospace; fill: #333; text-anchor: middle; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="800" height="500" fill="#fff"/>
+
+  <text x="400" y="30" class="title">Temporal 工作流架构</text>
+  <text x="400" y="47" class="label">TEMPORAL WORKFLOW ARCHITECTURE</text>
+
+  <!-- Client Layer -->
+  <rect x="50" y="80" width="700" height="80" fill="#f9fafb" stroke="#999" stroke-width="1" stroke-dasharray="5,5" rx="2"/>
+  <text x="400" y="95" class="group-title">客户端层 Client Layer</text>
+
+  <rect x="320" y="110" width="160" height="40" fill="#0070F3" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="400" y="133" class="box-text" fill="#fff">Gateway :8080</text>
+
+  <line x1="400" y1="150" x2="400" y2="175" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="460" y="165" class="annotation">gRPC</text>
+
+  <!-- Orchestration Layer -->
+  <rect x="50" y="180" width="700" height="130" fill="#f0f9ff" stroke="#999" stroke-width="1" stroke-dasharray="5,5" rx="2"/>
+  <text x="400" y="195" class="group-title">编排层 Orchestration Layer</text>
+
+  <rect x="100" y="215" width="220" height="80" fill="#00A3FF" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="210" y="238" class="box-text" fill="#fff">Orchestrator</text>
+  <text x="210" y="253" class="label" fill="#fff">:50052</text>
+  <text x="210" y="270" class="annotation" fill="#fff">工作流管理</text>
+  <text x="210" y="283" class="annotation" fill="#fff">Workflow Management</text>
+
+  <rect x="480" y="215" width="220" height="80" fill="#fce7f3" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="590" y="238" class="box-text">Temporal Workers</text>
+  <text x="590" y="253" class="label">工作流执行器</text>
+  <text x="590" y="270" class="annotation">持久化状态管理</text>
+  <text x="590" y="283" class="annotation">Durable State Management</text>
+
+  <line x1="320" y1="255" x2="475" y2="255" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Temporal -->
+  <rect x="50" y="325" width="700" height="90" fill="#fff0f6" stroke="#999" stroke-width="1" stroke-dasharray="5,5" rx="2"/>
+  <text x="400" y="340" class="group-title">Temporal 引擎</text>
+
+  <rect x="120" y="355" width="180" height="50" fill="#e879f9" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="210" y="373" class="box-text" fill="#fff">Temporal Server</text>
+  <text x="210" y="385" class="label" fill="#fff">:7233</text>
+  <text x="210" y="397" class="annotation" fill="#fff">工作流引擎</text>
+
+  <rect x="500" y="355" width="180" height="50" fill="#fce7f3" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="590" y="373" class="box-text">Temporal UI</text>
+  <text x="590" y="385" class="label">:8088</text>
+  <text x="590" y="397" class="annotation">可视化与调试</text>
+
+  <line x1="210" y1="295" x2="210" y2="350" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="590" y1="295" x2="590" y2="350" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="300" y1="380" x2="495" y2="380" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Benefits -->
+  <rect x="50" y="440" width="160" height="40" fill="#d1fae5" stroke="#1a1a1a" stroke-width="1" rx="2"/>
+  <text x="130" y="458" class="annotation" text-anchor="middle">✓ 持久化 Durable</text>
+  <text x="130" y="471" class="annotation" text-anchor="middle">可重启继续</text>
+
+  <rect x="230" y="440" width="160" height="40" fill="#dbeafe" stroke="#1a1a1a" stroke-width="1" rx="2"/>
+  <text x="310" y="458" class="annotation" text-anchor="middle">✓ 确定性 Deterministic</text>
+  <text x="310" y="471" class="annotation" text-anchor="middle">可回放调试</text>
+
+  <rect x="410" y="440" width="160" height="40" fill="#fce7f3" stroke="#1a1a1a" stroke-width="1" rx="2"/>
+  <text x="490" y="458" class="annotation" text-anchor="middle">✓ 可观测 Observable</text>
+  <text x="490" y="471" class="annotation" text-anchor="middle">完整事件历史</text>
+
+  <rect x="590" y="440" width="160" height="40" fill="#fef3c7" stroke="#1a1a1a" stroke-width="1" rx="2"/>
+  <text x="670" y="458" class="annotation" text-anchor="middle">✓ 可扩展 Scalable</text>
+  <text x="670" y="471" class="annotation" text-anchor="middle">水平扩展Workers</text>
+</svg>

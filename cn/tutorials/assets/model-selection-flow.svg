@@ -1,0 +1,156 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 650">
+  <defs>
+    <style>
+      .label { font: 500 10px 'SF Mono', 'PingFang SC', monospace; fill: #666; text-anchor: middle; }
+      .box-text { font: 600 11px 'SF Mono', 'PingFang SC', monospace; fill: #1a1a1a; text-anchor: middle; }
+      .title { font: 700 16px 'SF Mono', 'PingFang SC', sans-serif; fill: #1a1a1a; text-anchor: middle; }
+      .annotation { font: 400 9px 'SF Mono', 'PingFang SC', monospace; fill: #666; text-anchor: middle; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+    </marker>
+    <marker id="arrow-green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#10b981"/>
+    </marker>
+    <marker id="arrow-red" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#ef4444"/>
+    </marker>
+  </defs>
+
+  <rect width="850" height="650" fill="#fff"/>
+
+  <text x="425" y="30" class="title">模型选择流程</text>
+  <text x="425" y="47" class="label">MODEL SELECTION FLOW</text>
+
+  <!-- Task Submission -->
+  <rect x="340" y="80" width="170" height="40" fill="#fef3c7" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="425" y="103" class="box-text">任务提交 Task Submission</text>
+
+  <line x1="425" y1="120" x2="425" y2="145" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- model_override? -->
+  <path d="M 365 145 L 485 145 L 465 185 L 385 185 Z" fill="#fce7f3" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="425" y="163" class="box-text">model_override?</text>
+
+  <line x1="365" y1="165" x2="240" y2="165" stroke="#10b981" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <text x="305" y="160" class="annotation" fill="#059669">是 Yes</text>
+
+  <rect x="160" y="145" width="160" height="40" fill="#d1fae5" stroke="#10b981" stroke-width="1.5" rx="2"/>
+  <text x="240" y="163" class="box-text">使用特定模型</text>
+  <text x="240" y="178" class="label">Use Specific Model</text>
+
+  <line x1="240" y1="185" x2="240" y2="410" stroke="#10b981" stroke-width="1.5"/>
+  <line x1="240" y1="410" x2="410" y2="410" stroke="#10b981" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+
+  <!-- provider_override? -->
+  <line x1="465" y1="165" x2="540" y2="165" stroke="#ef4444" stroke-width="1.5" marker-end="url(#arrow-red)"/>
+  <text x="500" y="160" class="annotation" fill="#dc2626">否 No</text>
+
+  <path d="M 480 145 L 600 145 L 580 185 L 500 185 Z" fill="#fce7f3" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="540" y="163" class="box-text">provider_override?</text>
+
+  <line x1="500" y1="165" x2="425" y2="210" stroke="#10b981" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <text x="465" y="190" class="annotation" fill="#059669">是 Yes</text>
+
+  <rect x="345" y="215" width="160" height="40" fill="#dbeafe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="425" y="233" class="box-text">按提供商过滤</text>
+  <text x="425" y="248" class="label">Filter by Provider</text>
+
+  <line x1="425" y1="255" x2="425" y2="320" stroke="#666" stroke-width="1.5"/>
+  <line x1="425" y1="320" x2="350" y2="345" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- model_tier? -->
+  <line x1="580" y1="165" x2="650" y2="210" stroke="#ef4444" stroke-width="1.5" marker-end="url(#arrow-red)"/>
+  <text x="615" y="190" class="annotation" fill="#dc2626">否 No</text>
+
+  <path d="M 590 215 L 710 215 L 690 255 L 610 255 Z" fill="#fce7f3" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="650" y="233" class="box-text">model_tier?</text>
+
+  <line x1="610" y1="235" x2="505" y2="235" stroke="#10b981" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <text x="560" y="230" class="annotation" fill="#059669">是 Yes</text>
+
+  <rect x="345" y="215" width="160" height="40" fill="#dbeafe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+
+  <!-- Analyze Complexity -->
+  <line x1="690" y1="235" x2="750" y2="280" stroke="#ef4444" stroke-width="1.5" marker-end="url(#arrow-red)"/>
+  <text x="720" y="260" class="annotation" fill="#dc2626">否 No</text>
+
+  <rect x="670" y="285" width="160" height="40" fill="#fcd34d" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="750" y="303" class="box-text">分析复杂度</text>
+  <text x="750" y="318" class="label">Analyze Complexity</text>
+
+  <line x1="750" y1="325" x2="750" y2="345" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Complexity Score -->
+  <path d="M 690 345 L 810 345 L 790 395 L 710 395 Z" fill="#fed7aa" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="750" y="363" class="box-text">复杂度分数</text>
+  <text x="750" y="378" class="label">Complexity Score</text>
+
+  <!-- Small Tier -->
+  <line x1="710" y1="370" x2="530" y2="420" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="625" y="398" class="annotation">< 0.3</text>
+
+  <rect x="450" y="425" width="160" height="35" fill="#d1fae5" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="530" y="447" class="box-text">小型层级 Small Tier</text>
+
+  <!-- Medium Tier -->
+  <line x1="750" y1="395" x2="750" y2="425" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="770" y="413" class="annotation">0.3-0.7</text>
+
+  <rect x="670" y="430" width="160" height="35" fill="#bfdbfe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="750" y="452" class="box-text">中型层级 Medium Tier</text>
+
+  <!-- Large Tier -->
+  <line x1="790" y1="370" x2="750" y2="495" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="810" y="430" class="annotation">> 0.7</text>
+
+  <rect x="670" y="500" width="160" height="35" fill="#ddd6fe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="750" y="522" class="box-text">大型层级 Large Tier</text>
+
+  <!-- Converge to Priority Ranking -->
+  <line x1="505" y1="235" x2="350" y2="345" stroke="#666" stroke-width="1.5"/>
+  <line x1="530" y1="460" x2="350" y2="365" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="670" y1="447" x2="370" y2="365" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="670" y1="517" x2="380" y2="365" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <rect x="270" y="350" width="160" height="35" fill="#c7d2fe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="350" y="372" class="box-text">优先级排名 Priority Ranking</text>
+
+  <line x1="350" y1="385" x2="350" y2="405" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Select Highest Priority -->
+  <rect x="270" y="410" width="160" height="40" fill="#e0e7ff" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="350" y="425" class="box-text">选择最高优先级</text>
+  <text x="350" y="440" class="label">Select Highest Priority</text>
+
+  <line x1="350" y1="450" x2="350" y2="475" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- API Call Success? -->
+  <path d="M 290 475 L 410 475 L 390 515 L 310 515 Z" fill="#fce7f3" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="350" y="493" class="box-text">API 成功?</text>
+  <text x="350" y="506" class="label">API Success?</text>
+
+  <line x1="310" y1="495" x2="200" y2="495" stroke="#ef4444" stroke-width="1.5" marker-end="url(#arrow-red)"/>
+  <text x="260" y="490" class="annotation" fill="#dc2626">否 No</text>
+
+  <rect x="120" y="475" width="160" height="40" fill="#fee2e2" stroke="#ef4444" stroke-width="1.5" rx="2"/>
+  <text x="200" y="493" class="box-text">尝试下一优先级</text>
+  <text x="200" y="508" class="label">Try Next Priority</text>
+
+  <line x1="200" y1="475" x2="200" y2="450" stroke="#ef4444" stroke-width="1.5"/>
+  <line x1="200" y1="450" x2="270" y2="430" stroke="#ef4444" stroke-width="1.5" marker-end="url(#arrow-red)"/>
+
+  <!-- Execute Task -->
+  <line x1="390" y1="495" x2="530" y2="495" stroke="#10b981" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <text x="455" y="490" class="annotation" fill="#059669">是 Yes</text>
+
+  <rect x="535" y="475" width="140" height="40" fill="#d1fae5" stroke="#10b981" stroke-width="1.5" rx="2"/>
+  <text x="605" y="498" class="box-text">执行任务</text>
+  <text x="605" y="513" class="label">Execute Task</text>
+
+  <!-- Config note -->
+  <rect x="50" y="560" width="750" height="70" fill="#f9fafb" stroke="#999" stroke-width="1" rx="2"/>
+  <text x="425" y="580" class="label">配置来源 Configuration Source: config/models.yaml</text>
+  <text x="425" y="598" class="annotation">优先级顺序 Priority ordering: Small (priority 1-4), Medium (priority 1-3), Large (priority 1-2)</text>
+  <text x="425" y="613" class="annotation">回退机制 Fallback: 失败时自动尝试下一优先级 Automatically try next priority on failure</text>
+</svg>

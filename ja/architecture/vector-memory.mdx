@@ -9,30 +9,7 @@ Shannonのメモリシステムは、ユーザーセッション間でインテ�
 
 ## アーキテクチャ
 
-```mermaid
-graph TB
-    subgraph ストレージ
-        PG[(PostgreSQL)]
-        Redis[(Redis)]
-        Qdrant[(Qdrant)]
-    end
-
-    subgraph メモリタイプ
-        Session[セッションメモリ]
-        Semantic[セマンティックメモリ]
-        Agent[Agentメモリ]
-        Supervisor[Supervisorメモリ]
-    end
-
-    Query[ユーザークエリ] --> Retrieval[メモリ検索]
-    Retrieval --> Session
-    Retrieval --> Semantic
-    Retrieval --> Qdrant
-
-    Agent --> PG
-    Session --> Redis
-    Semantic --> Qdrant
-```
+![ベクトルメモリアーキテクチャ - ストレージレイヤー（PostgreSQL、Redis、Qdrant）とメモリタイプ（Session、Semantic、Agent、Supervisor）の相互作用を示す図 / Vector Memory Architecture - Diagram showing interaction between storage layers (PostgreSQL, Redis, Qdrant) and memory types (Session, Semantic, Agent, Supervisor)](assets/vector-memory-architecture.svg)
 
 ## ストレージレイヤー
 

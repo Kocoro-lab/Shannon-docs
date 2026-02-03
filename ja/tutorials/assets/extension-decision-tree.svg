@@ -1,0 +1,140 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 700">
+  <defs>
+    <style>
+      .label { font: 500 10px 'SF Mono', 'Hiragino Sans', 'Noto Sans JP', sans-serif; fill: #666; text-anchor: middle; }
+      .box-text { font: 600 11px 'SF Mono', 'Hiragino Sans', 'Noto Sans JP', sans-serif; fill: #1a1a1a; text-anchor: middle; dominant-baseline: middle; }
+      .decision { font: 600 10px 'SF Mono', 'Hiragino Sans', 'Noto Sans JP', sans-serif; fill: #1a1a1a; text-anchor: middle; dominant-baseline: middle; }
+      .complexity { font: 600 9px 'SF Mono', 'Hiragino Sans', 'Noto Sans JP', sans-serif; fill: #666; text-anchor: middle; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1000" height="700" fill="#fff"/>
+
+  <!-- Start -->
+  <rect x="380" y="30" width="240" height="50" fill="#e0f2fe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="500" y="48" class="box-text">Shannonを拡張する必要がある</text>
+  <text x="500" y="63" class="label">Need to extend Shannon</text>
+
+  <!-- What to extend -->
+  <path d="M 500 110 L 590 160 L 500 210 L 410 160 Z" fill="#dbeafe" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="500" y="153" class="decision">何を拡張するか?</text>
+  <text x="500" y="167" class="decision">What to extend?</text>
+
+  <!-- Predefined Workflows -->
+  <rect x="60" y="270" width="140" height="50" fill="#bfdbfe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="130" y="288" class="box-text">テンプレートを使用</text>
+  <text x="130" y="303" class="label">Use Templates</text>
+
+  <!-- External API -->
+  <path d="M 330 280 L 410 320 L 330 360 L 250 320 Z" fill="#fef3c7" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="330" y="313" class="decision">APIタイプ?</text>
+  <text x="330" y="327" class="decision">API Type?</text>
+
+  <!-- Custom Logic -->
+  <rect x="500" y="270" width="140" height="50" fill="#a7f3d0" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="570" y="288" class="box-text">組み込みPython</text>
+  <text x="570" y="303" class="label">Built-in Python Tool</text>
+
+  <!-- Planning Logic -->
+  <rect x="710" y="270" width="140" height="50" fill="#e9d5ff" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="780" y="288" class="box-text">カスタム分解</text>
+  <text x="780" y="303" class="label">Custom Decompose</text>
+
+  <!-- Simple HTTP -->
+  <rect x="50" y="430" width="120" height="50" fill="#bbf7d0" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="110" y="448" class="box-text">MCPツール</text>
+  <text x="110" y="463" class="label">MCP Tool</text>
+
+  <!-- OpenAPI -->
+  <rect x="200" y="430" width="120" height="50" fill="#fde047" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="260" y="448" class="box-text">OpenAPIツール</text>
+  <text x="260" y="463" class="label">OpenAPI Tool</text>
+
+  <!-- Domain Specific -->
+  <rect x="350" y="430" width="140" height="50" fill="#fed7aa" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="420" y="448" class="box-text">ベンダーアダプタ</text>
+  <text x="420" y="463" class="label">Vendor Adapter</text>
+
+  <!-- Complexity Levels -->
+  <!-- Low -->
+  <rect x="50" y="560" width="120" height="50" fill="#d1fae5" stroke="#16a34a" stroke-width="2" rx="2"/>
+  <text x="110" y="578" class="box-text" fill="#16a34a">低複雑性</text>
+  <text x="110" y="593" class="label" fill="#16a34a">Low Complexity</text>
+
+  <!-- Low 2 -->
+  <rect x="200" y="560" width="120" height="50" fill="#d1fae5" stroke="#16a34a" stroke-width="2" rx="2"/>
+  <text x="260" y="578" class="box-text" fill="#16a34a">低複雑性</text>
+  <text x="260" y="593" class="label" fill="#16a34a">Low Complexity</text>
+
+  <!-- Medium -->
+  <rect x="350" y="560" width="140" height="50" fill="#fed7aa" stroke="#ea580c" stroke-width="2" rx="2"/>
+  <text x="420" y="578" class="box-text" fill="#ea580c">中複雑性</text>
+  <text x="420" y="593" class="label" fill="#ea580c">Medium Complexity</text>
+
+  <!-- Medium 2 -->
+  <rect x="520" y="560" width="120" height="50" fill="#fed7aa" stroke="#ea580c" stroke-width="2" rx="2"/>
+  <text x="580" y="578" class="box-text" fill="#ea580c">中複雑性</text>
+  <text x="580" y="593" class="label" fill="#ea580c">Medium Complexity</text>
+
+  <!-- High -->
+  <rect x="720" y="560" width="120" height="50" fill="#fecaca" stroke="#dc2626" stroke-width="2" rx="2"/>
+  <text x="780" y="578" class="box-text" fill="#dc2626">高複雑性</text>
+  <text x="780" y="593" class="label" fill="#dc2626">High Complexity</text>
+
+  <!-- Arrows -->
+  <line x1="500" y1="80" x2="500" y2="105" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Predefined Workflows -->
+  <line x1="440" y1="190" x2="150" y2="265" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="280" y="220" class="label">定義済み</text>
+  <text x="280" y="235" class="label">Workflow</text>
+
+  <!-- External API -->
+  <line x1="460" y1="170" x2="360" y2="260" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="400" y="210" class="label">外部API</text>
+  <text x="400" y="225" class="label">External API</text>
+
+  <!-- Custom Logic -->
+  <line x1="530" y1="180" x2="565" y2="265" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="560" y="220" class="label">カスタムロジック</text>
+  <text x="560" y="235" class="label">Custom Logic</text>
+
+  <!-- Planning Logic -->
+  <line x1="560" y1="190" x2="760" y2="265" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="670" y="220" class="label">計画ロジック</text>
+  <text x="670" y="235" class="label">Planning Logic</text>
+
+  <!-- Simple HTTP -->
+  <line x1="280" y1="340" x2="130" y2="425" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="190" y="375" class="label">Simple HTTP</text>
+
+  <!-- OpenAPI Spec -->
+  <line x1="310" y1="350" x2="255" y2="425" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="280" y="385" class="label">OpenAPI仕様</text>
+
+  <!-- Domain Specific -->
+  <line x1="360" y1="350" x2="415" y2="425" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="395" y="385" class="label">ドメイン特化</text>
+
+  <!-- Template to Low -->
+  <line x1="130" y1="320" x2="110" y2="555" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- MCP to Low -->
+  <line x1="110" y1="480" x2="110" y2="555" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- OpenAPI to Low -->
+  <line x1="260" y1="480" x2="260" y2="555" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Built-in to Medium -->
+  <line x1="570" y1="320" x2="580" y2="555" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Vendor to Medium -->
+  <line x1="420" y1="480" x2="420" y2="555" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Custom to High -->
+  <line x1="780" y1="320" x2="780" y2="555" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+</svg>

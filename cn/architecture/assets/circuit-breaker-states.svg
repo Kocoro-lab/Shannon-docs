@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500">
+  <defs>
+    <style>
+      .label { font: 500 10px 'SF Mono', 'PingFang SC', monospace; fill: #666; text-anchor: middle; }
+      .box-text { font: 600 13px 'SF Mono', 'PingFang SC', monospace; fill: #1a1a1a; text-anchor: middle; }
+      .title { font: 700 16px 'SF Mono', 'PingFang SC', sans-serif; fill: #1a1a1a; text-anchor: middle; }
+      .annotation { font: 400 9px 'SF Mono', 'PingFang SC', monospace; fill: #666; text-anchor: middle; }
+      .state-text { font: 600 11px 'SF Mono', 'PingFang SC', monospace; fill: #1a1a1a; text-anchor: middle; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+    </marker>
+  </defs>
+
+  <rect width="800" height="500" fill="#fff"/>
+
+  <text x="400" y="30" class="title">熔断器状态机</text>
+  <text x="400" y="47" class="label">CIRCUIT BREAKER STATE MACHINE</text>
+
+  <!-- Initial State -->
+  <circle cx="400" cy="90" r="8" fill="#1a1a1a"/>
+  <line x1="400" y1="98" x2="400" y2="130" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Closed State -->
+  <ellipse cx="400" cy="170" rx="120" ry="55" fill="#d1fae5" stroke="#1a1a1a" stroke-width="2"/>
+  <text x="400" y="163" class="box-text">Closed 闭合</text>
+  <text x="400" y="178" class="state-text" fill="#059669">正常运行</text>
+  <text x="400" y="191" class="label">Normal Operation</text>
+
+  <!-- Self-loop on Closed -->
+  <path d="M 340 140 Q 300 110 340 100 Q 360 95 380 105" fill="none" stroke="#059669" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="310" y="100" class="annotation" text-anchor="end">成功 Success</text>
+
+  <!-- Closed to Open -->
+  <path d="M 480 200 Q 580 240 580 310" fill="none" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="600" y="240" class="annotation" text-anchor="start">失败次数 ≥ 阈值</text>
+  <text x="600" y="255" class="annotation" text-anchor="start">Failures ≥ Threshold</text>
+
+  <!-- Open State -->
+  <ellipse cx="550" cy="360" rx="120" ry="55" fill="#fee2e2" stroke="#1a1a1a" stroke-width="2"/>
+  <text x="550" y="353" class="box-text">Open 开启</text>
+  <text x="550" y="368" class="state-text" fill="#dc2626">服务不可用</text>
+  <text x="550" y="381" class="label">Service Unavailable</text>
+
+  <!-- Open to Half-Open -->
+  <path d="M 470 390 Q 380 420 280 390" fill="none" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="380" y="425" class="annotation">恢复超时后</text>
+  <text x="380" y="438" class="annotation">After Recovery Timeout</text>
+
+  <!-- Half-Open State -->
+  <ellipse cx="250" cy="360" rx="120" ry="55" fill="#fed7aa" stroke="#1a1a1a" stroke-width="2"/>
+  <text x="250" y="353" class="box-text">Half-Open 半开</text>
+  <text x="250" y="368" class="state-text" fill="#ea580c">测试恢复</text>
+  <text x="250" y="381" class="label">Testing Recovery</text>
+
+  <!-- Half-Open to Closed (success) -->
+  <path d="M 230 305 Q 280 240 340 200" fill="none" stroke="#059669" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="220" y="240" class="annotation" text-anchor="end">成功</text>
+  <text x="220" y="253" class="annotation" text-anchor="end">Success</text>
+
+  <!-- Half-Open to Open (failure) -->
+  <path d="M 370 360 Q 410 360 430 360" fill="none" stroke="#dc2626" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="400" y="350" class="annotation">失败 Failure</text>
+
+  <!-- Legend -->
+  <rect x="50" y="70" width="200" height="150" fill="#f9fafb" stroke="#999" stroke-width="1" rx="2"/>
+  <text x="150" y="90" class="state-text">状态说明 States</text>
+
+  <text x="70" y="110" class="annotation" text-anchor="start">● Closed: 正常处理所有请求</text>
+  <text x="70" y="125" class="annotation" text-anchor="start">  Allow all requests</text>
+
+  <text x="70" y="145" class="annotation" text-anchor="start">● Open: 快速失败所有请求</text>
+  <text x="70" y="160" class="annotation" text-anchor="start">  Fast-fail all requests</text>
+
+  <text x="70" y="180" class="annotation" text-anchor="start">● Half-Open: 允许有限请求</text>
+  <text x="70" y="195" class="annotation" text-anchor="start">  Allow limited requests</text>
+
+  <!-- Configuration -->
+  <rect x="550" y="70" width="200" height="150" fill="#f9fafb" stroke="#999" stroke-width="1" rx="2"/>
+  <text x="650" y="90" class="state-text">配置 Configuration</text>
+
+  <text x="570" y="110" class="annotation" text-anchor="start">MCP_CB_FAILURES=5</text>
+  <text x="570" y="125" class="annotation" text-anchor="start">失败阈值 Failure threshold</text>
+
+  <text x="570" y="145" class="annotation" text-anchor="start">MCP_CB_RECOVERY_SECONDS=60</text>
+  <text x="570" y="160" class="annotation" text-anchor="start">恢复超时 Recovery timeout</text>
+
+  <text x="570" y="180" class="annotation" text-anchor="start">ENFORCE_CB_ERROR_THRESHOLD=0.5</text>
+  <text x="570" y="195" class="annotation" text-anchor="start">错误率阈值 Error rate threshold</text>
+
+  <!-- Benefits -->
+  <rect x="50" y="450" width="700" height="40" fill="#d1fae5" stroke="#10b981" stroke-width="1" rx="2"/>
+  <text x="400" y="470" class="annotation">防止级联故障 Prevents cascading failures ● 保护服务免于过载 Protects from overload ● 自动恢复 Auto-recovery</text>
+</svg>

@@ -9,27 +9,7 @@ Shannon uses [Temporal](https://temporal.io) as its workflow engine, providing d
 
 ## Architecture
 
-```mermaid
-graph TB
-    subgraph Client Layer
-        Gateway[Gateway :8080]
-    end
-
-    subgraph Orchestration Layer
-        Orch[Orchestrator :50052]
-        Workers[Temporal Workers]
-    end
-
-    subgraph Temporal
-        Server[Temporal Server :7233]
-        UI[Temporal UI :8088]
-    end
-
-    Gateway -->|gRPC| Orch
-    Orch --> Workers
-    Workers --> Server
-    Server --> UI
-```
+![Temporal Architecture Layers](assets/temporal-architecture.svg)
 
 ## Workflow Types
 
@@ -56,21 +36,7 @@ Wrapper workflow for recurring task execution via cron schedules.
 
 ## Workflow Selection Logic
 
-```mermaid
-graph TD
-    A[Query Input] --> B{Decompose & Analyze}
-    B --> C{Complexity Score}
-    C -->|< 0.3| D[Simple Task]
-    C -->|>= 0.3| E{Cognitive Strategy}
-
-    D --> F[ExecuteSimpleTask]
-
-    E -->|exploratory| G[ExploratoryWorkflow]
-    E -->|scientific| H[ScientificWorkflow]
-    E -->|react| I[ReactWorkflow]
-    E -->|research| J[ResearchWorkflow]
-    E -->|default| K[DAGWorkflow]
-```
+![Workflow Selection Logic](assets/workflow-selection-logic.svg)
 
 ## Reasoning Patterns
 

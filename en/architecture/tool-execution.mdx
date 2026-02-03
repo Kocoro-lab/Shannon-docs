@@ -30,34 +30,7 @@ All tool types share:
 
 ## Architecture Layers
 
-```mermaid
-graph TB
-    subgraph "Orchestrator (Go)"
-        A[Workflow] --> B[Tool Selection]
-        B --> C[Budget Check]
-        C --> D[Execute Tool Activity]
-    end
-
-    subgraph "Agent Core (Rust)"
-        D --> E[Tool Registry]
-        E --> F{Tool Type?}
-        F -->|Built-in| G[Python WASI Sandbox]
-        F -->|MCP| H[HTTP Client]
-        F -->|OpenAPI| I[OpenAPI Executor]
-        G --> J[Circuit Breaker]
-        H --> J
-        I --> J
-    end
-
-    subgraph "LLM Service (Python)"
-        J --> K[Tool Implementation]
-        K --> L[Vendor Adapter]
-        L --> M[External API]
-    end
-
-    J --> N[Result]
-    N --> D
-```
+![Tool Execution Architecture](assets/tool-architecture.svg)
 
 ## Tool Registry
 
@@ -111,20 +84,7 @@ Python code execution happens in WebAssembly System Interface (WASI) sandboxes f
 
 ### Architecture
 
-```mermaid
-graph LR
-    A[Agent Core<br/>Rust] --> B[Wasmtime Runtime]
-    B --> C[Python 3.11<br/>WASI Interpreter]
-    C --> D[User Code]
-
-    B -.->|No Network| E[Network Stack]
-    B -.->|Read-Only| F[Filesystem]
-    B -->|Limited| G[Memory]
-
-    style E fill:#ff0000,color:#fff
-    style F fill:#ffaa00,color:#000
-    style G fill:#00aa00,color:#fff
-```
+![WASI Sandbox Security](assets/wasi-sandbox.svg)
 
 ### Security Boundaries
 
@@ -271,28 +231,7 @@ Vendor adapters transform requests/responses for domain-specific APIs without mo
 
 ### Execution Flow
 
-```mermaid
-sequenceDiagram
-    participant Orch as Orchestrator
-    participant Agent as Agent Core
-    participant LLM as LLM Service
-    participant Adapter as Vendor Adapter
-    participant API as External API
-
-    Orch->>Agent: Execute Tool (body, operation)
-    Agent->>LLM: Tool Request (body)
-
-    alt Vendor Adapter Configured
-        LLM->>Adapter: transform_body(body, operation, prompt_params)
-        Adapter->>Adapter: Field aliasing<br/>Session injection<br/>Normalization
-        Adapter-->>LLM: Transformed body
-    end
-
-    LLM->>API: HTTP Request (transformed body)
-    API-->>LLM: Response
-    LLM-->>Agent: Tool Result
-    Agent-->>Orch: Result
-```
+![Vendor Adapter Sequence](assets/vendor-adapter-sequence.svg)
 
 ### Adapter Loading
 
@@ -410,15 +349,7 @@ ENFORCE_CB_MIN_REQUESTS=20             # Min requests before activation
 
 ### States
 
-```mermaid
-stateDiagram-v2
-    [*] --> Closed
-    Closed --> Open: Failures >= threshold
-    Open --> HalfOpen: After recovery timeout
-    HalfOpen --> Closed: Success
-    HalfOpen --> Open: Failure
-    Closed --> Closed: Success
-```
+![Circuit Breaker States](assets/circuit-breaker-states.svg)
 
 **Closed**: Normal operation, all requests allowed
 

@@ -89,17 +89,7 @@ See [Installation Guide](/en/quickstart/installation) for detailed setup instruc
 
 Shannon consists of multiple services that need to be deployed:
 
-```mermaid
-graph TB
-    Gateway[Gateway :8080] --> Orchestrator[Orchestrator :50052]
-    Orchestrator --> AgentCore[Agent Core :50051]
-    Orchestrator --> LLMService[LLM Service :8000]
-    Orchestrator --> Temporal[Temporal :7233]
-    Orchestrator --> PostgreSQL[(PostgreSQL :5432)]
-    Orchestrator --> Redis[(Redis :6379)]
-    AgentCore --> Qdrant[(Qdrant :6333)]
-    DesktopApp[Desktop App] --> Gateway
-```
+![Deployment Architecture](assets/deployment-architecture.svg)
 
 ### Core Services
 

@@ -9,30 +9,7 @@ Shannon 实现了多层 LLM 响应缓存系统，为重复或相似的查询提�
 
 ## 架构
 
-```mermaid
-graph TB
-    subgraph 请求流程
-        Request[完成请求] --> KeyGen[生成缓存键]
-        KeyGen --> Check{缓存命中?}
-        Check -->|是| Return[返回缓存响应]
-        Check -->|否| Provider[LLM 提供商]
-        Provider --> Validate{有效响应?}
-        Validate -->|是| Store[存入缓存]
-        Validate -->|否| Skip[跳过缓存]
-        Store --> Return2[返回响应]
-        Skip --> Return2
-    end
-
-    subgraph 缓存后端
-        Memory[(内存 LRU)]
-        Redis[(Redis)]
-    end
-
-    Check --> Memory
-    Check --> Redis
-    Store --> Memory
-    Store --> Redis
-```
+![LLM 缓存流程](assets/llm-caching-flow.svg)
 
 ## 缓存后端
 

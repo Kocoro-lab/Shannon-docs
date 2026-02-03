@@ -7,37 +7,7 @@ description: "Shannonのシステムアーキテクチャ"
 
 Shannonは、プロダクションAIエージェントオーケストレーションのために設計された分散マイクロサービスシステムです。
 
-```mermaid
-graph TB
-    Client[クライアントアプリケーション]
-    Gateway[ゲートウェイ<br/>REST API :8080]
-    Orch[オーケストレーター<br/>Go gRPC :50052]
-    AgentCore[エージェントコア<br/>Rust gRPC :50051]
-    LLM[LLMサービス<br/>Python :8000]
-
-    Temporal[Temporal<br/>ワークフローエンジン]
-    PG[(PostgreSQL<br/>状態)]
-    Redis[(Redis<br/>キャッシュ)]
-    Qdrant[(Qdrant<br/>ベクトル)]
-
-    Providers[LLMプロバイダー<br/>OpenAI, Anthropicなど]
-
-    Client -->|HTTP/JSON| Gateway
-    Gateway -->|gRPC| Orch
-    Orch -->|ワークフロー| Temporal
-    Orch -->|gRPC| AgentCore
-    AgentCore -->|HTTP| LLM
-    LLM --> Providers
-
-    Orch --> PG
-    Orch --> Redis
-    Orch --> Qdrant
-
-    style Gateway fill:#0070F3
-    style Orch fill:#00A3FF
-    style AgentCore fill:#FF6B6B
-    style LLM fill:#4ECDC4
-```
+![Shannonシステムアーキテクチャ - クライアント、ゲートウェイ、オーケストレーター、エージェントコア、LLMサービス、Temporal、データストア間のコンポーネント相互作用を示す図 / Shannon System Architecture - Diagram showing component interactions between Client, Gateway, Orchestrator, Agent Core, LLM Service, Temporal, and data stores](assets/system-architecture.svg)
 
 ## コアコンポーネント
 

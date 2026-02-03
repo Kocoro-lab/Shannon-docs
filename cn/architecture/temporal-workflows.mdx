@@ -9,27 +9,7 @@ Shannon 使用 [Temporal](https://temporal.io) 作为工作流引擎，提供持
 
 ## 架构
 
-```mermaid
-graph TB
-    subgraph 客户端层
-        Gateway[Gateway :8080]
-    end
-
-    subgraph 编排层
-        Orch[Orchestrator :50052]
-        Workers[Temporal Workers]
-    end
-
-    subgraph Temporal
-        Server[Temporal Server :7233]
-        UI[Temporal UI :8088]
-    end
-
-    Gateway -->|gRPC| Orch
-    Orch --> Workers
-    Workers --> Server
-    Server --> UI
-```
+![Temporal 工作流架构](assets/temporal-architecture.svg)
 
 ## 工作流类型
 
@@ -56,21 +36,7 @@ Shannon 实现了多种工作流类型以适应不同场景：
 
 ## 工作流选择逻辑
 
-```mermaid
-graph TD
-    A[查询输入] --> B{分解与分析}
-    B --> C{复杂度评分}
-    C -->|< 0.3| D[简单任务]
-    C -->|>= 0.3| E{认知策略}
-
-    D --> F[ExecuteSimpleTask]
-
-    E -->|exploratory| G[ExploratoryWorkflow]
-    E -->|scientific| H[ScientificWorkflow]
-    E -->|react| I[ReactWorkflow]
-    E -->|research| J[ResearchWorkflow]
-    E -->|default| K[DAGWorkflow]
-```
+![工作流选择逻辑](assets/workflow-selection.svg)
 
 ## 推理模式
 

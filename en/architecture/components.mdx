@@ -77,26 +77,7 @@ LLM Service notes:
 
 ## Component Interactions
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Gateway
-    participant Orchestrator
-    participant AgentCore
-    participant LLMService
-    participant Temporal
-
-    Client->>Gateway: POST /api/v1/tasks
-    Gateway->>Orchestrator: SubmitTask (gRPC)
-    Orchestrator->>Temporal: StartWorkflow
-    Temporal->>Orchestrator: WorkflowStarted
-    Orchestrator->>AgentCore: ExecuteAgent (gRPC)
-    AgentCore->>LLMService: GetCompletion (HTTP)
-    LLMService-->>AgentCore: LLM Response
-    AgentCore-->>Orchestrator: Agent Result
-    Orchestrator-->>Gateway: Task Submitted
-    Gateway-->>Client: 200 OK + task_id
-```
+![Component Interactions](assets/component-interactions.svg)
 
 ## Coming Soon
 

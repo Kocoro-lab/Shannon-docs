@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">
+  <defs>
+    <style>
+      .label { font: 500 10px 'SF Mono', 'Hiragino Sans', 'Noto Sans JP', sans-serif; fill: #666; text-anchor: middle; }
+      .box-text { font: 600 12px 'SF Mono', 'Hiragino Sans', 'Noto Sans JP', sans-serif; fill: #1a1a1a; text-anchor: middle; dominant-baseline: middle; }
+      .group-title { font: 600 12px 'SF Mono', 'Hiragino Sans', 'Noto Sans JP', sans-serif; fill: #666; text-anchor: start; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="600" fill="#fff"/>
+
+  <!-- Storage Group -->
+  <rect x="50" y="50" width="350" height="220" fill="none" stroke="#ddd" stroke-width="1" rx="4"/>
+  <text x="60" y="70" class="group-title">ストレージ / Storage</text>
+
+  <!-- PostgreSQL -->
+  <ellipse cx="140" cy="140" rx="70" ry="40" fill="#fef3c7" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="140" y="140" class="box-text">PostgreSQL</text>
+
+  <!-- Redis -->
+  <ellipse cx="280" cy="140" rx="60" ry="40" fill="#fde047" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="280" y="140" class="box-text">Redis</text>
+
+  <!-- Qdrant -->
+  <ellipse cx="210" cy="220" rx="60" ry="40" fill="#d1fae5" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="210" y="220" class="box-text">Qdrant</text>
+
+  <!-- Memory Types Group -->
+  <rect x="50" y="300" width="350" height="250" fill="none" stroke="#ddd" stroke-width="1" rx="4"/>
+  <text x="60" y="320" class="group-title">メモリタイプ / Memory Types</text>
+
+  <!-- Session -->
+  <rect x="80" y="350" width="120" height="60" fill="#bfdbfe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="140" y="373" class="box-text">Session Memory</text>
+  <text x="140" y="393" class="label">セッション</text>
+
+  <!-- Semantic -->
+  <rect x="230" y="350" width="140" height="60" fill="#a7f3d0" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="300" y="373" class="box-text">Semantic Memory</text>
+  <text x="300" y="393" class="label">セマンティック</text>
+
+  <!-- Agent -->
+  <rect x="80" y="440" width="120" height="60" fill="#fecaca" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="140" y="463" class="box-text">Agent Memory</text>
+  <text x="140" y="483" class="label">エージェント</text>
+
+  <!-- Supervisor -->
+  <rect x="230" y="440" width="140" height="60" fill="#e9d5ff" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="300" y="463" class="box-text">Supervisor Memory</text>
+  <text x="300" y="483" class="label">Supervisor</text>
+
+  <!-- Query and Retrieval -->
+  <rect x="450" y="50" width="300" height="500" fill="none" stroke="#ddd" stroke-width="1" rx="4"/>
+
+  <!-- Query -->
+  <rect x="510" y="100" width="180" height="50" fill="#e0f2fe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="600" y="118" class="box-text">ユーザークエリ</text>
+  <text x="600" y="133" class="label">User Query</text>
+
+  <!-- Retrieval -->
+  <rect x="510" y="200" width="180" height="50" fill="#fef3c7" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="600" y="218" class="box-text">メモリ検索</text>
+  <text x="600" y="233" class="label">Memory Retrieval</text>
+
+  <!-- Session -->
+  <rect x="510" y="300" width="80" height="50" fill="#bfdbfe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="550" y="318" class="box-text">Session</text>
+  <text x="550" y="333" class="label">最近</text>
+
+  <!-- Semantic -->
+  <rect x="610" y="300" width="80" height="50" fill="#a7f3d0" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="650" y="318" class="box-text">Semantic</text>
+  <text x="650" y="333" class="label">関連性</text>
+
+  <!-- Qdrant -->
+  <rect x="550" y="400" width="100" height="50" fill="#d1fae5" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="600" y="425" class="box-text">Qdrant</text>
+
+  <!-- Arrows -->
+  <line x1="600" y1="150" x2="600" y2="195" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <line x1="600" y1="250" x2="550" y2="295" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="600" y1="250" x2="650" y2="295" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <line x1="600" y1="350" x2="600" y2="395" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Agent to PG -->
+  <line x1="140" y1="440" x2="140" y2="180" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Session to Redis -->
+  <line x1="140" y1="350" x2="260" y2="180" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Semantic to Qdrant -->
+  <line x1="300" y1="350" x2="230" y2="260" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+</svg>

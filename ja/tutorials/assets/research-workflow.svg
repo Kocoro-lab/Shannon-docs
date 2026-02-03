@@ -1,0 +1,157 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 900">
+  <defs>
+    <style>
+      .label { font: 500 9px 'SF Mono', 'Hiragino Sans', 'Noto Sans JP', sans-serif; fill: #666; text-anchor: middle; }
+      .box-text { font: 600 10px 'SF Mono', 'Hiragino Sans', 'Noto Sans JP', sans-serif; fill: #1a1a1a; text-anchor: middle; dominant-baseline: middle; }
+      .decision { font: 600 9px 'SF Mono', 'Hiragino Sans', 'Noto Sans JP', sans-serif; fill: #1a1a1a; text-anchor: middle; dominant-baseline: middle; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1000" height="900" fill="#fff"/>
+
+  <!-- User Query -->
+  <ellipse cx="500" cy="40" rx="90" ry="25" fill="#e0f2fe" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="500" y="40" class="box-text">User Query</text>
+
+  <!-- Memory Retrieval -->
+  <rect x="420" y="80" width="160" height="45" fill="#bfdbfe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="500" y="95" class="box-text">Memory Retrieval</text>
+  <text x="500" y="110" class="label">メモリ取得</text>
+
+  <!-- Session Decision -->
+  <path d="M 500 150 L 560 180 L 500 210 L 440 180 Z" fill="#ffedd5" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="500" y="177" class="decision">Session > 20</text>
+  <text x="500" y="188" class="decision">messages?</text>
+
+  <!-- Context Compression -->
+  <rect x="650" y="160" width="140" height="40" fill="#fde047" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="720" y="175" class="box-text">Context Compression</text>
+  <text x="720" y="188" class="label">コンテキスト圧縮</text>
+
+  <!-- Query Refinement -->
+  <rect x="420" y="240" width="160" height="40" fill="#fef3c7" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="500" y="255" class="box-text">Query Refinement</text>
+  <text x="500" y="268" class="label">クエリ精錬</text>
+
+  <!-- Decomposition -->
+  <rect x="420" y="310" width="160" height="40" fill="#dbeafe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="500" y="325" class="box-text">Decomposition</text>
+  <text x="500" y="338" class="label">分解</text>
+
+  <!-- Execution Pattern -->
+  <path d="M 500 380 L 580 420 L 500 460 L 420 420 Z" fill="#c7d2fe" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="500" y="420" class="decision">Execution Pattern</text>
+
+  <!-- React Pattern -->
+  <rect x="80" y="510" width="120" height="40" fill="#fecaca" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="140" y="525" class="box-text">React Pattern</text>
+  <text x="140" y="538" class="label">{"< 0.5"}</text>
+
+  <!-- Parallel Pattern -->
+  <rect x="230" y="510" width="130" height="40" fill="#bbf7d0" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="295" y="525" class="box-text">Parallel Pattern</text>
+  <text x="295" y="538" class="label">No Dependencies</text>
+
+  <!-- Hybrid Pattern -->
+  <rect x="390" y="510" width="120" height="40" fill="#d1fae5" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="450" y="525" class="box-text">Hybrid Pattern</text>
+  <text x="450" y="538" class="label">Dependencies</text>
+
+  <!-- React Per Task -->
+  <rect x="540" y="510" width="140" height="40" fill="#e9d5ff" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="610" y="525" class="box-text">React Per Task</text>
+  <text x="610" y="538" class="label">{"> 0.7 + Deep"}</text>
+
+  <!-- Entity Filtering -->
+  <rect x="420" y="590" width="160" height="40" fill="#fed7aa" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="500" y="605" class="box-text">Entity Filtering</text>
+  <text x="500" y="618" class="label">エンティティフィルタ</text>
+
+  <!-- Citation Collection -->
+  <rect x="420" y="660" width="160" height="40" fill="#fef3c7" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="500" y="675" class="box-text">Citation Collection</text>
+  <text x="500" y="688" class="label">引用収集</text>
+
+  <!-- Gap Filling -->
+  <rect x="420" y="730" width="160" height="40" fill="#a7f3d0" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="500" y="745" class="box-text">Gap Filling</text>
+  <text x="500" y="758" class="label">ギャップ埋め</text>
+
+  <!-- Synthesis -->
+  <rect x="420" y="800" width="160" height="40" fill="#4ECDC4" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="500" y="815" class="box-text">Synthesis</text>
+  <text x="500" y="828" class="label">合成</text>
+
+  <!-- Reflection -->
+  <rect x="650" y="800" width="120" height="40" fill="#fde047" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="710" y="815" class="box-text">Reflection</text>
+  <text x="710" y="828" class="label">リフレクション</text>
+
+  <!-- Verification Decision -->
+  <path d="M 710 860 L 760 880 L 710 900 L 660 880 Z" fill="#ffedd5" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="710" y="877" class="decision">Verification</text>
+  <text x="710" y="888" class="decision">Enabled?</text>
+
+  <!-- Verification -->
+  <rect x="820" y="860" width="120" height="40" fill="#c7d2fe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="880" y="875" class="box-text">Verification</text>
+  <text x="880" y="888" class="label">検証</text>
+
+  <!-- Final Report -->
+  <ellipse cx="500" cy="880" rx="80" ry="25" fill="#d1fae5" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="500" y="880" class="box-text">Final Report</text>
+
+  <!-- Arrows -->
+  <line x1="500" y1="65" x2="500" y2="75" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="500" y1="125" x2="500" y2="145" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Yes Compression -->
+  <line x1="560" y1="180" x2="645" y2="180" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="600" y="172" class="label">Yes</text>
+
+  <!-- No -->
+  <line x1="440" y1="180" x2="320" y2="180" stroke="#666" stroke-width="1.5"/>
+  <line x1="320" y1="180" x2="320" y2="260" stroke="#666" stroke-width="1.5"/>
+  <line x1="320" y1="260" x2="415" y2="260" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="350" y="172" class="label">No</text>
+
+  <line x1="720" y1="200" x2="720" y2="260" stroke="#666" stroke-width="1.5"/>
+  <line x1="720" y1="260" x2="585" y2="260" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <line x1="500" y1="280" x2="500" y2="305" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="500" y1="350" x2="500" y2="375" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Patterns -->
+  <line x1="440" y1="440" x2="150" y2="505" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="460" y1="450" x2="280" y2="505" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="480" y1="450" x2="445" y2="505" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="540" y1="440" x2="600" y2="505" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <line x1="140" y1="550" x2="480" y2="585" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="295" y1="550" x2="490" y2="585" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="450" y1="550" x2="495" y2="585" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="610" y1="550" x2="505" y2="585" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <line x1="500" y1="630" x2="500" y2="655" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="500" y1="700" x2="500" y2="725" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="500" y1="770" x2="500" y2="795" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <line x1="580" y1="820" x2="645" y2="820" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="710" y1="840" x2="710" y2="855" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Yes Verification -->
+  <line x1="760" y1="880" x2="815" y2="880" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="785" y="872" class="label">Yes</text>
+
+  <!-- No Verification -->
+  <line x1="660" y1="880" x2="585" y2="880" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="620" y="872" class="label">No</text>
+
+  <line x1="880" y1="900" x2="880" y2="915" stroke="#666" stroke-width="1.5"/>
+  <line x1="880" y1="915" x2="500" y2="915" stroke="#666" stroke-width="1.5"/>
+  <line x1="500" y1="915" x2="500" y2="905" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+</svg>
