@@ -194,22 +194,47 @@ curl "http://localhost:8080/api/v1/schedules/{id}/runs?page=1&page_size=20" \
 {
   "runs": [
     {
-      "id": "run-123",
-      "schedule_id": "550e8400-e29b-41d4-a716-446655440000",
-      "task_id": "task-dev-456",
+      "workflow_id": "wf-abc-123",
+      "query": "生成每日报告",
       "status": "COMPLETED",
-      "started_at": "2025-01-15T09:00:00Z",
-      "completed_at": "2025-01-15T09:02:30Z",
-      "duration_seconds": 150,
-      "cost_usd": 0.45,
-      "tokens_used": 12500
+      "result": "报告生成成功...",
+      "model_used": "gpt-4o",
+      "provider": "openai",
+      "total_tokens": 12500,
+      "total_cost_usd": 0.45,
+      "duration_ms": 150000,
+      "triggered_at": "2025-01-15T09:00:00Z",
+      "started_at": "2025-01-15T09:00:01Z",
+      "completed_at": "2025-01-15T09:02:30Z"
     }
   ],
-  "total": 45,
+  "total_count": 45,
   "page": 1,
   "page_size": 20
 }
 ```
+
+### 响应字段
+
+| 字段 | 类型 | 描述 |
+|-------|------|-------------|
+| `runs` | array | 调度执行记录列表 |
+| `runs[].workflow_id` | string | 此次执行的工作流 ID |
+| `runs[].query` | string | 执行的查询 |
+| `runs[].status` | string | 执行状态（如 COMPLETED、FAILED） |
+| `runs[].result` | string | 执行结果（为空时省略） |
+| `runs[].error_message` | string | 失败时的错误信息（为空时省略） |
+| `runs[].model_used` | string | 使用的 LLM 模型（为空时省略） |
+| `runs[].provider` | string | LLM 提供商（为空时省略） |
+| `runs[].total_tokens` | integer | 消耗的总 token 数 |
+| `runs[].total_cost_usd` | number | 总费用（美元） |
+| `runs[].duration_ms` | integer | 执行时长（毫秒，为空时省略） |
+| `runs[].triggered_at` | string | 触发时间（ISO 8601） |
+| `runs[].started_at` | string | 开始执行时间（为空时省略） |
+| `runs[].completed_at` | string | 执行完成时间（为空时省略） |
+| `total_count` | integer | 执行记录总数 |
+| `page` | integer | 当前页码 |
+| `page_size` | integer | 每页条数 |
 
 ## 暂停调度
 

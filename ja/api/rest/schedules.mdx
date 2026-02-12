@@ -194,22 +194,47 @@ curl "http://localhost:8080/api/v1/schedules/{id}/runs?page=1&page_size=20" \
 {
   "runs": [
     {
-      "id": "run-123",
-      "schedule_id": "550e8400-e29b-41d4-a716-446655440000",
-      "task_id": "task-dev-456",
+      "workflow_id": "wf-abc-123",
+      "query": "日次レポートを生成",
       "status": "COMPLETED",
-      "started_at": "2025-01-15T09:00:00Z",
-      "completed_at": "2025-01-15T09:02:30Z",
-      "duration_seconds": 150,
-      "cost_usd": 0.45,
-      "tokens_used": 12500
+      "result": "レポート生成完了...",
+      "model_used": "gpt-4o",
+      "provider": "openai",
+      "total_tokens": 12500,
+      "total_cost_usd": 0.45,
+      "duration_ms": 150000,
+      "triggered_at": "2025-01-15T09:00:00Z",
+      "started_at": "2025-01-15T09:00:01Z",
+      "completed_at": "2025-01-15T09:02:30Z"
     }
   ],
-  "total": 45,
+  "total_count": 45,
   "page": 1,
   "page_size": 20
 }
 ```
+
+### レスポンスフィールド
+
+| フィールド | 型 | 説明 |
+|-------|------|-------------|
+| `runs` | array | スケジュール実行記録のリスト |
+| `runs[].workflow_id` | string | この実行のワークフローID |
+| `runs[].query` | string | 実行されたクエリ |
+| `runs[].status` | string | 実行ステータス（例: COMPLETED、FAILED） |
+| `runs[].result` | string | 実行結果（空の場合は省略） |
+| `runs[].error_message` | string | 失敗時のエラーメッセージ（空の場合は省略） |
+| `runs[].model_used` | string | 使用されたLLMモデル（空の場合は省略） |
+| `runs[].provider` | string | LLMプロバイダー（空の場合は省略） |
+| `runs[].total_tokens` | integer | 消費された合計トークン数 |
+| `runs[].total_cost_usd` | number | 合計コスト（USD） |
+| `runs[].duration_ms` | integer | 実行時間（ミリ秒、空の場合は省略） |
+| `runs[].triggered_at` | string | トリガー時刻（ISO 8601） |
+| `runs[].started_at` | string | 実行開始時刻（空の場合は省略） |
+| `runs[].completed_at` | string | 実行完了時刻（空の場合は省略） |
+| `total_count` | integer | 実行記録の総数 |
+| `page` | integer | 現在のページ番号 |
+| `page_size` | integer | ページあたりのアイテム数 |
 
 ## スケジュール一時停止
 

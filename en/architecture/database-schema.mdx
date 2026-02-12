@@ -5,11 +5,11 @@ description: "Complete PostgreSQL database schema reference for Shannon"
 
 ## Overview
 
-Shannon uses PostgreSQL with pgvector extension for persistent storage. The database is organized into two schemas:
+Shannon uses PostgreSQL for persistent storage. The database is organized into two schemas:
 - `auth` - Authentication, multi-tenancy, and security
 - `public` - Core application tables (tasks, agents, sessions)
 
-**Total Tables**: 18 tables
+**Total Tables**: 25 tables
 **Extensions**: uuid-ossp, pg_trgm, btree_gin, pgcrypto
 
 ## Entity Relationship Diagram
@@ -120,7 +120,6 @@ WHERE monthly_token_usage > token_limit * 0.8;
 
 **Indexes**:
 - `idx_users_email` ON (email)
-- `idx_users_username` ON (username)
 - `idx_users_tenant_id` ON (tenant_id)
 
 **Example**:
@@ -152,7 +151,7 @@ WHERE last_login < NOW() - INTERVAL '90 days'
 | tenant_id | UUID | FK → auth.tenants, NOT NULL | Organization |
 | name | VARCHAR(100) | NOT NULL | Key name/description |
 | description | TEXT | | Detailed description |
-| scopes | TEXT[] | DEFAULT [...] | Permissions array |
+| scopes | TEXT[] | DEFAULT ARRAY['workflows:read', 'workflows:write', 'agents:execute'] | Permissions array |
 | rate_limit_per_hour | INTEGER | DEFAULT 1000 | Key-specific rate limit |
 | last_used | TIMESTAMP | | Last usage timestamp |
 | expires_at | TIMESTAMP | | Expiration time |
@@ -165,9 +164,9 @@ WHERE last_login < NOW() - INTERVAL '90 days'
 - `idx_api_keys_key_prefix` ON (key_prefix)
 
 **Default Scopes**:
-- `tasks:run`: Allow task execution
-- `tasks:read`: Allow reading task status and results
-- `sessions:manage`: Allow managing sessions
+- `workflows:read`: Allow reading workflow/task status and results
+- `workflows:write`: Allow submitting and managing workflows/tasks
+- `agents:execute`: Allow agent execution
 
 **Example**:
 ```sql
@@ -426,25 +425,25 @@ ORDER BY total_cost DESC;
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | UUID | PK, DEFAULT uuid_generate_v4() | Execution ID |
-| task_execution_id | UUID | FK → task_executions | Parent task |
+| workflow_id | VARCHAR(255) | | Temporal workflow ID |
+| task_id | VARCHAR(255) | | Task identifier |
 | agent_id | VARCHAR(255) | NOT NULL | Agent identifier |
-| execution_order | INTEGER | NOT NULL | Execution sequence |
 | input | TEXT | NOT NULL | Agent input |
 | output | TEXT | | Agent output |
-| mode | VARCHAR(50) | | Execution mode |
 | state | VARCHAR(50) | | FSM state |
 | tokens_used | INTEGER | DEFAULT 0 | Tokens consumed |
-| cost_usd | DECIMAL(10,6) | DEFAULT 0 | Execution cost |
 | model_used | VARCHAR(100) | | LLM model |
 | duration_ms | INTEGER | | Execution time |
-| memory_used_mb | INTEGER | | Memory usage |
+| error_message | TEXT | | Error details |
+| metadata | JSONB | DEFAULT '{}' | Additional metadata |
+| strategy | VARCHAR(100) | | Execution strategy |
 | created_at | TIMESTAMPTZ | DEFAULT NOW() | Start time |
-| completed_at | TIMESTAMPTZ | | Completion time |
+| updated_at | TIMESTAMPTZ | DEFAULT NOW() | Last update |
 
 **Indexes**:
-- `idx_agent_task_execution` ON (task_execution_id)
-- `idx_agent_created_at` ON (created_at DESC)
-- `idx_agent_state` ON (state)
+- `idx_agent_executions_workflow_id` ON (workflow_id)
+- `idx_agent_executions_created_at` ON (created_at DESC)
+- `idx_agent_executions_state` ON (state)
 
 **State Values**:
 - `IDLE` - Agent idle
@@ -460,18 +459,17 @@ ORDER BY total_cost DESC;
 **Example**:
 ```sql
 -- Agent execution chain for a task
-SELECT agent_id, execution_order, state, duration_ms, tokens_used
+SELECT agent_id, state, duration_ms, tokens_used
 FROM agent_executions
-WHERE task_execution_id = '...'
-ORDER BY execution_order;
+WHERE workflow_id = '...'
+ORDER BY created_at;
 
 -- Agent performance metrics
 SELECT
     agent_id,
     COUNT(*) as execution_count,
     AVG(duration_ms) as avg_duration,
-    AVG(tokens_used) as avg_tokens,
-    SUM(cost_usd) as total_cost
+    AVG(tokens_used) as avg_tokens
 FROM agent_executions
 WHERE created_at > NOW() - INTERVAL '7 days'
 GROUP BY agent_id
@@ -485,33 +483,24 @@ ORDER BY execution_count DESC;
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | UUID | PK, DEFAULT uuid_generate_v4() | Execution ID |
-| agent_execution_id | UUID | FK → agent_executions | Parent agent |
-| task_execution_id | UUID | FK → task_executions | Parent task |
+| agent_execution_id | UUID | | Parent agent execution |
+| workflow_id | VARCHAR(255) | | Temporal workflow ID |
+| agent_id | VARCHAR(255) | | Agent identifier |
 | tool_name | VARCHAR(255) | NOT NULL | Tool identifier |
-| tool_version | VARCHAR(50) | | Tool version |
-| category | VARCHAR(100) | | Tool category |
 | input_params | JSONB | | Input parameters |
-| output | JSONB | | Tool output |
+| output | TEXT | | Tool output |
 | success | BOOLEAN | DEFAULT true | Success status |
-| error_message | TEXT | | Error details |
+| error | TEXT | | Error details |
 | duration_ms | INTEGER | | Execution time |
 | tokens_consumed | INTEGER | DEFAULT 0 | Tokens used |
-| sandboxed | BOOLEAN | DEFAULT true | WASI sandbox used |
-| memory_used_mb | INTEGER | | Memory usage |
-| executed_at | TIMESTAMPTZ | DEFAULT NOW() | Execution time |
+| metadata | JSONB | DEFAULT '{}' | Additional metadata |
+| created_at | TIMESTAMPTZ | DEFAULT NOW() | Creation time |
 
 **Indexes**:
-- `idx_tool_name` ON (tool_name)
-- `idx_tool_executed_at` ON (executed_at DESC)
-- `idx_tool_task_execution` ON (task_execution_id)
-- `idx_tool_success` ON (success)
-
-**Tool Categories**:
-- `search` - Search and lookup tools
-- `calculation` - Mathematical and computational tools
-- `file` - File system operations
-- `api` - API calls and integrations
-- `code` - Code execution and analysis
+- `idx_tool_executions_workflow_id` ON (workflow_id)
+- `idx_tool_executions_tool_name` ON (tool_name)
+- `idx_tool_executions_created_at` ON (created_at DESC)
+- `idx_tool_executions_success` ON (success)
 
 **Example**:
 ```sql
@@ -522,16 +511,16 @@ SELECT
     COUNT(CASE WHEN success THEN 1 END) as successful,
     AVG(duration_ms) as avg_duration
 FROM tool_executions
-WHERE executed_at > NOW() - INTERVAL '7 days'
+WHERE created_at > NOW() - INTERVAL '7 days'
 GROUP BY tool_name
 ORDER BY invocation_count DESC;
 
 -- Failed tool executions
-SELECT tool_name, error_message, executed_at
+SELECT tool_name, error, created_at
 FROM tool_executions
 WHERE success = false
-  AND executed_at > NOW() - INTERVAL '24 hours'
-ORDER BY executed_at DESC;
+  AND created_at > NOW() - INTERVAL '24 hours'
+ORDER BY created_at DESC;
 
 -- Tool performance
 SELECT

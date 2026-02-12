@@ -44,6 +44,11 @@ X-API-Key: sk_test_123456
 | `model_tier` | string | No | Preferred tier: `small`, `medium`, or `large` |
 | `model_override` | string | No | Specific model name (canonical; e.g., `gpt-5`, `claude-sonnet-4-5-20250929`) |
 | `provider_override` | string | No | Force provider (e.g., `openai`, `anthropic`, `google`) |
+| `skill` | string | No | Markdown-defined skill to drive single-agent execution ([Skills System](/en/tutorials/skills)) |
+| `research_strategy` | string | No | Research strategy preset: `quick`, `standard`, `deep`, or `academic` |
+| `max_iterations` | integer | No | Maximum number of iterations for the task |
+| `max_concurrent_agents` | integer | No | Maximum number of concurrent agents |
+| `enable_verification` | boolean | No | Enable verification step after task completion |
 
 ### Request Body Schema
 
@@ -102,6 +107,8 @@ X-API-Key: sk_test_123456
   - Top-level `model_tier` overrides `context.model_tier`
   - Top-level `model_override` overrides `context.model_override`
   - Top-level `provider_override` overrides `context.provider_override`
+  - Top-level `skill` overrides `context.skill`
+  - Top-level `research_strategy` overrides `context.research_strategy`
 </Warning>
 
 ### Context Parameters (`context.*`)
@@ -114,8 +121,8 @@ Recognized keys:
 - `model_tier` — fallback when top‑level not provided
 - `model_override` — specific model name (canonical; e.g., `gpt-5`, `claude-sonnet-4-5-20250929`)
 - `provider_override` — force provider (e.g., `openai`, `anthropic`, `google`)
-- `research_strategy` — ResearchWorkflow presets (`quick`, `standard`, `deep`, `academic`)
-- `skill` — markdown-defined skill to drive single-agent execution (Skills System)
+- `research_strategy` — _(deprecated: use top-level `research_strategy` instead; read from context as fallback)_
+- `skill` — _(deprecated: use top-level `skill` instead; read from context as fallback)_
 - `template` — template name (alias: `template_name`)
 - `template_version` — template version
 - `disable_ai` — template-only mode (no AI fallback) - **cannot be combined with model controls**
@@ -126,7 +133,7 @@ Recognized keys:
   - `enable_fact_extraction` — Extract structured facts into metadata (default: `false`)
 
 Rules:
-- Top-level parameters override context equivalents: `model_tier`, `model_override`, `provider_override`
+- Top-level parameters override context equivalents: `model_tier`, `model_override`, `provider_override`, `skill`, `research_strategy`
 - `mode` supports: `simple|standard|complex|supervisor` (default: auto-detect)
 - `model_tier` supports: `small|medium|large`
 - **Conflict validation**: `disable_ai: true` cannot be combined with `model_tier`, `model_override`, or `provider_override` (returns 400)

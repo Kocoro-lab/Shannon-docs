@@ -746,7 +746,7 @@ Shannonによって発信されるイベントタイプの権威あるリスト�
     "tool_name": "file_system",
     "operation": "write",
     "risk_level": "HIGH",
-    "timeout_seconds": 7200,
+    "timeout_seconds": 1800,
     "details": {
       "file_path": "/data/critical.db",
       "action": "delete"
@@ -957,7 +957,7 @@ for event in client.stream_events(workflow_id, from_seq=last_seq + 1):
 
 **PostgreSQLの選択的永続性**: データベースのパフォーマンスを最適化するために、重要なイベントのみがPostgreSQLに永続化されます。これには、`WORKFLOW_COMPLETED`、`AGENT_COMPLETED`、`TOOL_INVOKED`、`LLM_OUTPUT`、および `ERROR_OCCURRED` が含まれます。`LLM_PARTIAL`、`HEARTBEAT`、および `AGENT_THINKING` のような一時的なイベントはデータベースへの書き込みから除外され（書き込み負荷を約92%削減）、リアルタイムのSSEストリーミングとRedisキャッシュを介して完全に利用可能です。
 
-イベントストレージの詳細については、[Database Schema](/en/architecture/database-schema#event-logs-table)を参照してください。
+イベントストレージの詳細については、[Database Schema](/ja/architecture/database-schema#event-logs-table)を参照してください。
 
 ---
 

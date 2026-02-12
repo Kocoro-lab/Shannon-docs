@@ -177,6 +177,7 @@ def handle_rate_limits(queries):
     results = []
 
     for query in queries:
+        backoff = 1
         while True:
             try:
                 handle = client.submit_task(query=query)
@@ -219,7 +220,7 @@ def validate_and_submit(query, session_id=None):
 处理任务执行失败：
 
 ```python
-from shannon import ShannonClient
+from shannon import ShannonClient, TaskTimeoutError, TaskStatusEnum
 
 def handle_task_failure(query):
     client = ShannonClient()

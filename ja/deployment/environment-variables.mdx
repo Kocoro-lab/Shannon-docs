@@ -234,7 +234,7 @@ ZAI_API_KEY=...
 ### WEB_SEARCH_PROVIDER
 
 **タイプ**: String
-**デフォルト**: `serpapi`
+**デフォルト**: `google`
 **有効な値**: `google`, `serper`, `serpapi`, `bing`, `exa`, `firecrawl`
 **サービス**: LLMサービス
 **ホットリロード**: はい
@@ -242,7 +242,7 @@ ZAI_API_KEY=...
 アクティブなウェブ検索プロバイダー。
 
 ```bash
-WEB_SEARCH_PROVIDER=serpapi
+WEB_SEARCH_PROVIDER=google
 ```
 
 ### GOOGLE_SEARCH_API_KEY
@@ -946,16 +946,16 @@ PARTIAL_CHUNK_CHARS=512
 
 ### TOOL_PARALLELISM
 
-**タイプ**: 整数  
-**デフォルト**: `5`  
-**範囲**: 1-∞（1 = 逐次）  
-**サービス**: Orchestrator, Agent Core  
-**ホットリロード**: はい  
+**タイプ**: 整数
+**デフォルト**: `1`
+**範囲**: 1-∞（1 = 逐次）
+**サービス**: Orchestrator, Agent Core
+**ホットリロード**: はい
 
 同時ツール実行数です。
 
 ```bash
-TOOL_PARALLELISM=5
+TOOL_PARALLELISM=1
 ```
 
 **影響**:
@@ -1041,14 +1041,14 @@ COMPRESSION_TARGET_RATIO=0.375
 ### ENFORCE_TIMEOUT_SECONDS
 
 **タイプ**: 整数
-**デフォルト**: `120`
+**デフォルト**: `90`
 **サービス**: Agent Core
 **ホットリロード**: はい
 
 ツール実行のタイムアウト。
 
 ```bash
-ENFORCE_TIMEOUT_SECONDS=120
+ENFORCE_TIMEOUT_SECONDS=90
 ```
 
 ### ENFORCE_MAX_TOKENS
@@ -1164,14 +1164,14 @@ APPROVAL_DANGEROUS_TOOLS=file_system,code_execution,database_query
 ### APPROVAL_TIMEOUT_SECONDS
 
 **タイプ**: 整数  
-**デフォルト**: `7200`  
-**サービス**: Orchestrator  
-**ホットリロード**: はい  
+**デフォルト**: `1800`
+**サービス**: Orchestrator
+**ホットリロード**: はい
 
-承認リクエストのタイムアウト（2時間）。
+承認リクエストのタイムアウト（30分）。
 
 ```bash
-APPROVAL_TIMEOUT_SECONDS=7200
+APPROVAL_TIMEOUT_SECONDS=1800
 ```
 
 ### JWT_SECRET
@@ -1567,23 +1567,23 @@ RATE_LIMIT_INTERVAL_MS=60000
 ```bash
 # デフォルトワーカー（すべての優先度）
 WORKER_ACT=10
-WORKER_WF=5
+WORKER_WF=10
 
 # クリティカル優先度
-WORKER_ACT_CRITICAL=20
-WORKER_WF_CRITICAL=10
+WORKER_ACT_CRITICAL=12
+WORKER_WF_CRITICAL=12
 
 # 高優先度
-WORKER_ACT_HIGH=15
-WORKER_WF_HIGH=8
+WORKER_ACT_HIGH=10
+WORKER_WF_HIGH=10
 
 # 通常優先度
-WORKER_ACT_NORMAL=10
-WORKER_WF_NORMAL=5
+WORKER_ACT_NORMAL=8
+WORKER_WF_NORMAL=8
 
 # 低優先度
-WORKER_ACT_LOW=5
-WORKER_WF_LOW=3
+WORKER_ACT_LOW=4
+WORKER_WF_LOW=4
 ```
 
 **影響**:
@@ -1699,7 +1699,7 @@ WORKFLOW_SYNTH_BYPASS_SINGLE=true
 
 ## トラブルシューティング
 
-一般的な問題については、[設定トラブルシューティング](/en/deployment/configuration-troubleshooting)を参照してください。
+一般的な問題については、[設定トラブルシューティング](/ja/deployment/configuration-troubleshooting)を参照してください。
 
 ## 関連ドキュメント
 

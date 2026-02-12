@@ -5,11 +5,11 @@ description: "Shannon 的完整 PostgreSQL 数据库模式参考"
 
 ## 概览
 
-Shannon 使用 PostgreSQL 及 pgvector 扩展进行持久化存储。数据库组织为两个模式:
+Shannon 使用 PostgreSQL 进行持久化存储。数据库组织为两个模式:
 - `auth`: 认证、多租户、API 密钥和安全审计日志。
 - `public`: 核心应用数据,包括任务、会话和使用指标。
 
-**总表数**: 18 张表
+**总表数**: 25 张表
 **扩展**: uuid-ossp, pg_trgm, btree_gin, pgcrypto
 
 ## 实体关系图
@@ -120,7 +120,6 @@ WHERE monthly_token_usage > token_limit * 0.8;
 
 **索引**:
 - `idx_users_email` ON (email)
-- `idx_users_username` ON (username)
 - `idx_users_tenant_id` ON (tenant_id)
 
 **示例**:
@@ -152,7 +151,7 @@ WHERE last_login < NOW() - INTERVAL '90 days'
 | tenant_id | UUID | FK → auth.tenants, NOT NULL | 所属组织 |
 | name | VARCHAR(100) | NOT NULL | 密钥名称/描述 |
 | description | TEXT | | 详细描述 |
-| scopes | TEXT[] | DEFAULT [...] | 权限数组 |
+| scopes | TEXT[] | DEFAULT ARRAY['workflows:read', 'workflows:write', 'agents:execute'] | 权限数组 |
 | rate_limit_per_hour | INTEGER | DEFAULT 1000 | 密钥特定速率限制 |
 | last_used | TIMESTAMP | | 最后使用时间戳 |
 | expires_at | TIMESTAMP | | 过期时间 |
@@ -165,9 +164,9 @@ WHERE last_login < NOW() - INTERVAL '90 days'
 - `idx_api_keys_user_id` ON (user_id)
 
 **默认作用域**:
-- `tasks:run`: 允许执行任务
-- `tasks:read`: 允许读取任务状态和结果
-- `sessions:manage`: 允许管理会话
+- `workflows:read`: 允许读取工作流/任务状态和结果
+- `workflows:write`: 允许提交和管理工作流/任务
+- `agents:execute`: 允许执行代理
 
 **示例**:
 ```sql
@@ -424,52 +423,51 @@ ORDER BY total_cost DESC;
 | 列名 | 类型 | 约束 | 描述 |
 |--------|------|-------------|-------------|
 | id | UUID | PK, DEFAULT uuid_generate_v4() | 执行 ID |
-| task_execution_id | UUID | FK → task_executions | 父任务 |
+| workflow_id | VARCHAR(255) | | Temporal 工作流 ID |
+| task_id | VARCHAR(255) | | 任务标识符 |
 | agent_id | VARCHAR(255) | NOT NULL | 代理标识符 |
-| execution_order | INTEGER | NOT NULL | 执行顺序 |
 | input | TEXT | NOT NULL | 代理输入 |
 | output | TEXT | | 代理输出 |
-| mode | VARCHAR(50) | | 执行模式 |
 | state | VARCHAR(50) | | FSM 状态 |
 | tokens_used | INTEGER | DEFAULT 0 | 消耗的 token |
-| cost_usd | DECIMAL(10,6) | DEFAULT 0 | 执行成本 |
 | model_used | VARCHAR(100) | | 使用的 LLM 模型 |
 | duration_ms | INTEGER | | 执行时间 |
-| memory_used_mb | INTEGER | | 内存使用量 |
+| error_message | TEXT | | 错误详情 |
+| metadata | JSONB | DEFAULT '{}' | 附加元数据 |
+| strategy | VARCHAR(100) | | 执行策略 |
 | created_at | TIMESTAMPTZ | DEFAULT NOW() | 开始时间 |
-| completed_at | TIMESTAMPTZ | | 完成时间 |
+| updated_at | TIMESTAMPTZ | DEFAULT NOW() | 最后更新 |
 
 **索引**:
-- `idx_agent_executions_task_id` ON (task_execution_id)
-- `idx_agent_executions_agent_id` ON (agent_id)
-- `idx_agent_executions_created_at` ON (created_at)
+- `idx_agent_executions_workflow_id` ON (workflow_id)
+- `idx_agent_executions_created_at` ON (created_at DESC)
+- `idx_agent_executions_state` ON (state)
 
 **状态值**:
-- `PLANNING`: 代理正在规划其行动
-- `EXECUTING_TOOL`: 代理正在执行一个工具
-- `WAITING_FOR_TOOL`: 代理正在等待工具结果
-- `THINKING`: 代理正在处理信息
-- `RESPONDING`: 代理正在生成响应
-- `ASKING_FOR_HELP`: 代理需要人工干预
-- `VALIDATING`: 代理正在验证其输出
-- `COMPLETED`: 代理执行完成
-- `FAILED`: 代理执行失败
+- `IDLE` - 代理空闲
+- `ANALYZING` - 分析输入
+- `PLANNING` - 规划执行
+- `RETRIEVING` - 检索信息
+- `EXECUTING` - 执行任务
+- `VALIDATING` - 验证结果
+- `SYNTHESIZING` - 合成响应
+- `COMPLETED` - 执行完成
+- `FAILED` - 执行失败
 
 **示例**:
 ```sql
 -- 任务的代理执行链
-SELECT agent_id, execution_order, state, duration_ms, tokens_used
+SELECT agent_id, state, duration_ms, tokens_used
 FROM agent_executions
-WHERE task_execution_id = '...'
-ORDER BY execution_order;
+WHERE workflow_id = '...'
+ORDER BY created_at;
 
 -- 代理性能指标
 SELECT
     agent_id,
     COUNT(*) as execution_count,
     AVG(duration_ms) as avg_duration,
-    AVG(tokens_used) as avg_tokens,
-    SUM(cost_usd) as total_cost
+    AVG(tokens_used) as avg_tokens
 FROM agent_executions
 WHERE created_at > NOW() - INTERVAL '7 days'
 GROUP BY agent_id
@@ -483,33 +481,24 @@ ORDER BY execution_count DESC;
 | 列名 | 类型 | 约束 | 描述 |
 |--------|------|-------------|-------------|
 | id | UUID | PK, DEFAULT uuid_generate_v4() | 执行 ID |
-| agent_execution_id | UUID | FK → agent_executions | 父代理 |
-| task_execution_id | UUID | FK → task_executions | 父任务 |
+| agent_execution_id | UUID | | 父代理执行 |
+| workflow_id | VARCHAR(255) | | Temporal 工作流 ID |
+| agent_id | VARCHAR(255) | | 代理标识符 |
 | tool_name | VARCHAR(255) | NOT NULL | 工具标识符 |
-| tool_version | VARCHAR(50) | | 工具版本 |
-| category | VARCHAR(100) | | 工具类别 |
 | input_params | JSONB | | 输入参数 |
-| output | JSONB | | 工具输出 |
+| output | TEXT | | 工具输出 |
 | success | BOOLEAN | DEFAULT true | 成功状态 |
-| error_message | TEXT | | 错误详情 |
+| error | TEXT | | 错误详情 |
 | duration_ms | INTEGER | | 执行时间 |
 | tokens_consumed | INTEGER | DEFAULT 0 | 使用的 token |
-| sandboxed | BOOLEAN | DEFAULT true | 是否使用 WASI 沙箱 |
-| memory_used_mb | INTEGER | | 内存使用量 |
-| executed_at | TIMESTAMPTZ | DEFAULT NOW() | 执行时间 |
+| metadata | JSONB | DEFAULT '{}' | 附加元数据 |
+| created_at | TIMESTAMPTZ | DEFAULT NOW() | 创建时间 |
 
 **索引**:
-- `idx_tool_executions_agent_id` ON (agent_execution_id)
-- `idx_tool_executions_task_id` ON (task_execution_id)
+- `idx_tool_executions_workflow_id` ON (workflow_id)
 - `idx_tool_executions_tool_name` ON (tool_name)
-- `idx_tool_executions_executed_at` ON (executed_at)
-
-**工具类别**:
-- `DATA_ANALYSIS`: 数据分析工具
-- `FILE_SYSTEM`: 文件系统操作
-- `WEB_SEARCH`: 网页搜索功能
-- `CODE_EXECUTION`: 代码执行环境
-- `CUSTOM`: 用户定义的工具
+- `idx_tool_executions_created_at` ON (created_at DESC)
+- `idx_tool_executions_success` ON (success)
 
 **示例**:
 ```sql
@@ -520,16 +509,16 @@ SELECT
     COUNT(CASE WHEN success THEN 1 END) as successful,
     AVG(duration_ms) as avg_duration
 FROM tool_executions
-WHERE executed_at > NOW() - INTERVAL '7 days'
+WHERE created_at > NOW() - INTERVAL '7 days'
 GROUP BY tool_name
 ORDER BY invocation_count DESC;
 
 -- 失败的工具执行
-SELECT tool_name, error_message, executed_at
+SELECT tool_name, error, created_at
 FROM tool_executions
 WHERE success = false
-  AND executed_at > NOW() - INTERVAL '24 hours'
-ORDER BY executed_at DESC;
+  AND created_at > NOW() - INTERVAL '24 hours'
+ORDER BY created_at DESC;
 
 -- 工具性能
 SELECT

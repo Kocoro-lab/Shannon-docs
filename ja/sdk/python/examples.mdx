@@ -246,7 +246,7 @@ if __name__ == "__main__":
     main()
 ```
 
-イベントタイプの完全なリストは、[イベントタイプカタログ](/en/api/event-types)を参照してください。
+イベントタイプの完全なリストは、[イベントタイプカタログ](/ja/api/event-types)を参照してください。
 
 <Note>
 <b>利用可能なイベントタイプ</b>
@@ -341,7 +341,7 @@ if __name__ == "__main__":
 ```python
 """一時停止/再開操作のエラーハンドリング"""
 from shannon import ShannonClient
-from shannon.errors import APIError
+from shannon.errors import ShannonError
 
 def main():
     client = ShannonClient()
@@ -352,7 +352,7 @@ def main():
     try:
         client.pause_task(task_id, reason="レビューが必要")
         print("✅ タスクが正常に一時停止されました")
-    except APIError as e:
+    except ShannonError as e:
         # 特定のエラーケースを処理
         if "完了したタスクを一時停止できません" in str(e):
             print("⚠️  タスクはすでに完了しているため、一時停止できません")
@@ -367,7 +367,7 @@ def main():
     try:
         client.resume_task(task_id, reason="実行を続ける")
         print("✅ タスクが正常に再開されました")
-    except APIError as e:
+    except ShannonError as e:
         if "タスクは一時停止されていません" in str(e):
             print("⚠️  タスクは一時停止されていないため、再開できません")
         elif "完了したタスクを再開できません" in str(e):
@@ -381,7 +381,7 @@ if __name__ == "__main__":
 
 ## エラーハンドリングの例
 
-完全なパターンとフルリトライロジックの例については、専用ページをご覧ください: [Error Handling](/en/sdk/python/error-handling)。
+完全なパターンとフルリトライロジックの例については、専用ページをご覧ください: [Error Handling](/ja/sdk/python/error-handling)。
 
 ## 次のステップ
 

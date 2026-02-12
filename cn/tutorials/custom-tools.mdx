@@ -207,7 +207,7 @@ curl -X POST http://localhost:8000/tools/mcp/register \
 - ✅ Bearer、API Key（header/query）、Basic 认证
 - ✅ 通过 operationId 或 tags 过滤操作
 - ✅ 熔断器（5 次失败 → 60 秒冷却）
-- ✅ 指数退避重试逻辑（3 次重试，可通过 `OPENAPI_RETRIES` 配置）
+- ✅ 指数退避重试逻辑（2 次重试，可通过 `OPENAPI_RETRIES` 配置）
 - ✅ 可配置的速率限制和超时
 - ✅ 相对服务器 URL（根据规范 URL 解析）
 - ✅ 基本 `$ref` 解析（本地引用到 `#/components/schemas/*`）
@@ -734,7 +734,7 @@ OPENAPI_MAX_SPEC_SIZE=5242880        # 5MB 规范大小限制
 OPENAPI_FETCH_TIMEOUT=30             # 规范获取超时
 
 # 请求行为
-OPENAPI_RETRIES=3                    # 重试次数（默认：2）
+OPENAPI_RETRIES=2                    # 重试次数（默认：2）
 ```
 
 ## 测试与验证

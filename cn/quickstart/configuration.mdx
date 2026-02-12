@@ -314,7 +314,7 @@ ENFORCE_RATE_RPS=10
 | `APPROVAL_ENABLED` | boolean | `false` | 启用人工审批工作流 |
 | `APPROVAL_COMPLEXITY_THRESHOLD` | float | `0.5` | 需要审批的复杂度分数（0.0-1.0） |
 | `APPROVAL_DANGEROUS_TOOLS` | string | `file_system,code_execution` | 需要审批的工具（逗号分隔） |
-| `APPROVAL_TIMEOUT_SECONDS` | integer | `7200` | 审批等待超时（2 小时） |
+| `APPROVAL_TIMEOUT_SECONDS` | integer | `1800` | 审批等待超时（30 分钟） |
 | `JWT_SECRET` | string | `development-only-secret-change-in-production` | JWT 签名密钥（⚠️ **在生产环境中更改**） |
 | `GATEWAY_SKIP_AUTH` | integer | `1` | `1`=禁用认证，`0`=启用认证 |
 
@@ -380,7 +380,7 @@ WASI_TIMEOUT_SECONDS=300
 | `OPENAPI_ALLOWED_DOMAINS` | string | `*` | 允许的域名（`*` 或逗号分隔） |
 | `OPENAPI_MAX_SPEC_SIZE` | integer | `5242880` | 最大 OpenAPI 规范大小（5MB） |
 | `OPENAPI_FETCH_TIMEOUT` | integer | `30` | 规范获取超时（秒） |
-| `OPENAPI_RETRIES` | integer | `3` | 重试次数 |
+| `OPENAPI_RETRIES` | integer | `2` | 重试次数 |
 
 ### MCP（模型上下文协议）
 
