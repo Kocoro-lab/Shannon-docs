@@ -341,7 +341,7 @@ if __name__ == "__main__":
 ```python
 """Error handling for pause/resume operations"""
 from shannon import ShannonClient
-from shannon.errors import APIError
+from shannon.errors import ShannonError
 
 def main():
     client = ShannonClient()
@@ -352,7 +352,7 @@ def main():
     try:
         client.pause_task(task_id, reason="Review needed")
         print("✅ Task paused successfully")
-    except APIError as e:
+    except ShannonError as e:
         # Handle specific error cases
         if "cannot pause completed task" in str(e):
             print("⚠️  Task already completed, cannot pause")
@@ -367,7 +367,7 @@ def main():
     try:
         client.resume_task(task_id, reason="Continue execution")
         print("✅ Task resumed successfully")
-    except APIError as e:
+    except ShannonError as e:
         if "task is not paused" in str(e):
             print("⚠️  Task is not paused, cannot resume")
         elif "cannot resume completed task" in str(e):

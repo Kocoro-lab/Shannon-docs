@@ -341,7 +341,7 @@ if __name__ == "__main__":
 ```python
 """暂停/恢复操作的错误处理"""
 from shannon import ShannonClient
-from shannon.errors import APIError
+from shannon.errors import ShannonError
 
 def main():
     client = ShannonClient()
@@ -352,7 +352,7 @@ def main():
     try:
         client.pause_task(task_id, reason="需要审查")
         print("✅ 任务暂停成功")
-    except APIError as e:
+    except ShannonError as e:
         # 处理特定错误情况
         if "cannot pause completed task" in str(e):
             print("⚠️  任务已完成，无法暂停")
@@ -367,7 +367,7 @@ def main():
     try:
         client.resume_task(task_id, reason="继续执行")
         print("✅ 任务恢复成功")
-    except APIError as e:
+    except ShannonError as e:
         if "task is not paused" in str(e):
             print("⚠️  任务未暂停，无法恢复")
         elif "cannot resume completed task" in str(e):

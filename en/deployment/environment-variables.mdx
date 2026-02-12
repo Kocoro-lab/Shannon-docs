@@ -234,7 +234,7 @@ ZAI_API_KEY=...
 ### WEB_SEARCH_PROVIDER
 
 **Type**: String
-**Default**: `serpapi`
+**Default**: `google`
 **Valid Values**: `google`, `serper`, `serpapi`, `bing`, `exa`, `firecrawl`
 **Services**: LLM Service
 **Hot-Reload**: Yes
@@ -242,7 +242,7 @@ ZAI_API_KEY=...
 Active web search provider.
 
 ```bash
-WEB_SEARCH_PROVIDER=serpapi
+WEB_SEARCH_PROVIDER=google
 ```
 
 ### GOOGLE_SEARCH_API_KEY
@@ -947,7 +947,7 @@ PARTIAL_CHUNK_CHARS=512
 ### TOOL_PARALLELISM
 
 **Type**: Integer
-**Default**: `5`
+**Default**: `1`
 **Range**: 1-∞ (1 = sequential)
 **Services**: Orchestrator, Agent Core
 **Hot-Reload**: Yes
@@ -955,7 +955,7 @@ PARTIAL_CHUNK_CHARS=512
 Concurrent tool executions.
 
 ```bash
-TOOL_PARALLELISM=5
+TOOL_PARALLELISM=1
 ```
 
 **Impact**:
@@ -1041,14 +1041,14 @@ COMPRESSION_TARGET_RATIO=0.375
 ### ENFORCE_TIMEOUT_SECONDS
 
 **Type**: Integer
-**Default**: `120`
+**Default**: `90`
 **Services**: Agent Core
 **Hot-Reload**: Yes
 
 Tool execution timeout.
 
 ```bash
-ENFORCE_TIMEOUT_SECONDS=120
+ENFORCE_TIMEOUT_SECONDS=90
 ```
 
 ### ENFORCE_MAX_TOKENS
@@ -1567,23 +1567,23 @@ Configure Temporal worker concurrency per priority queue:
 ```bash
 # Default workers (all priorities)
 WORKER_ACT=10
-WORKER_WF=5
+WORKER_WF=10
 
 # Critical priority
-WORKER_ACT_CRITICAL=20
-WORKER_WF_CRITICAL=10
+WORKER_ACT_CRITICAL=12
+WORKER_WF_CRITICAL=12
 
 # High priority
-WORKER_ACT_HIGH=15
-WORKER_WF_HIGH=8
+WORKER_ACT_HIGH=10
+WORKER_WF_HIGH=10
 
 # Normal priority
-WORKER_ACT_NORMAL=10
-WORKER_WF_NORMAL=5
+WORKER_ACT_NORMAL=8
+WORKER_WF_NORMAL=8
 
 # Low priority
-WORKER_ACT_LOW=5
-WORKER_WF_LOW=3
+WORKER_ACT_LOW=4
+WORKER_WF_LOW=4
 ```
 
 **Impact**:

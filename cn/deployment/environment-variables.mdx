@@ -234,7 +234,7 @@ ZAI_API_KEY=...
 ### WEB_SEARCH_PROVIDER
 
 **类型**: String
-**默认值**: `serpapi`
+**默认值**: `google`
 **有效值**: `google`, `serper`, `serpapi`, `bing`, `exa`, `firecrawl`
 **服务**: LLM Service
 **热重载**: 是
@@ -242,7 +242,7 @@ ZAI_API_KEY=...
 活动的网页搜索提供商。
 
 ```bash
-WEB_SEARCH_PROVIDER=serpapi
+WEB_SEARCH_PROVIDER=google
 ```
 
 ### GOOGLE_SEARCH_API_KEY
@@ -947,7 +947,7 @@ PARTIAL_CHUNK_CHARS=512
 ### TOOL_PARALLELISM
 
 **类型**: Integer
-**默认值**: `5`
+**默认值**: `1`
 **范围**: 1-∞ (1 = 顺序执行)
 **服务**: Orchestrator, Agent Core
 **热重载**: 是
@@ -955,7 +955,7 @@ PARTIAL_CHUNK_CHARS=512
 并发工具执行数。
 
 ```bash
-TOOL_PARALLELISM=5
+TOOL_PARALLELISM=1
 ```
 
 **影响**:
@@ -1041,14 +1041,14 @@ COMPRESSION_TARGET_RATIO=0.375
 ### ENFORCE_TIMEOUT_SECONDS
 
 **类型**: Integer
-**默认值**: `120`
+**默认值**: `90`
 **服务**: Agent Core
 **热重载**: 是
 
 工具执行超时时间。
 
 ```bash
-ENFORCE_TIMEOUT_SECONDS=120
+ENFORCE_TIMEOUT_SECONDS=90
 ```
 
 ### ENFORCE_MAX_TOKENS
@@ -1567,23 +1567,23 @@ RATE_LIMIT_INTERVAL_MS=60000
 ```bash
 # 默认 workers (所有优先级)
 WORKER_ACT=10
-WORKER_WF=5
+WORKER_WF=10
 
 # 关键优先级
-WORKER_ACT_CRITICAL=20
-WORKER_WF_CRITICAL=10
+WORKER_ACT_CRITICAL=12
+WORKER_WF_CRITICAL=12
 
 # 高优先级
-WORKER_ACT_HIGH=15
-WORKER_WF_HIGH=8
+WORKER_ACT_HIGH=10
+WORKER_WF_HIGH=10
 
 # 普通优先级
-WORKER_ACT_NORMAL=10
-WORKER_WF_NORMAL=5
+WORKER_ACT_NORMAL=8
+WORKER_WF_NORMAL=8
 
 # 低优先级
-WORKER_ACT_LOW=5
-WORKER_WF_LOW=3
+WORKER_ACT_LOW=4
+WORKER_WF_LOW=4
 ```
 
 **影响**:

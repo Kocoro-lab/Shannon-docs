@@ -44,6 +44,11 @@ X-API-Key: sk_test_123456
 | `model_tier` | string | いいえ | 希望するティア: `small`, `medium`, または `large` |
 | `model_override` | string | いいえ | 特定のモデル名（標準; 例: `gpt-5`, `claude-sonnet-4-5-20250929`） |
 | `provider_override` | string | いいえ | プロバイダーを強制指定（例: `openai`, `anthropic`, `google`） |
+| `skill` | string | いいえ | シングルエージェント実行を駆動するMarkdown定義のスキル（[スキルシステム](/ja/tutorials/skills)） |
+| `research_strategy` | string | いいえ | リサーチ戦略プリセット: `quick`, `standard`, `deep`, または `academic` |
+| `max_iterations` | integer | いいえ | タスクの最大反復回数 |
+| `max_concurrent_agents` | integer | いいえ | 最大同時実行エージェント数 |
+| `enable_verification` | boolean | いいえ | タスク完了後に検証ステップを有効にする |
 
 ### リクエストボディスキーマ
 
@@ -102,6 +107,8 @@ X-API-Key: sk_test_123456
   - トップレベルの`model_tier`は`context.model_tier`を上書きします
   - トップレベルの`model_override`は`context.model_override`を上書きします
   - トップレベルの`provider_override`は`context.provider_override`を上書きします
+  - トップレベルの`skill`は`context.skill`を上書きします
+  - トップレベルの`research_strategy`は`context.research_strategy`を上書きします
 </Warning>
 
 ### コンテキストパラメータ (`context.*`)
@@ -114,8 +121,8 @@ X-API-Key: sk_test_123456
 - `model_tier` — トップレベルが提供されていない場合のフォールバック
 - `model_override` — 特定のモデル名（標準; 例: `gpt-5`, `claude-sonnet-4-5-20250929`）
 - `provider_override` — プロバイダーを強制（例: `openai`, `anthropic`, `google`）
-- `research_strategy` — ResearchWorkflow プリセット（`quick`, `standard`, `deep`, `academic`）
-- `skill` — シングルエージェント実行を駆動するMarkdown定義のスキル（スキルシステム）
+- `research_strategy` — _（非推奨: トップレベルの `research_strategy` を使用してください。contextの値はフォールバックとして読み取られます）_
+- `skill` — _（非推奨: トップレベルの `skill` を使用してください。contextの値はフォールバックとして読み取られます）_
 - `template` — テンプレート名（エイリアス: `template_name`）
 - `template_version` — テンプレートのバージョン
 - `disable_ai` — テンプレート専用モード（AIフォールバックなし） - **モデルコントロールと組み合わせることはできません**
@@ -126,7 +133,7 @@ X-API-Key: sk_test_123456
   - `enable_fact_extraction` — 構造化された事実をメタデータに抽出（デフォルト: `false`）
 
 ルール:
-- トップレベルのパラメータはコンテキストの同等物を上書きします: `model_tier`, `model_override`, `provider_override`
+- トップレベルのパラメータはコンテキストの同等物を上書きします: `model_tier`, `model_override`, `provider_override`, `skill`, `research_strategy`
 - `mode`は次をサポート: `simple|standard|complex|supervisor`（デフォルト: 自動検出）
 - `model_tier`は次をサポート: `small|medium|large`
 - **競合検証**: `disable_ai: true`は`model_tier`, `model_override`, または`provider_override`と組み合わせることはできません（400を返します）
@@ -750,7 +757,7 @@ status = httpx.get(f"http://localhost:8080/api/v1/tasks/{task_id}")
 <Tip>
 **リアルタイムの更新が必要ですか？** `POST /api/v1/tasks/stream`を使用して、タスクを送信し、ストリームURLを一度の呼び出しで取得できます。即時の進捗更新が必要なフロントエンドアプリケーションに最適です。
 
-例については[Unified Submit + Stream](/en/api/rest/streaming#unified-submit-stream-recommended)を参照してください。
+例については[Unified Submit + Stream](/ja/api/rest/streaming#unified-submit-stream-recommended)を参照してください。
 </Tip>
 
 ## 関連エンドポイント
