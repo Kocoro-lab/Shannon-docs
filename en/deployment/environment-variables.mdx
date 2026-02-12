@@ -1164,14 +1164,14 @@ APPROVAL_DANGEROUS_TOOLS=file_system,code_execution,database_query
 ### APPROVAL_TIMEOUT_SECONDS
 
 **Type**: Integer
-**Default**: `7200`
+**Default**: `1800`
 **Services**: Orchestrator
 **Hot-Reload**: Yes
 
-Approval request timeout (2 hours).
+Approval request timeout (30 minutes).
 
 ```bash
-APPROVAL_TIMEOUT_SECONDS=7200
+APPROVAL_TIMEOUT_SECONDS=1800
 ```
 
 ### JWT_SECRET

@@ -1164,14 +1164,14 @@ APPROVAL_DANGEROUS_TOOLS=file_system,code_execution,database_query
 ### APPROVAL_TIMEOUT_SECONDS
 
 **タイプ**: 整数  
-**デフォルト**: `7200`  
-**サービス**: Orchestrator  
-**ホットリロード**: はい  
+**デフォルト**: `1800`
+**サービス**: Orchestrator
+**ホットリロード**: はい
 
-承認リクエストのタイムアウト（2時間）。
+承認リクエストのタイムアウト（30分）。
 
 ```bash
-APPROVAL_TIMEOUT_SECONDS=7200
+APPROVAL_TIMEOUT_SECONDS=1800
 ```
 
 ### JWT_SECRET

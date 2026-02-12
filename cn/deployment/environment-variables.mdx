@@ -1164,14 +1164,14 @@ APPROVAL_DANGEROUS_TOOLS=file_system,code_execution,database_query
 ### APPROVAL_TIMEOUT_SECONDS
 
 **类型**: Integer
-**默认值**: `7200`
+**默认值**: `1800`
 **服务**: Orchestrator
 **热重载**: 是
 
-审批请求超时时间 (2 小时)。
+审批请求超时时间（30 分钟）。
 
 ```bash
-APPROVAL_TIMEOUT_SECONDS=7200
+APPROVAL_TIMEOUT_SECONDS=1800
 ```
 
 ### JWT_SECRET

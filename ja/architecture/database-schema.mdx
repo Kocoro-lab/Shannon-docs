@@ -5,7 +5,7 @@ description: "Shannonのデータベーススキーマ"
 
 ## 概要
 
-Shannonは、永続的なストレージのためにPostgreSQLとpgvector拡張を使用しています。データベースは2つのスキーマに整理されています：
+Shannonは、永続的なストレージのためにPostgreSQLを使用しています。データベースは2つのスキーマに整理されています：
 - `auth` - 認証、マルチテナンシー、およびセキュリティ
 - `public` - コアアプリケーションテーブル（タスク、エージェント、セッション）
 
@@ -120,7 +120,6 @@ WHERE monthly_token_usage > token_limit * 0.8;
 
 **インデックス**:
 - `idx_users_email` ON (email)
-- `idx_users_username` ON (username)
 - `idx_users_tenant_id` ON (tenant_id)
 
 **例**:
@@ -152,22 +151,24 @@ WHERE last_login < NOW() - INTERVAL '90 days'
 | tenant_id | UUID | FK → auth.tenants, NOT NULL | 組織 |
 | name | VARCHAR(100) | NOT NULL | キー名/説明 |
 | description | TEXT | | 詳細な説明 |
-| scopes | TEXT[] | DEFAULT [...] | 権限配列 |
+| scopes | TEXT[] | DEFAULT ARRAY['workflows:read', 'workflows:write', 'agents:execute'] | 権限配列 |
 | rate_limit_per_hour | INTEGER | DEFAULT 1000 | キー固有のレート制限 |
 | last_used | TIMESTAMP | | 最終使用タイムスタンプ |
 | expires_at | TIMESTAMP | | 有効期限 |
 | is_active | BOOLEAN | DEFAULT true | キーステータス |
 | created_at | TIMESTAMP | DEFAULT NOW() | 作成時間 |
 | metadata | JSONB | DEFAULT '{}' | 追加のキーデータ |
+| tier | VARCHAR(20) | DEFAULT 'free' | サブスクリプションティア |
+| rate_limit_override | JSONB | DEFAULT NULL | カスタムレート制限設定 |
 
 **インデックス**:
 - `idx_api_keys_tenant_id` ON (tenant_id)
 - `idx_api_keys_key_prefix` ON (key_prefix)
 
 **デフォルトスコープ**:
-- `tasks:run`: タスク実行を許可
-- `tasks:read`: タスクのステータスと結果の読み取りを許可
-- `sessions:manage`: セッションの管理を許可
+- `workflows:read`: ワークフロー/タスクのステータスと結果の読み取りを許可
+- `workflows:write`: ワークフロー/タスクの送信と管理を許可
+- `agents:execute`: エージェント実行を許可
 
 **例**:
 ```sql
@@ -426,25 +427,25 @@ ORDER BY total_cost DESC;
 | カラム | 型 | 制約 | 説明 |
 |--------|------|-------------|-------------|
 | id | UUID | PK, DEFAULT uuid_generate_v4() | 実行 ID |
-| task_execution_id | UUID | FK → task_executions | 親タスク |
+| workflow_id | VARCHAR(255) | | Temporal ワークフロー ID |
+| task_id | VARCHAR(255) | | タスク識別子 |
 | agent_id | VARCHAR(255) | NOT NULL | エージェント識別子 |
-| execution_order | INTEGER | NOT NULL | 実行順序 |
 | input | TEXT | NOT NULL | エージェント入力 |
 | output | TEXT | | エージェント出力 |
-| mode | VARCHAR(50) | | 実行モード |
 | state | VARCHAR(50) | | FSM ステート |
 | tokens_used | INTEGER | DEFAULT 0 | 消費トークン |
-| cost_usd | DECIMAL(10,6) | DEFAULT 0 | 実行コスト |
 | model_used | VARCHAR(100) | | LLM モデル |
 | duration_ms | INTEGER | | 実行時間 |
-| memory_used_mb | INTEGER | | メモリ使用量 |
+| error_message | TEXT | | エラー詳細 |
+| metadata | JSONB | DEFAULT '{}' | 追加メタデータ |
+| strategy | VARCHAR(100) | | 実行ストラテジー |
 | created_at | TIMESTAMPTZ | DEFAULT NOW() | 開始時間 |
-| completed_at | TIMESTAMPTZ | | 完了時間 |
+| updated_at | TIMESTAMPTZ | DEFAULT NOW() | 最終更新 |
 
 **インデックス**:
-- `idx_agent_task_execution` ON (task_execution_id)
-- `idx_agent_created_at` ON (created_at DESC)
-- `idx_agent_state` ON (state)
+- `idx_agent_executions_workflow_id` ON (workflow_id)
+- `idx_agent_executions_created_at` ON (created_at DESC)
+- `idx_agent_executions_state` ON (state)
 
 **ステート値**:
 - `IDLE` - エージェントアイドル
@@ -460,18 +461,17 @@ ORDER BY total_cost DESC;
 **例**:
 ```sql
 -- タスクのためのエージェント実行チェーン
-SELECT agent_id, execution_order, state, duration_ms, tokens_used
+SELECT agent_id, state, duration_ms, tokens_used
 FROM agent_executions
-WHERE task_execution_id = '...'
-ORDER BY execution_order;
+WHERE workflow_id = '...'
+ORDER BY created_at;
 
 -- エージェントパフォーマンスメトリクス
 SELECT
     agent_id,
     COUNT(*) as execution_count,
     AVG(duration_ms) as avg_duration,
-    AVG(tokens_used) as avg_tokens,
-    SUM(cost_usd) as total_cost
+    AVG(tokens_used) as avg_tokens
 FROM agent_executions
 WHERE created_at > NOW() - INTERVAL '7 days'
 GROUP BY agent_id
@@ -485,33 +485,23 @@ ORDER BY execution_count DESC;
 | カラム | 型 | 制約 | 説明 |
 |--------|------|-------------|-------------|
 | id | UUID | PK, DEFAULT uuid_generate_v4() | 実行 ID |
-| agent_execution_id | UUID | FK → agent_executions | 親エージェント |
-| task_execution_id | UUID | FK → task_executions | 親タスク |
+| workflow_id | VARCHAR(255) | | Temporal ワークフロー ID |
+| agent_id | VARCHAR(255) | | エージェント識別子 |
 | tool_name | VARCHAR(255) | NOT NULL | ツール識別子 |
-| tool_version | VARCHAR(50) | | ツールバージョン |
-| category | VARCHAR(100) | | ツールカテゴリ |
 | input_params | JSONB | | 入力パラメータ |
-| output | JSONB | | ツール出力 |
+| output | TEXT | | ツール出力 |
 | success | BOOLEAN | DEFAULT true | 成功ステータス |
-| error_message | TEXT | | エラー詳細 |
+| error | TEXT | | エラー詳細 |
 | duration_ms | INTEGER | | 実行時間 |
 | tokens_consumed | INTEGER | DEFAULT 0 | 使用トークン |
-| sandboxed | BOOLEAN | DEFAULT true | WASI サンドボックス使用 |
-| memory_used_mb | INTEGER | | メモリ使用量 |
-| executed_at | TIMESTAMPTZ | DEFAULT NOW() | 実行時間 |
+| metadata | JSONB | DEFAULT '{}' | 追加メタデータ |
+| created_at | TIMESTAMPTZ | DEFAULT NOW() | 作成時間 |
 
 **インデックス**:
-- `idx_tool_name` ON (tool_name)
-- `idx_tool_executed_at` ON (executed_at DESC)
-- `idx_tool_task_execution` ON (task_execution_id)
-- `idx_tool_success` ON (success)
-
-**ツールカテゴリ**:
-- `search` - 検索およびルックアップツール
-- `calculation` - 数学的および計算ツール
-- `file` - ファイルシステム操作
-- `api` - API 呼び出しおよび統合
-- `code` - コード実行および分析
+- `idx_tool_executions_workflow_id` ON (workflow_id)
+- `idx_tool_executions_tool_name` ON (tool_name)
+- `idx_tool_executions_created_at` ON (created_at DESC)
+- `idx_tool_executions_success` ON (success)
 
 **例**:
 ```sql
@@ -522,16 +512,16 @@ SELECT
     COUNT(CASE WHEN success THEN 1 END) as successful,
     AVG(duration_ms) as avg_duration
 FROM tool_executions
-WHERE executed_at > NOW() - INTERVAL '7 days'
+WHERE created_at > NOW() - INTERVAL '7 days'
 GROUP BY tool_name
 ORDER BY invocation_count DESC;
 
 -- 失敗したツール実行
-SELECT tool_name, error_message, executed_at
+SELECT tool_name, error, created_at
 FROM tool_executions
 WHERE success = false
-  AND executed_at > NOW() - INTERVAL '24 hours'
-ORDER BY executed_at DESC;
+  AND created_at > NOW() - INTERVAL '24 hours'
+ORDER BY created_at DESC;
 
 -- ツールパフォーマンス
 SELECT

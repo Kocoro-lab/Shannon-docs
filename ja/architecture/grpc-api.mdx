@@ -5,20 +5,20 @@ description: "ShannonのgRPC APIリファレンス"
 
 ## 概要
 
-Shannonの内部アーキテクチャは、**gRPC**（HTTP/2 + Protocol Buffers）を使用して高性能なサービス間通信を実現しています。このドキュメントでは、5つのサービスと37のRPCメソッドに関する完全なProtocol Buffer定義を提供します。
+Shannonの内部アーキテクチャは、**gRPC**（HTTP/2 + Protocol Buffers）を使用して高性能なサービス間通信を実現しています。このドキュメントでは、5つのサービスと39のRPCメソッドに関する完全なProtocol Buffer定義を提供します。
 
 <Note>
 公開APIと内部API: gRPCサービスは内部用であり、公開SDKでは利用できません。アプリケーション統合には、Gateway REST API（`http://localhost:8080/api/v1/*`）またはPython SDK（`ShannonClient(base_url=...)`）を使用してください。
 </Note>
 
 **サービス**:
-- **OrchestratorService**（18 RPC） - タスクオーケストレーション、ワークフロー管理、スケジューリング
+- **OrchestratorService**（20 RPC） - タスクオーケストレーション、ワークフロー管理、スケジューリング
 - **StreamingService**（1 RPC） - リアルタイムイベントストリーミング
 - **AgentService**（6 RPC） - エージェント実行とツール管理
 - **LLMService**（5 RPC） - LLMプロバイダーゲートウェイ
 - **SessionService**（7 RPC） - マルチターン会話管理
 
-**合計**: 37 RPCメソッド
+**合計**: 39 RPCメソッド
 
 ## 共通タイプ
 
