@@ -9,7 +9,7 @@ Shannon 使用 PostgreSQL 进行持久化存储。数据库组织为两个模式
 - `auth`: 认证、多租户、API 密钥和安全审计日志。
 - `public`: 核心应用数据,包括任务、会话和使用指标。
 
-**总表数**: 18 张表
+**总表数**: 25 张表
 **扩展**: uuid-ossp, pg_trgm, btree_gin, pgcrypto
 
 ## 实体关系图
@@ -158,8 +158,6 @@ WHERE last_login < NOW() - INTERVAL '90 days'
 | is_active | BOOLEAN | DEFAULT true | 密钥状态 |
 | created_at | TIMESTAMP | DEFAULT NOW() | 创建时间 |
 | metadata | JSONB | DEFAULT '{}' | 额外密钥数据 |
-| tier | VARCHAR(20) | DEFAULT 'free' | 订阅层级 |
-| rate_limit_override | JSONB | DEFAULT NULL | 自定义速率限制设置 |
 
 **索引**:
 - `idx_api_keys_key_hash` ON (key_hash)
@@ -483,6 +481,7 @@ ORDER BY execution_count DESC;
 | 列名 | 类型 | 约束 | 描述 |
 |--------|------|-------------|-------------|
 | id | UUID | PK, DEFAULT uuid_generate_v4() | 执行 ID |
+| agent_execution_id | UUID | | 父代理执行 |
 | workflow_id | VARCHAR(255) | | Temporal 工作流 ID |
 | agent_id | VARCHAR(255) | | 代理标识符 |
 | tool_name | VARCHAR(255) | NOT NULL | 工具标识符 |

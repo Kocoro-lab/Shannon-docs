@@ -9,7 +9,7 @@ Shannonは、永続的なストレージのためにPostgreSQLを使用してい
 - `auth` - 認証、マルチテナンシー、およびセキュリティ
 - `public` - コアアプリケーションテーブル（タスク、エージェント、セッション）
 
-**テーブル数**: 18テーブル  
+**テーブル数**: 25テーブル  
 **拡張機能**: uuid-ossp, pg_trgm, btree_gin, pgcrypto
 
 ## エンティティリレーションシップ図
@@ -158,8 +158,6 @@ WHERE last_login < NOW() - INTERVAL '90 days'
 | is_active | BOOLEAN | DEFAULT true | キーステータス |
 | created_at | TIMESTAMP | DEFAULT NOW() | 作成時間 |
 | metadata | JSONB | DEFAULT '{}' | 追加のキーデータ |
-| tier | VARCHAR(20) | DEFAULT 'free' | サブスクリプションティア |
-| rate_limit_override | JSONB | DEFAULT NULL | カスタムレート制限設定 |
 
 **インデックス**:
 - `idx_api_keys_tenant_id` ON (tenant_id)
@@ -485,6 +483,7 @@ ORDER BY execution_count DESC;
 | カラム | 型 | 制約 | 説明 |
 |--------|------|-------------|-------------|
 | id | UUID | PK, DEFAULT uuid_generate_v4() | 実行 ID |
+| agent_execution_id | UUID | | 親エージェント実行 |
 | workflow_id | VARCHAR(255) | | Temporal ワークフロー ID |
 | agent_id | VARCHAR(255) | | エージェント識別子 |
 | tool_name | VARCHAR(255) | NOT NULL | ツール識別子 |

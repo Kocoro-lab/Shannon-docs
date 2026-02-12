@@ -314,7 +314,7 @@ Human-in-the-loop and authentication settings.
 | `APPROVAL_ENABLED` | boolean | `false` | Enable manual approval workflow |
 | `APPROVAL_COMPLEXITY_THRESHOLD` | float | `0.5` | Complexity score requiring approval (0.0-1.0) |
 | `APPROVAL_DANGEROUS_TOOLS` | string | `file_system,code_execution` | Comma-separated tools requiring approval |
-| `APPROVAL_TIMEOUT_SECONDS` | integer | `7200` | Approval wait timeout (2 hours) |
+| `APPROVAL_TIMEOUT_SECONDS` | integer | `1800` | Approval wait timeout (30 minutes) |
 | `JWT_SECRET` | string | `development-only-secret-change-in-production` | JWT signing secret (⚠️ **CHANGE IN PRODUCTION**) |
 | `GATEWAY_SKIP_AUTH` | integer | `1` | `1`=auth disabled, `0`=auth enabled |
 

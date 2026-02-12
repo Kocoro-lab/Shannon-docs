@@ -9,7 +9,7 @@ Shannon uses PostgreSQL for persistent storage. The database is organized into t
 - `auth` - Authentication, multi-tenancy, and security
 - `public` - Core application tables (tasks, agents, sessions)
 
-**Total Tables**: 18 tables
+**Total Tables**: 25 tables
 **Extensions**: uuid-ossp, pg_trgm, btree_gin, pgcrypto
 
 ## Entity Relationship Diagram
@@ -158,8 +158,6 @@ WHERE last_login < NOW() - INTERVAL '90 days'
 | is_active | BOOLEAN | DEFAULT true | Key status |
 | created_at | TIMESTAMP | DEFAULT NOW() | Creation time |
 | metadata | JSONB | DEFAULT '{}' | Additional key data |
-| tier | VARCHAR(20) | DEFAULT 'free' | Subscription tier |
-| rate_limit_override | JSONB | DEFAULT NULL | Custom rate limit settings |
 
 **Indexes**:
 - `idx_api_keys_tenant_id` ON (tenant_id)
@@ -485,6 +483,7 @@ ORDER BY execution_count DESC;
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | UUID | PK, DEFAULT uuid_generate_v4() | Execution ID |
+| agent_execution_id | UUID | | Parent agent execution |
 | workflow_id | VARCHAR(255) | | Temporal workflow ID |
 | agent_id | VARCHAR(255) | | Agent identifier |
 | tool_name | VARCHAR(255) | NOT NULL | Tool identifier |
