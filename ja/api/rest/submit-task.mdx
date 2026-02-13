@@ -121,8 +121,8 @@ X-API-Key: sk_test_123456
 - `model_tier` — トップレベルが提供されていない場合のフォールバック
 - `model_override` — 特定のモデル名（標準; 例: `gpt-5`, `claude-sonnet-4-5-20250929`）
 - `provider_override` — プロバイダーを強制（例: `openai`, `anthropic`, `google`）
-- `research_strategy` — _（非推奨: トップレベルの `research_strategy` を使用してください。contextの値はフォールバックとして読み取られます）_
-- `skill` — _（非推奨: トップレベルの `skill` を使用してください。contextの値はフォールバックとして読み取られます）_
+- `research_strategy` — _（非推奨: トップレベルの `research_strategy` を使用してください。トップレベルが設定されている場合、contextの値は無視されます）_
+- `skill` — _（非推奨: トップレベルの `skill` を使用してください。トップレベルが設定されている場合、contextの値は無視されます）_
 - `template` — テンプレート名（エイリアス: `template_name`）
 - `template_version` — テンプレートのバージョン
 - `disable_ai` — テンプレート専用モード（AIフォールバックなし） - **モデルコントロールと組み合わせることはできません**

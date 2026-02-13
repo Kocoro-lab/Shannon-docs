@@ -275,13 +275,13 @@ RATE_LIMIT_WINDOW=60
 
 | 变量 | 类型 | 默认值 | 范围 | 描述 |
 |----------|------|---------|-------|-------------|
-| `TOOL_PARALLELISM` | integer | `5` | 1-10 | 并发工具执行数（1=顺序） |
+| `TOOL_PARALLELISM` | integer | `1` | 1-10 | 并发工具执行数（1=顺序） |
 | `ENABLE_TOOL_SELECTION` | integer | `1` | 0,1 | `1`=自动工具选择，`0`=仅手动 |
 | `PRIORITY_QUEUES` | string | `off` | on/off | 启用基于优先级的任务队列 |
 | `STREAMING_RING_CAPACITY` | integer | `1000` | - | 事件流缓冲区大小 |
 | `COMPRESSION_TRIGGER_RATIO` | float | `0.75` | 0.0-1.0 | 上下文压缩触发阈值 |
 | `COMPRESSION_TARGET_RATIO` | float | `0.375` | 0.0-1.0 | 目标压缩比率 |
-| `ENFORCE_TIMEOUT_SECONDS` | integer | `120` | - | 操作的硬超时 |
+| `ENFORCE_TIMEOUT_SECONDS` | integer | `90` | - | 操作的硬超时 |
 | `ENFORCE_MAX_TOKENS` | integer | `32768` | - | 绝对最大令牌数 |
 | `ENFORCE_RATE_RPS` | integer | `20` | - | 每秒请求数限制 |
 

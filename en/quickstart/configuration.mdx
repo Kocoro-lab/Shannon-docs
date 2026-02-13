@@ -275,13 +275,13 @@ Fine-tune parallelism, timeouts, and execution behavior.
 
 | Variable | Type | Default | Range | Description |
 |----------|------|---------|-------|-------------|
-| `TOOL_PARALLELISM` | integer | `5` | 1-10 | Concurrent tool executions (1=sequential) |
+| `TOOL_PARALLELISM` | integer | `1` | 1-10 | Concurrent tool executions (1=sequential) |
 | `ENABLE_TOOL_SELECTION` | integer | `1` | 0,1 | `1`=auto tool selection, `0`=manual only |
 | `PRIORITY_QUEUES` | string | `off` | on/off | Enable priority-based task queuing |
 | `STREAMING_RING_CAPACITY` | integer | `1000` | - | Event stream buffer size |
 | `COMPRESSION_TRIGGER_RATIO` | float | `0.75` | 0.0-1.0 | Context compression trigger threshold |
 | `COMPRESSION_TARGET_RATIO` | float | `0.375` | 0.0-1.0 | Target compression ratio |
-| `ENFORCE_TIMEOUT_SECONDS` | integer | `120` | - | Hard timeout for operations |
+| `ENFORCE_TIMEOUT_SECONDS` | integer | `90` | - | Hard timeout for operations |
 | `ENFORCE_MAX_TOKENS` | integer | `32768` | - | Absolute maximum tokens |
 | `ENFORCE_RATE_RPS` | integer | `20` | - | Requests per second limit |
 
