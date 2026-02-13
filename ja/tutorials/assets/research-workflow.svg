@@ -24,8 +24,8 @@
 
   <!-- Session Decision -->
   <path d="M 500 150 L 560 180 L 500 210 L 440 180 Z" fill="#ffedd5" stroke="#1a1a1a" stroke-width="1.5"/>
-  <text x="500" y="177" class="decision">Session > 20</text>
-  <text x="500" y="188" class="decision">messages?</text>
+  <text x="500" y="177" class="decision">Large</text>
+  <text x="500" y="188" class="decision">Context?</text>
 
   <!-- Context Compression -->
   <rect x="650" y="160" width="140" height="40" fill="#fde047" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>

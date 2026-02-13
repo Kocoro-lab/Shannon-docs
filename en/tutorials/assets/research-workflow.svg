@@ -27,7 +27,7 @@
 
   <!-- Session check -->
   <path d="M 345 210 L 505 210 L 525 230 L 505 250 L 345 250 L 325 230 Z" fill="#a5f3fc" stroke="#1a1a1a" stroke-width="1.5"/>
-  <text x="425" y="233" class="box-text-sm">Session &gt; 20 msgs?</text>
+  <text x="425" y="233" class="box-text-sm">Large Context?</text>
 
   <!-- Context Compression -->
   <rect x="580" y="210" width="180" height="40" fill="#fed7aa" stroke="#1a1a1a" stroke-width="1.5" rx="4"/>

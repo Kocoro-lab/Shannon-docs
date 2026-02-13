@@ -58,10 +58,10 @@
   <text x="287" y="250" class="label">WorkflowStarted</text>
 
   <line x1="360" y1="285" x2="500" y2="285" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <text x="430" y="280" class="label">ExecuteAgent (gRPC)</text>
+  <text x="430" y="280" class="label">ExecuteTask (gRPC)</text>
 
   <line x1="505" y1="315" x2="645" y2="315" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <text x="575" y="310" class="label">GetCompletion (HTTP)</text>
+  <text x="575" y="310" class="label">/agent/query (HTTP)</text>
 
   <line x1="645" y1="345" x2="510" y2="345" stroke="#666" stroke-width="1.5" marker-end="url(#arrow-back)"/>
   <text x="577" y="340" class="label">LLM Response</text>

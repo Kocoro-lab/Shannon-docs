@@ -64,7 +64,7 @@
   <!-- Arrows -->
   <!-- Client to Gateway -->
   <line x1="130" y1="85" x2="175" y2="85" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <text x="152" y="80" class="label">REST/gRPC</text>
+  <text x="152" y="80" class="label">REST</text>
 
   <!-- Gateway to Orchestrator -->
   <line x1="300" y1="85" x2="345" y2="85" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>

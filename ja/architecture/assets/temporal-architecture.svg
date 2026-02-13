@@ -31,8 +31,9 @@
   <text x="210" y="265" class="port">:50052</text>
 
   <rect x="390" y="230" width="140" height="50" fill="#bfdbfe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
-  <text x="460" y="248" class="box-text">Temporal Workers</text>
-  <text x="460" y="265" class="label">ワーカー</text>
+  <text x="460" y="245" class="box-text">Temporal Workers</text>
+  <text x="460" y="260" class="label">(in Orchestrator)</text>
+  <text x="460" y="273" class="label">ワーカー</text>
 
   <!-- Temporal Group -->
   <rect x="50" y="330" width="600" height="140" fill="none" stroke="#ddd" stroke-width="1" rx="4"/>

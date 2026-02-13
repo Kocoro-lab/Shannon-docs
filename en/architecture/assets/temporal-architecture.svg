@@ -35,7 +35,8 @@
   <text x="220" y="232" class="label">:50052</text>
 
   <rect x="400" y="200" width="140" height="40" fill="#99f6e4" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
-  <text x="470" y="218" class="box-text-sm">Temporal Workers</text>
+  <text x="470" y="214" class="box-text-sm">Temporal Workers</text>
+  <text x="470" y="228" class="label">(in Orchestrator)</text>
 
   <!-- Temporal Layer -->
   <rect x="50" y="280" width="650" height="80" fill="none" stroke="#666" stroke-width="1.5" stroke-dasharray="4 2" rx="4"/>

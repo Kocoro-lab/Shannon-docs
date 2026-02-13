@@ -39,7 +39,7 @@
 
   <rect x="480" y="215" width="220" height="80" fill="#fce7f3" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
   <text x="590" y="238" class="box-text">Temporal Workers</text>
-  <text x="590" y="253" class="label">工作流执行器</text>
+  <text x="590" y="253" class="label">运行在 Orchestrator 内</text>
   <text x="590" y="270" class="annotation">持久化状态管理</text>
   <text x="590" y="283" class="annotation">Durable State Management</text>
 

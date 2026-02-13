@@ -16,7 +16,7 @@
   <text x="350" y="30" class="title">Tool Execution Architecture</text>
 
   <!-- Orchestrator (Go) Group -->
-  <rect x="50" y="60" width="200" height="180" fill="#f0f9ff" stroke="#666" stroke-width="1" rx="3"/>
+  <rect x="50" y="60" width="200" height="220" fill="#f0f9ff" stroke="#666" stroke-width="1" rx="3"/>
   <text x="60" y="80" class="group-title">Orchestrator (Go)</text>
 
   <rect x="70" y="95" width="160" height="40" fill="#dbeafe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
@@ -28,6 +28,9 @@
 
   <rect x="70" y="195" width="160" height="35" fill="#dbeafe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
   <text x="150" y="217" class="box-text-sm">Execute Tool Activity</text>
+
+  <rect x="70" y="240" width="160" height="28" fill="#fed7aa" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="150" y="258" class="box-text-sm">Circuit Breaker</text>
 
   <!-- Agent Core (Rust) Group -->
   <rect x="290" y="60" width="190" height="280" fill="#fef3c7" stroke="#666" stroke-width="1" rx="3"/>
@@ -44,7 +47,8 @@
   <text x="385" y="247" class="box-text-sm">Python WASI Sandbox</text>
 
   <rect x="310" y="270" width="150" height="35" fill="#fde047" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
-  <text x="385" y="292" class="box-text-sm">Circuit Breaker</text>
+  <text x="385" y="286" class="box-text-sm">Enforcement</text>
+  <text x="385" y="298" class="label">Rate Limits</text>
 
   <!-- LLM Service (Python) Group -->
   <rect x="520" y="60" width="150" height="240" fill="#d1fae5" stroke="#666" stroke-width="1" rx="3"/>

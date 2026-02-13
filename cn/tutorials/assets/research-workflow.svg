@@ -30,8 +30,8 @@
 
   <!-- Session check -->
   <path d="M 390 210 L 510 210 L 490 250 L 410 250 Z" fill="#fce7f3" stroke="#1a1a1a" stroke-width="1.5"/>
-  <text x="450" y="228" class="box-text">Session > 20?</text>
-  <text x="450" y="241" class="label">会话消息数</text>
+  <text x="450" y="228" class="box-text">Large Context?</text>
+  <text x="450" y="241" class="label">上下文过大?</text>
 
   <line x1="410" y1="230" x2="330" y2="260" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
   <text x="370" y="248" class="annotation">Yes</text>
