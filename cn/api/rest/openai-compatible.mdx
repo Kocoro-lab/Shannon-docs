@@ -1,0 +1,532 @@
+---
+title: "OpenAI 兼容 API"
+description: "通过 /v1/chat/completions 端点使用 OpenAI SDK 和工具访问 Shannon"
+---
+
+## 概述
+
+Shannon 提供 OpenAI 兼容 API 层，使您可以通过现有的 OpenAI SDK、工具和集成来与 Shannon 的智能体编排平台交互。兼容层将 OpenAI 聊天补全请求转换为 Shannon 任务，并以 OpenAI 格式流式返回结果。
+
+这意味着您可以将 OpenAI Python 或 Node.js SDK 指向 Shannon，即可使用多智能体研究、工具调用和深度分析功能——一切通过熟悉的接口完成。
+
+<Note>
+OpenAI 兼容 API 旨在与现有工具兼容。如需完整的 Shannon 功能（技能、会话工作区、研究策略、任务控制），请使用原生 [`/api/v1/tasks`](/cn/api/rest/submit-task) 端点。
+</Note>
+
+## 端点
+
+| 方法 | 路径 | 描述 |
+|------|------|------|
+| `POST` | `/v1/chat/completions` | 创建聊天补全（支持流式和非流式） |
+| `GET` | `/v1/models` | 列出可用模型 |
+| `GET` | `/v1/models/{model}` | 获取模型详情 |
+
+**基础 URL**：`http://localhost:8080`（开发环境）
+
+## 认证
+
+OpenAI 兼容端点使用与其他 Shannon API 相同的认证方式。
+
+```bash
+# Bearer 令牌（OpenAI SDK 默认方式）
+Authorization: Bearer sk_your_api_key
+
+# 或 X-API-Key 请求头
+X-API-Key: sk_your_api_key
+```
+
+<Note>
+**开发环境默认**：设置 `GATEWAY_SKIP_AUTH=1` 时认证已禁用。生产环境请启用认证。
+</Note>
+
+## 可用模型
+
+Shannon 将模型名称映射到不同的工作流模式和策略。选择模型来控制请求的处理方式。
+
+| 模型 | 工作流模式 | 描述 | 默认最大 Token 数 |
+|------|-----------|------|------------------|
+| `shannon-chat` | Simple | 通用聊天补全（默认） | 4096 |
+| `shannon-standard-research` | Research | 中等深度的平衡研究 | 4096 |
+| `shannon-deep-research` | Research | 迭代精炼的深度研究 | 8192 |
+| `shannon-quick-research` | Research | 简单查询的快速研究 | 4096 |
+| `shannon-complex` | Supervisor | 复杂任务的多智能体编排 | 8192 |
+
+如果未指定模型，默认使用 `shannon-chat`。
+
+<Tip>
+模型可通过 `config/openai_models.yaml` 自定义。有关添加自定义模型的详细信息，请参阅 Shannon 配置文档。
+</Tip>
+
+## 聊天补全
+
+### POST /v1/chat/completions
+
+#### 请求体
+
+| 参数 | 类型 | 必需 | 描述 |
+|------|------|------|------|
+| `model` | string | 否 | 模型名称（默认 `shannon-chat`） |
+| `messages` | array | 是 | 消息对象数组 |
+| `stream` | boolean | 否 | 启用流式传输（默认 `false`） |
+| `max_tokens` | integer | 否 | 响应最大 token 数（上限 16384） |
+| `temperature` | number | 否 | 采样温度 0-2（默认 0.7） |
+| `top_p` | number | 否 | 核采样参数 |
+| `n` | integer | 否 | 补全数量（仅支持 `1`） |
+| `stop` | array | 否 | 停止序列 |
+| `presence_penalty` | number | 否 | 存在惩罚 -2.0 到 2.0 |
+| `frequency_penalty` | number | 否 | 频率惩罚 -2.0 到 2.0 |
+| `user` | string | 否 | 终端用户标识符，用于跟踪和会话推导 |
+| `stream_options` | object | 否 | 流式选项（见下方） |
+
+**消息对象**：
+
+| 字段 | 类型 | 必需 | 描述 |
+|------|------|------|------|
+| `role` | string | 是 | `system`、`user` 或 `assistant` |
+| `content` | string | 是 | 消息内容（仅文本） |
+| `name` | string | 否 | 参与者的可选名称 |
+
+**流式选项**：
+
+| 字段 | 类型 | 描述 |
+|------|------|------|
+| `include_usage` | boolean | 在最终流式块中包含 token 使用情况 |
+
+#### 消息处理方式
+
+Shannon 将 OpenAI 消息数组转换为 Shannon 任务：
+
+- **最后一条用户消息**成为任务查询
+- **第一条系统消息**成为系统提示
+- **其他所有消息**（不含系统消息和最后一条用户消息）成为对话历史
+- **模型名称**决定工作流模式和研究策略
+
+#### 非流式响应
+
+```json
+{
+  "id": "chatcmpl-20250120100000a1b2c3d4",
+  "object": "chat.completion",
+  "created": 1737367200,
+  "model": "shannon-chat",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Shannon 的响应文本..."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 25,
+    "completion_tokens": 150,
+    "total_tokens": 175
+  }
+}
+```
+
+<Warning>
+非流式请求有 **35 分钟超时**，以支持深度研究和长时间运行的工作流。对于很长的任务，建议使用流式模式。
+</Warning>
+
+#### 流式响应
+
+当 `stream: true` 时，响应以 Server-Sent Events 形式传输：
+
+**首个块**（包含角色）：
+```
+data: {"id":"chatcmpl-...","object":"chat.completion.chunk","created":1737367200,"model":"shannon-chat","choices":[{"index":0,"delta":{"role":"assistant","content":"响应"},"finish_reason":null}]}
+```
+
+**内容块**：
+```
+data: {"id":"chatcmpl-...","object":"chat.completion.chunk","created":1737367200,"model":"shannon-chat","choices":[{"index":0,"delta":{"content":"文本内容"},"finish_reason":null}]}
+```
+
+**最终块**（包含结束原因）：
+```
+data: {"id":"chatcmpl-...","object":"chat.completion.chunk","created":1737367200,"model":"shannon-chat","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":25,"completion_tokens":150,"total_tokens":175}}
+```
+
+**流终止符**：
+```
+data: [DONE]
+```
+
+<Note>
+最终块中的使用数据仅在 `stream_options.include_usage` 设置为 `true` 时包含。
+</Note>
+
+## Shannon 扩展
+
+### shannon_events 字段
+
+在流式传输期间，Shannon 通过 `shannon_events` 字段扩展标准 OpenAI 块格式。该字段携带智能体生命周期事件，提供 Shannon 智能体幕后工作的可见性。
+
+```json
+{
+  "id": "chatcmpl-...",
+  "object": "chat.completion.chunk",
+  "created": 1737367200,
+  "model": "shannon-deep-research",
+  "choices": [
+    {
+      "index": 0,
+      "delta": {}
+    }
+  ],
+  "shannon_events": [
+    {
+      "type": "AGENT_STARTED",
+      "agent_id": "researcher_1",
+      "message": "正在开始研究查询...",
+      "timestamp": 1737367201,
+      "payload": {}
+    }
+  ]
+}
+```
+
+**ShannonEvent 字段**：
+
+| 字段 | 类型 | 描述 |
+|------|------|------|
+| `type` | string | 事件类型（见下表） |
+| `agent_id` | string | 智能体标识符 |
+| `message` | string | 人类可读的描述 |
+| `timestamp` | integer | Unix 时间戳 |
+| `payload` | object | 附加的事件特定数据 |
+
+**转发的事件类型**：
+
+| 类别 | 事件 |
+|------|------|
+| 工作流 | `WORKFLOW_STARTED`、`WORKFLOW_PAUSING`、`WORKFLOW_PAUSED`、`WORKFLOW_RESUMED`、`WORKFLOW_CANCELLING`、`WORKFLOW_CANCELLED` |
+| 智能体 | `AGENT_STARTED`、`AGENT_COMPLETED`、`AGENT_THINKING` |
+| 工具 | `TOOL_INVOKED`、`TOOL_OBSERVATION` |
+| 进度 | `PROGRESS`、`DATA_PROCESSING`、`WAITING`、`ERROR_RECOVERY` |
+| 团队 | `TEAM_RECRUITED`、`TEAM_RETIRED`、`TEAM_STATUS`、`ROLE_ASSIGNED`、`DELEGATION`、`DEPENDENCY_SATISFIED` |
+| 预算和审批 | `BUDGET_THRESHOLD`、`APPROVAL_REQUESTED`、`APPROVAL_DECISION` |
+
+<Tip>
+标准 OpenAI 客户端会忽略未知字段，因此 `shannon_events` 字段可以安全地用于任何 OpenAI 兼容工具。当您需要更丰富的进度信息时，可以解析该字段。
+</Tip>
+
+### X-Session-ID 请求头
+
+Shannon 通过 `X-Session-ID` 请求头支持多轮对话。提供该请求头后，Shannon 会在请求之间维护对话上下文。
+
+```bash
+curl -X POST http://localhost:8080/v1/chat/completions \
+  -H "Authorization: Bearer sk_your_key" \
+  -H "X-Session-ID: my-conversation-1" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "shannon-chat", "messages": [{"role": "user", "content": "你好"}]}'
+```
+
+如果未提供 `X-Session-ID`，Shannon 会根据对话内容（系统消息 + 第一条用户消息的哈希值）或 `user` 字段推导会话 ID。
+
+当创建新会话或检测到冲突时，响应中会包含 `X-Session-ID` 和 `X-Shannon-Session-ID` 头。
+
+## 速率限制
+
+速率限制按 API 密钥、按模型执行。默认限制为：
+
+- 每个模型 **每分钟 60 个请求**
+- 每个模型 **每分钟 200,000 个 token**
+
+**每个响应中包含的速率限制头**：
+
+| 头部 | 描述 |
+|------|------|
+| `X-RateLimit-Limit-Requests` | 每分钟最大请求数 |
+| `X-RateLimit-Remaining-Requests` | 当前窗口剩余请求数 |
+| `X-RateLimit-Limit-Tokens` | 每分钟最大 token 数 |
+| `X-RateLimit-Remaining-Tokens` | 当前窗口剩余 token 数 |
+| `X-RateLimit-Reset-Requests` | 请求限制重置时间 |
+| `Retry-After` | 重试前等待的秒数（429 时） |
+
+## 错误处理
+
+错误遵循 OpenAI 错误响应格式：
+
+```json
+{
+  "error": {
+    "message": "Model 'invalid-model' not found. Use GET /v1/models to list available models.",
+    "type": "invalid_request_error",
+    "code": "model_not_found"
+  }
+}
+```
+
+**错误类型**：
+
+| HTTP 状态码 | 类型 | 代码 | 描述 |
+|------------|------|------|------|
+| 400 | `invalid_request_error` | `invalid_request` | 请求格式错误或缺少必需字段 |
+| 401 | `authentication_error` | `invalid_api_key` | API 密钥无效或缺失 |
+| 403 | `permission_error` | `invalid_request` | 权限不足 |
+| 404 | `invalid_request_error` | `model_not_found` | 模型不存在 |
+| 429 | `rate_limit_error` | `rate_limit_exceeded` | 超出速率限制 |
+| 500 | `server_error` | `internal_error` | 内部服务器错误 |
+
+## 列出模型
+
+### GET /v1/models
+
+返回所有可用的 Shannon 模型。
+
+```bash
+curl http://localhost:8080/v1/models \
+  -H "Authorization: Bearer sk_your_key"
+```
+
+**响应**：
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "shannon-chat",
+      "object": "model",
+      "created": 1737367200,
+      "owned_by": "shannon"
+    },
+    {
+      "id": "shannon-deep-research",
+      "object": "model",
+      "created": 1737367200,
+      "owned_by": "shannon"
+    }
+  ]
+}
+```
+
+### GET /v1/models/{model}
+
+返回特定模型的详情。模型描述包含在 `X-Model-Description` 响应头中。
+
+```bash
+curl http://localhost:8080/v1/models/shannon-deep-research \
+  -H "Authorization: Bearer sk_your_key"
+```
+
+## 使用 OpenAI SDK
+
+### Python
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:8080/v1",
+    api_key="sk_your_api_key",  # 如果认证已禁用，使用 "not-needed"
+)
+
+# 非流式
+response = client.chat.completions.create(
+    model="shannon-chat",
+    messages=[
+        {"role": "system", "content": "你是一个有帮助的助手。"},
+        {"role": "user", "content": "什么是 Shannon？"}
+    ],
+)
+print(response.choices[0].message.content)
+
+# 流式
+stream = client.chat.completions.create(
+    model="shannon-deep-research",
+    messages=[
+        {"role": "user", "content": "分析 AI 对医疗保健的影响"}
+    ],
+    stream=True,
+    stream_options={"include_usage": True},
+)
+
+for chunk in stream:
+    if chunk.choices[0].delta.content:
+        print(chunk.choices[0].delta.content, end="", flush=True)
+
+    # 访问 Shannon 特有的事件（如果可用）
+    if hasattr(chunk, "shannon_events") and chunk.shannon_events:
+        for event in chunk.shannon_events:
+            print(f"\n[{event['type']}] {event.get('message', '')}")
+```
+
+### Node.js / TypeScript
+
+```typescript
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  baseURL: "http://localhost:8080/v1",
+  apiKey: "sk_your_api_key",
+});
+
+// 非流式
+const response = await client.chat.completions.create({
+  model: "shannon-chat",
+  messages: [
+    { role: "user", content: "什么是 Shannon？" }
+  ],
+});
+console.log(response.choices[0].message.content);
+
+// 流式
+const stream = await client.chat.completions.create({
+  model: "shannon-deep-research",
+  messages: [
+    { role: "user", content: "分析 AI 对医疗保健的影响" }
+  ],
+  stream: true,
+});
+
+for await (const chunk of stream) {
+  const content = chunk.choices[0]?.delta?.content;
+  if (content) {
+    process.stdout.write(content);
+  }
+}
+```
+
+### curl
+
+```bash
+# 非流式
+curl -X POST http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk_your_api_key" \
+  -d '{
+    "model": "shannon-chat",
+    "messages": [
+      {"role": "user", "content": "什么是 Shannon？"}
+    ]
+  }'
+
+# 流式
+curl -N -X POST http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk_your_api_key" \
+  -d '{
+    "model": "shannon-deep-research",
+    "messages": [
+      {"role": "user", "content": "分析 AI 对医疗保健的影响"}
+    ],
+    "stream": true,
+    "stream_options": {"include_usage": true}
+  }'
+
+# 使用会话 ID 进行多轮对话
+curl -X POST http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk_your_api_key" \
+  -H "X-Session-ID: my-session-1" \
+  -d '{
+    "model": "shannon-chat",
+    "messages": [
+      {"role": "system", "content": "你是一个数据分析师。"},
+      {"role": "user", "content": "总结第四季度收入趋势"}
+    ]
+  }'
+```
+
+## 带 Shannon 事件的流式传输
+
+要构建显示智能体进度的丰富 UI，请从流式块中解析 `shannon_events` 字段：
+
+```python
+import json
+import httpx
+
+def stream_with_events(query: str, model: str = "shannon-deep-research"):
+    response = httpx.post(
+        "http://localhost:8080/v1/chat/completions",
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": "Bearer sk_your_api_key",
+        },
+        json={
+            "model": model,
+            "messages": [{"role": "user", "content": query}],
+            "stream": True,
+        },
+        timeout=None,
+    )
+
+    for line in response.iter_lines():
+        if not line.startswith("data: "):
+            continue
+        data = line[6:]
+        if data == "[DONE]":
+            break
+
+        chunk = json.loads(data)
+
+        # 打印内容增量
+        delta = chunk["choices"][0].get("delta", {})
+        if delta.get("content"):
+            print(delta["content"], end="", flush=True)
+
+        # 打印 Shannon 智能体事件
+        for event in chunk.get("shannon_events", []):
+            print(f"\n  [{event['type']}] {event.get('message', '')}")
+
+stream_with_events("研究量子计算的最新发展")
+```
+
+## 心跳和保活
+
+在流式传输期间，Shannon 每 30 秒发送 SSE 注释行（`: keepalive`）以保持连接活跃。符合规范的 SSE 客户端会自动忽略这些注释。这可以防止负载均衡器和代理在长时间运行的研究任务中关闭空闲连接。
+
+## 限制
+
+以下 OpenAI API 功能**不受支持**：
+
+| 功能 | 状态 |
+|------|------|
+| 函数调用 / tools | 不支持 |
+| 视觉 / 图片输入 | 不支持（仅文本内容） |
+| 音频输入/输出 | 不支持 |
+| 嵌入 API（`/v1/embeddings`） | 不可用 |
+| 微调 API | 不可用 |
+| `response_format`（JSON 模式） | 不支持 |
+| `logprobs` | 不支持 |
+| `seed` | 不支持 |
+| `n` > 1（多个补全） | 不支持 |
+
+<Warning>
+`messages[].content` 字段仅接受纯文本字符串。不支持多部分内容（包含 image_url 对象的数组）。
+</Warning>
+
+## 与标准 OpenAI API 的差异
+
+| 方面 | OpenAI API | Shannon OpenAI 兼容 API |
+|------|-----------|------------------------|
+| 模型 | GPT-4、GPT-3.5 等 | `shannon-chat`、`shannon-deep-research` 等 |
+| 处理方式 | 单次 LLM 调用 | 多智能体编排、工具使用、研究 |
+| 延迟 | 秒级 | 秒到分钟（取决于模型/策略） |
+| 流式事件 | 仅内容 | 内容 + `shannon_events` 智能体生命周期 |
+| 会话管理 | 非内置 | `X-Session-ID` 头，服务端上下文 |
+| 速率限制 | 按组织 | 按 API 密钥、按模型 |
+| 结束原因 | `stop`、`length`、`tool_calls`、`content_filter` | 仅 `stop` |
+
+## 相关内容
+
+<CardGroup cols={2}>
+  <Card title="提交任务（原生 API）" icon="paper-plane" href="/cn/api/rest/submit-task">
+    具有完整功能的 Shannon 任务提交
+  </Card>
+  <Card title="事件流式传输" icon="stream" href="/cn/api/rest/streaming">
+    Shannon 原生 SSE 和 WebSocket 流式传输
+  </Card>
+  <Card title="事件类型参考" icon="list" href="/cn/api/event-types">
+    Shannon 事件类型的完整列表
+  </Card>
+  <Card title="Python SDK" icon="python" href="/cn/sdk/python/quickstart">
+    Shannon 原生 Python 客户端
+  </Card>
+</CardGroup>

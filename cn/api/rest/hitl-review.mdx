@@ -1,0 +1,371 @@
+---
+title: "HITL 审核 API"
+description: "人机协同研究计划审核端点的 API 参考"
+---
+
+## 概览
+
+HITL（人机协同）审核 API 提供了在执行开始前审核、优化和批准 AI 生成的研究计划的端点。这些端点与存储在 Redis 中的审核状态交互，并通过 gRPC Signal 与 Temporal 工作流协调。
+
+使用教程请参见[人机协同审核](/tutorials/hitl-review)。
+
+## 认证
+
+**必需**：是
+
+在请求头中包含 API key：
+
+```http
+X-API-Key: sk_test_123456
+```
+
+所有权验证：仅提交任务的用户可以访问其审核状态。
+
+---
+
+## 获取审核状态
+
+```http
+GET http://localhost:8080/api/v1/tasks/{workflow_id}/review
+```
+
+### 说明
+
+返回工作流的当前审核对话状态。用于获取初始研究计划并跟踪审核进度。
+
+### 路径参数
+
+| 参数 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| `workflow_id` | string | 是 | 工作流 ID（来自任务提交响应） |
+
+### 请求头
+
+| 头 | 必需 | 说明 |
+|----|------|------|
+| `X-API-Key` | 是 | API 认证密钥 |
+
+### 响应
+
+#### 200 OK
+
+```json
+{
+  "status": "reviewing",
+  "round": 1,
+  "version": 1,
+  "current_plan": "根据您的查询，我建议研究...",
+  "rounds": [
+    {
+      "role": "assistant",
+      "message": "根据您的查询，我建议研究...",
+      "timestamp": "2025-01-15T10:30:00Z"
+    }
+  ],
+  "query": "研究 AI 代理框架的竞争格局"
+}
+```
+
+**响应头：**
+
+| 头 | 说明 |
+|----|------|
+| `ETag` | 当前版本号（用于 `If-Match` 并发控制） |
+
+**响应字段：**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `status` | string | `"reviewing"`（等待输入）或 `"approved"`（计划已接受） |
+| `round` | integer | 当前对话轮次（从 1 开始） |
+| `version` | integer | 乐观并发的单调递增版本 |
+| `current_plan` | string | 最新的可执行计划（当 LLM 意图为 `"ready"` 时设置）。如果 LLM 仍在提问则可能为空。 |
+| `rounds` | array | 完整对话历史 |
+| `rounds[].role` | string | `"assistant"`（LLM）或 `"user"`（人工反馈） |
+| `rounds[].message` | string | 消息内容 |
+| `rounds[].timestamp` | string | RFC 3339 时间戳 |
+| `query` | string | 原始任务查询 |
+
+#### 401 Unauthorized
+
+```json
+{ "error": "Unauthorized" }
+```
+
+#### 403 Forbidden
+
+```json
+{ "error": "Forbidden: not the task owner" }
+```
+
+#### 404 Not Found
+
+```json
+{ "error": "Review session not found or expired" }
+```
+
+### 示例
+
+<CodeGroup>
+```bash curl
+curl -s http://localhost:8080/api/v1/tasks/task-abc123/review \
+  -H "X-API-Key: $API_KEY" | jq
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+state = client.get_review_state("task-abc123")
+print(state.status, state.round, state.version)
+```
+</CodeGroup>
+
+---
+
+## 提交反馈
+
+```http
+POST http://localhost:8080/api/v1/tasks/{workflow_id}/review
+```
+
+### 说明
+
+发送反馈以优化研究计划。网关将反馈转发给 LLM 服务，后者生成包含用户输入的更新计划。对话轮次和版本号递增。
+
+分布式 Redis 锁防止并发反馈请求在 LLM 调用期间竞争。
+
+### 路径参数
+
+| 参数 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| `workflow_id` | string | 是 | 工作流 ID |
+
+### 请求头
+
+| 头 | 必需 | 说明 |
+|----|------|------|
+| `X-API-Key` | 是 | API 认证密钥 |
+| `Content-Type` | 是 | `application/json` |
+| `If-Match` | 否 | 乐观并发的版本号。如提供，当前版本不匹配时返回 409。 |
+
+### 请求体参数
+
+| 参数 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| `action` | string | 是 | 必须为 `"feedback"` |
+| `message` | string | 是 | 反馈文本（最大 10 KB） |
+
+### 请求体
+
+```json
+{
+  "action": "feedback",
+  "message": "更多关注开源框架，并加入价格对比"
+}
+```
+
+### 响应
+
+#### 200 OK
+
+```json
+{
+  "status": "reviewing",
+  "plan": {
+    "message": "我已更新研究计划，聚焦于...",
+    "round": 2,
+    "version": 2,
+    "intent": "ready"
+  }
+}
+```
+
+**响应头：**
+
+| 头 | 说明 |
+|----|------|
+| `ETag` | 更新后的版本号 |
+
+**响应字段：**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `status` | string | 反馈响应始终为 `"reviewing"` |
+| `plan.message` | string | LLM 更新后的计划 |
+| `plan.round` | integer | 当前轮次 |
+| `plan.version` | integer | 更新后的版本（用于下次 `If-Match`） |
+| `plan.intent` | string | `"feedback"`（LLM 在提问）或 `"ready"`（已提出可执行计划） |
+
+#### 400 Bad Request
+
+```json
+{ "error": "message is required for feedback" }
+```
+
+```json
+{ "error": "message exceeds maximum length (10KB)" }
+```
+
+#### 404 Not Found
+
+```json
+{ "error": "Review session not found or expired" }
+```
+
+#### 409 Conflict
+
+版本不匹配：
+
+```json
+{ "error": "Conflict: state has been modified" }
+```
+
+另一个反馈请求正在进行中：
+
+```json
+{ "error": "Another feedback request is in progress. Please wait." }
+```
+
+超过最大轮次：
+
+```json
+{ "error": "Maximum review rounds reached. Please approve the plan." }
+```
+
+#### 502 Bad Gateway
+
+```json
+{ "error": "Failed to generate updated plan" }
+```
+
+### 示例
+
+<CodeGroup>
+```bash curl
+curl -X POST http://localhost:8080/api/v1/tasks/task-abc123/review \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: $API_KEY" \
+  -H "If-Match: 1" \
+  -d '{
+    "action": "feedback",
+    "message": "增加定价章节，并将 LangGraph 加入对比"
+  }'
+```
+
+```python Python SDK
+updated = client.submit_review_feedback(
+    "task-abc123",
+    "增加定价章节，并将 LangGraph 加入对比",
+    version=1,
+)
+print(updated.version, updated.current_plan)
+```
+</CodeGroup>
+
+---
+
+## 批准计划
+
+```http
+POST http://localhost:8080/api/v1/tasks/{workflow_id}/review
+```
+
+### 说明
+
+批准当前研究计划，解除工作流阻塞以继续执行。网关向等待中的工作流发送 Temporal Signal，将确认的计划和审核对话注入任务上下文。
+
+### 路径参数
+
+| 参数 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| `workflow_id` | string | 是 | 工作流 ID |
+
+### 请求头
+
+| 头 | 必需 | 说明 |
+|----|------|------|
+| `X-API-Key` | 是 | API 认证密钥 |
+| `Content-Type` | 是 | `application/json` |
+| `If-Match` | 否 | 乐观并发的版本号 |
+
+### 请求体参数
+
+| 参数 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| `action` | string | 是 | 必须为 `"approve"` |
+
+### 请求体
+
+```json
+{
+  "action": "approve"
+}
+```
+
+### 响应
+
+#### 200 OK
+
+```json
+{
+  "status": "approved",
+  "message": "Research started"
+}
+```
+
+#### 400 Bad Request
+
+无可批准的计划：
+
+```json
+{ "error": "No research plan to approve. Please provide feedback to generate a plan first." }
+```
+
+#### 409 Conflict
+
+版本不匹配：
+
+```json
+{ "error": "Conflict: plan has been updated. Please review the latest version." }
+```
+
+反馈正在进行中：
+
+```json
+{ "error": "A feedback request is in progress. Please wait and try again." }
+```
+
+#### 502 Bad Gateway
+
+```json
+{ "error": "Failed to approve review" }
+```
+
+### 示例
+
+<CodeGroup>
+```bash curl
+curl -X POST http://localhost:8080/api/v1/tasks/task-abc123/review \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: $API_KEY" \
+  -H "If-Match: 2" \
+  -d '{"action": "approve"}'
+```
+
+```python Python SDK
+result = client.approve_review("task-abc123", version=2)
+print(result)  # {"status": "approved", "message": "Research started"}
+```
+</CodeGroup>
+
+---
+
+## 行为说明
+
+- **Redis TTL**：审核状态在 Redis 中的 TTL 等于审核超时加 5 分钟缓冲（默认：20 分钟）。过期后审核会话不再可访问。
+- **最大轮次**：最多 10 轮反馈。最后一轮 LLM 被指示生成明确计划。超过此限制后仅接受批准。
+- **所有权**：仅提交任务的用户可以访问其审核状态（通过 Redis 中的 `owner_user_id` 强制执行）。
+- **并发**：反馈和批准都会获取分布式 Redis 锁。如果反馈请求正在进行中（持有锁），批准将立即返回 409。
+- **SSE 事件**：审核过程发出 `RESEARCH_PLAN_READY`、`REVIEW_USER_FEEDBACK`、`RESEARCH_PLAN_UPDATED` 和 `RESEARCH_PLAN_APPROVED` 事件到 Redis 事件流。这些事件出现在 SSE 流中并持久化到会话历史。
+- **Token 追踪**：审核期间（反馈轮次）的 LLM token 使用量通过 `RecordTokenUsage` gRPC 记录，确保准确的成本核算。

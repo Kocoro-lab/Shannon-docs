@@ -379,9 +379,195 @@ if __name__ == "__main__":
     main()
 ```
 
+## スウォームモード
+
+### マルチエージェント実行の強制
+
+```python
+"""スウォームモードの例（Shannon SDK）"""
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# スウォームモードで送信し、複数のエージェントを連携させる
+handle = client.submit_task(
+    query="MLワークロード向けのAWS、Azure、GCPを調査・比較してください。料金、GPU可用性、マネージドサービスをカバーしてください。",
+    force_swarm=True,
+)
+
+result = client.wait(handle.task_id)
+print(result.result)
+
+# モデルと使用量情報を確認
+if result.usage:
+    print(f"合計トークン: {result.usage.get('total_tokens')}")
+    print(f"コスト: ${result.usage.get('cost_usd', 0):.6f}")
+```
+
+## ヒューマン・イン・ザ・ループ レビューの例
+
+### インタラクティブなレビューワークフロー
+
+```python
+"""ヒューマン・イン・ザ・ループ レビューの例"""
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# レビューが必要なワークフローがすでに実行中であると仮定
+workflow_id = "workflow-123"
+
+# 現在のレビュー状態を確認
+state = client.get_review_state(workflow_id)
+print(f"レビューステータス: {state.status}")
+print(f"ラウンド: {state.round}, バージョン: {state.version}")
+
+if state.current_plan:
+    print(f"現在のプラン:\n{state.current_plan}")
+
+# 会話履歴を表示
+for r in state.rounds:
+    print(f"  [{r.role}] {r.message}")
+
+# まだレビュー中の場合、フィードバックを提供
+if state.status == "reviewing":
+    updated = client.submit_review_feedback(
+        workflow_id,
+        "入力バリデーションとユニットテストを追加してください。",
+        version=state.version,
+    )
+    print(f"フィードバックが送信されました。現在のラウンド: {updated.round}")
+
+    # 更新されたプランを承認
+    result = client.approve_review(workflow_id, version=updated.version)
+    print(f"承認済み: {result['status']}")
+```
+
+### 楽観的同時実行制御を使用したレビュー
+
+```python
+"""レビュー中のバージョン競合の処理"""
+from shannon import ShannonClient, ValidationError
+
+client = ShannonClient()
+
+workflow_id = "workflow-456"
+
+try:
+    state = client.get_review_state(workflow_id)
+    updated = client.submit_review_feedback(
+        workflow_id,
+        "全体的に良いですが、些細なスタイルの変更が必要です。",
+        version=state.version,
+    )
+    client.approve_review(workflow_id, version=updated.version)
+except ValidationError as e:
+    if "409" in str(e.code):
+        print("バージョン競合: 別のユーザーがレビューを変更しました。更新して再試行してください。")
+    else:
+        raise
+```
+
+## スキルの例
+
+### スキルの閲覧と確認
+
+```python
+"""スキル閲覧の例"""
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# 利用可能なすべてのスキルを一覧表示
+skills = client.list_skills()
+print(f"{len(skills)} 個のスキルが見つかりました:\n")
+for s in skills:
+    flag = " [危険]" if s.dangerous else ""
+    status = "有効" if s.enabled else "無効"
+    print(f"  {s.name} v{s.version} ({s.category}) - {status}{flag}")
+    print(f"    {s.description}")
+
+# カテゴリでフィルタリング
+print("\n--- コーディングスキル ---")
+coding = client.list_skills(category="coding")
+for s in coding:
+    print(f"  {s.name}: {s.description}")
+
+# 詳細情報を取得
+detail = client.get_skill("web_search")
+print(f"\nスキル詳細: {detail.name} v{detail.version}")
+print(f"  著者: {detail.author}")
+print(f"  必要なツール: {detail.requires_tools}")
+print(f"  必要なロール: {detail.requires_role}")
+print(f"  最大バジェット: {detail.budget_max}")
+
+# バージョン履歴を取得
+versions = client.get_skill_versions("web_search")
+print(f"\nweb_search のバージョン:")
+for v in versions:
+    print(f"  v{v.version} - {v.description}")
+```
+
+## スケジュール管理の例
+
+### スケジュールタスクの作成と管理
+
+```python
+"""スケジュール管理の例"""
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# 平日の毎朝9時（UTC）に実行される調査タスクを作成
+result = client.create_schedule(
+    name="デイリーAIニュース",
+    cron_expression="0 9 * * 1-5",
+    task_query="最新のAI研究ニュースを要約してください",
+    task_context={"force_research": "true", "research_strategy": "quick"},
+    timezone="UTC",
+    max_budget_per_run_usd=0.50,
+)
+schedule_id = result["schedule_id"]
+print(f"スケジュールが作成されました: {schedule_id}")
+
+# すべてのスケジュールを一覧表示
+schedules, total = client.list_schedules()
+print(f"\n{total} 個のスケジュール:")
+for s in schedules:
+    print(f"  {s.name}: {s.cron_expression} ({s.status})")
+    print(f"    実行回数: 合計 {s.total_runs}, 成功 {s.successful_runs}, 失敗 {s.failed_runs}")
+
+# スケジュールの詳細を取得
+sched = client.get_schedule(schedule_id)
+print(f"\nスケジュール: {sched.name}")
+print(f"  次回実行: {sched.next_run_at}")
+print(f"  前回実行: {sched.last_run_at}")
+
+# 実行履歴を表示
+runs, _ = client.get_schedule_runs(schedule_id)
+for run in runs:
+    print(f"  {run.triggered_at}: {run.status} - ${run.total_cost_usd:.4f}")
+
+# スケジュールを一時停止（例: メンテナンス中）
+client.pause_schedule(schedule_id, reason="メンテナンスウィンドウ")
+
+# スケジュールを再開
+client.resume_schedule(schedule_id)
+
+# スケジュール設定を更新
+client.update_schedule(
+    schedule_id,
+    cron_expression="0 8 * * 1-5",  # 8時に変更
+    max_budget_per_run_usd=0.75,
+)
+
+# 不要になったら削除
+# client.delete_schedule(schedule_id)
+```
+
 ## エラーハンドリングの例
 
-完全なパターンとフルリトライロジックの例については、専用ページをご覧ください: [Error Handling](/ja/sdk/python/error-handling)。
+完全なパターンとフルリトライロジックの例については、専用ページをご覧ください: [エラーハンドリング](/ja/sdk/python/error-handling)。
 
 ## 次のステップ
 

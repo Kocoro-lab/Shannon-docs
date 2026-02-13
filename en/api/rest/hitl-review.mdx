@@ -1,0 +1,377 @@
+---
+title: "HITL Review API"
+description: "API reference for Human-in-the-Loop research plan review endpoints"
+---
+
+## Overview
+
+The HITL (Human-in-the-Loop) review API provides endpoints for reviewing, refining, and approving AI-generated research plans before execution begins. These endpoints interact with the review state stored in Redis and coordinate with the Temporal workflow via gRPC signals.
+
+For a tutorial on using the HITL review system, see [Human-in-the-Loop Review](/tutorials/hitl-review).
+
+## Authentication
+
+**Required**: Yes
+
+Include API key in header:
+
+```http
+X-API-Key: sk_test_123456
+```
+
+Ownership is enforced: only the user who submitted the task can interact with its review.
+
+---
+
+## Get Review State
+
+```http
+GET http://localhost:8080/api/v1/tasks/{workflow_id}/review
+```
+
+### Description
+
+Returns the current review conversation state for a workflow. Use this to retrieve the initial research plan and track the review cycle.
+
+### Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `workflow_id` | string | Yes | Workflow ID (from task submission response) |
+
+### Headers
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| `X-API-Key` | Yes | API authentication key |
+
+### Response
+
+#### 200 OK
+
+```json
+{
+  "status": "reviewing",
+  "round": 1,
+  "version": 1,
+  "current_plan": "Based on your query, I propose researching...",
+  "rounds": [
+    {
+      "role": "assistant",
+      "message": "Based on your query, I propose researching...",
+      "timestamp": "2025-01-15T10:30:00Z"
+    }
+  ],
+  "query": "Research the competitive landscape of AI agent frameworks"
+}
+```
+
+**Response Headers:**
+
+| Header | Description |
+|--------|-------------|
+| `ETag` | Current version number (use with `If-Match` for concurrency control) |
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | string | `"reviewing"` (waiting for input) or `"approved"` (plan accepted) |
+| `round` | integer | Current conversation round (starts at 1) |
+| `version` | integer | Monotonic version for optimistic concurrency |
+| `current_plan` | string | Latest actionable plan (set when LLM intent is `"ready"`). May be empty if LLM is still asking clarifying questions. |
+| `rounds` | array | Full conversation history |
+| `rounds[].role` | string | `"assistant"` (LLM) or `"user"` (human feedback) |
+| `rounds[].message` | string | Message content |
+| `rounds[].timestamp` | string | RFC 3339 timestamp |
+| `query` | string | Original task query |
+
+#### 401 Unauthorized
+
+```json
+{ "error": "Unauthorized" }
+```
+
+#### 403 Forbidden
+
+```json
+{ "error": "Forbidden: not the task owner" }
+```
+
+#### 404 Not Found
+
+```json
+{ "error": "Review session not found or expired" }
+```
+
+### Example
+
+<CodeGroup>
+```bash curl
+curl -s http://localhost:8080/api/v1/tasks/task-abc123/review \
+  -H "X-API-Key: $API_KEY" | jq
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+state = client.get_review_state("task-abc123")
+print(state.status, state.round, state.version)
+```
+</CodeGroup>
+
+---
+
+## Submit Feedback
+
+```http
+POST http://localhost:8080/api/v1/tasks/{workflow_id}/review
+```
+
+### Description
+
+Sends feedback to refine the research plan. The gateway forwards the feedback to the LLM service, which generates an updated plan incorporating the user's input. The conversation round and version are incremented.
+
+A distributed Redis lock prevents concurrent feedback requests from racing during the LLM call.
+
+### Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `workflow_id` | string | Yes | Workflow ID |
+
+### Headers
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| `X-API-Key` | Yes | API authentication key |
+| `Content-Type` | Yes | `application/json` |
+| `If-Match` | No | Version number for optimistic concurrency. If provided, the request is rejected with 409 if the current version does not match. |
+
+### Body Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `action` | string | Yes | Must be `"feedback"` |
+| `message` | string | Yes | Feedback text (max 10 KB) |
+
+### Request Body
+
+```json
+{
+  "action": "feedback",
+  "message": "Focus on open-source frameworks and include pricing comparisons"
+}
+```
+
+### Response
+
+#### 200 OK
+
+```json
+{
+  "status": "reviewing",
+  "plan": {
+    "message": "I've updated the research plan to focus on...",
+    "round": 2,
+    "version": 2,
+    "intent": "ready"
+  }
+}
+```
+
+**Response Headers:**
+
+| Header | Description |
+|--------|-------------|
+| `ETag` | Updated version number |
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | string | Always `"reviewing"` for feedback responses |
+| `plan.message` | string | Updated plan from the LLM |
+| `plan.round` | integer | Current round number |
+| `plan.version` | integer | Updated version (for next `If-Match`) |
+| `plan.intent` | string | `"feedback"` (LLM asking questions) or `"ready"` (actionable plan proposed) |
+
+#### 400 Bad Request
+
+```json
+{ "error": "message is required for feedback" }
+```
+
+```json
+{ "error": "message exceeds maximum length (10KB)" }
+```
+
+```json
+{ "error": "action must be 'feedback' or 'approve'" }
+```
+
+#### 404 Not Found
+
+```json
+{ "error": "Review session not found or expired" }
+```
+
+#### 409 Conflict
+
+Version mismatch:
+
+```json
+{ "error": "Conflict: state has been modified" }
+```
+
+Another feedback request in progress:
+
+```json
+{ "error": "Another feedback request is in progress. Please wait." }
+```
+
+Maximum rounds exceeded:
+
+```json
+{ "error": "Maximum review rounds reached. Please approve the plan." }
+```
+
+#### 502 Bad Gateway
+
+LLM service unavailable:
+
+```json
+{ "error": "Failed to generate updated plan" }
+```
+
+### Example
+
+<CodeGroup>
+```bash curl
+curl -X POST http://localhost:8080/api/v1/tasks/task-abc123/review \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: $API_KEY" \
+  -H "If-Match: 1" \
+  -d '{
+    "action": "feedback",
+    "message": "Include a section on pricing and add LangGraph to the comparison"
+  }'
+```
+
+```python Python SDK
+updated = client.submit_review_feedback(
+    "task-abc123",
+    "Include a section on pricing and add LangGraph to the comparison",
+    version=1,
+)
+print(updated.version, updated.current_plan)
+```
+</CodeGroup>
+
+---
+
+## Approve Plan
+
+```http
+POST http://localhost:8080/api/v1/tasks/{workflow_id}/review
+```
+
+### Description
+
+Approves the current research plan, unblocking the workflow to proceed with execution. The gateway sends a Temporal Signal to the waiting workflow, injecting the confirmed plan and review conversation into the task context.
+
+### Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `workflow_id` | string | Yes | Workflow ID |
+
+### Headers
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| `X-API-Key` | Yes | API authentication key |
+| `Content-Type` | Yes | `application/json` |
+| `If-Match` | No | Version number for optimistic concurrency |
+
+### Body Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `action` | string | Yes | Must be `"approve"` |
+
+### Request Body
+
+```json
+{
+  "action": "approve"
+}
+```
+
+### Response
+
+#### 200 OK
+
+```json
+{
+  "status": "approved",
+  "message": "Research started"
+}
+```
+
+#### 400 Bad Request
+
+No plan available to approve:
+
+```json
+{ "error": "No research plan to approve. Please provide feedback to generate a plan first." }
+```
+
+#### 409 Conflict
+
+Version mismatch:
+
+```json
+{ "error": "Conflict: plan has been updated. Please review the latest version." }
+```
+
+Feedback in progress:
+
+```json
+{ "error": "A feedback request is in progress. Please wait and try again." }
+```
+
+#### 502 Bad Gateway
+
+```json
+{ "error": "Failed to approve review" }
+```
+
+### Example
+
+<CodeGroup>
+```bash curl
+curl -X POST http://localhost:8080/api/v1/tasks/task-abc123/review \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: $API_KEY" \
+  -H "If-Match: 2" \
+  -d '{"action": "approve"}'
+```
+
+```python Python SDK
+result = client.approve_review("task-abc123", version=2)
+print(result)  # {"status": "approved", "message": "Research started"}
+```
+</CodeGroup>
+
+---
+
+## Behavior Notes
+
+- **Redis TTL**: Review state is stored in Redis with a TTL equal to the review timeout plus a 5-minute buffer (default: 20 minutes). After expiry, the review session is no longer accessible.
+- **Maximum rounds**: 10 feedback rounds are permitted. At the final round, the LLM is instructed to produce a definitive plan. Beyond this limit, only approval is accepted.
+- **Ownership**: Only the user who submitted the task can access its review state (enforced via `owner_user_id` stored in Redis).
+- **Concurrency**: Both feedback and approval acquire a distributed Redis lock. If a feedback request is in progress (holding the lock), approval will fail fast with 409.
+- **SSE events**: The review cycle emits `RESEARCH_PLAN_READY`, `REVIEW_USER_FEEDBACK`, `RESEARCH_PLAN_UPDATED`, and `RESEARCH_PLAN_APPROVED` events to the Redis event stream. These appear in the SSE stream and are persisted for session history.
+- **Token tracking**: LLM token usage during review (feedback rounds) is recorded via `RecordTokenUsage` gRPC for accurate cost accounting.

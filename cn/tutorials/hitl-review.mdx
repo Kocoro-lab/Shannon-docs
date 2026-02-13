@@ -1,0 +1,472 @@
+---
+title: "人机协同审核"
+description: "使用 Shannon 的 HITL 审核系统，在研究执行前审核、优化和批准 AI 生成的研究计划。"
+---
+
+# 人机协同审核
+
+Shannon 的人机协同（HITL）审核系统允许你在工作流开始执行之前，**审核和优化 AI 生成的研究计划**。这对于深度研究任务特别有用——你可以引导研究方向、添加约束，或确保代理聚焦于最重要的内容。
+
+## 你将学到
+
+- HITL 审核周期的工作原理（计划生成、反馈、批准）
+- 在任务提交时启用 HITL 审核
+- 与审核 API 交互（获取状态、发送反馈、批准）
+- 基于版本号的乐观并发控制
+- 审核过程中发出的 SSE 事件
+- Python SDK 中的 HITL 审核用法
+- 配置选项与超时设置
+
+## 前置条件
+
+- 已运行的 Shannon 堆栈（Docker Compose）
+- Gateway 可通过 `http://localhost:8080` 访问
+- 鉴权默认：
+  - Docker Compose：默认关闭鉴权（`GATEWAY_SKIP_AUTH=1`）。
+  - 本地构建：默认开启鉴权。可设置 `GATEWAY_SKIP_AUTH=1` 关闭；或在请求中加入 API key 头 `-H "X-API-Key: $API_KEY"`。
+
+## HITL 审核流程
+
+HITL 审核在任务提交与研究执行之间插入人工检查点：
+
+<Steps>
+  <Step title="提交启用审核的任务">
+    在上下文中添加 `require_review: true`（或 `review_plan: "manual"`）提交研究任务。
+  </Step>
+  <Step title="AI 生成初始研究计划">
+    LLM 服务根据查询生成研究计划。工作流暂停，等待人工输入。
+  </Step>
+  <Step title="审核并提供反馈">
+    通过审核 API 查看提议的计划，发送反馈进行迭代优化（最多 10 轮）。
+  </Step>
+  <Step title="批准计划">
+    满意后批准计划。工作流恢复执行已确认的研究方向。
+  </Step>
+  <Step title="研究执行">
+    ResearchWorkflow 以批准的计划作为上下文运行，产出聚焦的、带引用的研究报告。
+  </Step>
+</Steps>
+
+### 架构
+
+```
+用户                     Gateway                 LLM Service         Orchestrator (Temporal)
+  |                        |                        |                        |
+  |-- POST /tasks -------->|                        |                        |
+  |   (require_review)     |-- gRPC SubmitTask ---->|                        |
+  |                        |                        |-- GenerateResearchPlan |
+  |                        |                        |   (Activity)           |
+  |                        |  Redis 状态初始化 <-----|                        |
+  |                        |                        |                        |
+  |  SSE: RESEARCH_PLAN_READY                       |   workflow.Select()    |
+  |<-----------------------------------------------|   (等待信号)            |
+  |                        |                        |                        |
+  |-- GET /review -------->| (读取 Redis 状态)      |                        |
+  |<-- plan + version -----|                        |                        |
+  |                        |                        |                        |
+  |-- POST /review ------->| feedback               |                        |
+  |   (action: feedback)   |-- 调用 /research-plan->|                        |
+  |                        |<-- 更新后的计划 --------|                        |
+  |<-- 新计划 + version ---|                        |                        |
+  |                        |                        |                        |
+  |-- POST /review ------->|                        |                        |
+  |   (action: approve)    |-- gRPC Signal -------->| (解除工作流阻塞)        |
+  |<-- approved -----------|                        |                        |
+  |                        |                        |-- ResearchWorkflow --->|
+```
+
+## 启用 HITL 审核
+
+在提交研究任务时，将 `require_review: true` 添加到任务上下文中：
+
+<CodeGroup>
+```bash curl
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "研究 2025 年 AI 代理框架的竞争格局",
+    "context": {
+      "force_research": true,
+      "require_review": true
+    }
+  }'
+```
+
+```bash curl（流式端点）
+curl -s -X POST http://localhost:8080/api/v1/tasks/stream \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "研究 2025 年 AI 代理框架的竞争格局",
+    "context": {
+      "force_research": true,
+      "require_review": true
+    }
+  }' | jq
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+handle = client.submit_task(
+    "研究 2025 年 AI 代理框架的竞争格局",
+    context={
+        "force_research": True,
+        "require_review": True,
+    },
+)
+```
+</CodeGroup>
+
+<Note>
+HITL 审核需要 `force_research: true`，因为审核流程属于 ResearchWorkflow 的一部分。如果不设置此参数，协调器可能将任务路由到不支持审核的其他工作流。
+</Note>
+
+另一个上下文键 `review_plan: "manual"` 也可接受，行为完全相同。桌面应用在用户对深度研究关闭自动批准时使用 `require_review: true`。
+
+## 获取审核状态
+
+提交后轮询以等待审核计划就绪。工作流通过 LLM 生成初始计划并将其存储在 Redis 中。
+
+<CodeGroup>
+```bash curl
+# 获取当前审核状态
+curl -s http://localhost:8080/api/v1/tasks/{workflow_id}/review \
+  -H "X-API-Key: $API_KEY" | jq
+```
+
+```python Python SDK
+state = client.get_review_state(handle.workflow_id)
+print(f"状态: {state.status}")
+print(f"轮次: {state.round}, 版本: {state.version}")
+print(f"计划: {state.current_plan}")
+for r in state.rounds:
+    print(f"  [{r.role}] {r.message[:100]}...")
+```
+</CodeGroup>
+
+### 响应
+
+```json
+{
+  "status": "reviewing",
+  "round": 1,
+  "version": 1,
+  "current_plan": "根据您的查询，我建议以下研究计划...",
+  "rounds": [
+    {
+      "role": "assistant",
+      "message": "根据您的查询，我建议以下研究计划...",
+      "timestamp": "2025-01-15T10:30:00Z"
+    }
+  ],
+  "query": "研究 2025 年 AI 代理框架的竞争格局"
+}
+```
+
+响应包含一个 `ETag` 头，其中包含当前版本号，用于乐观并发控制。
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `status` | string | `"reviewing"` 或 `"approved"` |
+| `round` | int | 当前对话轮次（从 1 开始） |
+| `version` | int | 用于并发控制的单调递增版本 |
+| `current_plan` | string | 最新的可执行计划（当 LLM 意图为 `"ready"` 时设置） |
+| `rounds` | array | 完整对话历史（角色、消息、时间戳） |
+| `query` | string | 原始任务查询 |
+
+## 发送反馈
+
+发送反馈来优化计划。网关将你的消息转发给 LLM，LLM 根据你的输入生成更新的计划。
+
+<CodeGroup>
+```bash curl
+curl -X POST http://localhost:8080/api/v1/tasks/{workflow_id}/review \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: $API_KEY" \
+  -H "If-Match: 1" \
+  -d '{
+    "action": "feedback",
+    "message": "更多关注开源框架，并加入价格对比"
+  }'
+```
+
+```python Python SDK
+updated = client.submit_review_feedback(
+    handle.workflow_id,
+    "更多关注开源框架，并加入价格对比",
+    version=state.version,
+)
+print(f"新版本: {updated.version}")
+print(f"更新后的计划: {updated.current_plan}")
+```
+</CodeGroup>
+
+### 反馈响应
+
+```json
+{
+  "status": "reviewing",
+  "plan": {
+    "message": "我已调整研究计划，聚焦于开源框架...",
+    "round": 2,
+    "version": 2,
+    "intent": "ready"
+  }
+}
+```
+
+`intent` 字段表示 LLM 的评估：
+- `"feedback"` -- LLM 正在提出澄清问题（尚无可执行计划）
+- `"ready"` -- LLM 已提出可执行的研究方向
+
+### 并发控制
+
+`If-Match` 头（curl）或 `version` 参数（SDK）启用乐观并发。如果自上次读取以来另一个请求修改了状态，服务器返回 `409 Conflict`：
+
+```json
+{ "error": "Conflict: state has been modified" }
+```
+
+分布式 Redis 锁还可防止两个反馈请求在 LLM 调用期间竞争。
+
+### 轮次限制
+
+最多允许 **10 轮反馈**。在最后一轮，LLM 被指示生成明确的计划。超过此限制后，仅接受批准操作：
+
+```json
+{ "error": "Maximum review rounds reached. Please approve the plan." }
+```
+
+## 批准计划
+
+计划满意后，批准以恢复工作流执行：
+
+<CodeGroup>
+```bash curl
+curl -X POST http://localhost:8080/api/v1/tasks/{workflow_id}/review \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: $API_KEY" \
+  -H "If-Match: 2" \
+  -d '{"action": "approve"}'
+```
+
+```python Python SDK
+result = client.approve_review(handle.workflow_id, version=updated.version)
+print(result)  # {"status": "approved", "message": "Research started"}
+```
+</CodeGroup>
+
+### 批准响应
+
+```json
+{
+  "status": "approved",
+  "message": "Research started"
+}
+```
+
+批准后：
+1. 网关向等待中的工作流发送 Temporal Signal
+2. 已确认的计划和审核对话被注入任务上下文
+3. ResearchWorkflow 按批准的研究方向继续执行
+4. SSE 发出 `RESEARCH_PLAN_APPROVED` 事件
+
+<Warning>
+如果 `current_plan` 为空，则无法批准。LLM 必须至少生成过一个意图为 `"ready"` 的计划。如果在没有计划的情况下尝试批准，服务器返回：
+
+```json
+{ "error": "No research plan to approve. Please provide feedback to generate a plan first." }
+```
+</Warning>
+
+## SSE 事件
+
+HITL 审核过程中发出专用 SSE 事件，可通过流式端点消费：
+
+```bash
+curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id={workflow_id}"
+```
+
+| 事件类型 | 说明 | 载荷 |
+|----------|------|------|
+| `RESEARCH_PLAN_READY` | 初始计划已生成，等待审核 | `round`, `intent` |
+| `REVIEW_USER_FEEDBACK` | 用户反馈已提交 | `round`, `version` |
+| `RESEARCH_PLAN_UPDATED` | 反馈后计划已更新 | `round`, `version`, `intent` |
+| `RESEARCH_PLAN_APPROVED` | 计划已批准，研究开始 | -- |
+
+这些事件发布到 Redis 事件流，使审核对话在会话历史和页面刷新后可见。
+
+## 配置
+
+### 审核超时
+
+工作流默认等待审核完成的时间上限为 **15 分钟**。超时后工作流终止：
+
+```json
+{
+  "status": "TASK_STATUS_COMPLETED",
+  "result": "",
+  "error_message": "research plan review timed out"
+}
+```
+
+可通过 `review_timeout` 上下文参数（单位：秒）自定义超时：
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "...",
+    "context": {
+      "force_research": true,
+      "require_review": true,
+      "review_timeout": 1800
+    }
+  }'
+```
+
+### 审批工作流（独立功能）
+
+Shannon 还有一个独立的**审批工作流**，用于非研究任务。它在 `features.yaml` 中配置，根据复杂度阈值或危险工具使用情况触发：
+
+```yaml
+# config/features.yaml
+workflows:
+  approval:
+    enabled: false                # 启用审批门控
+    complexity_threshold: 0.5     # 复杂度 >= 此值触发审批
+    dangerous_tools:
+      - file_system
+      - code_execution
+      - bash
+```
+
+审批工作流使用不同的端点（`POST /api/v1/approvals/decision`），与 HITL 研究审核相互独立。详情参见[审批任务 API 参考](/api/rest/approve-task)。
+
+## Python SDK 参考
+
+Shannon Python SDK 提供了 HITL 审核专用方法：
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# 1. 提交启用审核的任务
+handle = client.submit_task(
+    "分析 AI 编程助手市场",
+    context={"force_research": True, "require_review": True},
+)
+
+# 2. 等待计划就绪（轮询）
+import time
+state = None
+for _ in range(30):
+    try:
+        state = client.get_review_state(handle.workflow_id)
+        if state.status == "reviewing":
+            break
+    except Exception:
+        pass
+    time.sleep(2)
+
+print(f"初始计划（第 {state.round} 轮）：")
+print(state.current_plan or state.rounds[-1].message)
+
+# 3. 发送反馈
+updated = client.submit_review_feedback(
+    handle.workflow_id,
+    "加入 Cursor、GitHub Copilot 和 Windsurf，对比定价方案。",
+    version=state.version,
+)
+print(f"优化后的计划（第 {updated.round} 轮）：")
+print(updated.current_plan)
+
+# 4. 批准
+result = client.approve_review(handle.workflow_id, version=updated.version)
+print(result)
+
+# 5. 等待研究完成
+final = client.wait(handle.task_id, timeout=600)
+print(final.result)
+
+client.close()
+```
+
+### 异步 SDK
+
+```python
+from shannon import AsyncShannonClient
+
+async def review_workflow():
+    client = AsyncShannonClient(base_url="http://localhost:8080")
+
+    handle = await client.submit_task(
+        "分析 AI 代理框架",
+        context={"force_research": True, "require_review": True},
+    )
+
+    # 轮询计划
+    state = await client.get_review_state(handle.workflow_id)
+
+    # 发送反馈
+    updated = await client.submit_review_feedback(
+        handle.workflow_id,
+        "聚焦 LangGraph 与 CrewAI 对比",
+        version=state.version,
+    )
+
+    # 批准
+    await client.approve_review(handle.workflow_id, version=updated.version)
+
+    await client.close()
+```
+
+## 最佳实践
+
+<CardGroup cols={2}>
+  <Card title="使用版本跟踪" icon="code-branch">
+    始终传递 `If-Match` 头（或 SDK 中的 `version` 参数）以防止竞态条件。当多个用户或标签页可能与同一审核交互时尤为重要。
+  </Card>
+  <Card title="设置合理的超时" icon="clock">
+    默认 15 分钟超时适用于大多数交互场景。对于异步审核流程（如邮件审批），请增加 `review_timeout`。
+  </Card>
+  <Card title="等待 intent: ready" icon="check">
+    批准前确保 LLM 已生成意图为 `"ready"` 的计划。意图为 `"feedback"` 的轮次表示 LLM 需要更多信息。
+  </Card>
+  <Card title="配合研究策略使用" icon="flask">
+    HITL 审核与所有研究策略预设（`quick`、`standard`、`deep`、`academic`）兼容。批准的计划将指导后续研究执行。
+  </Card>
+</CardGroup>
+
+## 故障排查
+
+<AccordionGroup>
+  <Accordion title="审核会话未找到（404）">
+    审核状态存储在 Redis 中，TTL 为 20 分钟（审核超时 + 5 分钟缓冲）。超时后审核会话不再可访问。重新提交任务以启动新的审核。
+  </Accordion>
+  <Accordion title="反馈冲突错误（409）">
+    表示自上次读取以来另一个请求修改了审核状态，或另一个反馈请求正在进行中。通过 `GET /review` 重新获取当前状态，然后使用最新版本重试。
+  </Accordion>
+  <Accordion title="批准被拒绝：无研究计划">
+    LLM 仅提出了澄清问题（intent: `"feedback"`），尚未生成可执行计划。发送至少一条反馈消息，以便 LLM 生成具体的研究方向。
+  </Accordion>
+  <Accordion title="审核期间工作流超时">
+    审核用时超过配置的超时时间（默认：15 分钟）。在任务上下文中增加 `review_timeout`，或更快地完成批准。
+  </Accordion>
+</AccordionGroup>
+
+## 后续步骤
+
+<CardGroup cols={3}>
+  <Card title="深度研究" icon="microscope" href="/tutorials/research-assistant">
+    构建全面的研究报告
+  </Card>
+  <Card title="审批任务 API" icon="check-circle" href="/api/rest/approve-task">
+    非研究任务的审批工作流
+  </Card>
+  <Card title="HITL 审核 API" icon="book" href="/api/rest/hitl-review">
+    审核端点完整 API 参考
+  </Card>
+</CardGroup>

@@ -1,0 +1,320 @@
+---
+title: "Swarm Workflow API"
+description: "API reference for submitting and monitoring swarm multi-agent tasks"
+---
+
+## Overview
+
+The swarm workflow is triggered by setting `force_swarm: true` in the task context. It uses the same `POST /api/v1/tasks` endpoint as all other workflows -- no separate endpoint is needed.
+
+Swarm mode decomposes your query into subtasks, spawns persistent agents that work in parallel with inter-agent messaging, and synthesizes results into a unified response.
+
+## Submitting a Swarm Task
+
+### Endpoint
+
+```
+POST http://localhost:8080/api/v1/tasks
+```
+
+### Request Body
+
+```json
+{
+  "query": "Your complex multi-faceted task",
+  "session_id": "optional-session-id",
+  "context": {
+    "force_swarm": true
+  }
+}
+```
+
+### Swarm-Specific Context Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `force_swarm` | boolean | `false` | **Required** to trigger swarm workflow |
+| `model_tier` | string | (auto) | Model tier for agent execution: `small`, `medium`, `large` |
+
+All standard task parameters (`session_id`, `mode`, `model_tier`, `model_override`, `provider_override`) work with swarm tasks.
+
+<Note>
+The `force_swarm` flag must be set inside the `context` object, not as a top-level parameter. The swarm must also be enabled in the server configuration (`workflows.swarm.enabled: true` in `features.yaml`).
+</Note>
+
+### Example: Basic Swarm Task
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Compare AI chip markets across US, Japan, and South Korea",
+    "session_id": "swarm-demo",
+    "context": {
+      "force_swarm": true
+    }
+  }'
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+handle = client.submit_task(
+    "Compare AI chip markets across US, Japan, and South Korea",
+    force_swarm=True,
+    session_id="swarm-demo",
+)
+```
+
+```python Python (httpx)
+import httpx
+
+response = httpx.post(
+    "http://localhost:8080/api/v1/tasks",
+    json={
+        "query": "Compare AI chip markets across US, Japan, and South Korea",
+        "session_id": "swarm-demo",
+        "context": {"force_swarm": True},
+    },
+)
+task = response.json()
+print(f"Task ID: {task['task_id']}")
+```
+
+</CodeGroup>
+
+### Response
+
+```json
+{
+  "task_id": "task-abc123...",
+  "status": "STATUS_CODE_OK",
+  "message": "Task submitted successfully",
+  "created_at": "2025-11-10T10:00:00Z"
+}
+```
+
+**Headers:**
+- `X-Workflow-ID`: Temporal workflow identifier (same as `task_id`)
+- `X-Session-ID`: Session identifier
+
+## Submit + Stream
+
+Use the combined endpoint to submit and get a stream URL in one call:
+
+```
+POST http://localhost:8080/api/v1/tasks/stream
+```
+
+<CodeGroup>
+
+```bash cURL
+curl -s -X POST http://localhost:8080/api/v1/tasks/stream \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Analyze competitive landscape of major cloud AI platforms",
+    "context": { "force_swarm": true }
+  }' | jq
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+handle, stream_url = client.submit_and_stream(
+    "Analyze competitive landscape of major cloud AI platforms",
+    force_swarm=True,
+)
+print(f"Stream URL: {stream_url}")
+```
+
+</CodeGroup>
+
+**Response (201 Created):**
+```json
+{
+  "workflow_id": "task-def456...",
+  "task_id": "task-def456...",
+  "stream_url": "/api/v1/stream/sse?workflow_id=task-def456..."
+}
+```
+
+## Monitoring Swarm Progress
+
+### SSE Event Stream
+
+```
+GET http://localhost:8080/api/v1/stream/sse?workflow_id={workflow_id}
+```
+
+### Swarm-Specific Events
+
+| Event Type | `agent_id` | Description |
+|------------|-----------|-------------|
+| `WORKFLOW_STARTED` | `swarm-supervisor` | Swarm workflow initialized |
+| `PROGRESS` (planning) | `swarm-supervisor` | Task decomposition in progress |
+| `PROGRESS` (spawning) | `swarm-supervisor` | Agents being assigned |
+| `PROGRESS` (monitoring) | `swarm-supervisor` | Agents working in parallel |
+| `AGENT_STARTED` | Agent name (e.g., `takao`) | Individual agent began execution |
+| `PROGRESS` (iteration) | Agent name | Agent iteration progress |
+| `AGENT_COMPLETED` | Agent name | Individual agent finished |
+| `PROGRESS` (synthesizing) | `swarm-supervisor` | Combining results from all agents |
+| `WORKFLOW_COMPLETED` | `swarm-supervisor` | Final synthesis complete |
+
+### Example SSE Output
+
+```
+data: {"type":"WORKFLOW_STARTED","agent_id":"swarm-supervisor","message":"Assigning a team of agents","timestamp":"..."}
+
+data: {"type":"PROGRESS","agent_id":"swarm-supervisor","message":"Planning approach","timestamp":"..."}
+
+data: {"type":"PROGRESS","agent_id":"swarm-supervisor","message":"Assigning 3 agents","timestamp":"..."}
+
+data: {"type":"AGENT_STARTED","agent_id":"takao","message":"Agent takao started","timestamp":"..."}
+
+data: {"type":"PROGRESS","agent_id":"takao","message":"Agent takao progress: iteration 1/25, action: tool_call","timestamp":"..."}
+
+data: {"type":"AGENT_COMPLETED","agent_id":"takao","message":"Agent takao completed","timestamp":"..."}
+
+data: {"type":"PROGRESS","agent_id":"swarm-supervisor","message":"Combining findings from 3 agents","timestamp":"..."}
+
+data: {"type":"WORKFLOW_COMPLETED","agent_id":"swarm-supervisor","message":"All done","timestamp":"..."}
+```
+
+## Task Status Response
+
+```
+GET http://localhost:8080/api/v1/tasks/{task_id}
+```
+
+### Swarm Metadata
+
+When a swarm workflow completes, the status response includes swarm-specific metadata:
+
+```json
+{
+  "task_id": "task-abc123...",
+  "status": "TASK_STATUS_COMPLETED",
+  "result": "## AI Chip Market Comparison\n\n...",
+  "metadata": {
+    "workflow_type": "swarm",
+    "total_agents": 3,
+    "agents": [
+      {
+        "agent_id": "takao",
+        "iterations": 8,
+        "tokens": 14200,
+        "success": true,
+        "model": "gpt-5-mini-2025-08-07"
+      },
+      {
+        "agent_id": "mitaka",
+        "iterations": 6,
+        "tokens": 9800,
+        "success": true,
+        "model": "gpt-5-mini-2025-08-07"
+      },
+      {
+        "agent_id": "kichijoji",
+        "iterations": 7,
+        "tokens": 11200,
+        "success": true,
+        "model": "gpt-5-mini-2025-08-07"
+      }
+    ]
+  },
+  "usage": {
+    "total_tokens": 35200,
+    "estimated_cost": 0.042
+  }
+}
+```
+
+### Metadata Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `metadata.workflow_type` | string | Always `"swarm"` for swarm workflows |
+| `metadata.total_agents` | integer | Total agents that participated (initial + dynamic) |
+| `metadata.agents` | array | Per-agent execution summary |
+| `metadata.agents[].agent_id` | string | Deterministic agent name (Japanese station name) |
+| `metadata.agents[].iterations` | integer | Reason-act cycles completed |
+| `metadata.agents[].tokens` | integer | Total tokens consumed |
+| `metadata.agents[].success` | boolean | Whether the agent completed successfully |
+| `metadata.agents[].model` | string | LLM model used |
+
+## Server Configuration
+
+Swarm parameters are configured in `config/features.yaml` under `workflows.swarm`:
+
+```yaml
+workflows:
+  swarm:
+    enabled: true                     # Enable/disable swarm routing
+    max_agents: 10                    # Total agent cap (initial + dynamic)
+    max_iterations_per_agent: 25      # Max reason-act loops per agent
+    agent_timeout_seconds: 600        # Per-agent wall-clock timeout
+    max_messages_per_agent: 20        # P2P message cap per agent
+    workspace_snippet_chars: 800      # Max chars per workspace entry in prompt
+    workspace_max_entries: 5          # Recent entries shown per topic
+```
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `enabled` | `true` | Must be `true` for `force_swarm` to work |
+| `max_agents` | `10` | Total cap including dynamically spawned helpers |
+| `max_iterations_per_agent` | `25` | Per-agent iteration limit |
+| `agent_timeout_seconds` | `600` | 10-minute per-agent timeout |
+| `max_messages_per_agent` | `20` | Prevents P2P message flooding |
+| `workspace_snippet_chars` | `800` | Controls token usage from workspace context |
+| `workspace_max_entries` | `5` | Limits workspace entries per topic in agent prompt |
+
+## Error Handling and Fallback
+
+### Partial Failure
+
+If some agents fail but at least one succeeds, the swarm workflow still produces a result using the successful agents' outputs.
+
+If all agents fail, the response includes an error:
+
+```json
+{
+  "task_id": "task-xyz...",
+  "status": "TASK_STATUS_COMPLETED",
+  "result": "",
+  "error": "All 3 agents failed — no results to synthesize",
+  "metadata": {
+    "workflow_type": "swarm",
+    "total_agents": 3,
+    "agents": [
+      {"agent_id": "takao", "success": false, "error": "consecutive tool errors"},
+      {"agent_id": "mitaka", "success": false, "error": "LLM step failed at iteration 2"},
+      {"agent_id": "kichijoji", "success": false, "error": "consecutive tool errors"}
+    ]
+  }
+}
+```
+
+### Automatic Fallback
+
+If the entire swarm workflow fails (decomposition error, all agents fail, etc.), Shannon automatically falls back to standard workflow routing (DAG or Supervisor). The `force_swarm` flag is removed from context to prevent recursive failures.
+
+## Related Endpoints
+
+<CardGroup cols={2}>
+  <Card title="Submit Task" icon="play" href="/en/api/rest/submit-task">
+    POST /api/v1/tasks (full reference)
+  </Card>
+  <Card title="Get Status" icon="circle-info" href="/en/api/rest/get-status">
+    GET /api/v1/tasks/{id}
+  </Card>
+  <Card title="Stream Events" icon="stream" href="/en/api/rest/streaming">
+    SSE event streaming
+  </Card>
+  <Card title="Cancel Task" icon="stop" href="/en/api/rest/cancel-task">
+    POST /api/v1/tasks/{id}/cancel
+  </Card>
+</CardGroup>

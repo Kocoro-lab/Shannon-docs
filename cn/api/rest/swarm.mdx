@@ -1,0 +1,320 @@
+---
+title: "Swarm 工作流 API"
+description: "提交和监控 Swarm 多智能体任务的 API 参考"
+---
+
+## 概述
+
+Swarm 工作流通过在任务上下文中设置 `force_swarm: true` 来触发。它使用与所有其他工作流相同的 `POST /api/v1/tasks` 端点——无需单独的端点。
+
+Swarm 模式将查询分解为子任务，生成持久化智能体并行工作，支持智能体间消息传递，并将结果综合为统一响应。
+
+## 提交 Swarm 任务
+
+### 端点
+
+```
+POST http://localhost:8080/api/v1/tasks
+```
+
+### 请求体
+
+```json
+{
+  "query": "Your complex multi-faceted task",
+  "session_id": "optional-session-id",
+  "context": {
+    "force_swarm": true
+  }
+}
+```
+
+### Swarm 专用上下文参数
+
+| 参数 | 类型 | 默认值 | 描述 |
+|------|------|--------|------|
+| `force_swarm` | boolean | `false` | **必需**，触发 Swarm 工作流 |
+| `model_tier` | string | （自动） | 智能体执行的模型级别：`small`、`medium`、`large` |
+
+所有标准任务参数（`session_id`、`mode`、`model_tier`、`model_override`、`provider_override`）均适用于 Swarm 任务。
+
+<Note>
+`force_swarm` 标志必须设置在 `context` 对象内，而非顶级参数。同时服务端配置中必须启用 Swarm（`features.yaml` 中 `workflows.swarm.enabled: true`）。
+</Note>
+
+### 示例：基本 Swarm 任务
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Compare AI chip markets across US, Japan, and South Korea",
+    "session_id": "swarm-demo",
+    "context": {
+      "force_swarm": true
+    }
+  }'
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+handle = client.submit_task(
+    "Compare AI chip markets across US, Japan, and South Korea",
+    force_swarm=True,
+    session_id="swarm-demo",
+)
+```
+
+```python Python (httpx)
+import httpx
+
+response = httpx.post(
+    "http://localhost:8080/api/v1/tasks",
+    json={
+        "query": "Compare AI chip markets across US, Japan, and South Korea",
+        "session_id": "swarm-demo",
+        "context": {"force_swarm": True},
+    },
+)
+task = response.json()
+print(f"Task ID: {task['task_id']}")
+```
+
+</CodeGroup>
+
+### 响应
+
+```json
+{
+  "task_id": "task-abc123...",
+  "status": "STATUS_CODE_OK",
+  "message": "Task submitted successfully",
+  "created_at": "2025-11-10T10:00:00Z"
+}
+```
+
+**响应头：**
+- `X-Workflow-ID`：Temporal 工作流标识符（与 `task_id` 相同）
+- `X-Session-ID`：会话标识符
+
+## 提交 + 流式传输
+
+使用合并端点一步提交并获取流式传输 URL：
+
+```
+POST http://localhost:8080/api/v1/tasks/stream
+```
+
+<CodeGroup>
+
+```bash cURL
+curl -s -X POST http://localhost:8080/api/v1/tasks/stream \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Analyze competitive landscape of major cloud AI platforms",
+    "context": { "force_swarm": true }
+  }' | jq
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+handle, stream_url = client.submit_and_stream(
+    "Analyze competitive landscape of major cloud AI platforms",
+    force_swarm=True,
+)
+print(f"Stream URL: {stream_url}")
+```
+
+</CodeGroup>
+
+**响应（201 Created）：**
+```json
+{
+  "workflow_id": "task-def456...",
+  "task_id": "task-def456...",
+  "stream_url": "/api/v1/stream/sse?workflow_id=task-def456..."
+}
+```
+
+## 监控 Swarm 进度
+
+### SSE 事件流
+
+```
+GET http://localhost:8080/api/v1/stream/sse?workflow_id={workflow_id}
+```
+
+### Swarm 专用事件
+
+| 事件类型 | `agent_id` | 描述 |
+|---------|-----------|------|
+| `WORKFLOW_STARTED` | `swarm-supervisor` | Swarm 工作流已初始化 |
+| `PROGRESS`（规划） | `swarm-supervisor` | 任务分解进行中 |
+| `PROGRESS`（生成） | `swarm-supervisor` | 正在分配智能体 |
+| `PROGRESS`（监控） | `swarm-supervisor` | 智能体并行工作中 |
+| `AGENT_STARTED` | 智能体名称（如 `takao`） | 单个智能体开始执行 |
+| `PROGRESS`（迭代） | 智能体名称 | 智能体迭代进度 |
+| `AGENT_COMPLETED` | 智能体名称 | 单个智能体已完成 |
+| `PROGRESS`（综合） | `swarm-supervisor` | 正在合并所有智能体的结果 |
+| `WORKFLOW_COMPLETED` | `swarm-supervisor` | 最终综合完成 |
+
+### SSE 输出示例
+
+```
+data: {"type":"WORKFLOW_STARTED","agent_id":"swarm-supervisor","message":"Assigning a team of agents","timestamp":"..."}
+
+data: {"type":"PROGRESS","agent_id":"swarm-supervisor","message":"Planning approach","timestamp":"..."}
+
+data: {"type":"PROGRESS","agent_id":"swarm-supervisor","message":"Assigning 3 agents","timestamp":"..."}
+
+data: {"type":"AGENT_STARTED","agent_id":"takao","message":"Agent takao started","timestamp":"..."}
+
+data: {"type":"PROGRESS","agent_id":"takao","message":"Agent takao progress: iteration 1/25, action: tool_call","timestamp":"..."}
+
+data: {"type":"AGENT_COMPLETED","agent_id":"takao","message":"Agent takao completed","timestamp":"..."}
+
+data: {"type":"PROGRESS","agent_id":"swarm-supervisor","message":"Combining findings from 3 agents","timestamp":"..."}
+
+data: {"type":"WORKFLOW_COMPLETED","agent_id":"swarm-supervisor","message":"All done","timestamp":"..."}
+```
+
+## 任务状态响应
+
+```
+GET http://localhost:8080/api/v1/tasks/{task_id}
+```
+
+### Swarm 元数据
+
+当 Swarm 工作流完成时，状态响应包含 Swarm 专用元数据：
+
+```json
+{
+  "task_id": "task-abc123...",
+  "status": "TASK_STATUS_COMPLETED",
+  "result": "## AI Chip Market Comparison\n\n...",
+  "metadata": {
+    "workflow_type": "swarm",
+    "total_agents": 3,
+    "agents": [
+      {
+        "agent_id": "takao",
+        "iterations": 8,
+        "tokens": 14200,
+        "success": true,
+        "model": "gpt-5-mini-2025-08-07"
+      },
+      {
+        "agent_id": "mitaka",
+        "iterations": 6,
+        "tokens": 9800,
+        "success": true,
+        "model": "gpt-5-mini-2025-08-07"
+      },
+      {
+        "agent_id": "kichijoji",
+        "iterations": 7,
+        "tokens": 11200,
+        "success": true,
+        "model": "gpt-5-mini-2025-08-07"
+      }
+    ]
+  },
+  "usage": {
+    "total_tokens": 35200,
+    "estimated_cost": 0.042
+  }
+}
+```
+
+### 元数据字段
+
+| 字段 | 类型 | 描述 |
+|------|------|------|
+| `metadata.workflow_type` | string | Swarm 工作流始终为 `"swarm"` |
+| `metadata.total_agents` | integer | 参与的智能体总数（初始 + 动态） |
+| `metadata.agents` | array | 每个智能体的执行摘要 |
+| `metadata.agents[].agent_id` | string | 确定性智能体名称（日本车站名称） |
+| `metadata.agents[].iterations` | integer | 完成的推理-行动循环次数 |
+| `metadata.agents[].tokens` | integer | 消耗的总 Token 数 |
+| `metadata.agents[].success` | boolean | 智能体是否成功完成 |
+| `metadata.agents[].model` | string | 使用的 LLM 模型 |
+
+## 服务端配置
+
+Swarm 参数在 `config/features.yaml` 的 `workflows.swarm` 下配置：
+
+```yaml
+workflows:
+  swarm:
+    enabled: true                     # 启用/禁用 Swarm 路由
+    max_agents: 10                    # 智能体总数上限（初始 + 动态）
+    max_iterations_per_agent: 25      # 每个智能体的最大推理-行动循环次数
+    agent_timeout_seconds: 600        # 每个智能体超时
+    max_messages_per_agent: 20        # 每个智能体的 P2P 消息上限
+    workspace_snippet_chars: 800      # 提示中每个工作区条目的最大字符数
+    workspace_max_entries: 5          # 每个主题显示的最近条目数
+```
+
+| 参数 | 默认值 | 描述 |
+|------|--------|------|
+| `enabled` | `true` | 必须为 `true` 才能使 `force_swarm` 生效 |
+| `max_agents` | `10` | 总上限（含动态生成的辅助智能体） |
+| `max_iterations_per_agent` | `25` | 每个智能体的迭代限制 |
+| `agent_timeout_seconds` | `600` | 每个智能体 10 分钟超时 |
+| `max_messages_per_agent` | `20` | 防止 P2P 消息泛滥 |
+| `workspace_snippet_chars` | `800` | 控制工作区上下文的 Token 消耗 |
+| `workspace_max_entries` | `5` | 限制智能体提示中每个主题的工作区条目 |
+
+## 错误处理和回退
+
+### 部分失败
+
+如果部分智能体失败但至少一个成功，Swarm 工作流仍会使用成功智能体的输出生成结果。
+
+如果所有智能体都失败，响应将包含错误信息：
+
+```json
+{
+  "task_id": "task-xyz...",
+  "status": "TASK_STATUS_COMPLETED",
+  "result": "",
+  "error": "All 3 agents failed — no results to synthesize",
+  "metadata": {
+    "workflow_type": "swarm",
+    "total_agents": 3,
+    "agents": [
+      {"agent_id": "takao", "success": false, "error": "consecutive tool errors"},
+      {"agent_id": "mitaka", "success": false, "error": "LLM step failed at iteration 2"},
+      {"agent_id": "kichijoji", "success": false, "error": "consecutive tool errors"}
+    ]
+  }
+}
+```
+
+### 自动回退
+
+如果整个 Swarm 工作流失败（分解错误、所有智能体失败等），Shannon 会自动回退到标准工作流路由（DAG 或 Supervisor）。`force_swarm` 标志会从上下文中移除以防止递归失败。
+
+## 相关端点
+
+<CardGroup cols={2}>
+  <Card title="提交任务" icon="play" href="/cn/api/rest/submit-task">
+    POST /api/v1/tasks（完整参考）
+  </Card>
+  <Card title="获取状态" icon="circle-info" href="/cn/api/rest/get-status">
+    GET /api/v1/tasks/{id}
+  </Card>
+  <Card title="流式事件" icon="stream" href="/cn/api/rest/streaming">
+    SSE 事件流
+  </Card>
+  <Card title="取消任务" icon="stop" href="/cn/api/rest/cancel-task">
+    POST /api/v1/tasks/{id}/cancel
+  </Card>
+</CardGroup>

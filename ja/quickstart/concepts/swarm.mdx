@@ -1,0 +1,174 @@
+---
+title: "Swarmマルチエージェントオーケストレーション"
+description: "Shannonの永続的で自律的なマルチエージェント協調のためのSwarm Workflowの理解"
+---
+
+## Swarmモードとは？
+
+Swarmモードは、複数の永続的な自律Agentを並列にデプロイし、複雑なタスクを協力して解決します。標準的なDAGやSupervisor Workflowでは各Agentが一度実行して結果を返すのに対し、Swarm Agentは反復的な**推論-行動ループ**を実行します。メールボックスを確認し、ツールを呼び出し、チームメイトと発見を共有し、独立して収束します。
+
+Swarmスーパーバイザーが実行を監視し、Agentが支援を要請した場合にヘルパーAgentを動的に生成できます。
+
+## 仕組み
+
+ShannonのSwarm Workflowは4つのフェーズのライフサイクルに従います：
+
+### フェーズ1: タスク分解
+
+スーパーバイザーがクエリを受け取り、他のWorkflowと同じ分解エンジンでサブタスクに分割します。各サブタスクが1つのAgentの担当になります。
+
+```
+Query: "Compare AI chip markets across US, Japan, and South Korea"
+
+Subtasks:
+├── Agent 1: "Research US AI chip market landscape"
+├── Agent 2: "Research Japan AI chip market landscape"
+└── Agent 3: "Research South Korea AI chip market landscape"
+```
+
+### フェーズ2: Agentの生成
+
+各サブタスクに対して、スーパーバイザーが**AgentLoop**子Workflowを生成します。各Agentは以下を受け取ります：
+
+- 一意の名前（日本の駅名に基づく決定論的な命名）
+- サブタスクの説明
+- すべてのAgentとその担当を一覧する**チームロスター**
+- 共有ワークスペースへのアクセス
+
+### フェーズ3: 並列実行
+
+すべてのAgentが同時に作業します。各Agentは最大25回（設定可能）の推論-行動サイクルを実行します：
+
+1. **メールボックスを確認**して他のAgentからのメッセージを受信
+2. **共有ワークスペースを読み取り**、チームメイトが公開した発見を確認
+3. **LLMを呼び出し**て次のアクションを決定
+4. **アクションを実行**（ツール呼び出し、データ公開、メッセージ送信、ヘルプ要請、完了）
+5. **収束を確認**（Agentは行き詰まっていないか、完了したか？）
+
+### フェーズ4: 統合
+
+すべてのAgentが完了すると、スーパーバイザーが結果を収集し、統一されたレスポンスを生成します。Agent結果が1つだけの場合は直接返します。複数の結果がある場合、LLM統合ステップで発見を一貫した回答にマージします。
+
+## Agentアクション
+
+各イテレーションで、Agentは1つのアクションを選択します：
+
+| アクション | 説明 |
+|-----------|------|
+| `tool_call` | ツールを実行（Web検索、ファイル読み取りなど） |
+| `publish_data` | ワークスペースを通じてチームに発見を共有 |
+| `send_message` | 特定のチームメイトにダイレクトメッセージを送信 |
+| `request_help` | スーパーバイザーに新しいヘルパーAgentの生成を要請 |
+| `done` | 最終レスポンスを返して終了 |
+
+## Agent間通信
+
+Swarm Agentは2つのメカニズムで協調します：
+
+### P2Pメッセージング
+
+AgentはRedisベースのメールボックスを通じて特定のチームメイトにダイレクトメッセージを送信します。メッセージタイプには`request`、`offer`、`accept`、`delegation`、`info`があります。
+
+各LLM呼び出し前に、Agentのメールボックスで新しいメッセージがチェックされます。受信メッセージはAgentのプロンプトコンテキストに表示されます。
+
+### 共有ワークスペース
+
+Agentはトピックベースのワークスペースリストに発見を公開します。各イテレーション前に、すべてのAgentがすべてのトピックから最新のワークスペースエントリを取得し、チーム全体が集合的な進捗を把握します。
+
+```
+Shared Workspace:
+├── Topic: "findings"
+│   ├── Agent-Takao: "NVIDIA dominates US with 80% market share..."
+│   └── Agent-Mitaka: "Japan focuses on edge AI chips..."
+└── Topic: "sources"
+    └── Agent-Kichijoji: "Samsung foundry plans announced..."
+```
+
+## 動的Agent生成
+
+Agentが単独で処理できないサブタスクに遭遇した場合、スーパーバイザーにヘルプを要請できます：
+
+1. Agentが説明と必要なスキルを含む`request_help`アクションを送信
+2. スーパーバイザーがメールボックスで要請を受信（3秒ごとにポーリング）
+3. スーパーバイザーがヘルパータスク用の新しいAgentLoopを生成
+4. スーパーバイザーが要請元Agentに新しいAgentのIDを通知
+
+**安全制限**: 各Agentは最大1つのヘルパーを生成でき、Agent総数は設定された上限（デフォルト：10）に制限されます。
+
+## 収束検出
+
+3つのメカニズムでAgentが無期限に実行されることを防止します：
+
+<AccordionGroup>
+  <Accordion title="進捗なし検出">
+    Agentが3回連続でツールを使用せず（メッセージングまたは公開のみ）イテレーションを行った場合、収束と見なされ、部分的な発見を返します。
+  </Accordion>
+
+  <Accordion title="連続エラー中止">
+    3回連続で永続的なツールエラーが発生した場合（レートリミットなどの一時的エラーを除く）、Agentは中止し、失敗を報告します。
+  </Accordion>
+
+  <Accordion title="最大イテレーション強制完了">
+    最後のイテレーションでAgentが`done`を呼び出していない場合、Workflowが強制完了し、直近のイテレーションからサマリーを構築します。
+  </Accordion>
+</AccordionGroup>
+
+一時的なエラー（レートリミット、タイムアウト、503）は自動リトライをトリガーし、バックオフが段階的に増加します（5秒刻み、最大30秒）。これらは中止しきい値にカウントされません。
+
+## Swarmと他のWorkflowの使い分け
+
+| シナリオ | 推奨Workflow |
+|---------|-------------|
+| シンプルなQ&A、単一ステップのタスク | Simple / DAG |
+| 引用付きのマルチステップリサーチ | Research Workflow |
+| Agent間のリアルタイム協調が必要なタスク | **Swarm** |
+| Agentが中間的な発見を共有する必要があるタスク | **Swarm** |
+| 動的なサブタスク発見を伴う長時間の探索 | **Swarm** |
+| ツールの反復（検索、分析、改善）が必要なタスク | **Swarm** |
+
+<Note>
+Swarmモードは各Agentが複数のLLMイテレーションを実行するため、標準Workflowよりも多くのトークンを消費します。永続的で協調的なマルチAgent実行から本当に恩恵を受けるタスクに使用してください。
+</Note>
+
+## 設定
+
+Swarmの動作は`config/features.yaml`で制御されます：
+
+| パラメータ | デフォルト | 説明 |
+|-----------|----------|------|
+| `swarm.enabled` | `true` | Swarm Workflowの有効/無効 |
+| `swarm.max_agents` | `10` | Agent総数の上限（初期 + 動的） |
+| `swarm.max_iterations_per_agent` | `25` | Agentごとの推論-行動ループの最大回数 |
+| `swarm.agent_timeout_seconds` | `600` | Agentごとのタイムアウト（10分） |
+| `swarm.max_messages_per_agent` | `20` | AgentごとのP2Pメッセージ上限 |
+| `swarm.workspace_snippet_chars` | `800` | プロンプト内のワークスペースエントリの最大文字数 |
+| `swarm.workspace_max_entries` | `5` | 各Agentに表示される最近のエントリ数 |
+
+## ストリーミングイベント
+
+Swarm Workflowはリアルタイム監視用のSSEイベントを発行します：
+
+| イベントタイプ | Agent ID | タイミング |
+|--------------|----------|----------|
+| `WORKFLOW_STARTED` | `swarm-supervisor` | Workflow開始時 |
+| `PROGRESS` | `swarm-supervisor` | 計画、生成、監視、統合 |
+| `AGENT_STARTED` | Agent名 | Agentが最初のイテレーションを開始 |
+| `AGENT_COMPLETED` | Agent名 | Agentが完了 |
+| `WORKFLOW_COMPLETED` | `swarm-supervisor` | 最終統合完了 |
+
+## 次のステップ
+
+<CardGroup cols={2}>
+  <Card title="Swarmチュートリアル" icon="users" href="/ja/tutorials/swarm-workflow">
+    Swarm Workflowのステップバイステップガイド
+  </Card>
+  <Card title="WorkflowとPattern" icon="diagram-project" href="/ja/quickstart/concepts/workflows">
+    他のWorkflowタイプと認知パターン
+  </Card>
+  <Card title="ストリーミング" icon="stream" href="/ja/quickstart/concepts/streaming">
+    リアルタイムイベントストリーミング
+  </Card>
+  <Card title="コスト管理" icon="dollar-sign" href="/ja/quickstart/concepts/cost-control">
+    マルチAgentタスクの予算管理
+  </Card>
+</CardGroup>

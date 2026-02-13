@@ -50,6 +50,19 @@ handle = client.submit_task(
 print(client.wait(handle.task_id).result)
 ```
 
+## スウォームモード
+
+`force_swarm` でマルチエージェントスウォーム実行を強制します：
+
+```python
+handle = client.submit_task(
+  "AIワークロード向けの上位3つのクラウドプロバイダーを調査・比較してください。",
+  force_swarm=True,
+)
+result = client.wait(handle.task_id)
+print(result.result)
+```
+
 ## 非同期バージョン
 
 ```python
@@ -109,10 +122,101 @@ shannon control-state task-123
 shannon resume task-123 --reason "続行"
 ```
 
+## ヒューマン・イン・ザ・ループ レビュー
+
+人間のレビューが必要なワークフローと対話します：
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# ワークフローの現在のレビュー状態を取得
+state = client.get_review_state("workflow-123")
+print(f"ステータス: {state.status}")        # "reviewing" または "approved"
+print(f"ラウンド: {state.round}")
+print(f"現在のプラン: {state.current_plan}")
+
+# 会話ラウンドを表示
+for r in state.rounds:
+    print(f"  [{r.role}] {r.message}")
+
+# フィードバックを送信してプランを改善
+updated = client.submit_review_feedback(
+    "workflow-123",
+    "ネットワーク障害のエラーハンドリングを追加してください。",
+    version=state.version,  # 楽観的同時実行制御
+)
+print(f"更新されたラウンド: {updated.round}")
+
+# プランを承認してワークフローを続行
+result = client.approve_review("workflow-123", version=updated.version)
+print(f"レビューステータス: {result['status']}")
+```
+
+**CLIの使用法:**
+
+```bash
+# レビュー状態を取得
+shannon review-get workflow-123
+
+# フィードバックを送信
+shannon review-feedback workflow-123 "エラーハンドリングを追加"
+
+# 承認
+shannon review-approve workflow-123
+```
+
+## スキル
+
+利用可能なスキルの一覧と詳細の確認：
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# すべてのスキルを一覧表示
+skills = client.list_skills()
+for s in skills:
+    print(f"{s.name} v{s.version} [{s.category}] - {s.description}")
+
+# カテゴリでフィルタリング
+coding_skills = client.list_skills(category="coding")
+
+# 特定のスキルの詳細情報を取得
+detail = client.get_skill("web_search")
+print(f"著者: {detail.author}")
+print(f"必要なツール: {detail.requires_tools}")
+print(f"コンテンツ: {detail.content}")
+
+# スキルのすべてのバージョンを取得
+versions = client.get_skill_versions("web_search")
+for v in versions:
+    print(f"  {v.name} v{v.version}")
+```
+
+**CLIの使用法:**
+
+```bash
+# スキルを一覧表示
+shannon skills-list
+
+# スキルの詳細を取得
+shannon skill-get web_search
+
+# スキルのバージョンを取得
+shannon skill-versions web_search
+```
+
 ## CLI
 
 ```bash
 # モデル選択で提出
 python -m shannon.cli --base-url http://localhost:8080 \
   submit "要約" --model-tier small --mode simple --wait
+
+# スウォームモードで提出
+python -m shannon.cli --base-url http://localhost:8080 \
+  submit "クラウドプロバイダーを調査" --swarm --wait
 ```

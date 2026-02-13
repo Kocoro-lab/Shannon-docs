@@ -1,0 +1,472 @@
+---
+title: "Human-in-the-Loopレビュー"
+description: "ShannonのHITLレビューシステムを使用して、実行前にAI生成の研究計画をレビュー、改善、承認する方法。"
+---
+
+# Human-in-the-Loopレビュー
+
+ShannonのHuman-in-the-Loop（HITL）レビューシステムでは、ワークフローの実行開始前に**AI生成の研究計画をレビューし、改善**できます。これは特にディープリサーチタスクで有用で、研究の方向性を指示したり、制約を追加したり、エージェントが最も重要な点に集中するよう保証できます。
+
+## 学べること
+
+- HITLレビューサイクルの仕組み（計画生成、フィードバック、承認）
+- タスク送信時のHITLレビューの有効化
+- レビューAPIとの対話（状態取得、フィードバック送信、承認）
+- バージョン追跡による楽観的並行性制御
+- レビューサイクル中に発行されるSSEイベント
+- Python SDKでのHITLレビューの使用方法
+- 設定オプションとタイムアウト
+
+## 前提条件
+
+- Shannonスタックが稼働中（Docker Compose）
+- `http://localhost:8080`でゲートウェイにアクセス可能
+- 認証のデフォルト:
+  - Docker Compose: 認証はデフォルトで無効（`GATEWAY_SKIP_AUTH=1`）。
+  - ローカルビルド: 認証はデフォルトで有効。認証を無効にするには`GATEWAY_SKIP_AUTH=1`を設定するか、APIキーヘッダー`-H "X-API-Key: $API_KEY"`を含めます。
+
+## HITLレビューの仕組み
+
+HITLレビューサイクルは、タスク送信と研究実行の間に人間のチェックポイントを挿入します：
+
+<Steps>
+  <Step title="レビュー有効でタスクを送信">
+    コンテキストに`require_review: true`（または`review_plan: "manual"`）を追加してリサーチタスクを送信します。
+  </Step>
+  <Step title="AIが初期研究計画を生成">
+    LLMサービスがクエリに基づいて研究計画を生成します。ワークフローは一時停止し、人間の入力を待ちます。
+  </Step>
+  <Step title="レビューとフィードバック提供">
+    レビューAPIで提案された計画を確認します。フィードバックを送信して計画を反復的に改善します（最大10ラウンド）。
+  </Step>
+  <Step title="計画を承認">
+    満足したら計画を承認します。ワークフローが再開し、確認された研究方向で実行されます。
+  </Step>
+  <Step title="研究実行">
+    ResearchWorkflowが承認された計画をコンテキストとして注入し、焦点を絞った引用付きの研究レポートを生成します。
+  </Step>
+</Steps>
+
+### アーキテクチャ
+
+```
+ユーザー                 Gateway                 LLM Service         Orchestrator (Temporal)
+  |                        |                        |                        |
+  |-- POST /tasks -------->|                        |                        |
+  |   (require_review)     |-- gRPC SubmitTask ---->|                        |
+  |                        |                        |-- GenerateResearchPlan |
+  |                        |                        |   (Activity)           |
+  |                        |  Redis状態初期化 <------|                        |
+  |                        |                        |                        |
+  |  SSE: RESEARCH_PLAN_READY                       |   workflow.Select()    |
+  |<-----------------------------------------------|   (シグナル待機)        |
+  |                        |                        |                        |
+  |-- GET /review -------->| (Redis状態を読取)      |                        |
+  |<-- plan + version -----|                        |                        |
+  |                        |                        |                        |
+  |-- POST /review ------->| feedback               |                        |
+  |   (action: feedback)   |-- /research-plan呼出->|                        |
+  |                        |<-- 更新された計画 ------|                        |
+  |<-- 新計画 + version ---|                        |                        |
+  |                        |                        |                        |
+  |-- POST /review ------->|                        |                        |
+  |   (action: approve)    |-- gRPC Signal -------->| (ワークフロー解除)     |
+  |<-- approved -----------|                        |                        |
+  |                        |                        |-- ResearchWorkflow --->|
+```
+
+## HITLレビューの有効化
+
+リサーチタスク送信時に、タスクコンテキストへ`require_review: true`を追加します：
+
+<CodeGroup>
+```bash curl
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "2025年のAIエージェントフレームワークの競争状況を調査",
+    "context": {
+      "force_research": true,
+      "require_review": true
+    }
+  }'
+```
+
+```bash curl（ストリームエンドポイント）
+curl -s -X POST http://localhost:8080/api/v1/tasks/stream \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "2025年のAIエージェントフレームワークの競争状況を調査",
+    "context": {
+      "force_research": true,
+      "require_review": true
+    }
+  }' | jq
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+handle = client.submit_task(
+    "2025年のAIエージェントフレームワークの競争状況を調査",
+    context={
+        "force_research": True,
+        "require_review": True,
+    },
+)
+```
+</CodeGroup>
+
+<Note>
+HITLレビューには`force_research: true`が必要です。レビューサイクルはResearchWorkflowの一部であるため、このパラメータがないとオーケストレータがレビューをサポートしない別のワークフローにタスクをルーティングする可能性があります。
+</Note>
+
+代替コンテキストキー`review_plan: "manual"`も受け付けられ、動作は同一です。デスクトップアプリではディープリサーチの自動承認を無効にした際に`require_review: true`を使用します。
+
+## レビュー状態の取得
+
+送信後、レビュー計画の準備完了をポーリングします。ワークフローがLLMで初期計画を生成し、Redisに保存します。
+
+<CodeGroup>
+```bash curl
+# 現在のレビュー状態を取得
+curl -s http://localhost:8080/api/v1/tasks/{workflow_id}/review \
+  -H "X-API-Key: $API_KEY" | jq
+```
+
+```python Python SDK
+state = client.get_review_state(handle.workflow_id)
+print(f"ステータス: {state.status}")
+print(f"ラウンド: {state.round}, バージョン: {state.version}")
+print(f"計画: {state.current_plan}")
+for r in state.rounds:
+    print(f"  [{r.role}] {r.message[:100]}...")
+```
+</CodeGroup>
+
+### レスポンス
+
+```json
+{
+  "status": "reviewing",
+  "round": 1,
+  "version": 1,
+  "current_plan": "お問い合わせに基づき、以下の研究計画を提案します...",
+  "rounds": [
+    {
+      "role": "assistant",
+      "message": "お問い合わせに基づき、以下の研究計画を提案します...",
+      "timestamp": "2025-01-15T10:30:00Z"
+    }
+  ],
+  "query": "2025年のAIエージェントフレームワークの競争状況を調査"
+}
+```
+
+レスポンスには現在のバージョン番号を含む`ETag`ヘッダーが含まれ、楽観的並行性制御に使用されます。
+
+| フィールド | 型 | 説明 |
+|-----------|------|------|
+| `status` | string | `"reviewing"` または `"approved"` |
+| `round` | int | 現在の会話ラウンド（1から開始） |
+| `version` | int | 並行性制御用の単調増加バージョン |
+| `current_plan` | string | 最新の実行可能な計画（LLMのインテントが`"ready"`のときに設定） |
+| `rounds` | array | 完全な会話履歴（ロール、メッセージ、タイムスタンプ） |
+| `query` | string | 元のタスククエリ |
+
+## フィードバックの送信
+
+フィードバックを送信して計画を改善します。ゲートウェイがメッセージをLLMに転送し、LLMがユーザーの入力を反映した更新計画を生成します。
+
+<CodeGroup>
+```bash curl
+curl -X POST http://localhost:8080/api/v1/tasks/{workflow_id}/review \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: $API_KEY" \
+  -H "If-Match: 1" \
+  -d '{
+    "action": "feedback",
+    "message": "オープンソースフレームワークにより注力し、価格比較を含めてください"
+  }'
+```
+
+```python Python SDK
+updated = client.submit_review_feedback(
+    handle.workflow_id,
+    "オープンソースフレームワークにより注力し、価格比較を含めてください",
+    version=state.version,
+)
+print(f"新バージョン: {updated.version}")
+print(f"更新された計画: {updated.current_plan}")
+```
+</CodeGroup>
+
+### フィードバックレスポンス
+
+```json
+{
+  "status": "reviewing",
+  "plan": {
+    "message": "研究計画をオープンソースフレームワークに焦点を当てて更新しました...",
+    "round": 2,
+    "version": 2,
+    "intent": "ready"
+  }
+}
+```
+
+`intent`フィールドはLLMの評価を示します：
+- `"feedback"` -- LLMが明確化のための質問をしています（まだ実行可能な計画がない）
+- `"ready"` -- LLMが実行可能な研究方向を提案しました
+
+### 並行性制御
+
+`If-Match`ヘッダー（curl）または`version`パラメータ（SDK）で楽観的並行性を有効にします。前回の読み取り以降に別のリクエストが状態を変更した場合、サーバーは`409 Conflict`を返します：
+
+```json
+{ "error": "Conflict: state has been modified" }
+```
+
+分散Redisロックにより、LLM呼び出し中に2つのフィードバックリクエストが競合することも防止されます。
+
+### ラウンド制限
+
+最大**10ラウンド**のフィードバックが許可されています。最終ラウンドでは、LLMに確定的な計画を生成するよう指示されます。この制限を超えると、承認のみが受け付けられます：
+
+```json
+{ "error": "Maximum review rounds reached. Please approve the plan." }
+```
+
+## 計画の承認
+
+計画に満足したら、承認してワークフローを再開します：
+
+<CodeGroup>
+```bash curl
+curl -X POST http://localhost:8080/api/v1/tasks/{workflow_id}/review \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: $API_KEY" \
+  -H "If-Match: 2" \
+  -d '{"action": "approve"}'
+```
+
+```python Python SDK
+result = client.approve_review(handle.workflow_id, version=updated.version)
+print(result)  # {"status": "approved", "message": "Research started"}
+```
+</CodeGroup>
+
+### 承認レスポンス
+
+```json
+{
+  "status": "approved",
+  "message": "Research started"
+}
+```
+
+承認後：
+1. ゲートウェイが待機中のワークフローにTemporal Signalを送信
+2. 確認された計画とレビュー会話がタスクコンテキストに注入
+3. ResearchWorkflowが承認された研究方向で実行を継続
+4. SSEが`RESEARCH_PLAN_APPROVED`を発行
+
+<Warning>
+`current_plan`が空の場合、承認はできません。LLMがインテント`"ready"`の計画を少なくとも1つ生成している必要があります。計画なしで承認しようとすると、サーバーは以下を返します：
+
+```json
+{ "error": "No research plan to approve. Please provide feedback to generate a plan first." }
+```
+</Warning>
+
+## SSEイベント
+
+HITLレビューサイクルは専用のSSEイベントを発行し、ストリーミングエンドポイントで消費できます：
+
+```bash
+curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id={workflow_id}"
+```
+
+| イベントタイプ | 説明 | ペイロード |
+|--------------|------|----------|
+| `RESEARCH_PLAN_READY` | 初期計画生成完了、レビュー待ち | `round`, `intent` |
+| `REVIEW_USER_FEEDBACK` | ユーザーフィードバック送信済み | `round`, `version` |
+| `RESEARCH_PLAN_UPDATED` | フィードバック後の計画更新 | `round`, `version`, `intent` |
+| `RESEARCH_PLAN_APPROVED` | 計画承認済み、研究開始 | -- |
+
+これらのイベントはRedisイベントストリームに発行され、セッション履歴やページリロード時にレビュー会話が表示されます。
+
+## 設定
+
+### レビュータイムアウト
+
+ワークフローはレビュー完了を最大**15分**（デフォルト）待ちます。この時間内に承認がない場合、ワークフローはタイムアウトします：
+
+```json
+{
+  "status": "TASK_STATUS_COMPLETED",
+  "result": "",
+  "error_message": "research plan review timed out"
+}
+```
+
+`review_timeout`コンテキストパラメータ（秒単位）でタイムアウトをカスタマイズできます：
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "...",
+    "context": {
+      "force_research": true,
+      "require_review": true,
+      "review_timeout": 1800
+    }
+  }'
+```
+
+### 承認ワークフロー（独立機能）
+
+Shannonにはリサーチ以外のタスク用の**承認ワークフロー**もあります。これは`features.yaml`で設定し、複雑さのしきい値や危険なツールの使用に基づいてトリガーされます：
+
+```yaml
+# config/features.yaml
+workflows:
+  approval:
+    enabled: false                # 承認ゲートを有効化
+    complexity_threshold: 0.5     # 複雑さ >= この値で承認をトリガー
+    dangerous_tools:
+      - file_system
+      - code_execution
+      - bash
+```
+
+承認ワークフローは別のエンドポイント（`POST /api/v1/approvals/decision`）を使用し、HITLリサーチレビューとは独立しています。詳細は[タスク承認APIリファレンス](/api/rest/approve-task)を参照してください。
+
+## Python SDKリファレンス
+
+Shannon Python SDKはHITLレビューサイクル専用のメソッドを提供しています：
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# 1. レビュー有効でタスクを送信
+handle = client.submit_task(
+    "AIコーディングアシスタント市場を分析",
+    context={"force_research": True, "require_review": True},
+)
+
+# 2. 計画の準備完了を待機（ポーリング）
+import time
+state = None
+for _ in range(30):
+    try:
+        state = client.get_review_state(handle.workflow_id)
+        if state.status == "reviewing":
+            break
+    except Exception:
+        pass
+    time.sleep(2)
+
+print(f"初期計画（ラウンド {state.round}）：")
+print(state.current_plan or state.rounds[-1].message)
+
+# 3. フィードバック送信
+updated = client.submit_review_feedback(
+    handle.workflow_id,
+    "Cursor、GitHub Copilot、Windsurfを含め、料金プランを比較してください。",
+    version=state.version,
+)
+print(f"改善された計画（ラウンド {updated.round}）：")
+print(updated.current_plan)
+
+# 4. 承認
+result = client.approve_review(handle.workflow_id, version=updated.version)
+print(result)
+
+# 5. 研究完了を待機
+final = client.wait(handle.task_id, timeout=600)
+print(final.result)
+
+client.close()
+```
+
+### 非同期SDK
+
+```python
+from shannon import AsyncShannonClient
+
+async def review_workflow():
+    client = AsyncShannonClient(base_url="http://localhost:8080")
+
+    handle = await client.submit_task(
+        "AIエージェントフレームワークを分析",
+        context={"force_research": True, "require_review": True},
+    )
+
+    # 計画をポーリング
+    state = await client.get_review_state(handle.workflow_id)
+
+    # フィードバック送信
+    updated = await client.submit_review_feedback(
+        handle.workflow_id,
+        "LangGraphとCrewAIの比較に焦点を当ててください",
+        version=state.version,
+    )
+
+    # 承認
+    await client.approve_review(handle.workflow_id, version=updated.version)
+
+    await client.close()
+```
+
+## ベストプラクティス
+
+<CardGroup cols={2}>
+  <Card title="バージョン追跡の使用" icon="code-branch">
+    競合状態を防ぐため、常に`If-Match`ヘッダー（またはSDKの`version`パラメータ）を渡してください。複数のユーザーやタブが同じレビューを操作する可能性がある場合に特に重要です。
+  </Card>
+  <Card title="適切なタイムアウト設定" icon="clock">
+    デフォルトの15分タイムアウトはほとんどの対話的ユースケースに適しています。非同期レビュー（メールベースの承認など）では`review_timeout`を増やしてください。
+  </Card>
+  <Card title="intent: readyを待つ" icon="check">
+    承認前に、LLMがインテント`"ready"`の計画を生成していることを確認してください。インテント`"feedback"`のラウンドはLLMがより多くの情報を必要としていることを示します。
+  </Card>
+  <Card title="研究戦略との組み合わせ" icon="flask">
+    HITLレビューはすべての研究戦略プリセット（`quick`、`standard`、`deep`、`academic`）で動作します。承認された計画が後続の研究実行を導きます。
+  </Card>
+</CardGroup>
+
+## トラブルシューティング
+
+<AccordionGroup>
+  <Accordion title="レビューセッションが見つからない（404）">
+    レビュー状態はRedisにTTL 20分（レビュータイムアウト + 5分バッファ）で保存されます。有効期限切れ後、レビューセッションにはアクセスできません。タスクを再送信して新しいレビューを開始してください。
+  </Accordion>
+  <Accordion title="フィードバック時のコンフリクトエラー（409）">
+    前回の読み取り以降に別のリクエストがレビュー状態を変更したか、別のフィードバックリクエストが進行中であることを意味します。`GET /review`で現在の状態を再取得し、最新バージョンで再試行してください。
+  </Accordion>
+  <Accordion title="承認拒否：研究計画なし">
+    LLMは明確化の質問のみを行い（intent: `"feedback"`）、実行可能な計画をまだ生成していません。LLMが具体的な研究方向を生成するよう、少なくとも1つのフィードバックメッセージを送信してください。
+  </Accordion>
+  <Accordion title="レビュー中にワークフローがタイムアウト">
+    レビューが設定されたタイムアウト（デフォルト：15分）を超えました。タスクコンテキストで`review_timeout`を増やすか、より迅速に承認してください。
+  </Accordion>
+</AccordionGroup>
+
+## 次のステップ
+
+<CardGroup cols={3}>
+  <Card title="ディープリサーチ" icon="microscope" href="/tutorials/research-assistant">
+    包括的な研究レポートの構築
+  </Card>
+  <Card title="タスク承認API" icon="check-circle" href="/api/rest/approve-task">
+    リサーチ以外のタスクの承認ワークフロー
+  </Card>
+  <Card title="HITLレビューAPI" icon="book" href="/api/rest/hitl-review">
+    レビューエンドポイントの完全なAPIリファレンス
+  </Card>
+</CardGroup>

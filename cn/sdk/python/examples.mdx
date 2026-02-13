@@ -379,35 +379,195 @@ if __name__ == "__main__":
     main()
 ```
 
-## 真实用例
+## 集群模式
 
-{/* 本节示例已移除以保持页面简洁。 */}
+### 强制多智能体执行
+
+```python
+"""集群模式示例（Shannon SDK）"""
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# 使用集群模式提交，协调多个智能体
+handle = client.submit_task(
+    query="调研并对比 AWS、Azure 和 GCP 在 ML 工作负载上的表现。涵盖定价、GPU 可用性和托管服务。",
+    force_swarm=True,
+)
+
+result = client.wait(handle.task_id)
+print(result.result)
+
+# 查看模型和用量信息
+if result.usage:
+    print(f"总 Token 数: {result.usage.get('total_tokens')}")
+    print(f"费用: ${result.usage.get('cost_usd', 0):.6f}")
+```
+
+## 人机协同审查示例
+
+### 交互式审查工作流
+
+```python
+"""人机协同审查示例"""
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# 假设一个需要审查的工作流已在运行
+workflow_id = "workflow-123"
+
+# 检查当前审查状态
+state = client.get_review_state(workflow_id)
+print(f"审查状态: {state.status}")
+print(f"轮次: {state.round}, 版本: {state.version}")
+
+if state.current_plan:
+    print(f"当前计划:\n{state.current_plan}")
+
+# 显示对话历史
+for r in state.rounds:
+    print(f"  [{r.role}] {r.message}")
+
+# 如果仍在审查中，提供反馈
+if state.status == "reviewing":
+    updated = client.submit_review_feedback(
+        workflow_id,
+        "请添加输入验证和单元测试。",
+        version=state.version,
+    )
+    print(f"反馈已提交。当前轮次: {updated.round}")
+
+    # 批准更新后的计划
+    result = client.approve_review(workflow_id, version=updated.version)
+    print(f"已批准: {result['status']}")
+```
+
+### 带乐观并发控制的审查
+
+```python
+"""审查过程中处理版本冲突"""
+from shannon import ShannonClient, ValidationError
+
+client = ShannonClient()
+
+workflow_id = "workflow-456"
+
+try:
+    state = client.get_review_state(workflow_id)
+    updated = client.submit_review_feedback(
+        workflow_id,
+        "整体不错，需要一些细微的样式调整。",
+        version=state.version,
+    )
+    client.approve_review(workflow_id, version=updated.version)
+except ValidationError as e:
+    if "409" in str(e.code):
+        print("版本冲突：另一用户已修改审查。请刷新后重试。")
+    else:
+        raise
+```
+
+## 技能示例
+
+### 浏览和查看技能
+
+```python
+"""技能浏览示例"""
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# 列出所有可用技能
+skills = client.list_skills()
+print(f"找到 {len(skills)} 个技能：\n")
+for s in skills:
+    flag = " [危险]" if s.dangerous else ""
+    status = "已启用" if s.enabled else "已禁用"
+    print(f"  {s.name} v{s.version} ({s.category}) - {status}{flag}")
+    print(f"    {s.description}")
+
+# 按类别过滤
+print("\n--- 编程类技能 ---")
+coding = client.list_skills(category="coding")
+for s in coding:
+    print(f"  {s.name}: {s.description}")
+
+# 获取详细信息
+detail = client.get_skill("web_search")
+print(f"\n技能详情: {detail.name} v{detail.version}")
+print(f"  作者: {detail.author}")
+print(f"  所需工具: {detail.requires_tools}")
+print(f"  所需角色: {detail.requires_role}")
+print(f"  最大预算: {detail.budget_max}")
+
+# 获取版本历史
+versions = client.get_skill_versions("web_search")
+print(f"\nweb_search 的版本：")
+for v in versions:
+    print(f"  v{v.version} - {v.description}")
+```
+
+## 定时任务管理示例
+
+### 创建和管理定时任务
+
+```python
+"""定时任务管理示例"""
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# 创建一个工作日每天 9 点 UTC 执行的研究任务
+result = client.create_schedule(
+    name="每日 AI 资讯",
+    cron_expression="0 9 * * 1-5",
+    task_query="总结最新的 AI 研究资讯",
+    task_context={"force_research": "true", "research_strategy": "quick"},
+    timezone="UTC",
+    max_budget_per_run_usd=0.50,
+)
+schedule_id = result["schedule_id"]
+print(f"定时任务已创建: {schedule_id}")
+
+# 列出所有定时任务
+schedules, total = client.list_schedules()
+print(f"\n共 {total} 个定时任务：")
+for s in schedules:
+    print(f"  {s.name}: {s.cron_expression} ({s.status})")
+    print(f"    执行次数: 共 {s.total_runs} 次, 成功 {s.successful_runs} 次, 失败 {s.failed_runs} 次")
+
+# 获取定时任务详情
+sched = client.get_schedule(schedule_id)
+print(f"\n定时任务: {sched.name}")
+print(f"  下次执行: {sched.next_run_at}")
+print(f"  上次执行: {sched.last_run_at}")
+
+# 查看执行历史
+runs, _ = client.get_schedule_runs(schedule_id)
+for run in runs:
+    print(f"  {run.triggered_at}: {run.status} - ${run.total_cost_usd:.4f}")
+
+# 暂停定时任务（例如维护期间）
+client.pause_schedule(schedule_id, reason="维护窗口")
+
+# 恢复定时任务
+client.resume_schedule(schedule_id)
+
+# 更新定时任务配置
+client.update_schedule(
+    schedule_id,
+    cron_expression="0 8 * * 1-5",  # 改为 8 点
+    max_budget_per_run_usd=0.75,
+)
+
+# 不再需要时删除
+# client.delete_schedule(schedule_id)
+```
 
 ## 错误处理示例
 
 参见专门页面获取完整的重试逻辑与模式：[错误处理](/cn/sdk/python/error-handling)。
-
-运行方法：
-
-```bash
-# 确保 Shannon 已运行
-make dev
-
-# 运行示例
-python3 error_handling.py
-```
-
-何时使用重试：
-
-- 网络不稳定
-- 临时性服务问题
-- 对可靠性有要求的生产系统
-
-不建议重试：
-
-- 超时（任务本身过于复杂/耗时）
-- API 错误（参数无效等）
-- 认证失败
 
 ## 后续步骤
 

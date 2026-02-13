@@ -1,0 +1,371 @@
+---
+title: "HITLレビューAPI"
+description: "Human-in-the-Loop研究計画レビューエンドポイントのAPIリファレンス"
+---
+
+## 概要
+
+HITL（Human-in-the-Loop）レビューAPIは、実行開始前にAI生成の研究計画をレビュー、改善、承認するためのエンドポイントを提供します。これらのエンドポイントはRedisに保存されたレビュー状態と対話し、gRPC SignalでTemporalワークフローと連携します。
+
+チュートリアルについては[Human-in-the-Loopレビュー](/tutorials/hitl-review)を参照してください。
+
+## 認証
+
+**必須**：はい
+
+ヘッダーにAPIキーを含めてください：
+
+```http
+X-API-Key: sk_test_123456
+```
+
+所有権が強制されます：タスクを送信したユーザーのみがそのレビュー状態にアクセスできます。
+
+---
+
+## レビュー状態の取得
+
+```http
+GET http://localhost:8080/api/v1/tasks/{workflow_id}/review
+```
+
+### 説明
+
+ワークフローの現在のレビュー会話状態を返します。初期研究計画の取得とレビュー進捗の追跡に使用します。
+
+### パスパラメータ
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|------|------|------|
+| `workflow_id` | string | はい | ワークフローID（タスク送信レスポンスから） |
+
+### ヘッダー
+
+| ヘッダー | 必須 | 説明 |
+|---------|------|------|
+| `X-API-Key` | はい | API認証キー |
+
+### レスポンス
+
+#### 200 OK
+
+```json
+{
+  "status": "reviewing",
+  "round": 1,
+  "version": 1,
+  "current_plan": "お問い合わせに基づき、以下を調査することを提案します...",
+  "rounds": [
+    {
+      "role": "assistant",
+      "message": "お問い合わせに基づき、以下を調査することを提案します...",
+      "timestamp": "2025-01-15T10:30:00Z"
+    }
+  ],
+  "query": "AIエージェントフレームワークの競争状況を調査"
+}
+```
+
+**レスポンスヘッダー：**
+
+| ヘッダー | 説明 |
+|---------|------|
+| `ETag` | 現在のバージョン番号（`If-Match`での並行性制御に使用） |
+
+**レスポンスフィールド：**
+
+| フィールド | 型 | 説明 |
+|-----------|------|------|
+| `status` | string | `"reviewing"`（入力待ち）または`"approved"`（計画承認済み） |
+| `round` | integer | 現在の会話ラウンド（1から開始） |
+| `version` | integer | 楽観的並行性のための単調増加バージョン |
+| `current_plan` | string | 最新の実行可能な計画（LLMインテントが`"ready"`のときに設定）。LLMが質問中の場合は空の可能性あり。 |
+| `rounds` | array | 完全な会話履歴 |
+| `rounds[].role` | string | `"assistant"`（LLM）または`"user"`（人間のフィードバック） |
+| `rounds[].message` | string | メッセージ内容 |
+| `rounds[].timestamp` | string | RFC 3339タイムスタンプ |
+| `query` | string | 元のタスククエリ |
+
+#### 401 Unauthorized
+
+```json
+{ "error": "Unauthorized" }
+```
+
+#### 403 Forbidden
+
+```json
+{ "error": "Forbidden: not the task owner" }
+```
+
+#### 404 Not Found
+
+```json
+{ "error": "Review session not found or expired" }
+```
+
+### 例
+
+<CodeGroup>
+```bash curl
+curl -s http://localhost:8080/api/v1/tasks/task-abc123/review \
+  -H "X-API-Key: $API_KEY" | jq
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+state = client.get_review_state("task-abc123")
+print(state.status, state.round, state.version)
+```
+</CodeGroup>
+
+---
+
+## フィードバック送信
+
+```http
+POST http://localhost:8080/api/v1/tasks/{workflow_id}/review
+```
+
+### 説明
+
+フィードバックを送信して研究計画を改善します。ゲートウェイがフィードバックをLLMサービスに転送し、ユーザー入力を反映した更新計画を生成します。会話ラウンドとバージョンがインクリメントされます。
+
+分散Redisロックにより、LLM呼び出し中の並行フィードバックリクエストの競合が防止されます。
+
+### パスパラメータ
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|------|------|------|
+| `workflow_id` | string | はい | ワークフローID |
+
+### ヘッダー
+
+| ヘッダー | 必須 | 説明 |
+|---------|------|------|
+| `X-API-Key` | はい | API認証キー |
+| `Content-Type` | はい | `application/json` |
+| `If-Match` | いいえ | 楽観的並行性のバージョン番号。提供時、現在のバージョンが一致しない場合409を返します。 |
+
+### ボディパラメータ
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|------|------|------|
+| `action` | string | はい | `"feedback"`を指定 |
+| `message` | string | はい | フィードバックテキスト（最大10 KB） |
+
+### リクエストボディ
+
+```json
+{
+  "action": "feedback",
+  "message": "オープンソースフレームワークにより注力し、価格比較を含めてください"
+}
+```
+
+### レスポンス
+
+#### 200 OK
+
+```json
+{
+  "status": "reviewing",
+  "plan": {
+    "message": "研究計画を更新しました...",
+    "round": 2,
+    "version": 2,
+    "intent": "ready"
+  }
+}
+```
+
+**レスポンスヘッダー：**
+
+| ヘッダー | 説明 |
+|---------|------|
+| `ETag` | 更新されたバージョン番号 |
+
+**レスポンスフィールド：**
+
+| フィールド | 型 | 説明 |
+|-----------|------|------|
+| `status` | string | フィードバックレスポンスでは常に`"reviewing"` |
+| `plan.message` | string | LLMからの更新された計画 |
+| `plan.round` | integer | 現在のラウンド番号 |
+| `plan.version` | integer | 更新されたバージョン（次の`If-Match`用） |
+| `plan.intent` | string | `"feedback"`（LLMが質問中）または`"ready"`（実行可能な計画が提案済み） |
+
+#### 400 Bad Request
+
+```json
+{ "error": "message is required for feedback" }
+```
+
+```json
+{ "error": "message exceeds maximum length (10KB)" }
+```
+
+#### 404 Not Found
+
+```json
+{ "error": "Review session not found or expired" }
+```
+
+#### 409 Conflict
+
+バージョン不一致：
+
+```json
+{ "error": "Conflict: state has been modified" }
+```
+
+別のフィードバックリクエストが進行中：
+
+```json
+{ "error": "Another feedback request is in progress. Please wait." }
+```
+
+最大ラウンド超過：
+
+```json
+{ "error": "Maximum review rounds reached. Please approve the plan." }
+```
+
+#### 502 Bad Gateway
+
+```json
+{ "error": "Failed to generate updated plan" }
+```
+
+### 例
+
+<CodeGroup>
+```bash curl
+curl -X POST http://localhost:8080/api/v1/tasks/task-abc123/review \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: $API_KEY" \
+  -H "If-Match: 1" \
+  -d '{
+    "action": "feedback",
+    "message": "価格セクションを追加し、LangGraphを比較に含めてください"
+  }'
+```
+
+```python Python SDK
+updated = client.submit_review_feedback(
+    "task-abc123",
+    "価格セクションを追加し、LangGraphを比較に含めてください",
+    version=1,
+)
+print(updated.version, updated.current_plan)
+```
+</CodeGroup>
+
+---
+
+## 計画の承認
+
+```http
+POST http://localhost:8080/api/v1/tasks/{workflow_id}/review
+```
+
+### 説明
+
+現在の研究計画を承認し、ワークフローのブロックを解除して実行を続行します。ゲートウェイが待機中のワークフローにTemporal Signalを送信し、確認された計画とレビュー会話をタスクコンテキストに注入します。
+
+### パスパラメータ
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|------|------|------|
+| `workflow_id` | string | はい | ワークフローID |
+
+### ヘッダー
+
+| ヘッダー | 必須 | 説明 |
+|---------|------|------|
+| `X-API-Key` | はい | API認証キー |
+| `Content-Type` | はい | `application/json` |
+| `If-Match` | いいえ | 楽観的並行性のバージョン番号 |
+
+### ボディパラメータ
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|------|------|------|
+| `action` | string | はい | `"approve"`を指定 |
+
+### リクエストボディ
+
+```json
+{
+  "action": "approve"
+}
+```
+
+### レスポンス
+
+#### 200 OK
+
+```json
+{
+  "status": "approved",
+  "message": "Research started"
+}
+```
+
+#### 400 Bad Request
+
+承認可能な計画がない：
+
+```json
+{ "error": "No research plan to approve. Please provide feedback to generate a plan first." }
+```
+
+#### 409 Conflict
+
+バージョン不一致：
+
+```json
+{ "error": "Conflict: plan has been updated. Please review the latest version." }
+```
+
+フィードバック進行中：
+
+```json
+{ "error": "A feedback request is in progress. Please wait and try again." }
+```
+
+#### 502 Bad Gateway
+
+```json
+{ "error": "Failed to approve review" }
+```
+
+### 例
+
+<CodeGroup>
+```bash curl
+curl -X POST http://localhost:8080/api/v1/tasks/task-abc123/review \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: $API_KEY" \
+  -H "If-Match: 2" \
+  -d '{"action": "approve"}'
+```
+
+```python Python SDK
+result = client.approve_review("task-abc123", version=2)
+print(result)  # {"status": "approved", "message": "Research started"}
+```
+</CodeGroup>
+
+---
+
+## 動作に関する注意事項
+
+- **Redis TTL**：レビュー状態はRedisにレビュータイムアウト + 5分バッファのTTL（デフォルト：20分）で保存されます。有効期限後、レビューセッションにはアクセスできなくなります。
+- **最大ラウンド**：10ラウンドのフィードバックが許可されます。最終ラウンドでLLMに確定的な計画を生成するよう指示されます。この制限を超えると承認のみ受け付けられます。
+- **所有権**：タスクを送信したユーザーのみがそのレビュー状態にアクセスできます（Redisの`owner_user_id`で強制）。
+- **並行性**：フィードバックと承認の両方が分散Redisロックを取得します。フィードバックリクエストが進行中（ロック保持中）の場合、承認は即座に409で失敗します。
+- **SSEイベント**：レビューサイクルは`RESEARCH_PLAN_READY`、`REVIEW_USER_FEEDBACK`、`RESEARCH_PLAN_UPDATED`、`RESEARCH_PLAN_APPROVED`イベントをRedisイベントストリームに発行します。これらはSSEストリームに表示され、セッション履歴に永続化されます。
+- **トークン追跡**：レビュー中（フィードバックラウンド）のLLMトークン使用量は`RecordTokenUsage` gRPCで記録され、正確なコスト計算が保証されます。

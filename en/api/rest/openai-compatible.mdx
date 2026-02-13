@@ -1,0 +1,532 @@
+---
+title: "OpenAI-Compatible API"
+description: "Use Shannon with OpenAI SDKs and tools via the /v1/chat/completions endpoint"
+---
+
+## Overview
+
+Shannon exposes an OpenAI-compatible API layer that lets you use existing OpenAI SDKs, tools, and integrations to interact with Shannon's agent orchestration platform. The compatibility layer translates OpenAI chat completion requests into Shannon tasks and streams the results back in OpenAI format.
+
+This means you can point the OpenAI Python or Node.js SDK at Shannon and get access to multi-agent research, tool use, and deep analysis -- all through a familiar interface.
+
+<Note>
+The OpenAI-compatible API is designed for compatibility with existing tooling. For full Shannon features (skills, session workspaces, research strategies, task control), use the native [`/api/v1/tasks`](/en/api/rest/submit-task) endpoints.
+</Note>
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/v1/chat/completions` | Create a chat completion (streaming and non-streaming) |
+| `GET` | `/v1/models` | List available models |
+| `GET` | `/v1/models/{model}` | Get model details |
+
+**Base URL**: `http://localhost:8080` (development)
+
+## Authentication
+
+The OpenAI-compatible endpoints use the same authentication as other Shannon APIs.
+
+```bash
+# Bearer token (OpenAI SDK default)
+Authorization: Bearer sk_your_api_key
+
+# Or X-API-Key header
+X-API-Key: sk_your_api_key
+```
+
+<Note>
+**Development Default**: Authentication is disabled when `GATEWAY_SKIP_AUTH=1` is set. Enable authentication for production deployments.
+</Note>
+
+## Available Models
+
+Shannon maps model names to different workflow modes and strategies. Select a model to control how your request is processed.
+
+| Model | Workflow Mode | Description | Default Max Tokens |
+|-------|--------------|-------------|-------------------|
+| `shannon-chat` | Simple | General chat completion (default) | 4096 |
+| `shannon-standard-research` | Research | Balanced research with moderate depth | 4096 |
+| `shannon-deep-research` | Research | Deep research with iterative refinement | 8192 |
+| `shannon-quick-research` | Research | Fast research for simple queries | 4096 |
+| `shannon-complex` | Supervisor | Multi-agent orchestration for complex tasks | 8192 |
+
+If no model is specified, `shannon-chat` is used.
+
+<Tip>
+Models can be customized via `config/openai_models.yaml`. See the Shannon configuration documentation for details on adding custom models.
+</Tip>
+
+## Chat Completions
+
+### POST /v1/chat/completions
+
+#### Request Body
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `model` | string | No | Model name (defaults to `shannon-chat`) |
+| `messages` | array | Yes | Array of message objects |
+| `stream` | boolean | No | Enable streaming (default: `false`) |
+| `max_tokens` | integer | No | Maximum tokens for response (capped at 16384) |
+| `temperature` | number | No | Sampling temperature 0-2 (default: 0.7) |
+| `top_p` | number | No | Nucleus sampling parameter |
+| `n` | integer | No | Number of completions (only `1` is supported) |
+| `stop` | array | No | Stop sequences |
+| `presence_penalty` | number | No | Presence penalty -2.0 to 2.0 |
+| `frequency_penalty` | number | No | Frequency penalty -2.0 to 2.0 |
+| `user` | string | No | End-user identifier for tracking and session derivation |
+| `stream_options` | object | No | Streaming options (see below) |
+
+**Message Object**:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `role` | string | Yes | `system`, `user`, or `assistant` |
+| `content` | string | Yes | Message content (text only) |
+| `name` | string | No | Optional name for the participant |
+
+**Stream Options**:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `include_usage` | boolean | Include token usage in the final streaming chunk |
+
+#### How Messages Are Processed
+
+Shannon translates the OpenAI messages array into a Shannon task:
+
+- **Last user message** becomes the task query
+- **First system message** becomes the system prompt
+- **All other messages** (excluding system and last user) become conversation history
+- The **model name** determines the workflow mode and research strategy
+
+#### Non-Streaming Response
+
+```json
+{
+  "id": "chatcmpl-20250120100000a1b2c3d4",
+  "object": "chat.completion",
+  "created": 1737367200,
+  "model": "shannon-chat",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "The response text from Shannon..."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 25,
+    "completion_tokens": 150,
+    "total_tokens": 175
+  }
+}
+```
+
+<Warning>
+Non-streaming requests have a **35-minute timeout** to accommodate deep research and long-running workflows. For very long tasks, prefer streaming mode.
+</Warning>
+
+#### Streaming Response
+
+When `stream: true`, the response is delivered as Server-Sent Events:
+
+**First chunk** (includes role):
+```
+data: {"id":"chatcmpl-...","object":"chat.completion.chunk","created":1737367200,"model":"shannon-chat","choices":[{"index":0,"delta":{"role":"assistant","content":"The"},"finish_reason":null}]}
+```
+
+**Content chunks**:
+```
+data: {"id":"chatcmpl-...","object":"chat.completion.chunk","created":1737367200,"model":"shannon-chat","choices":[{"index":0,"delta":{"content":" response text"},"finish_reason":null}]}
+```
+
+**Final chunk** (with finish reason):
+```
+data: {"id":"chatcmpl-...","object":"chat.completion.chunk","created":1737367200,"model":"shannon-chat","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":25,"completion_tokens":150,"total_tokens":175}}
+```
+
+**Stream terminator**:
+```
+data: [DONE]
+```
+
+<Note>
+Usage data in the final chunk is only included when `stream_options.include_usage` is set to `true`.
+</Note>
+
+## Shannon Extensions
+
+### shannon_events Field
+
+During streaming, Shannon extends the standard OpenAI chunk format with a `shannon_events` field. This field carries agent lifecycle events that provide visibility into what Shannon's agents are doing behind the scenes.
+
+```json
+{
+  "id": "chatcmpl-...",
+  "object": "chat.completion.chunk",
+  "created": 1737367200,
+  "model": "shannon-deep-research",
+  "choices": [
+    {
+      "index": 0,
+      "delta": {}
+    }
+  ],
+  "shannon_events": [
+    {
+      "type": "AGENT_STARTED",
+      "agent_id": "researcher_1",
+      "message": "Starting research on query...",
+      "timestamp": 1737367201,
+      "payload": {}
+    }
+  ]
+}
+```
+
+**ShannonEvent fields**:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | string | Event type (see list below) |
+| `agent_id` | string | Agent identifier |
+| `message` | string | Human-readable description |
+| `timestamp` | integer | Unix timestamp |
+| `payload` | object | Additional event-specific data |
+
+**Forwarded event types**:
+
+| Category | Events |
+|----------|--------|
+| Workflow | `WORKFLOW_STARTED`, `WORKFLOW_PAUSING`, `WORKFLOW_PAUSED`, `WORKFLOW_RESUMED`, `WORKFLOW_CANCELLING`, `WORKFLOW_CANCELLED` |
+| Agent | `AGENT_STARTED`, `AGENT_COMPLETED`, `AGENT_THINKING` |
+| Tool | `TOOL_INVOKED`, `TOOL_OBSERVATION` |
+| Progress | `PROGRESS`, `DATA_PROCESSING`, `WAITING`, `ERROR_RECOVERY` |
+| Team | `TEAM_RECRUITED`, `TEAM_RETIRED`, `TEAM_STATUS`, `ROLE_ASSIGNED`, `DELEGATION`, `DEPENDENCY_SATISFIED` |
+| Budget & Approval | `BUDGET_THRESHOLD`, `APPROVAL_REQUESTED`, `APPROVAL_DECISION` |
+
+<Tip>
+Standard OpenAI clients ignore unknown fields, so the `shannon_events` field is safe to use with any OpenAI-compatible tooling. Parse it when you want richer progress information.
+</Tip>
+
+### X-Session-ID Header
+
+Shannon supports multi-turn conversations via the `X-Session-ID` request header. When provided, Shannon maintains conversation context across requests.
+
+```bash
+curl -X POST http://localhost:8080/v1/chat/completions \
+  -H "Authorization: Bearer sk_your_key" \
+  -H "X-Session-ID: my-conversation-1" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "shannon-chat", "messages": [{"role": "user", "content": "Hello"}]}'
+```
+
+If no `X-Session-ID` is provided, Shannon derives a session ID from the conversation content (hash of system message + first user message) or from the `user` field.
+
+The response includes `X-Session-ID` and `X-Shannon-Session-ID` headers when a new session is created or a collision is detected.
+
+## Rate Limiting
+
+Rate limits are enforced per API key, per model. The default limits are:
+
+- **60 requests per minute** per model
+- **200,000 tokens per minute** per model
+
+**Rate limit headers** included in every response:
+
+| Header | Description |
+|--------|-------------|
+| `X-RateLimit-Limit-Requests` | Maximum requests per minute |
+| `X-RateLimit-Remaining-Requests` | Remaining requests in current window |
+| `X-RateLimit-Limit-Tokens` | Maximum tokens per minute |
+| `X-RateLimit-Remaining-Tokens` | Remaining tokens in current window |
+| `X-RateLimit-Reset-Requests` | Time until request limit resets |
+| `Retry-After` | Seconds to wait before retrying (on 429) |
+
+## Error Handling
+
+Errors follow the OpenAI error response format:
+
+```json
+{
+  "error": {
+    "message": "Model 'invalid-model' not found. Use GET /v1/models to list available models.",
+    "type": "invalid_request_error",
+    "code": "model_not_found"
+  }
+}
+```
+
+**Error types**:
+
+| HTTP Status | Type | Code | Description |
+|-------------|------|------|-------------|
+| 400 | `invalid_request_error` | `invalid_request` | Malformed request or missing required fields |
+| 401 | `authentication_error` | `invalid_api_key` | Invalid or missing API key |
+| 403 | `permission_error` | `invalid_request` | Insufficient permissions |
+| 404 | `invalid_request_error` | `model_not_found` | Model does not exist |
+| 429 | `rate_limit_error` | `rate_limit_exceeded` | Rate limit exceeded |
+| 500 | `server_error` | `internal_error` | Internal server error |
+
+## List Models
+
+### GET /v1/models
+
+Returns all available Shannon models.
+
+```bash
+curl http://localhost:8080/v1/models \
+  -H "Authorization: Bearer sk_your_key"
+```
+
+**Response**:
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "shannon-chat",
+      "object": "model",
+      "created": 1737367200,
+      "owned_by": "shannon"
+    },
+    {
+      "id": "shannon-deep-research",
+      "object": "model",
+      "created": 1737367200,
+      "owned_by": "shannon"
+    }
+  ]
+}
+```
+
+### GET /v1/models/{model}
+
+Returns details for a specific model. The model description is included in the `X-Model-Description` response header.
+
+```bash
+curl http://localhost:8080/v1/models/shannon-deep-research \
+  -H "Authorization: Bearer sk_your_key"
+```
+
+## Usage with OpenAI SDKs
+
+### Python
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:8080/v1",
+    api_key="sk_your_api_key",  # or "not-needed" if auth is disabled
+)
+
+# Non-streaming
+response = client.chat.completions.create(
+    model="shannon-chat",
+    messages=[
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "What is Shannon?"}
+    ],
+)
+print(response.choices[0].message.content)
+
+# Streaming
+stream = client.chat.completions.create(
+    model="shannon-deep-research",
+    messages=[
+        {"role": "user", "content": "Analyze the impact of AI on healthcare"}
+    ],
+    stream=True,
+    stream_options={"include_usage": True},
+)
+
+for chunk in stream:
+    if chunk.choices[0].delta.content:
+        print(chunk.choices[0].delta.content, end="", flush=True)
+
+    # Access Shannon-specific events (if available)
+    if hasattr(chunk, "shannon_events") and chunk.shannon_events:
+        for event in chunk.shannon_events:
+            print(f"\n[{event['type']}] {event.get('message', '')}")
+```
+
+### Node.js / TypeScript
+
+```typescript
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  baseURL: "http://localhost:8080/v1",
+  apiKey: "sk_your_api_key",
+});
+
+// Non-streaming
+const response = await client.chat.completions.create({
+  model: "shannon-chat",
+  messages: [
+    { role: "user", content: "What is Shannon?" }
+  ],
+});
+console.log(response.choices[0].message.content);
+
+// Streaming
+const stream = await client.chat.completions.create({
+  model: "shannon-deep-research",
+  messages: [
+    { role: "user", content: "Analyze the impact of AI on healthcare" }
+  ],
+  stream: true,
+});
+
+for await (const chunk of stream) {
+  const content = chunk.choices[0]?.delta?.content;
+  if (content) {
+    process.stdout.write(content);
+  }
+}
+```
+
+### curl
+
+```bash
+# Non-streaming
+curl -X POST http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk_your_api_key" \
+  -d '{
+    "model": "shannon-chat",
+    "messages": [
+      {"role": "user", "content": "What is Shannon?"}
+    ]
+  }'
+
+# Streaming
+curl -N -X POST http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk_your_api_key" \
+  -d '{
+    "model": "shannon-deep-research",
+    "messages": [
+      {"role": "user", "content": "Analyze the impact of AI on healthcare"}
+    ],
+    "stream": true,
+    "stream_options": {"include_usage": true}
+  }'
+
+# With session ID for multi-turn
+curl -X POST http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk_your_api_key" \
+  -H "X-Session-ID: my-session-1" \
+  -d '{
+    "model": "shannon-chat",
+    "messages": [
+      {"role": "system", "content": "You are a data analyst."},
+      {"role": "user", "content": "Summarize Q4 revenue trends"}
+    ]
+  }'
+```
+
+## Streaming with Shannon Events
+
+To build rich UIs that show agent progress, parse the `shannon_events` field from streaming chunks:
+
+```python
+import json
+import httpx
+
+def stream_with_events(query: str, model: str = "shannon-deep-research"):
+    response = httpx.post(
+        "http://localhost:8080/v1/chat/completions",
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": "Bearer sk_your_api_key",
+        },
+        json={
+            "model": model,
+            "messages": [{"role": "user", "content": query}],
+            "stream": True,
+        },
+        timeout=None,
+    )
+
+    for line in response.iter_lines():
+        if not line.startswith("data: "):
+            continue
+        data = line[6:]
+        if data == "[DONE]":
+            break
+
+        chunk = json.loads(data)
+
+        # Print content deltas
+        delta = chunk["choices"][0].get("delta", {})
+        if delta.get("content"):
+            print(delta["content"], end="", flush=True)
+
+        # Print Shannon agent events
+        for event in chunk.get("shannon_events", []):
+            print(f"\n  [{event['type']}] {event.get('message', '')}")
+
+stream_with_events("Research the latest developments in quantum computing")
+```
+
+## Heartbeat and Keepalive
+
+During streaming, Shannon sends SSE comment lines (`: keepalive`) every 30 seconds to keep the connection alive. Conforming SSE clients ignore these automatically. This prevents load balancers and proxies from closing idle connections during long-running research tasks.
+
+## Limitations
+
+The following OpenAI API features are **not supported**:
+
+| Feature | Status |
+|---------|--------|
+| Function calling / tools | Not supported |
+| Vision / image inputs | Not supported (text content only) |
+| Audio inputs/outputs | Not supported |
+| Embeddings API (`/v1/embeddings`) | Not available |
+| Fine-tuning API | Not available |
+| `response_format` (JSON mode) | Not supported |
+| `logprobs` | Not supported |
+| `seed` | Not supported |
+| `n` > 1 (multiple completions) | Not supported |
+
+<Warning>
+The `messages[].content` field only accepts plain text strings. Multipart content (arrays with image_url objects) is not supported.
+</Warning>
+
+## Differences from Standard OpenAI API
+
+| Aspect | OpenAI API | Shannon OpenAI-Compatible API |
+|--------|-----------|-------------------------------|
+| Models | GPT-4, GPT-3.5, etc. | `shannon-chat`, `shannon-deep-research`, etc. |
+| Processing | Single LLM call | Multi-agent orchestration, tool use, research |
+| Latency | Seconds | Seconds to minutes (depending on model/strategy) |
+| Streaming events | Content only | Content + `shannon_events` agent lifecycle |
+| Session management | Not built-in | `X-Session-ID` header with server-side context |
+| Rate limits | Per-organization | Per API key, per model |
+| Finish reasons | `stop`, `length`, `tool_calls`, `content_filter` | `stop` only |
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Submit Tasks (Native API)" icon="paper-plane" href="/en/api/rest/submit-task">
+    Full Shannon task submission with all features
+  </Card>
+  <Card title="Event Streaming" icon="stream" href="/en/api/rest/streaming">
+    Shannon's native SSE and WebSocket streaming
+  </Card>
+  <Card title="Event Types Reference" icon="list" href="/en/api/event-types">
+    Complete list of Shannon event types
+  </Card>
+  <Card title="Python SDK" icon="python" href="/en/sdk/python/quickstart">
+    Shannon's native Python client
+  </Card>
+</CardGroup>
