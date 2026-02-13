@@ -103,7 +103,7 @@ curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id=task-dev-1234567890
 
 ### OpenAI互換API
 
-Shannonは既存ツールとの簡単な統合のためにOpenAI互換APIを提供します：
+Shannonは既存のOpenAI SDKおよびツールとの簡単な統合のためにOpenAI互換APIを提供します。詳細は[OpenAI互換APIリファレンス](/ja/api/rest/openai-compatible)を参照してください。
 
 | エンドポイント | メソッド | 説明 |
 |--------------|--------|------|
@@ -137,7 +137,7 @@ SSEストリーミング: ブラウザの`EventSource`はカスタムヘッダ�
 
 - 開発: `GATEWAY_SKIP_AUTH=1`を設定して認証をスキップ。
 - 本番: バックエンド（またはエッジ）からSSEを開始し、`X-API-Key`または`Authorization: Bearer`ヘッダーを注入。
-- URLクエリパラメータでAPIキーを渡さないでください。
+- SSEエンドポイントでは、ヘッダーを送信できない場合のフォールバックとして `api_key` クエリパラメータがサポートされています。
 </Warning>
 
 ## レスポンス形式
@@ -168,7 +168,7 @@ SSEストリーミング: ブラウザの`EventSource`はカスタムヘッダ�
 
 ## イベントストリーミング
 
-Shannonはリアルタイム監視のために26種類のイベントタイプを発行します：
+Shannonはリアルタイム監視のために33種類のイベントタイプを発行します：
 
 **コアイベント**:
 - `WORKFLOW_STARTED`, `WORKFLOW_COMPLETED`

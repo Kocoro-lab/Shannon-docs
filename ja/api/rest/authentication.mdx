@@ -7,7 +7,7 @@ description: "REST API認証"
 
 ## 認証
 
-Shannon Gatewayは、すべての保護されたエンドポイントに対してAPIキー認証をサポートしています。
+Shannon Gatewayは、すべての保護されたエンドポイントに対して2つの認証方式をサポートしています。
 
 ### APIキー認証
 
@@ -18,21 +18,37 @@ curl -H "X-API-Key: sk_test_123456" \
   http://localhost:8080/api/v1/tasks
 ```
 
+### Bearerトークン認証
+
+`Authorization: Bearer`ヘッダーでAPIキーまたはJWTトークンを使用することもできます：
+
+```bash
+curl -H "Authorization: Bearer sk_test_123456" \
+  http://localhost:8080/api/v1/tasks
+```
+
+両方の方式は同等です。ツールチェーンに合った方式をお選びください。
+
 ### 認証エラー
 
-**401 Unauthorized** - APIキーが欠落または無効です：
+**401 Unauthorized** - 認証情報が欠落または無効です：
 
 ```json
-{
-  "error": "Unauthorized"
-}
+// 認証ヘッダーが欠落
+{ "error": "Authentication required" }
+
+// 無効なAPIキー
+{ "error": "Invalid API key" }
+
+// JWTトークンの期限切れ
+{ "error": "Invalid or expired token" }
 ```
 
 **一般的な原因**：
-- `X-API-Key`ヘッダーが欠落
+- `X-API-Key`または`Authorization`ヘッダーが欠落
 - 無効なAPIキー形式
 - 無効または期限切れのAPIキー
-- 誤った認証エンドポイント
+- JWTトークンの期限切れ
 
 ## リクエストヘッダー
 

@@ -215,7 +215,7 @@ Object.entries(models).forEach(([provider, modelList]) => {
 - **ホットリロード**: `models.yaml` の変更は、効果を得るためにサービスの再起動が必要です。
 - **空のプロバイダー**: プロバイダーが `[]` を返す場合は、`.env` にAPIキーが設定されているか確認してください。
 - **価格の中央集権化**: すべてのコストはYAMLの `pricing` セクションから取得され、Go/Rust/Pythonサービス間での一貫性が確保されます。
-- **内部エンドポイント**: このエンドポイントはLLMサービス（ポート8000）にあり、Gateway API（ポート8080）ではありません。
+- **内部エンドポイント**: `/providers/models`エンドポイントはLLMサービス（ポート8000）にあります。外部からアクセスする場合は、GatewayのOpenAI互換`/v1/models`エンドポイント（ポート8080）を使用してください — [OpenAI互換API](/ja/api/rest/openai-compatible)を参照
 
 ## 環境変数
 

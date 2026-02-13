@@ -61,11 +61,11 @@ make seed-api-key
 注意: 認証はデフォルトで無効になっています (GATEWAY_SKIP_AUTH=1)
 ```
 
-### API 経由 (将来)
+### API 経由
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/keys \
-  -H "X-Admin-Token: admin-secret" \
+curl -X POST http://localhost:8080/api/v1/auth/api-keys \
+  -H "Authorization: Bearer <admin-token>" \
   -d '{
     "name": "My Application",
     "user_id": "user-123"

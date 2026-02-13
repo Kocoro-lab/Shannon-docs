@@ -215,7 +215,7 @@ Object.entries(models).forEach(([provider, modelList]) => {
 - **Hot Reload**: Changes to `models.yaml` require service restart to take effect
 - **Empty Providers**: If a provider returns `[]`, check that the API key is set in `.env`
 - **Pricing Centralization**: All costs come from `pricing` section in YAML, ensuring consistency across Go/Rust/Python services
-- **Internal Endpoint**: This endpoint is on the LLM service (port 8000), not the Gateway API (port 8080)
+- **Internal Endpoint**: The `/providers/models` endpoint is on the LLM service (port 8000). For external access, use the Gateway's OpenAI-compatible `/v1/models` endpoint (port 8080) — see [OpenAI-Compatible API](/en/api/rest/openai-compatible)
 
 ## Environment Variables
 

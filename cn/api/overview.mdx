@@ -103,7 +103,7 @@ curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id=task-dev-1234567890
 
 ### OpenAI 兼容 API
 
-Shannon 提供与 OpenAI 兼容的 API，便于与现有工具集成：
+Shannon 提供与 OpenAI 兼容的 API，便于与现有 OpenAI SDK 和工具集成。详细信息请参阅 [OpenAI 兼容 API 参考](/cn/api/rest/openai-compatible)。
 
 | 端点 | 方法 | 描述 |
 |----------|--------|-------------|
@@ -137,7 +137,7 @@ SSE 流式传输：浏览器 `EventSource` 无法发送自定义请求头。
 
 - 开发环境：设置 `GATEWAY_SKIP_AUTH=1` 可跳过认证。
 - 生产环境：由后端（或边缘代理）发起 SSE 并注入 `X-API-Key` 或 `Authorization: Bearer` 请求头。
-- 请勿通过 URL 查询参数传递 API 密钥。
+- SSE 端点支持 `api_key` 查询参数作为回退（当无法发送请求头时）。
 </Warning>
 
 ## 响应格式
@@ -168,7 +168,7 @@ SSE 流式传输：浏览器 `EventSource` 无法发送自定义请求头。
 
 ## 事件流式传输
 
-Shannon 为实时监控发出 26 种事件类型：
+Shannon 为实时监控发出 33 种事件类型：
 
 **核心事件**：
 - `WORKFLOW_STARTED`、`WORKFLOW_COMPLETED`

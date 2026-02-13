@@ -12,7 +12,7 @@ Shannon provides real-time event streaming through Server-Sent Events (SSE) and 
 Browsers cannot send custom headers with EventSource.
 - Development: set `GATEWAY_SKIP_AUTH=1`.
 - Production: proxy SSE via your backend and inject `X-API-Key` or Bearer headers.
-Do not pass API keys in URL query parameters.
+For SSE endpoints, the `api_key` query parameter is supported as a fallback (e.g., `?api_key=sk_...`). For all other endpoints, use headers exclusively.
 </Warning>
 
 <Note>
@@ -554,43 +554,11 @@ Passing the API key in the query string or via an "auth" message after connect i
 }
 ```
 
-## OpenAI-Compatible Streaming Format
+## OpenAI-Compatible Streaming
 
-Shannon's SSE streaming uses an **OpenAI-compatible format** for usage metadata and event structure, enabling seamless integration with OpenAI-based tooling while maintaining Shannon's comprehensive event taxonomy.
+Shannon also provides an OpenAI-compatible streaming endpoint at `/v1/chat/completions` that translates Shannon events into the standard OpenAI `chat.completion.chunk` format. This allows you to use OpenAI SDKs directly with Shannon.
 
-### Usage Metadata Format
-
-All LLM providers return usage data in OpenAI's standard structure:
-
-```json
-{
-  "type": "LLM_OUTPUT",
-  "data": {
-    "output": "Response text...",
-    "model": "gpt-5-nano-2025-08-07",
-    "provider": "openai",
-    "usage": {
-      "total_tokens": 350,
-      "input_tokens": 200,
-      "output_tokens": 150
-    },
-    "cost_usd": 0.0105
-  }
-}
-```
-
-**Compatibility Matrix:**
-
-| Provider | Usage Metadata | Stream Options |
-|----------|----------------|----------------|
-| OpenAI | ✅ Full support | `stream_options: {"include_usage": true}` |
-| Anthropic | ✅ Full support | Final streaming chunk |
-| Google | ✅ Full support | Final streaming chunk |
-| Groq | ✅ Full support | Final streaming chunk |
-| xAI | ⚠️ Limited | Available only in unary mode |
-| OpenAI-compatible | ⚠️ Graceful degradation | Depends on endpoint support |
-
-**Note**: Shannon automatically handles providers that don't support `stream_options` parameter with graceful degradation—streaming works but usage metadata may be unavailable during streaming.
+For complete documentation on the OpenAI-compatible API, including request/response schemas, available models, Shannon-specific extensions (`shannon_events`), and SDK usage examples, see the [OpenAI-Compatible API Reference](/en/api/rest/openai-compatible).
 
 ## Event Types
 

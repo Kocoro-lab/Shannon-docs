@@ -8,7 +8,7 @@ description: "Shannon REST API 的身份验证方法和请求头参考"
 
 ## 身份验证
 
-Shannon Gateway 支持对所有受保护端点的 API 密钥认证。
+Shannon Gateway 支持两种认证方式用于所有受保护端点。
 
 ### API 密钥认证
 
@@ -19,23 +19,39 @@ curl -H "X-API-Key: sk_test_123456" \
   http://localhost:8080/api/v1/tasks
 ```
 
+### Bearer Token 认证
+
+也可使用 `Authorization: Bearer` 请求头传递 API 密钥或 JWT 令牌：
+
+```bash
+curl -H "Authorization: Bearer sk_test_123456" \
+  http://localhost:8080/api/v1/tasks
+```
+
+两种方式等效——选择适合您工具链的方式即可。
+
 
 
 ### 认证错误
 
-**401 未授权** - 缺少或无效的 API 密钥：
+**401 未授权** - 缺少或无效的凭证：
 
 ```json
-{
-  "error": "Unauthorized"
-}
+// 缺少认证头
+{ "error": "Authentication required" }
+
+// 无效的 API 密钥
+{ "error": "Invalid API key" }
+
+// JWT 令牌已过期
+{ "error": "Invalid or expired token" }
 ```
 
 **常见原因**：
-- 缺少 `X-API-Key` 请求头
+- 缺少 `X-API-Key` 或 `Authorization` 请求头
 - 无效的 API 密钥格式
 - 禁用的或过期的 API 密钥
-- 错误的认证端点
+- JWT 令牌已过期
 
 ## 请求头
 

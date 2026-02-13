@@ -12,7 +12,7 @@ Shannonは、Server-Sent Events (SSE)およびWebSocketプロトコルを通じ�
 ブラウザはEventSourceでカスタムヘッダーを送信できません。
 - 開発: `GATEWAY_SKIP_AUTH=1`を設定します。
 - 本番: バックエンドを介してSSEをプロキシし、`X-API-Key`またはBearerヘッダーを注入します。
-APIキーをURLクエリパラメータで渡さないでください。
+SSEエンドポイントでは、フォールバックとして `api_key` クエリパラメータがサポートされています（例: `?api_key=sk_...`）。その他のエンドポイントではヘッダーを使用してください。
 </Warning>
 
 <Note>
@@ -554,43 +554,11 @@ asyncio.run(main())
 }
 ```
 
-## OpenAI互換ストリーミングフォーマット
+## OpenAI互換ストリーミング
 
-ShannonのSSEストリーミングは、**OpenAI互換フォーマット**を使用して使用メタデータとイベント構造を提供し、OpenAIベースのツールとのシームレスな統合を可能にしつつ、Shannonの包括的なイベント分類を維持します。
+Shannonは`/v1/chat/completions`でOpenAI互換のストリーミングエンドポイントも提供しており、ShannonイベントをOpenAI標準の`chat.completion.chunk`形式に変換します。これにより、OpenAI SDKを直接Shannonで使用できます。
 
-### 使用メタデータフォーマット
-
-すべてのLLMプロバイダーは、OpenAIの標準構造で使用データを返します：
-
-```json
-{
-  "type": "LLM_OUTPUT",
-  "data": {
-    "output": "応答テキスト...",
-    "model": "gpt-5-nano-2025-08-07",
-    "provider": "openai",
-    "usage": {
-      "total_tokens": 350,
-      "input_tokens": 200,
-      "output_tokens": 150
-    },
-    "cost_usd": 0.0105
-  }
-}
-```
-
-**互換性マトリックス:**
-
-| プロバイダー | 使用メタデータ | ストリームオプション |
-|--------------|----------------|----------------------|
-| OpenAI       | ✅ 完全サポート | `stream_options: {"include_usage": true}` |
-| Anthropic    | ✅ 完全サポート | 最終ストリーミングチャンク |
-| Google       | ✅ 完全サポート | 最終ストリーミングチャンク |
-| Groq         | ✅ 完全サポート | 最終ストリーミングチャンク |
-| xAI          | ⚠️ 限定的       | 単項モードでのみ利用可能 |
-| OpenAI互換   | ⚠️ 優雅な劣化   | エンドポイントのサポートに依存 |
-
-**注意**: Shannonは、`stream_options`パラメータをサポートしていないプロバイダーを優雅に処理します—ストリーミングは機能しますが、ストリーミング中に使用メタデータが利用できない場合があります。
+OpenAI互換APIの完全なドキュメント（リクエスト/レスポンススキーマ、利用可能なモデル、Shannon固有の拡張（`shannon_events`）、SDK使用例を含む）については、[OpenAI互換APIリファレンス](/ja/api/rest/openai-compatible)を参照してください。
 
 ## イベントタイプ
 

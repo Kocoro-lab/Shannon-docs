@@ -1,0 +1,532 @@
+---
+title: "OpenAI互換API"
+description: "/v1/chat/completionsエンドポイントを介してOpenAI SDKおよびツールでShannonを使用"
+---
+
+## 概要
+
+Shannonは、既存のOpenAI SDK、ツール、およびインテグレーションを使用してShannonのエージェントオーケストレーションプラットフォームとやり取りできるOpenAI互換APIレイヤーを提供します。互換レイヤーはOpenAIチャット補完リクエストをShannonタスクに変換し、結果をOpenAI形式でストリーミング返却します。
+
+つまり、OpenAI PythonまたはNode.js SDKをShannonに向けるだけで、マルチエージェント研究、ツール利用、深度分析にアクセスできます——すべておなじみのインターフェースを通じて。
+
+<Note>
+OpenAI互換APIは既存ツールとの互換性のために設計されています。完全なShannon機能（スキル、セッションワークスペース、研究戦略、タスク制御）を使用するには、ネイティブの[`/api/v1/tasks`](/ja/api/rest/submit-task)エンドポイントを使用してください。
+</Note>
+
+## エンドポイント
+
+| メソッド | パス | 説明 |
+|---------|------|------|
+| `POST` | `/v1/chat/completions` | チャット補完を作成（ストリーミングおよび非ストリーミング） |
+| `GET` | `/v1/models` | 利用可能なモデルを一覧表示 |
+| `GET` | `/v1/models/{model}` | モデルの詳細を取得 |
+
+**ベースURL**: `http://localhost:8080`（開発環境）
+
+## 認証
+
+OpenAI互換エンドポイントは他のShannon APIと同じ認証を使用します。
+
+```bash
+# Bearerトークン（OpenAI SDKのデフォルト）
+Authorization: Bearer sk_your_api_key
+
+# またはX-API-Keyヘッダー
+X-API-Key: sk_your_api_key
+```
+
+<Note>
+**開発デフォルト**: `GATEWAY_SKIP_AUTH=1`設定時は認証が無効です。本番環境では認証を有効にしてください。
+</Note>
+
+## 利用可能なモデル
+
+Shannonはモデル名を異なるワークフローモードと戦略にマッピングします。モデルを選択してリクエストの処理方法を制御します。
+
+| モデル | ワークフローモード | 説明 | デフォルト最大トークン数 |
+|--------|-------------------|------|------------------------|
+| `shannon-chat` | Simple | 一般的なチャット補完（デフォルト） | 4096 |
+| `shannon-standard-research` | Research | 適度な深度のバランスの取れた研究 | 4096 |
+| `shannon-deep-research` | Research | 反復改善による深度研究 | 8192 |
+| `shannon-quick-research` | Research | シンプルなクエリの高速研究 | 4096 |
+| `shannon-complex` | Supervisor | 複雑なタスクのマルチエージェントオーケストレーション | 8192 |
+
+モデルが指定されない場合、`shannon-chat`が使用されます。
+
+<Tip>
+モデルは`config/openai_models.yaml`でカスタマイズできます。カスタムモデルの追加については、Shannon設定ドキュメントを参照してください。
+</Tip>
+
+## チャット補完
+
+### POST /v1/chat/completions
+
+#### リクエストボディ
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|------|------|------|
+| `model` | string | いいえ | モデル名（デフォルト `shannon-chat`） |
+| `messages` | array | はい | メッセージオブジェクトの配列 |
+| `stream` | boolean | いいえ | ストリーミングを有効化（デフォルト `false`） |
+| `max_tokens` | integer | いいえ | レスポンスの最大トークン数（上限16384） |
+| `temperature` | number | いいえ | サンプリング温度 0-2（デフォルト 0.7） |
+| `top_p` | number | いいえ | 核サンプリングパラメータ |
+| `n` | integer | いいえ | 補完数（`1`のみサポート） |
+| `stop` | array | いいえ | 停止シーケンス |
+| `presence_penalty` | number | いいえ | 存在ペナルティ -2.0から2.0 |
+| `frequency_penalty` | number | いいえ | 頻度ペナルティ -2.0から2.0 |
+| `user` | string | いいえ | トラッキングとセッション推導のためのエンドユーザー識別子 |
+| `stream_options` | object | いいえ | ストリーミングオプション（下記参照） |
+
+**メッセージオブジェクト**:
+
+| フィールド | 型 | 必須 | 説明 |
+|-----------|------|------|------|
+| `role` | string | はい | `system`、`user`、または`assistant` |
+| `content` | string | はい | メッセージ内容（テキストのみ） |
+| `name` | string | いいえ | 参加者のオプション名 |
+
+**ストリーミングオプション**:
+
+| フィールド | 型 | 説明 |
+|-----------|------|------|
+| `include_usage` | boolean | 最終ストリーミングチャンクにトークン使用量を含める |
+
+#### メッセージの処理方法
+
+ShannonはOpenAIメッセージ配列をShannonタスクに変換します：
+
+- **最後のユーザーメッセージ**がタスククエリになる
+- **最初のシステムメッセージ**がシステムプロンプトになる
+- **その他のすべてのメッセージ**（システムメッセージと最後のユーザーメッセージを除く）が会話履歴になる
+- **モデル名**がワークフローモードと研究戦略を決定する
+
+#### 非ストリーミングレスポンス
+
+```json
+{
+  "id": "chatcmpl-20250120100000a1b2c3d4",
+  "object": "chat.completion",
+  "created": 1737367200,
+  "model": "shannon-chat",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Shannonからのレスポンステキスト..."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 25,
+    "completion_tokens": 150,
+    "total_tokens": 175
+  }
+}
+```
+
+<Warning>
+非ストリーミングリクエストは、深度研究や長時間実行ワークフローをサポートするために**35分のタイムアウト**があります。非常に長いタスクにはストリーミングモードをお勧めします。
+</Warning>
+
+#### ストリーミングレスポンス
+
+`stream: true`の場合、レスポンスはServer-Sent Eventsとして配信されます：
+
+**最初のチャンク**（ロールを含む）：
+```
+data: {"id":"chatcmpl-...","object":"chat.completion.chunk","created":1737367200,"model":"shannon-chat","choices":[{"index":0,"delta":{"role":"assistant","content":"レスポンス"},"finish_reason":null}]}
+```
+
+**コンテンツチャンク**：
+```
+data: {"id":"chatcmpl-...","object":"chat.completion.chunk","created":1737367200,"model":"shannon-chat","choices":[{"index":0,"delta":{"content":"テキスト内容"},"finish_reason":null}]}
+```
+
+**最終チャンク**（終了理由を含む）：
+```
+data: {"id":"chatcmpl-...","object":"chat.completion.chunk","created":1737367200,"model":"shannon-chat","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":25,"completion_tokens":150,"total_tokens":175}}
+```
+
+**ストリーム終了マーカー**：
+```
+data: [DONE]
+```
+
+<Note>
+最終チャンクの使用データは、`stream_options.include_usage`が`true`に設定されている場合にのみ含まれます。
+</Note>
+
+## Shannon拡張
+
+### shannon_eventsフィールド
+
+ストリーミング中、Shannonは`shannon_events`フィールドで標準OpenAIチャンク形式を拡張します。このフィールドはエージェントライフサイクルイベントを伝達し、Shannonのエージェントがバックグラウンドで何をしているかを可視化します。
+
+```json
+{
+  "id": "chatcmpl-...",
+  "object": "chat.completion.chunk",
+  "created": 1737367200,
+  "model": "shannon-deep-research",
+  "choices": [
+    {
+      "index": 0,
+      "delta": {}
+    }
+  ],
+  "shannon_events": [
+    {
+      "type": "AGENT_STARTED",
+      "agent_id": "researcher_1",
+      "message": "クエリの研究を開始しています...",
+      "timestamp": 1737367201,
+      "payload": {}
+    }
+  ]
+}
+```
+
+**ShannonEventフィールド**：
+
+| フィールド | 型 | 説明 |
+|-----------|------|------|
+| `type` | string | イベントタイプ（下表参照） |
+| `agent_id` | string | エージェント識別子 |
+| `message` | string | 人間が読める説明 |
+| `timestamp` | integer | Unixタイムスタンプ |
+| `payload` | object | 追加のイベント固有データ |
+
+**転送されるイベントタイプ**：
+
+| カテゴリ | イベント |
+|---------|---------|
+| ワークフロー | `WORKFLOW_STARTED`、`WORKFLOW_PAUSING`、`WORKFLOW_PAUSED`、`WORKFLOW_RESUMED`、`WORKFLOW_CANCELLING`、`WORKFLOW_CANCELLED` |
+| エージェント | `AGENT_STARTED`、`AGENT_COMPLETED`、`AGENT_THINKING` |
+| ツール | `TOOL_INVOKED`、`TOOL_OBSERVATION` |
+| 進捗 | `PROGRESS`、`DATA_PROCESSING`、`WAITING`、`ERROR_RECOVERY` |
+| チーム | `TEAM_RECRUITED`、`TEAM_RETIRED`、`TEAM_STATUS`、`ROLE_ASSIGNED`、`DELEGATION`、`DEPENDENCY_SATISFIED` |
+| バジェットと承認 | `BUDGET_THRESHOLD`、`APPROVAL_REQUESTED`、`APPROVAL_DECISION` |
+
+<Tip>
+標準的なOpenAIクライアントは未知のフィールドを無視するため、`shannon_events`フィールドは任意のOpenAI互換ツールで安全に使用できます。より詳細な進捗情報が必要な場合に解析してください。
+</Tip>
+
+### X-Session-IDヘッダー
+
+Shannonは`X-Session-ID`リクエストヘッダーを介してマルチターン会話をサポートします。提供すると、Shannonはリクエスト間で会話コンテキストを維持します。
+
+```bash
+curl -X POST http://localhost:8080/v1/chat/completions \
+  -H "Authorization: Bearer sk_your_key" \
+  -H "X-Session-ID: my-conversation-1" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "shannon-chat", "messages": [{"role": "user", "content": "こんにちは"}]}'
+```
+
+`X-Session-ID`が提供されない場合、Shannonは会話内容（システムメッセージ + 最初のユーザーメッセージのハッシュ）または`user`フィールドからセッションIDを推導します。
+
+新しいセッションが作成されたり衝突が検出された場合、レスポンスには`X-Session-ID`と`X-Shannon-Session-ID`ヘッダーが含まれます。
+
+## レート制限
+
+レート制限はAPIキーごと、モデルごとに適用されます。デフォルトの制限は：
+
+- モデルごとに**毎分60リクエスト**
+- モデルごとに**毎分200,000トークン**
+
+**すべてのレスポンスに含まれるレート制限ヘッダー**：
+
+| ヘッダー | 説明 |
+|---------|------|
+| `X-RateLimit-Limit-Requests` | 毎分の最大リクエスト数 |
+| `X-RateLimit-Remaining-Requests` | 現在のウィンドウの残りリクエスト数 |
+| `X-RateLimit-Limit-Tokens` | 毎分の最大トークン数 |
+| `X-RateLimit-Remaining-Tokens` | 現在のウィンドウの残りトークン数 |
+| `X-RateLimit-Reset-Requests` | リクエスト制限のリセット時間 |
+| `Retry-After` | リトライまでの待機秒数（429の場合） |
+
+## エラー処理
+
+エラーはOpenAIエラーレスポンス形式に従います：
+
+```json
+{
+  "error": {
+    "message": "Model 'invalid-model' not found. Use GET /v1/models to list available models.",
+    "type": "invalid_request_error",
+    "code": "model_not_found"
+  }
+}
+```
+
+**エラータイプ**：
+
+| HTTPステータス | タイプ | コード | 説明 |
+|---------------|--------|--------|------|
+| 400 | `invalid_request_error` | `invalid_request` | リクエスト形式の不正または必須フィールドの欠落 |
+| 401 | `authentication_error` | `invalid_api_key` | APIキーが無効または欠落 |
+| 403 | `permission_error` | `invalid_request` | 権限不足 |
+| 404 | `invalid_request_error` | `model_not_found` | モデルが存在しない |
+| 429 | `rate_limit_error` | `rate_limit_exceeded` | レート制限を超過 |
+| 500 | `server_error` | `internal_error` | 内部サーバーエラー |
+
+## モデル一覧
+
+### GET /v1/models
+
+利用可能なすべてのShannonモデルを返します。
+
+```bash
+curl http://localhost:8080/v1/models \
+  -H "Authorization: Bearer sk_your_key"
+```
+
+**レスポンス**：
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "shannon-chat",
+      "object": "model",
+      "created": 1737367200,
+      "owned_by": "shannon"
+    },
+    {
+      "id": "shannon-deep-research",
+      "object": "model",
+      "created": 1737367200,
+      "owned_by": "shannon"
+    }
+  ]
+}
+```
+
+### GET /v1/models/{model}
+
+特定のモデルの詳細を返します。モデルの説明は`X-Model-Description`レスポンスヘッダーに含まれます。
+
+```bash
+curl http://localhost:8080/v1/models/shannon-deep-research \
+  -H "Authorization: Bearer sk_your_key"
+```
+
+## OpenAI SDKでの使用
+
+### Python
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:8080/v1",
+    api_key="sk_your_api_key",  # 認証が無効の場合は "not-needed"
+)
+
+# 非ストリーミング
+response = client.chat.completions.create(
+    model="shannon-chat",
+    messages=[
+        {"role": "system", "content": "あなたは有能なアシスタントです。"},
+        {"role": "user", "content": "Shannonとは何ですか？"}
+    ],
+)
+print(response.choices[0].message.content)
+
+# ストリーミング
+stream = client.chat.completions.create(
+    model="shannon-deep-research",
+    messages=[
+        {"role": "user", "content": "AIが医療に与える影響を分析してください"}
+    ],
+    stream=True,
+    stream_options={"include_usage": True},
+)
+
+for chunk in stream:
+    if chunk.choices[0].delta.content:
+        print(chunk.choices[0].delta.content, end="", flush=True)
+
+    # Shannon固有のイベントにアクセス（利用可能な場合）
+    if hasattr(chunk, "shannon_events") and chunk.shannon_events:
+        for event in chunk.shannon_events:
+            print(f"\n[{event['type']}] {event.get('message', '')}")
+```
+
+### Node.js / TypeScript
+
+```typescript
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  baseURL: "http://localhost:8080/v1",
+  apiKey: "sk_your_api_key",
+});
+
+// 非ストリーミング
+const response = await client.chat.completions.create({
+  model: "shannon-chat",
+  messages: [
+    { role: "user", content: "Shannonとは何ですか？" }
+  ],
+});
+console.log(response.choices[0].message.content);
+
+// ストリーミング
+const stream = await client.chat.completions.create({
+  model: "shannon-deep-research",
+  messages: [
+    { role: "user", content: "AIが医療に与える影響を分析してください" }
+  ],
+  stream: true,
+});
+
+for await (const chunk of stream) {
+  const content = chunk.choices[0]?.delta?.content;
+  if (content) {
+    process.stdout.write(content);
+  }
+}
+```
+
+### curl
+
+```bash
+# 非ストリーミング
+curl -X POST http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk_your_api_key" \
+  -d '{
+    "model": "shannon-chat",
+    "messages": [
+      {"role": "user", "content": "Shannonとは何ですか？"}
+    ]
+  }'
+
+# ストリーミング
+curl -N -X POST http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk_your_api_key" \
+  -d '{
+    "model": "shannon-deep-research",
+    "messages": [
+      {"role": "user", "content": "AIが医療に与える影響を分析してください"}
+    ],
+    "stream": true,
+    "stream_options": {"include_usage": true}
+  }'
+
+# マルチターン用のセッションID付き
+curl -X POST http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk_your_api_key" \
+  -H "X-Session-ID: my-session-1" \
+  -d '{
+    "model": "shannon-chat",
+    "messages": [
+      {"role": "system", "content": "あなたはデータアナリストです。"},
+      {"role": "user", "content": "第4四半期の収益トレンドをまとめてください"}
+    ]
+  }'
+```
+
+## Shannonイベント付きストリーミング
+
+エージェントの進捗を表示するリッチUIを構築するには、ストリーミングチャンクから`shannon_events`フィールドを解析します：
+
+```python
+import json
+import httpx
+
+def stream_with_events(query: str, model: str = "shannon-deep-research"):
+    response = httpx.post(
+        "http://localhost:8080/v1/chat/completions",
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": "Bearer sk_your_api_key",
+        },
+        json={
+            "model": model,
+            "messages": [{"role": "user", "content": query}],
+            "stream": True,
+        },
+        timeout=None,
+    )
+
+    for line in response.iter_lines():
+        if not line.startswith("data: "):
+            continue
+        data = line[6:]
+        if data == "[DONE]":
+            break
+
+        chunk = json.loads(data)
+
+        # コンテンツデルタを出力
+        delta = chunk["choices"][0].get("delta", {})
+        if delta.get("content"):
+            print(delta["content"], end="", flush=True)
+
+        # Shannonエージェントイベントを出力
+        for event in chunk.get("shannon_events", []):
+            print(f"\n  [{event['type']}] {event.get('message', '')}")
+
+stream_with_events("量子コンピューティングの最新の発展を調査してください")
+```
+
+## ハートビートとキープアライブ
+
+ストリーミング中、Shannonは接続を維持するために30秒ごとにSSEコメント行（`: keepalive`）を送信します。準拠するSSEクライアントはこれらを自動的に無視します。これにより、長時間実行される研究タスク中にロードバランサーやプロキシがアイドル接続を閉じることを防ぎます。
+
+## 制限事項
+
+以下のOpenAI API機能は**サポートされていません**：
+
+| 機能 | ステータス |
+|------|----------|
+| 関数呼び出し / tools | 未サポート |
+| ビジョン / 画像入力 | 未サポート（テキストコンテンツのみ） |
+| 音声入力/出力 | 未サポート |
+| 埋め込みAPI（`/v1/embeddings`） | 利用不可 |
+| ファインチューニングAPI | 利用不可 |
+| `response_format`（JSONモード） | 未サポート |
+| `logprobs` | 未サポート |
+| `seed` | 未サポート |
+| `n` > 1（複数補完） | 未サポート |
+
+<Warning>
+`messages[].content`フィールドはプレーンテキスト文字列のみを受け入れます。マルチパートコンテンツ（image_urlオブジェクトを含む配列）はサポートされていません。
+</Warning>
+
+## 標準OpenAI APIとの違い
+
+| 側面 | OpenAI API | Shannon OpenAI互換API |
+|------|-----------|----------------------|
+| モデル | GPT-4、GPT-3.5など | `shannon-chat`、`shannon-deep-research`など |
+| 処理 | 単一LLM呼び出し | マルチエージェントオーケストレーション、ツール利用、研究 |
+| レイテンシ | 秒 | 秒から分（モデル/戦略に依存） |
+| ストリーミングイベント | コンテンツのみ | コンテンツ + `shannon_events`エージェントライフサイクル |
+| セッション管理 | 組み込みなし | `X-Session-ID`ヘッダーによるサーバーサイドコンテキスト |
+| レート制限 | 組織単位 | APIキー単位、モデル単位 |
+| 終了理由 | `stop`、`length`、`tool_calls`、`content_filter` | `stop`のみ |
+
+## 関連
+
+<CardGroup cols={2}>
+  <Card title="タスク送信（ネイティブAPI）" icon="paper-plane" href="/ja/api/rest/submit-task">
+    全機能を備えたShannonタスク送信
+  </Card>
+  <Card title="イベントストリーミング" icon="stream" href="/ja/api/rest/streaming">
+    ShannonネイティブSSEおよびWebSocketストリーミング
+  </Card>
+  <Card title="イベントタイプリファレンス" icon="list" href="/ja/api/event-types">
+    Shannonイベントタイプの完全なリスト
+  </Card>
+  <Card title="Python SDK" icon="python" href="/ja/sdk/python/quickstart">
+    ShannonネイティブPythonクライアント
+  </Card>
+</CardGroup>

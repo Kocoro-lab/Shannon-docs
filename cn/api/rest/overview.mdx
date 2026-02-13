@@ -70,7 +70,7 @@ curl -H "X-API-Key: sk_test_123456" \
 ### SSE 流式传输认证
 
 <Warning>
-浏览器 `EventSource` 无法发送自定义请求头。生产环境请通过后端代理转发 SSE，并注入 `X-API-Key` 或 Bearer 头。不要通过 URL 查询参数传递 API 密钥。
+浏览器 `EventSource` 无法发送自定义请求头。生产环境请通过后端代理转发 SSE，并注入 `X-API-Key` 或 Bearer 头。SSE 端点支持 `api_key` 查询参数作为回退（如 `?api_key=sk_...`）。
 </Warning>
 
 ```javascript

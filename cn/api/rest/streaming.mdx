@@ -12,7 +12,7 @@ Shannon 通过 Server-Sent Events (SSE) 和 WebSocket 协议提供实时事件�
 浏览器 EventSource 无法携带自定义请求头。
 - 开发环境：设置 `GATEWAY_SKIP_AUTH=1`。
 - 生产环境：通过后端代理转发 SSE，并注入 `X-API-Key` 或 Bearer 头。
-不要通过 URL 查询参数传递 API 密钥。
+SSE 端点支持 `api_key` 查询参数作为回退（如 `?api_key=sk_...`）。其他端点请通过请求头传递密钥。
 </Warning>
 
 <Note>
@@ -555,43 +555,11 @@ asyncio.run(main())
 }
 ```
 
-## OpenAI 兼容的流式传输格式
+## OpenAI 兼容流式传输
 
-Shannon 的 SSE 流式传输使用 **OpenAI 兼容格式** 处理使用元数据和事件结构，可与基于 OpenAI 的工具无缝集成，同时保持 Shannon 的综合事件分类体系。
+Shannon 还在 `/v1/chat/completions` 提供 OpenAI 兼容的流式传输端点，将 Shannon 事件转换为标准 OpenAI `chat.completion.chunk` 格式。这允许您直接使用 OpenAI SDK 与 Shannon 交互。
 
-### 使用元数据格式
-
-所有 LLM 提供商以 OpenAI 标准结构返回使用数据：
-
-```json
-{
-  "type": "LLM_OUTPUT",
-  "data": {
-    "output": "响应文本...",
-    "model": "gpt-5-nano-2025-08-07",
-    "provider": "openai",
-    "usage": {
-      "total_tokens": 350,
-      "input_tokens": 200,
-      "output_tokens": 150
-    },
-    "cost_usd": 0.0105
-  }
-}
-```
-
-**兼容性矩阵：**
-
-| 提供商 | 使用元数据 | 流式选项 |
-|----------|----------------|----------------|
-| OpenAI | ✅ 完全支持 | `stream_options: {"include_usage": true}` |
-| Anthropic | ✅ 完全支持 | 最终流式块 |
-| Google | ✅ 完全支持 | 最终流式块 |
-| Groq | ✅ 完全支持 | 最终流式块 |
-| xAI | ⚠️ 有限支持 | 仅在一元模式下可用 |
-| OpenAI 兼容端点 | ⚠️ 优雅降级 | 取决于端点支持 |
-
-**注意**: Shannon 自动处理不支持 `stream_options` 参数的提供商，进行优雅降级——流式传输可工作，但使用元数据在流式传输期间可能不可用。
+有关 OpenAI 兼容 API 的完整文档，包括请求/响应模式、可用模型、Shannon 特有扩展（`shannon_events`）以及 SDK 使用示例，请参阅 [OpenAI 兼容 API 参考](/cn/api/rest/openai-compatible)。
 
 ## 事件类型
 

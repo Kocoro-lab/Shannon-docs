@@ -8,7 +8,7 @@ description: "Authentication methods and header reference for Shannon REST API"
 
 ## Authentication
 
-Shannon Gateway supports API key authentication for all protected endpoints.
+Shannon Gateway supports two authentication methods for all protected endpoints.
 
 ### API Key Authentication
 
@@ -19,23 +19,39 @@ curl -H "X-API-Key: sk_test_123456" \
   http://localhost:8080/api/v1/tasks
 ```
 
+### Bearer Token Authentication
+
+Alternatively, use the `Authorization: Bearer` header with an API key or JWT token:
+
+```bash
+curl -H "Authorization: Bearer sk_test_123456" \
+  http://localhost:8080/api/v1/tasks
+```
+
+Both methods are equivalent — use whichever fits your tooling.
+
 
 
 ### Authentication Errors
 
-**401 Unauthorized** - Missing or invalid API key:
+**401 Unauthorized** - Missing or invalid credentials:
 
 ```json
-{
-  "error": "Unauthorized"
-}
+// Missing auth header
+{ "error": "Authentication required" }
+
+// Invalid API key
+{ "error": "Invalid API key" }
+
+// Expired JWT token
+{ "error": "Invalid or expired token" }
 ```
 
 **Common causes**:
-- Missing `X-API-Key` header
+- Missing `X-API-Key` or `Authorization` header
 - Invalid API key format
 - Disabled or expired API key
-- Wrong authentication endpoint
+- Expired JWT token
 
 ## Request Headers
 

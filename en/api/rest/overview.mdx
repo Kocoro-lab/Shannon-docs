@@ -73,7 +73,7 @@ curl -H "X-API-Key: sk_test_123456" \
 ### SSE Streaming Authentication
 
 <Warning>
-Browser `EventSource` cannot send custom headers. In production, proxy SSE via your backend and inject `X-API-Key` or Bearer headers. Do not pass API keys in URL query parameters.
+Browser `EventSource` cannot send custom headers. In production, proxy SSE via your backend and inject `X-API-Key` or Bearer headers. For SSE endpoints, the `api_key` query parameter is supported as a fallback (e.g., `?api_key=sk_...`).
 </Warning>
 
 ```javascript

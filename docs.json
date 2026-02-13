@@ -53,6 +53,7 @@
                   "en/quickstart/concepts/workflows",
                   "en/quickstart/concepts/cost-control",
                   "en/quickstart/concepts/streaming",
+                  "en/quickstart/concepts/swarm",
                   "en/quickstart/concepts/monitoring"
                 ]
               },
@@ -98,6 +99,18 @@
                 ]
               },
               {
+                "group": "Swarm",
+                "pages": [
+                  "en/api/rest/swarm"
+                ]
+              },
+              {
+                "group": "HITL Review",
+                "pages": [
+                  "en/api/rest/hitl-review"
+                ]
+              },
+              {
                 "group": "Sessions",
                 "pages": [
                   "en/api/rest/sessions"
@@ -118,7 +131,8 @@
               {
                 "group": "Streaming",
                 "pages": [
-                  "en/api/rest/streaming"
+                  "en/api/rest/streaming",
+                  "en/api/rest/openai-compatible"
                 ]
               },
               {
@@ -157,7 +171,9 @@
               {
                 "group": "Building Agents",
                 "pages": [
-                  "en/tutorials/research-assistant"
+                  "en/tutorials/research-assistant",
+                  "en/tutorials/swarm-workflow",
+                  "en/tutorials/hitl-review"
                 ]
               },
               {
@@ -250,6 +266,7 @@
                   "cn/quickstart/concepts/workflows",
                   "cn/quickstart/concepts/cost-control",
                   "cn/quickstart/concepts/streaming",
+                  "cn/quickstart/concepts/swarm",
                   "cn/quickstart/concepts/monitoring"
                 ]
               },
@@ -295,6 +312,18 @@
                 ]
               },
               {
+                "group": "Swarm 集群",
+                "pages": [
+                  "cn/api/rest/swarm"
+                ]
+              },
+              {
+                "group": "人机协同审查",
+                "pages": [
+                  "cn/api/rest/hitl-review"
+                ]
+              },
+              {
                 "group": "会话",
                 "pages": [
                   "cn/api/rest/sessions"
@@ -315,7 +344,8 @@
               {
                 "group": "流式",
                 "pages": [
-                  "cn/api/rest/streaming"
+                  "cn/api/rest/streaming",
+                  "cn/api/rest/openai-compatible"
                 ]
               },
               {
@@ -354,7 +384,9 @@
               {
                 "group": "构建智能体",
                 "pages": [
-                  "cn/tutorials/research-assistant"
+                  "cn/tutorials/research-assistant",
+                  "cn/tutorials/swarm-workflow",
+                  "cn/tutorials/hitl-review"
                 ]
               },
               {
@@ -447,6 +479,7 @@
                   "ja/quickstart/concepts/workflows",
                   "ja/quickstart/concepts/cost-control",
                   "ja/quickstart/concepts/streaming",
+                  "ja/quickstart/concepts/swarm",
                   "ja/quickstart/concepts/monitoring"
                 ]
               },
@@ -492,6 +525,18 @@
                 ]
               },
               {
+                "group": "Swarm",
+                "pages": [
+                  "ja/api/rest/swarm"
+                ]
+              },
+              {
+                "group": "HITLレビュー",
+                "pages": [
+                  "ja/api/rest/hitl-review"
+                ]
+              },
+              {
                 "group": "セッション",
                 "pages": [
                   "ja/api/rest/sessions"
@@ -512,7 +557,8 @@
               {
                 "group": "ストリーミング",
                 "pages": [
-                  "ja/api/rest/streaming"
+                  "ja/api/rest/streaming",
+                  "ja/api/rest/openai-compatible"
                 ]
               },
               {
@@ -551,7 +597,9 @@
               {
                 "group": "Agent構築",
                 "pages": [
-                  "ja/tutorials/research-assistant"
+                  "ja/tutorials/research-assistant",
+                  "ja/tutorials/swarm-workflow",
+                  "ja/tutorials/hitl-review"
                 ]
               },
               {

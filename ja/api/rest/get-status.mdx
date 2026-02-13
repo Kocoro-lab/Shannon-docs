@@ -96,9 +96,8 @@ X-API-Key: sk_test_123456
 - `TASK_STATUS_RUNNING` - 現在実行中
 - `TASK_STATUS_COMPLETED` - 成功裏に完了
 - `TASK_STATUS_FAILED` - エラーで失敗
+- `TASK_STATUS_PAUSED` - ユーザーまたはHITLレビューにより一時停止
 - `TASK_STATUS_CANCELLED` - ユーザーによってキャンセル
-
-実行中のタスクをキャンセルするには、`POST /api/v1/tasks/{id}/cancel`も参照してください。
 - `TASK_STATUS_TIMEOUT` - タイムアウト制限を超えた
 
 ### 実行モード値

@@ -1,0 +1,320 @@
+---
+title: "Swarm Workflow API"
+description: "Swarmマルチエージェントタスクの送信と監視のためのAPIリファレンス"
+---
+
+## 概要
+
+SwarmワークフローはタスクコンテキストでSwarmを設定する `force_swarm: true` によってトリガーされます。他のすべてのワークフローと同じ `POST /api/v1/tasks` エンドポイントを使用します——個別のエンドポイントは不要です。
+
+Swarmモードはクエリをサブタスクに分解し、Agent間メッセージングで並列に動作する永続的なAgentを生成し、結果を統一されたレスポンスに統合します。
+
+## Swarmタスクの送信
+
+### エンドポイント
+
+```
+POST http://localhost:8080/api/v1/tasks
+```
+
+### リクエストボディ
+
+```json
+{
+  "query": "Your complex multi-faceted task",
+  "session_id": "optional-session-id",
+  "context": {
+    "force_swarm": true
+  }
+}
+```
+
+### Swarm固有のコンテキストパラメータ
+
+| パラメータ | タイプ | デフォルト | 説明 |
+|-----------|--------|----------|------|
+| `force_swarm` | boolean | `false` | Swarmワークフローをトリガーするために**必須** |
+| `model_tier` | string | （自動） | Agent実行のモデルティア：`small`、`medium`、`large` |
+
+すべての標準タスクパラメータ（`session_id`、`mode`、`model_tier`、`model_override`、`provider_override`）はSwarmタスクで使用できます。
+
+<Note>
+`force_swarm`フラグは`context`オブジェクト内に設定する必要があり、トップレベルのパラメータではありません。また、サーバー設定でSwarmが有効（`features.yaml`の`workflows.swarm.enabled: true`）である必要があります。
+</Note>
+
+### 例：基本的なSwarmタスク
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Compare AI chip markets across US, Japan, and South Korea",
+    "session_id": "swarm-demo",
+    "context": {
+      "force_swarm": true
+    }
+  }'
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+handle = client.submit_task(
+    "Compare AI chip markets across US, Japan, and South Korea",
+    force_swarm=True,
+    session_id="swarm-demo",
+)
+```
+
+```python Python (httpx)
+import httpx
+
+response = httpx.post(
+    "http://localhost:8080/api/v1/tasks",
+    json={
+        "query": "Compare AI chip markets across US, Japan, and South Korea",
+        "session_id": "swarm-demo",
+        "context": {"force_swarm": True},
+    },
+)
+task = response.json()
+print(f"Task ID: {task['task_id']}")
+```
+
+</CodeGroup>
+
+### レスポンス
+
+```json
+{
+  "task_id": "task-abc123...",
+  "status": "STATUS_CODE_OK",
+  "message": "Task submitted successfully",
+  "created_at": "2025-11-10T10:00:00Z"
+}
+```
+
+**ヘッダー：**
+- `X-Workflow-ID`：Temporalワークフロー識別子（`task_id`と同一）
+- `X-Session-ID`：セッション識別子
+
+## 送信 + ストリーミング
+
+統合エンドポイントを使用して、送信とストリームURLの取得を一回で行います：
+
+```
+POST http://localhost:8080/api/v1/tasks/stream
+```
+
+<CodeGroup>
+
+```bash cURL
+curl -s -X POST http://localhost:8080/api/v1/tasks/stream \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Analyze competitive landscape of major cloud AI platforms",
+    "context": { "force_swarm": true }
+  }' | jq
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+handle, stream_url = client.submit_and_stream(
+    "Analyze competitive landscape of major cloud AI platforms",
+    force_swarm=True,
+)
+print(f"Stream URL: {stream_url}")
+```
+
+</CodeGroup>
+
+**レスポンス（201 Created）：**
+```json
+{
+  "workflow_id": "task-def456...",
+  "task_id": "task-def456...",
+  "stream_url": "/api/v1/stream/sse?workflow_id=task-def456..."
+}
+```
+
+## Swarm進捗の監視
+
+### SSEイベントストリーム
+
+```
+GET http://localhost:8080/api/v1/stream/sse?workflow_id={workflow_id}
+```
+
+### Swarm固有のイベント
+
+| イベントタイプ | `agent_id` | 説明 |
+|-------------|-----------|------|
+| `WORKFLOW_STARTED` | `swarm-supervisor` | Swarmワークフローが初期化された |
+| `PROGRESS`（計画） | `swarm-supervisor` | タスク分解が進行中 |
+| `PROGRESS`（生成） | `swarm-supervisor` | Agentの割り当て中 |
+| `PROGRESS`（監視） | `swarm-supervisor` | Agentが並列で作業中 |
+| `AGENT_STARTED` | Agent名（例：`takao`） | 個別のAgentが実行を開始 |
+| `PROGRESS`（イテレーション） | Agent名 | Agentのイテレーション進捗 |
+| `AGENT_COMPLETED` | Agent名 | 個別のAgentが完了 |
+| `PROGRESS`（統合） | `swarm-supervisor` | すべてのAgentの結果を統合中 |
+| `WORKFLOW_COMPLETED` | `swarm-supervisor` | 最終統合完了 |
+
+### SSE出力例
+
+```
+data: {"type":"WORKFLOW_STARTED","agent_id":"swarm-supervisor","message":"Assigning a team of agents","timestamp":"..."}
+
+data: {"type":"PROGRESS","agent_id":"swarm-supervisor","message":"Planning approach","timestamp":"..."}
+
+data: {"type":"PROGRESS","agent_id":"swarm-supervisor","message":"Assigning 3 agents","timestamp":"..."}
+
+data: {"type":"AGENT_STARTED","agent_id":"takao","message":"Agent takao started","timestamp":"..."}
+
+data: {"type":"PROGRESS","agent_id":"takao","message":"Agent takao progress: iteration 1/25, action: tool_call","timestamp":"..."}
+
+data: {"type":"AGENT_COMPLETED","agent_id":"takao","message":"Agent takao completed","timestamp":"..."}
+
+data: {"type":"PROGRESS","agent_id":"swarm-supervisor","message":"Combining findings from 3 agents","timestamp":"..."}
+
+data: {"type":"WORKFLOW_COMPLETED","agent_id":"swarm-supervisor","message":"All done","timestamp":"..."}
+```
+
+## タスクステータスレスポンス
+
+```
+GET http://localhost:8080/api/v1/tasks/{task_id}
+```
+
+### Swarmメタデータ
+
+Swarmワークフローが完了すると、ステータスレスポンスにSwarm固有のメタデータが含まれます：
+
+```json
+{
+  "task_id": "task-abc123...",
+  "status": "TASK_STATUS_COMPLETED",
+  "result": "## AI Chip Market Comparison\n\n...",
+  "metadata": {
+    "workflow_type": "swarm",
+    "total_agents": 3,
+    "agents": [
+      {
+        "agent_id": "takao",
+        "iterations": 8,
+        "tokens": 14200,
+        "success": true,
+        "model": "gpt-5-mini-2025-08-07"
+      },
+      {
+        "agent_id": "mitaka",
+        "iterations": 6,
+        "tokens": 9800,
+        "success": true,
+        "model": "gpt-5-mini-2025-08-07"
+      },
+      {
+        "agent_id": "kichijoji",
+        "iterations": 7,
+        "tokens": 11200,
+        "success": true,
+        "model": "gpt-5-mini-2025-08-07"
+      }
+    ]
+  },
+  "usage": {
+    "total_tokens": 35200,
+    "estimated_cost": 0.042
+  }
+}
+```
+
+### メタデータフィールド
+
+| フィールド | タイプ | 説明 |
+|-----------|--------|------|
+| `metadata.workflow_type` | string | Swarmワークフローでは常に`"swarm"` |
+| `metadata.total_agents` | integer | 参加したAgent総数（初期 + 動的） |
+| `metadata.agents` | array | Agentごとの実行サマリー |
+| `metadata.agents[].agent_id` | string | 決定論的なAgent名（日本の駅名） |
+| `metadata.agents[].iterations` | integer | 完了した推論-行動サイクル数 |
+| `metadata.agents[].tokens` | integer | 消費された総トークン数 |
+| `metadata.agents[].success` | boolean | Agentが正常に完了したかどうか |
+| `metadata.agents[].model` | string | 使用されたLLMモデル |
+
+## サーバー設定
+
+Swarmパラメータは`config/features.yaml`の`workflows.swarm`で設定されます：
+
+```yaml
+workflows:
+  swarm:
+    enabled: true                     # Swarmルーティングの有効/無効
+    max_agents: 10                    # Agent総数の上限（初期 + 動的）
+    max_iterations_per_agent: 25      # Agentごとの推論-行動ループの最大回数
+    agent_timeout_seconds: 600        # Agentごとのウォールクロックタイムアウト
+    max_messages_per_agent: 20        # AgentごとのP2Pメッセージ上限
+    workspace_snippet_chars: 800      # プロンプト内のワークスペースエントリの最大文字数
+    workspace_max_entries: 5          # トピックごとの最近のエントリ表示数
+```
+
+| パラメータ | デフォルト | 説明 |
+|-----------|----------|------|
+| `enabled` | `true` | `force_swarm`を機能させるには`true`が必要 |
+| `max_agents` | `10` | 動的に生成されたヘルパーを含む総上限 |
+| `max_iterations_per_agent` | `25` | Agentごとのイテレーション制限 |
+| `agent_timeout_seconds` | `600` | Agentごと10分のタイムアウト |
+| `max_messages_per_agent` | `20` | P2Pメッセージの氾濫を防止 |
+| `workspace_snippet_chars` | `800` | ワークスペースコンテキストからのトークン使用量を制御 |
+| `workspace_max_entries` | `5` | Agentプロンプト内のトピックごとのワークスペースエントリを制限 |
+
+## エラーハンドリングとフォールバック
+
+### 部分的な失敗
+
+一部のAgentが失敗しても少なくとも1つが成功した場合、Swarmワークフローは成功したAgentの出力を使用して結果を生成します。
+
+すべてのAgentが失敗した場合、レスポンスにエラーが含まれます：
+
+```json
+{
+  "task_id": "task-xyz...",
+  "status": "TASK_STATUS_COMPLETED",
+  "result": "",
+  "error": "All 3 agents failed — no results to synthesize",
+  "metadata": {
+    "workflow_type": "swarm",
+    "total_agents": 3,
+    "agents": [
+      {"agent_id": "takao", "success": false, "error": "consecutive tool errors"},
+      {"agent_id": "mitaka", "success": false, "error": "LLM step failed at iteration 2"},
+      {"agent_id": "kichijoji", "success": false, "error": "consecutive tool errors"}
+    ]
+  }
+}
+```
+
+### 自動フォールバック
+
+Swarmワークフロー全体が失敗した場合（分解エラー、すべてのAgentが失敗など）、Shannonは標準のワークフロールーティング（DAGまたはSupervisor）に自動的にフォールバックします。再帰的な失敗を防ぐため、`force_swarm`フラグはコンテキストから除去されます。
+
+## 関連エンドポイント
+
+<CardGroup cols={2}>
+  <Card title="タスク送信" icon="play" href="/ja/api/rest/submit-task">
+    POST /api/v1/tasks（完全なリファレンス）
+  </Card>
+  <Card title="ステータス取得" icon="circle-info" href="/ja/api/rest/get-status">
+    GET /api/v1/tasks/{id}
+  </Card>
+  <Card title="ストリームイベント" icon="stream" href="/ja/api/rest/streaming">
+    SSEイベントストリーミング
+  </Card>
+  <Card title="タスクキャンセル" icon="stop" href="/ja/api/rest/cancel-task">
+    POST /api/v1/tasks/{id}/cancel
+  </Card>
+</CardGroup>

@@ -110,7 +110,7 @@ for event in client.stream(handle.workflow_id):
 
 ## 执行模式
 
-Shannon 根据任务复杂度自动在内部选择执行模式。REST API 目前不接受 `mode` 参数。
+Shannon 根据任务复杂度自动选择执行模式。您可以通过在任务提交中传递 `mode` 参数（`simple`、`standard`、`complex`、`supervisor`）来覆盖此行为。
 
 ## 成本控制
 

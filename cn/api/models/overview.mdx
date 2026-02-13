@@ -215,7 +215,7 @@ Object.entries(models).forEach(([provider, modelList]) => {
 - **热重载**: 对 `models.yaml` 的更改需要重启服务才能生效
 - **空提供商**: 如果提供商返回 `[]`，请检查 `.env` 中是否设置了 API 密钥
 - **定价集中化**: 所有成本来自 YAML 中的 `pricing` 部分，确保 Go/Rust/Python 服务之间的一致性
-- **内部端点**: 此端点在 LLM 服务（端口 8000）上，而不是网关 API（端口 8080）
+- **内部端点**: `/providers/models` 端点位于 LLM 服务（端口 8000）上。如需外部访问，请使用网关的 OpenAI 兼容 `/v1/models` 端点（端口 8080）— 参见 [OpenAI 兼容 API](/cn/api/rest/openai-compatible)
 
 ## 环境变量
 

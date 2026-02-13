@@ -110,7 +110,7 @@ for event in client.stream(handle.workflow_id):
 
 ## 実行モード
 
-Shannonはタスクの複雑さに基づいて内部的に実行モードを自動選択します。現時点では、REST APIは`mode`パラメータを受け付けません。
+Shannonはタスクの複雑さに基づいて実行モードを自動選択します。タスク送信時に `mode` パラメータ（`simple`、`standard`、`complex`、`supervisor`）を指定して上書きすることもできます。
 
 ## コスト管理
 

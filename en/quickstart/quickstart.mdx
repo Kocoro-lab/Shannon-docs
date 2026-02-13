@@ -110,7 +110,7 @@ for event in client.stream(handle.workflow_id):
 
 ## Execution Modes
 
-Shannon auto-selects execution modes internally based on task complexity. The REST API does not accept a `mode` parameter at this time.
+Shannon auto-selects execution modes based on task complexity. You can override this by passing the `mode` parameter (`simple`, `standard`, `complex`, `supervisor`) in your task submission.
 
 ## Cost Control
 

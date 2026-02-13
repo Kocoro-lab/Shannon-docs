@@ -103,7 +103,7 @@ curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id=task-dev-1234567890
 
 ### OpenAI-Compatible API
 
-Shannon provides an OpenAI-compatible API for easy integration with existing tools:
+Shannon provides an OpenAI-compatible API for easy integration with existing OpenAI SDKs and tools. See the [OpenAI-Compatible API Reference](/en/api/rest/openai-compatible) for full details.
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -137,7 +137,7 @@ SSE Streaming: Browser `EventSource` cannot send custom headers.
 
 - Development: set `GATEWAY_SKIP_AUTH=1` to skip auth.
 - Production: initiate SSE from your backend (or edge) and inject `X-API-Key` or `Authorization: Bearer` headers.
-- Do not pass API keys in URL query parameters.
+- For SSE endpoints, the `api_key` query parameter is supported as a fallback when headers cannot be sent.
 </Warning>
 
 ## Response Format
@@ -168,7 +168,7 @@ All endpoints return JSON with consistent error format:
 
 ## Event Streaming
 
-Shannon emits 26 event types for real-time monitoring:
+Shannon emits 33 event types for real-time monitoring:
 
 **Core Events**:
 - `WORKFLOW_STARTED`, `WORKFLOW_COMPLETED`
