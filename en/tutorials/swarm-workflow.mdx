@@ -1,0 +1,408 @@
+---
+title: "Swarm Multi-Agent Workflow"
+description: "Step-by-step guide to running persistent multi-agent swarm workflows in Shannon"
+---
+
+# Swarm Multi-Agent Workflow
+
+This tutorial shows how to use Shannon's **SwarmWorkflow** to deploy persistent, collaborating agents that work in parallel with inter-agent messaging and a shared workspace.
+
+## What You'll Learn
+
+- How to submit a swarm task via API and Python SDK
+- How agents decompose, execute, and synthesize results
+- How to monitor agent progress with SSE streaming
+- How to configure swarm parameters
+- Real-world use cases and best practices
+
+## Prerequisites
+
+- Shannon stack running (Docker Compose)
+- Gateway reachable at `http://localhost:8080`
+- Swarm enabled in `config/features.yaml` (enabled by default)
+- Auth defaults:
+  - Docker Compose: authentication is disabled by default (`GATEWAY_SKIP_AUTH=1`).
+  - Local builds: authentication is enabled by default. Set `GATEWAY_SKIP_AUTH=1` to disable auth, or include an API key header `-H "X-API-Key: $API_KEY"`.
+
+## Quick Start
+
+<Steps>
+
+### Submit a Swarm Task
+
+Submit a task with `force_swarm: true` in the context to route it to the SwarmWorkflow:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Compare AI chip markets across US, Japan, and South Korea",
+    "session_id": "swarm-demo-001",
+    "context": {
+      "force_swarm": true
+    }
+  }'
+```
+
+**Response:**
+```json
+{
+  "task_id": "task-abc123...",
+  "status": "STATUS_CODE_OK",
+  "message": "Task submitted successfully",
+  "created_at": "2025-11-10T10:00:00Z"
+}
+```
+
+### Stream Progress Events
+
+Connect to the SSE stream to watch agents work in real-time:
+
+```bash
+curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id=task-abc123..."
+```
+
+You will see events like:
+```
+data: {"type":"WORKFLOW_STARTED","agent_id":"swarm-supervisor","message":"Assigning a team of agents"}
+data: {"type":"PROGRESS","agent_id":"swarm-supervisor","message":"Planning approach"}
+data: {"type":"PROGRESS","agent_id":"swarm-supervisor","message":"Assigning 3 agents"}
+data: {"type":"AGENT_STARTED","agent_id":"takao","message":"Agent takao started"}
+data: {"type":"AGENT_STARTED","agent_id":"mitaka","message":"Agent mitaka started"}
+data: {"type":"AGENT_STARTED","agent_id":"kichijoji","message":"Agent kichijoji started"}
+data: {"type":"PROGRESS","agent_id":"takao","message":"Agent takao progress: iteration 1/25, action: tool_call"}
+data: {"type":"AGENT_COMPLETED","agent_id":"takao","message":"Agent takao completed"}
+data: {"type":"AGENT_COMPLETED","agent_id":"mitaka","message":"Agent mitaka completed"}
+data: {"type":"AGENT_COMPLETED","agent_id":"kichijoji","message":"Agent kichijoji completed"}
+data: {"type":"PROGRESS","agent_id":"swarm-supervisor","message":"Combining findings from 3 agents"}
+data: {"type":"WORKFLOW_COMPLETED","agent_id":"swarm-supervisor","message":"All done"}
+```
+
+### Retrieve the Result
+
+```bash
+curl "http://localhost:8080/api/v1/tasks/task-abc123..."
+```
+
+**Response:**
+```json
+{
+  "task_id": "task-abc123...",
+  "status": "TASK_STATUS_COMPLETED",
+  "result": "## AI Chip Market Comparison\n\n### United States\nThe US market is dominated by NVIDIA...\n\n### Japan\nJapan focuses on edge AI...\n\n### South Korea\nSouth Korea leverages Samsung...",
+  "metadata": {
+    "workflow_type": "swarm",
+    "total_agents": 3,
+    "agents": [
+      {"agent_id": "takao", "iterations": 8, "tokens": 12400, "success": true, "model": "gpt-5-mini-2025-08-07"},
+      {"agent_id": "mitaka", "iterations": 6, "tokens": 9800, "success": true, "model": "gpt-5-mini-2025-08-07"},
+      {"agent_id": "kichijoji", "iterations": 7, "tokens": 11200, "success": true, "model": "gpt-5-mini-2025-08-07"}
+    ]
+  }
+}
+```
+
+</Steps>
+
+## Submit + Stream in One Call
+
+For frontend applications, use the combined submit-and-stream endpoint:
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/tasks/stream \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Analyze the competitive landscape of cloud AI platforms: AWS, Azure, and GCP",
+    "context": { "force_swarm": true }
+  }' | jq
+```
+
+**Response:**
+```json
+{
+  "workflow_id": "task-def456...",
+  "task_id": "task-def456...",
+  "stream_url": "/api/v1/stream/sse?workflow_id=task-def456..."
+}
+```
+
+Then connect to the stream URL for real-time events:
+```bash
+curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id=task-def456..."
+```
+
+## Python SDK
+
+### Basic Usage
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# Submit a swarm task
+handle = client.submit_task(
+    "Compare AI chip markets across US, Japan, and South Korea",
+    force_swarm=True,
+    session_id="swarm-demo-001",
+)
+
+# Wait for completion and get result
+result = client.wait(handle.task_id)
+print(result.result)
+client.close()
+```
+
+### With Streaming
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# Submit and get stream URL in one call
+handle, stream_url = client.submit_and_stream(
+    "Analyze the competitive landscape of cloud AI platforms",
+    force_swarm=True,
+)
+
+# Stream events in real-time
+for event in client.stream(handle.workflow_id):
+    if event.type == "AGENT_STARTED":
+        print(f"Agent started: {event.agent_id}")
+    elif event.type == "PROGRESS":
+        print(f"Progress: {event.message}")
+    elif event.type == "AGENT_COMPLETED":
+        print(f"Agent completed: {event.agent_id}")
+    elif event.type == "WORKFLOW_COMPLETED":
+        print("Swarm workflow completed")
+        break
+
+# Get final result
+result = client.get_status(handle.task_id)
+print(result.result)
+client.close()
+```
+
+### With Custom Context
+
+```python
+handle = client.submit_task(
+    "Research renewable energy policies in the EU, US, and China",
+    force_swarm=True,
+    context={
+        "model_tier": "medium",  # Use medium-tier models for agents
+    },
+)
+```
+
+## How Agents Collaborate
+
+### Team Roster
+
+Each agent receives a team roster showing all agents and their assignments. This enables agents to know who to contact for specific information:
+
+```
+## Your Team (shared session workspace)
+- **takao (you)**: "Research US AI chip market"
+- mitaka: "Research Japan AI chip market"
+- kichijoji: "Research South Korea AI chip market"
+```
+
+### Publishing Findings
+
+Agents share discoveries via the shared workspace. These appear in every agent's prompt context:
+
+```
+## Shared Findings
+- takao: NVIDIA dominates US with 80% market share...
+- mitaka: Japan focuses on edge AI chips with Preferred Networks leading...
+```
+
+### Sending Direct Messages
+
+Agents can send direct messages to specific teammates:
+
+```
+## Inbox Messages
+- From mitaka (info): {"message": "Check Samsung's foundry plans for AI chips"}
+```
+
+### Requesting Help
+
+When an agent needs additional support, it requests help from the supervisor:
+
+```json
+{"action": "request_help", "help_description": "Need help analyzing EU regulatory impact on AI chips", "help_skills": ["web_search"]}
+```
+
+The supervisor spawns a new agent to handle the request and notifies the original agent.
+
+## Configuration
+
+### features.yaml
+
+```yaml
+workflows:
+  swarm:
+    enabled: true
+    max_agents: 10                    # Max total agents (initial + dynamic)
+    max_iterations_per_agent: 25      # Max reason-act loops per agent
+    agent_timeout_seconds: 600        # Per-agent timeout (10 minutes)
+    max_messages_per_agent: 20        # Max P2P messages per agent
+    workspace_snippet_chars: 800      # Max chars per workspace entry in prompt
+    workspace_max_entries: 5          # Max recent entries shown to agents
+```
+
+### Configuration Parameters
+
+| Parameter | Default | Range | Description |
+|-----------|---------|-------|-------------|
+| `enabled` | `true` | `true`/`false` | Enable or disable swarm workflows |
+| `max_agents` | `10` | 1-50 | Total agent cap including dynamically spawned helpers |
+| `max_iterations_per_agent` | `25` | 1-100 | Maximum reason-act cycles per agent |
+| `agent_timeout_seconds` | `600` | 60-3600 | Per-agent wall-clock timeout |
+| `max_messages_per_agent` | `20` | 1-100 | Cap on P2P messages an agent can send |
+| `workspace_snippet_chars` | `800` | 100-4000 | Truncation limit for workspace entries in agent prompt |
+| `workspace_max_entries` | `5` | 1-20 | Number of recent workspace entries shown per topic |
+
+## Real-World Use Cases
+
+<CardGroup cols={2}>
+  <Card title="Market Research" icon="chart-line">
+    Assign agents to research different markets or competitors in parallel, then synthesize into a unified report.
+  </Card>
+  <Card title="Technical Comparison" icon="code-compare">
+    Each agent evaluates a different framework, library, or architecture, sharing findings as they discover them.
+  </Card>
+  <Card title="Multi-Region Analysis" icon="globe">
+    Agents research different geographic regions simultaneously with cross-pollination of findings.
+  </Card>
+  <Card title="Literature Review" icon="book-open">
+    Agents explore different facets of a research topic, sharing sources and key findings via the workspace.
+  </Card>
+</CardGroup>
+
+### Example: Technical Framework Comparison
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Compare LangChain, CrewAI, and AutoGen for building multi-agent systems. Evaluate architecture, community, performance, and production readiness.",
+    "context": { "force_swarm": true }
+  }'
+```
+
+This task gets decomposed into agents that each research one framework, sharing findings through the workspace so each agent can reference what others have discovered.
+
+### Example: Comprehensive Industry Analysis
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Analyze the global electric vehicle battery supply chain: raw materials sourcing, manufacturing capacity, technology trends, and geopolitical risks",
+    "context": {
+      "force_swarm": true,
+      "model_tier": "medium"
+    }
+  }'
+```
+
+## Understanding the Response Metadata
+
+The swarm workflow returns metadata with per-agent details:
+
+```json
+{
+  "metadata": {
+    "workflow_type": "swarm",
+    "total_agents": 4,
+    "agents": [
+      {
+        "agent_id": "takao",
+        "iterations": 8,
+        "tokens": 14200,
+        "success": true,
+        "model": "gpt-5-mini-2025-08-07"
+      },
+      {
+        "agent_id": "mitaka",
+        "iterations": 6,
+        "tokens": 9800,
+        "success": true,
+        "model": "gpt-5-mini-2025-08-07"
+      }
+    ]
+  }
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `workflow_type` | Always `"swarm"` for swarm workflows |
+| `total_agents` | Number of agents that participated |
+| `agents[].agent_id` | Unique agent name |
+| `agents[].iterations` | Number of reason-act cycles completed |
+| `agents[].tokens` | Total tokens consumed by this agent |
+| `agents[].success` | Whether the agent completed successfully |
+| `agents[].model` | LLM model used by this agent |
+
+## Tips and Best Practices
+
+<Tabs>
+  <Tab title="Getting Started">
+
+  - Set `context.force_swarm: true` to route to SwarmWorkflow
+  - Start with default configuration and adjust based on results
+  - Monitor SSE events to understand agent behavior
+  - Use sessions (`session_id`) for multi-turn swarm conversations
+
+  </Tab>
+  <Tab title="Performance">
+
+  - Reduce `max_iterations_per_agent` for faster completion (e.g., 10-15)
+  - Use `model_tier: "small"` for cost-effective exploration
+  - Swarm agents use MEDIUM tier by default for balanced quality and speed
+  - Keep workspace entries concise -- large entries consume prompt tokens
+
+  </Tab>
+  <Tab title="When Not to Use Swarm">
+
+  - Simple Q&A tasks (use standard workflow instead)
+  - Tasks with a single clear answer (swarm adds unnecessary overhead)
+  - Cost-sensitive scenarios where token usage matters
+  - Tasks where agent collaboration does not add value
+
+  </Tab>
+</Tabs>
+
+## Troubleshooting
+
+<Warning>
+**Common Issues**:
+- **Swarm not triggering**: Ensure `force_swarm: true` is in the `context` object and swarm is enabled in `features.yaml`
+- **Agents timing out**: Increase `agent_timeout_seconds` for complex tasks
+- **Too many agents**: Reduce the number of subtasks by simplifying your query, or lower `max_agents`
+- **High token usage**: Lower `max_iterations_per_agent` or use `model_tier: "small"`
+- **Agents stuck in loops**: Convergence detection (3 consecutive non-tool iterations) should catch this automatically
+</Warning>
+
+## Fallback Behavior
+
+If the swarm workflow fails (decomposition error, all agents fail, etc.), Shannon automatically falls back to standard DAG/Supervisor workflow routing. The `force_swarm` flag is removed from context to prevent recursive failures.
+
+## Next Steps
+
+<CardGroup cols={3}>
+  <Card title="Swarm Concepts" icon="users" href="/en/quickstart/concepts/swarm">
+    Understand swarm architecture in depth
+  </Card>
+  <Card title="Deep Research" icon="microscope" href="/en/tutorials/research-assistant">
+    Multi-stage research with citations
+  </Card>
+  <Card title="API Reference" icon="book" href="/en/api/rest/submit-task">
+    Full API documentation
+  </Card>
+</CardGroup>

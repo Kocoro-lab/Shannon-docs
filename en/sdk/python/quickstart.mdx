@@ -50,6 +50,19 @@ handle = client.submit_task(
 print(client.wait(handle.task_id).result)
 ```
 
+## Swarm Mode
+
+Force multi-agent swarm execution with `force_swarm`:
+
+```python
+handle = client.submit_task(
+  "Research and compare the top 3 cloud providers for AI workloads.",
+  force_swarm=True,
+)
+result = client.wait(handle.task_id)
+print(result.result)
+```
+
 ## Async Version
 
 ```python
@@ -109,10 +122,101 @@ shannon control-state task-123
 shannon resume task-123 --reason "Continue"
 ```
 
+## Human-in-the-Loop Review
+
+Interact with workflows that require human review before proceeding:
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# Get the current review state for a workflow
+state = client.get_review_state("workflow-123")
+print(f"Status: {state.status}")        # "reviewing" or "approved"
+print(f"Round: {state.round}")
+print(f"Current plan: {state.current_plan}")
+
+# View conversation rounds
+for r in state.rounds:
+    print(f"  [{r.role}] {r.message}")
+
+# Submit feedback to refine the plan
+updated = client.submit_review_feedback(
+    "workflow-123",
+    "Please add error handling for network failures.",
+    version=state.version,  # optimistic concurrency
+)
+print(f"Updated round: {updated.round}")
+
+# Approve the plan to let the workflow proceed
+result = client.approve_review("workflow-123", version=updated.version)
+print(f"Review status: {result['status']}")
+```
+
+**CLI Usage:**
+
+```bash
+# Get review state
+shannon review-get workflow-123
+
+# Submit feedback
+shannon review-feedback workflow-123 "Add error handling"
+
+# Approve
+shannon review-approve workflow-123
+```
+
+## Skills
+
+List and inspect available skills:
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# List all skills
+skills = client.list_skills()
+for s in skills:
+    print(f"{s.name} v{s.version} [{s.category}] - {s.description}")
+
+# Filter by category
+coding_skills = client.list_skills(category="coding")
+
+# Get detailed information about a specific skill
+detail = client.get_skill("web_search")
+print(f"Author: {detail.author}")
+print(f"Requires tools: {detail.requires_tools}")
+print(f"Content: {detail.content}")
+
+# Get all versions of a skill
+versions = client.get_skill_versions("web_search")
+for v in versions:
+    print(f"  {v.name} v{v.version}")
+```
+
+**CLI Usage:**
+
+```bash
+# List skills
+shannon skills-list
+
+# Get skill details
+shannon skill-get web_search
+
+# Get skill versions
+shannon skill-versions web_search
+```
+
 ## CLI
 
 ```bash
 # Submit with model selection
 python -m shannon.cli --base-url http://localhost:8080 \
   submit "Summarize" --model-tier small --mode simple --wait
+
+# Submit with swarm mode
+python -m shannon.cli --base-url http://localhost:8080 \
+  submit "Research cloud providers" --swarm --wait
 ```

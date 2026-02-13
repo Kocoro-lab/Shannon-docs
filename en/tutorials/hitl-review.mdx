@@ -1,0 +1,474 @@
+---
+title: "Human-in-the-Loop Review"
+description: "Use Shannon's HITL review system to review, refine, and approve AI-generated research plans before execution."
+---
+
+# Human-in-the-Loop Review
+
+Shannon's Human-in-the-Loop (HITL) review system lets you **review and refine an AI-generated research plan** before the workflow begins executing. This is particularly valuable for deep research tasks where you want to steer the research direction, add constraints, or ensure the agent focuses on what matters most.
+
+## What You'll Learn
+
+- How the HITL review cycle works (plan generation, feedback, approval)
+- Enabling HITL review on task submission
+- Interacting with the review API (get state, send feedback, approve)
+- Optimistic concurrency control with version tracking
+- SSE events emitted during the review cycle
+- Python SDK usage for HITL review
+- Configuration options and timeouts
+
+## Prerequisites
+
+- Shannon stack running (Docker Compose)
+- Gateway reachable at `http://localhost:8080`
+- Auth defaults:
+  - Docker Compose: authentication is disabled by default (`GATEWAY_SKIP_AUTH=1`).
+  - Local builds: authentication is enabled by default. Set `GATEWAY_SKIP_AUTH=1` to disable auth, or include an API key header `-H "X-API-Key: $API_KEY"`.
+
+## How HITL Review Works
+
+The HITL review cycle inserts a human checkpoint between task submission and research execution:
+
+<Steps>
+  <Step title="Submit task with review enabled">
+    Submit a research task with `require_review: true` (or `review_plan: "manual"`) in the context.
+  </Step>
+  <Step title="AI generates initial research plan">
+    The LLM service generates a research plan based on the query. The workflow pauses and waits for human input.
+  </Step>
+  <Step title="Review and provide feedback">
+    You review the proposed plan via the review API. Send feedback to refine the plan iteratively (up to 10 rounds).
+  </Step>
+  <Step title="Approve the plan">
+    Once satisfied, approve the plan. The workflow resumes and executes the confirmed research direction.
+  </Step>
+  <Step title="Research executes">
+    The ResearchWorkflow runs with the approved plan injected as context, producing a focused, citation-backed report.
+  </Step>
+</Steps>
+
+### Architecture
+
+```
+User                    Gateway                 LLM Service         Orchestrator (Temporal)
+  |                        |                        |                        |
+  |-- POST /tasks -------->|                        |                        |
+  |   (require_review)     |-- gRPC SubmitTask ---->|                        |
+  |                        |                        |-- GenerateResearchPlan |
+  |                        |                        |   (Activity)           |
+  |                        |  Redis state init <----|                        |
+  |                        |                        |                        |
+  |  SSE: RESEARCH_PLAN_READY                       |   workflow.Select()    |
+  |<-----------------------------------------------|   (waiting for signal) |
+  |                        |                        |                        |
+  |-- GET /review -------->| (read Redis state)     |                        |
+  |<-- plan + version -----|                        |                        |
+  |                        |                        |                        |
+  |-- POST /review ------->| feedback               |                        |
+  |   (action: feedback)   |-- call /research-plan->|                        |
+  |                        |<-- updated plan -------|                        |
+  |<-- new plan + version -|                        |                        |
+  |                        |                        |                        |
+  |-- POST /review ------->|                        |                        |
+  |   (action: approve)    |-- gRPC Signal -------->| (unblock workflow)     |
+  |<-- approved ----------|                        |                        |
+  |                        |                        |-- ResearchWorkflow --->|
+```
+
+## Enabling HITL Review
+
+Add `require_review: true` to the task context when submitting a research task:
+
+<CodeGroup>
+```bash curl
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Research the competitive landscape of AI agent frameworks in 2025",
+    "context": {
+      "force_research": true,
+      "require_review": true
+    }
+  }'
+```
+
+```bash curl (stream endpoint)
+curl -s -X POST http://localhost:8080/api/v1/tasks/stream \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Research the competitive landscape of AI agent frameworks in 2025",
+    "context": {
+      "force_research": true,
+      "require_review": true
+    }
+  }' | jq
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+handle = client.submit_task(
+    "Research the competitive landscape of AI agent frameworks in 2025",
+    context={
+        "force_research": True,
+        "require_review": True,
+    },
+)
+```
+</CodeGroup>
+
+<Note>
+HITL review requires `force_research: true` because the review cycle is part of the ResearchWorkflow. Without it, the orchestrator may route the task to a different workflow that does not support review.
+</Note>
+
+The alternative context key `review_plan: "manual"` is also accepted and behaves identically. The desktop app uses `require_review: true` when the user disables auto-approve for deep research.
+
+## Retrieving Review State
+
+After submission, poll for the review plan to become ready. The workflow generates an initial plan via the LLM and stores it in Redis.
+
+<CodeGroup>
+```bash curl
+# Get current review state
+curl -s http://localhost:8080/api/v1/tasks/{workflow_id}/review \
+  -H "X-API-Key: $API_KEY" | jq
+```
+
+```python Python SDK
+state = client.get_review_state(handle.workflow_id)
+print(f"Status: {state.status}")
+print(f"Round: {state.round}, Version: {state.version}")
+print(f"Plan: {state.current_plan}")
+for r in state.rounds:
+    print(f"  [{r.role}] {r.message[:100]}...")
+```
+</CodeGroup>
+
+### Response
+
+```json
+{
+  "status": "reviewing",
+  "round": 1,
+  "version": 1,
+  "current_plan": "Based on your query, I propose the following research plan...",
+  "rounds": [
+    {
+      "role": "assistant",
+      "message": "Based on your query, I propose the following research plan...",
+      "timestamp": "2025-01-15T10:30:00Z"
+    }
+  ],
+  "query": "Research the competitive landscape of AI agent frameworks in 2025"
+}
+```
+
+The response includes an `ETag` header containing the current version number, used for optimistic concurrency control.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | string | `"reviewing"` or `"approved"` |
+| `round` | int | Current conversation round (starts at 1) |
+| `version` | int | Monotonic version for concurrency control |
+| `current_plan` | string | The latest actionable plan (set when LLM intent is `"ready"`) |
+| `rounds` | array | Full conversation history (role, message, timestamp) |
+| `query` | string | Original task query |
+
+## Sending Feedback
+
+Refine the plan by sending feedback. The gateway forwards your message to the LLM, which generates an updated plan incorporating your input.
+
+<CodeGroup>
+```bash curl
+curl -X POST http://localhost:8080/api/v1/tasks/{workflow_id}/review \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: $API_KEY" \
+  -H "If-Match: 1" \
+  -d '{
+    "action": "feedback",
+    "message": "Focus more on open-source frameworks and include pricing comparisons"
+  }'
+```
+
+```python Python SDK
+updated = client.submit_review_feedback(
+    handle.workflow_id,
+    "Focus more on open-source frameworks and include pricing comparisons",
+    version=state.version,  # optimistic concurrency
+)
+print(f"New version: {updated.version}")
+print(f"Updated plan: {updated.current_plan}")
+```
+</CodeGroup>
+
+### Feedback Response
+
+```json
+{
+  "status": "reviewing",
+  "plan": {
+    "message": "I've refined the research plan to focus on open-source frameworks...",
+    "round": 2,
+    "version": 2,
+    "intent": "ready"
+  }
+}
+```
+
+The `intent` field indicates the LLM's assessment:
+- `"feedback"` -- the LLM is asking clarifying questions (no actionable plan yet)
+- `"ready"` -- the LLM has proposed an actionable research direction
+
+The response includes an updated `ETag` header.
+
+### Concurrency Control
+
+The `If-Match` header (curl) or `version` parameter (SDK) enables optimistic concurrency. If another request modified the state since you last read it, the server returns `409 Conflict`:
+
+```json
+{ "error": "Conflict: state has been modified" }
+```
+
+A distributed Redis lock also prevents two feedback requests from racing during the LLM call.
+
+### Round Limits
+
+A maximum of **10 feedback rounds** is enforced. At the final round, the LLM is instructed to produce a definitive plan. Beyond this limit, further feedback is rejected and you must approve:
+
+```json
+{ "error": "Maximum review rounds reached. Please approve the plan." }
+```
+
+## Approving the Plan
+
+Once the plan looks good, approve it to resume the workflow:
+
+<CodeGroup>
+```bash curl
+curl -X POST http://localhost:8080/api/v1/tasks/{workflow_id}/review \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: $API_KEY" \
+  -H "If-Match: 2" \
+  -d '{"action": "approve"}'
+```
+
+```python Python SDK
+result = client.approve_review(handle.workflow_id, version=updated.version)
+print(result)  # {"status": "approved", "message": "Research started"}
+```
+</CodeGroup>
+
+### Approval Response
+
+```json
+{
+  "status": "approved",
+  "message": "Research started"
+}
+```
+
+After approval:
+1. The gateway sends a Temporal Signal to the waiting workflow
+2. The confirmed plan and review conversation are injected into the task context
+3. The ResearchWorkflow proceeds with the approved research direction
+4. SSE emits `RESEARCH_PLAN_APPROVED`
+
+<Warning>
+You cannot approve a plan if `current_plan` is empty. The LLM must have produced at least one plan with intent `"ready"` before approval is possible. If you try to approve without a plan, the server returns:
+
+```json
+{ "error": "No research plan to approve. Please provide feedback to generate a plan first." }
+```
+</Warning>
+
+## SSE Events
+
+The HITL review cycle emits dedicated SSE events that you can consume via the streaming endpoint:
+
+```bash
+curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id={workflow_id}"
+```
+
+| Event Type | Description | Payload |
+|------------|-------------|---------|
+| `RESEARCH_PLAN_READY` | Initial plan generated, waiting for review | `round`, `intent` |
+| `REVIEW_USER_FEEDBACK` | User feedback submitted | `round`, `version` |
+| `RESEARCH_PLAN_UPDATED` | Plan updated after feedback | `round`, `version`, `intent` |
+| `RESEARCH_PLAN_APPROVED` | Plan approved, research starting | -- |
+
+These events are published to the Redis event stream, making the review conversation visible in session history and on page reload.
+
+## Configuration
+
+### Review Timeout
+
+The workflow waits up to **15 minutes** (default) for the review to complete. If no approval is received within this window, the workflow times out:
+
+```json
+{
+  "status": "TASK_STATUS_COMPLETED",
+  "result": "",
+  "error_message": "research plan review timed out"
+}
+```
+
+You can customize the timeout via the `review_timeout` context parameter (in seconds):
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "...",
+    "context": {
+      "force_research": true,
+      "require_review": true,
+      "review_timeout": 1800
+    }
+  }'
+```
+
+### Approval Workflow (separate feature)
+
+Shannon also has a separate **approval workflow** for non-research tasks. This is configured in `features.yaml` and triggers based on complexity thresholds or dangerous tool usage:
+
+```yaml
+# config/features.yaml
+workflows:
+  approval:
+    enabled: false                # Enable approval gate
+    complexity_threshold: 0.5     # Complexity >= this triggers approval
+    dangerous_tools:
+      - file_system
+      - code_execution
+      - bash
+```
+
+The approval workflow uses a different endpoint (`POST /api/v1/approvals/decision`) and is independent of the HITL research review. See the [Approve Task API reference](/api/rest/approve-task) for details.
+
+## Python SDK Reference
+
+The Shannon Python SDK provides dedicated methods for the HITL review cycle:
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# 1. Submit with review enabled
+handle = client.submit_task(
+    "Analyze the market for AI coding assistants",
+    context={"force_research": True, "require_review": True},
+)
+
+# 2. Wait for plan to be ready (poll)
+import time
+state = None
+for _ in range(30):
+    try:
+        state = client.get_review_state(handle.workflow_id)
+        if state.status == "reviewing":
+            break
+    except Exception:
+        pass
+    time.sleep(2)
+
+print(f"Initial plan (round {state.round}):")
+print(state.current_plan or state.rounds[-1].message)
+
+# 3. Send feedback
+updated = client.submit_review_feedback(
+    handle.workflow_id,
+    "Include Cursor, GitHub Copilot, and Windsurf. Compare pricing tiers.",
+    version=state.version,
+)
+print(f"Refined plan (round {updated.round}):")
+print(updated.current_plan)
+
+# 4. Approve
+result = client.approve_review(handle.workflow_id, version=updated.version)
+print(result)
+
+# 5. Wait for research completion
+final = client.wait(handle.task_id, timeout=600)
+print(final.result)
+
+client.close()
+```
+
+### Async SDK
+
+```python
+from shannon import AsyncShannonClient
+
+async def review_workflow():
+    client = AsyncShannonClient(base_url="http://localhost:8080")
+
+    handle = await client.submit_task(
+        "Analyze AI agent frameworks",
+        context={"force_research": True, "require_review": True},
+    )
+
+    # Poll for plan
+    state = await client.get_review_state(handle.workflow_id)
+
+    # Send feedback
+    updated = await client.submit_review_feedback(
+        handle.workflow_id,
+        "Focus on LangGraph vs CrewAI",
+        version=state.version,
+    )
+
+    # Approve
+    await client.approve_review(handle.workflow_id, version=updated.version)
+
+    await client.close()
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use version tracking" icon="code-branch">
+    Always pass the `If-Match` header (or `version` parameter in the SDK) to prevent race conditions. This is especially important when multiple users or tabs may interact with the same review.
+  </Card>
+  <Card title="Set appropriate timeouts" icon="clock">
+    The default 15-minute timeout works for most interactive use cases. For asynchronous review workflows (e.g., email-based approval), increase `review_timeout` accordingly.
+  </Card>
+  <Card title="Wait for intent: ready" icon="check">
+    Before approving, ensure the LLM has produced a plan with intent `"ready"`. Feedback rounds with intent `"feedback"` indicate the LLM needs more information.
+  </Card>
+  <Card title="Combine with research strategies" icon="flask">
+    HITL review works with all research strategy presets (`quick`, `standard`, `deep`, `academic`). The approved plan guides the subsequent research execution.
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Review session not found (404)">
+    The review state is stored in Redis with a TTL of 20 minutes (review timeout + 5-minute buffer). If the review session expires, you will receive a 404 error. Re-submit the task to start a new review.
+  </Accordion>
+  <Accordion title="Conflict error (409) on feedback">
+    This means another request modified the review state since you last read it, or another feedback request is currently in progress. Re-fetch the current state with `GET /review`, then retry with the latest version.
+  </Accordion>
+  <Accordion title="Approval rejected: no research plan">
+    The LLM has only asked clarifying questions (intent: `"feedback"`) and has not yet produced an actionable plan. Send at least one feedback message so the LLM generates a concrete research direction.
+  </Accordion>
+  <Accordion title="Workflow timed out during review">
+    The review took longer than the configured timeout (default: 15 minutes). Increase `review_timeout` in the task context, or approve more quickly.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={3}>
+  <Card title="Deep Research" icon="microscope" href="/tutorials/research-assistant">
+    Build comprehensive research reports
+  </Card>
+  <Card title="Approve Task API" icon="check-circle" href="/api/rest/approve-task">
+    Approval workflow for non-research tasks
+  </Card>
+  <Card title="HITL Review API" icon="book" href="/api/rest/hitl-review">
+    Complete API reference for review endpoints
+  </Card>
+</CardGroup>

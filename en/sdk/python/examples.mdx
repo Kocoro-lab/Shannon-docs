@@ -379,6 +379,192 @@ if __name__ == "__main__":
     main()
 ```
 
+## Swarm Mode
+
+### Force Multi-Agent Execution
+
+```python
+"""Swarm mode example with Shannon SDK"""
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# Submit with swarm mode to coordinate multiple agents
+handle = client.submit_task(
+    query="Research and compare AWS, Azure, and GCP for ML workloads. Cover pricing, GPU availability, and managed services.",
+    force_swarm=True,
+)
+
+result = client.wait(handle.task_id)
+print(result.result)
+
+# Check model and usage info
+if result.usage:
+    print(f"Total tokens: {result.usage.get('total_tokens')}")
+    print(f"Cost: ${result.usage.get('cost_usd', 0):.6f}")
+```
+
+## Human-in-the-Loop Review Examples
+
+### Interactive Review Workflow
+
+```python
+"""Human-in-the-loop review example"""
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# Assume a workflow that requires review is already running
+workflow_id = "workflow-123"
+
+# Check current review state
+state = client.get_review_state(workflow_id)
+print(f"Review status: {state.status}")
+print(f"Round: {state.round}, Version: {state.version}")
+
+if state.current_plan:
+    print(f"Current plan:\n{state.current_plan}")
+
+# Display conversation history
+for r in state.rounds:
+    print(f"  [{r.role}] {r.message}")
+
+# Provide feedback if still in review
+if state.status == "reviewing":
+    updated = client.submit_review_feedback(
+        workflow_id,
+        "Please add input validation and unit tests.",
+        version=state.version,
+    )
+    print(f"Feedback submitted. Now at round {updated.round}")
+
+    # Approve the updated plan
+    result = client.approve_review(workflow_id, version=updated.version)
+    print(f"Approved: {result['status']}")
+```
+
+### Review with Optimistic Concurrency
+
+```python
+"""Handle version conflicts during review"""
+from shannon import ShannonClient, ValidationError
+
+client = ShannonClient()
+
+workflow_id = "workflow-456"
+
+try:
+    state = client.get_review_state(workflow_id)
+    updated = client.submit_review_feedback(
+        workflow_id,
+        "Looks good, minor style changes needed.",
+        version=state.version,
+    )
+    client.approve_review(workflow_id, version=updated.version)
+except ValidationError as e:
+    if "409" in str(e.code):
+        print("Version conflict: another user modified the review. Refresh and retry.")
+    else:
+        raise
+```
+
+## Skills Examples
+
+### Browse and Inspect Skills
+
+```python
+"""Skills browsing example"""
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# List all available skills
+skills = client.list_skills()
+print(f"Found {len(skills)} skills:\n")
+for s in skills:
+    flag = " [DANGEROUS]" if s.dangerous else ""
+    status = "enabled" if s.enabled else "disabled"
+    print(f"  {s.name} v{s.version} ({s.category}) - {status}{flag}")
+    print(f"    {s.description}")
+
+# Filter by category
+print("\n--- Coding Skills ---")
+coding = client.list_skills(category="coding")
+for s in coding:
+    print(f"  {s.name}: {s.description}")
+
+# Get detailed info
+detail = client.get_skill("web_search")
+print(f"\nSkill detail: {detail.name} v{detail.version}")
+print(f"  Author: {detail.author}")
+print(f"  Requires tools: {detail.requires_tools}")
+print(f"  Requires role: {detail.requires_role}")
+print(f"  Budget max: {detail.budget_max}")
+
+# Get version history
+versions = client.get_skill_versions("web_search")
+print(f"\nVersions of web_search:")
+for v in versions:
+    print(f"  v{v.version} - {v.description}")
+```
+
+## Schedule Management Examples
+
+### Create and Manage Scheduled Tasks
+
+```python
+"""Schedule management example"""
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# Create a daily research task at 9am UTC on weekdays
+result = client.create_schedule(
+    name="Daily AI News",
+    cron_expression="0 9 * * 1-5",
+    task_query="Summarize the latest AI research news",
+    task_context={"force_research": "true", "research_strategy": "quick"},
+    timezone="UTC",
+    max_budget_per_run_usd=0.50,
+)
+schedule_id = result["schedule_id"]
+print(f"Schedule created: {schedule_id}")
+
+# List all schedules
+schedules, total = client.list_schedules()
+print(f"\n{total} schedules:")
+for s in schedules:
+    print(f"  {s.name}: {s.cron_expression} ({s.status})")
+    print(f"    Runs: {s.total_runs} total, {s.successful_runs} success, {s.failed_runs} failed")
+
+# Get schedule details
+sched = client.get_schedule(schedule_id)
+print(f"\nSchedule: {sched.name}")
+print(f"  Next run: {sched.next_run_at}")
+print(f"  Last run: {sched.last_run_at}")
+
+# View execution history
+runs, _ = client.get_schedule_runs(schedule_id)
+for run in runs:
+    print(f"  {run.triggered_at}: {run.status} - ${run.total_cost_usd:.4f}")
+
+# Pause schedule (e.g. for maintenance)
+client.pause_schedule(schedule_id, reason="Maintenance window")
+
+# Resume schedule
+client.resume_schedule(schedule_id)
+
+# Update schedule configuration
+client.update_schedule(
+    schedule_id,
+    cron_expression="0 8 * * 1-5",  # Change to 8am
+    max_budget_per_run_usd=0.75,
+)
+
+# Delete schedule when no longer needed
+# client.delete_schedule(schedule_id)
+```
+
 ## Error Handling Examples
 
 See the dedicated page for complete patterns and a full retry-logic example: [Error Handling](/en/sdk/python/error-handling).

@@ -1,0 +1,174 @@
+---
+title: "Swarm Multi-Agent Orchestration"
+description: "Understanding Shannon's swarm workflow for persistent, autonomous multi-agent collaboration"
+---
+
+## What is Swarm Mode?
+
+Swarm mode deploys multiple persistent, autonomous agents that work in parallel to solve complex tasks. Unlike the standard DAG or Supervisor workflows where agents execute once and return results, swarm agents run iterative **reason-act loops** -- checking their mailbox, calling tools, sharing findings with teammates, and converging independently.
+
+A swarm supervisor monitors execution and can dynamically spawn helper agents when an agent requests assistance.
+
+## How It Works
+
+Shannon's swarm workflow follows a four-phase lifecycle:
+
+### Phase 1: Task Decomposition
+
+The supervisor receives your query and breaks it into subtasks using the same decomposition engine as other workflows. Each subtask becomes the assignment for one agent.
+
+```
+Query: "Compare AI chip markets across US, Japan, and South Korea"
+
+Subtasks:
+├── Agent 1: "Research US AI chip market landscape"
+├── Agent 2: "Research Japan AI chip market landscape"
+└── Agent 3: "Research South Korea AI chip market landscape"
+```
+
+### Phase 2: Agent Spawning
+
+For each subtask, the supervisor spawns an **AgentLoop** child workflow. Each agent receives:
+
+- A unique name (deterministic, based on Japanese station names)
+- Its subtask description
+- A **team roster** listing all agents and their assignments
+- Access to the shared workspace
+
+### Phase 3: Parallel Execution
+
+All agents work simultaneously. Each runs up to 25 iterations (configurable) of a reason-act cycle:
+
+1. **Check mailbox** for messages from other agents
+2. **Read shared workspace** for findings published by teammates
+3. **Call LLM** to decide the next action
+4. **Execute action** (tool call, publish data, send message, request help, or finish)
+5. **Check convergence** (is the agent stuck or done?)
+
+### Phase 4: Synthesis
+
+Once all agents complete, the supervisor collects results and produces a unified response. If there is only one agent result, it returns directly. For multiple results, an LLM synthesis step merges findings into a coherent answer.
+
+## Agent Actions
+
+Each iteration, an agent chooses exactly one action:
+
+| Action | Description |
+|--------|-------------|
+| `tool_call` | Execute a tool (web search, file read, etc.) |
+| `publish_data` | Share findings with the team via the workspace |
+| `send_message` | Send a direct message to a specific teammate |
+| `request_help` | Ask the supervisor to spawn a new helper agent |
+| `done` | Return final response and exit |
+
+## Inter-Agent Communication
+
+Swarm agents collaborate through two mechanisms:
+
+### P2P Messaging
+
+Agents send direct messages to specific teammates through Redis-backed mailboxes. Message types include `request`, `offer`, `accept`, `delegation`, and `info`.
+
+Before each LLM call, the agent's mailbox is checked for new messages. Incoming messages appear in the agent's prompt context.
+
+### Shared Workspace
+
+Agents publish findings to topic-based workspace lists. Before each iteration, every agent fetches recent workspace entries from all topics, so the entire team stays aware of collective progress.
+
+```
+Shared Workspace:
+├── Topic: "findings"
+│   ├── Agent-Takao: "NVIDIA dominates US with 80% market share..."
+│   └── Agent-Mitaka: "Japan focuses on edge AI chips..."
+└── Topic: "sources"
+    └── Agent-Kichijoji: "Samsung foundry plans announced..."
+```
+
+## Dynamic Agent Spawning
+
+When an agent encounters a subtask it cannot handle alone, it can request help from the supervisor:
+
+1. Agent sends a `request_help` action with a description and required skills
+2. Supervisor receives the request through its mailbox (polled every 3 seconds)
+3. Supervisor spawns a new AgentLoop with the helper task
+4. Supervisor notifies the requesting agent with the new agent's ID
+
+**Safety limits**: Each agent can spawn at most one helper, and total agents are capped at the configured maximum (default: 10).
+
+## Convergence Detection
+
+Three mechanisms prevent agents from running indefinitely:
+
+<AccordionGroup>
+  <Accordion title="No-Progress Detection">
+    If an agent takes 3 consecutive iterations without using any tools (only messaging or publishing), it is considered converged and returns partial findings.
+  </Accordion>
+
+  <Accordion title="Consecutive Error Abort">
+    If 3 consecutive permanent tool errors occur (not transient errors like rate limits), the agent aborts and reports the failure.
+  </Accordion>
+
+  <Accordion title="Max Iterations Force-Done">
+    On the last iteration, if the agent has not called `done`, the workflow forces completion and builds a summary from the most recent iterations.
+  </Accordion>
+</AccordionGroup>
+
+Transient errors (rate limits, timeouts, 503s) trigger automatic retry with escalating backoff (5s increments, max 30s) and do not count toward the abort threshold.
+
+## When to Use Swarm vs Other Workflows
+
+| Scenario | Recommended Workflow |
+|----------|---------------------|
+| Simple Q&A, single-step tasks | Simple / DAG |
+| Multi-step research with citations | Research Workflow |
+| Tasks requiring real-time agent collaboration | **Swarm** |
+| Tasks where agents need to share intermediate findings | **Swarm** |
+| Long-running exploration with dynamic subtask discovery | **Swarm** |
+| Tasks needing tool iteration (search, analyze, refine) | **Swarm** |
+
+<Note>
+Swarm mode uses more tokens than standard workflows because each agent runs multiple LLM iterations. Use it for tasks that genuinely benefit from persistent, collaborative multi-agent execution.
+</Note>
+
+## Configuration
+
+Swarm behavior is controlled via `config/features.yaml`:
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `swarm.enabled` | `true` | Enable/disable swarm workflow |
+| `swarm.max_agents` | `10` | Maximum total agents (initial + dynamic) |
+| `swarm.max_iterations_per_agent` | `25` | Max reason-act loops per agent |
+| `swarm.agent_timeout_seconds` | `600` | Per-agent timeout (10 minutes) |
+| `swarm.max_messages_per_agent` | `20` | P2P message cap per agent |
+| `swarm.workspace_snippet_chars` | `800` | Max chars per workspace entry in prompt |
+| `swarm.workspace_max_entries` | `5` | Max recent entries shown to each agent |
+
+## Streaming Events
+
+Swarm workflows emit SSE events for real-time monitoring:
+
+| Event Type | Agent ID | When |
+|------------|----------|------|
+| `WORKFLOW_STARTED` | `swarm-supervisor` | Workflow begins |
+| `PROGRESS` | `swarm-supervisor` | Planning, spawning, monitoring, synthesizing |
+| `AGENT_STARTED` | Agent name | Agent begins first iteration |
+| `AGENT_COMPLETED` | Agent name | Agent finishes |
+| `WORKFLOW_COMPLETED` | `swarm-supervisor` | Final synthesis complete |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Swarm Tutorial" icon="users" href="/en/tutorials/swarm-workflow">
+    Step-by-step guide to running swarm workflows
+  </Card>
+  <Card title="Workflows & Patterns" icon="diagram-project" href="/en/quickstart/concepts/workflows">
+    Other workflow types and cognitive patterns
+  </Card>
+  <Card title="Streaming" icon="stream" href="/en/quickstart/concepts/streaming">
+    Real-time event streaming
+  </Card>
+  <Card title="Cost Control" icon="dollar-sign" href="/en/quickstart/concepts/cost-control">
+    Budget management for multi-agent tasks
+  </Card>
+</CardGroup>

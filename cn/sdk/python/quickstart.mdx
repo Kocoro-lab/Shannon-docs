@@ -50,6 +50,19 @@ handle = client.submit_task(
 print(client.wait(handle.task_id).result)
 ```
 
+## 集群模式
+
+使用 `force_swarm` 强制多智能体集群执行：
+
+```python
+handle = client.submit_task(
+  "调研并对比排名前三的云服务商在 AI 工作负载上的表现。",
+  force_swarm=True,
+)
+result = client.wait(handle.task_id)
+print(result.result)
+```
+
 ## 异步版本
 
 ```python
@@ -59,7 +72,7 @@ from shannon import AsyncShannonClient
 async def main():
   async with AsyncShannonClient(base_url="http://localhost:8080") as client:
     h = await client.submit_task(
-      "对“我喜欢这个产品！”进行情感分类（positive|neutral|negative）。返回 JSON {label, score}。"
+      "对"我喜欢这个产品！"进行情感分类（positive|neutral|negative）。返回 JSON {label, score}。"
     )
     f = await client.wait(h.task_id)
     print(f.result)
@@ -109,10 +122,101 @@ shannon control-state task-123
 shannon resume task-123 --reason "继续执行"
 ```
 
+## 人机协同审查
+
+与需要人工审查才能继续的工作流进行交互：
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# 获取工作流的当前审查状态
+state = client.get_review_state("workflow-123")
+print(f"状态: {state.status}")        # "reviewing" 或 "approved"
+print(f"轮次: {state.round}")
+print(f"当前计划: {state.current_plan}")
+
+# 查看对话轮次
+for r in state.rounds:
+    print(f"  [{r.role}] {r.message}")
+
+# 提交反馈以完善计划
+updated = client.submit_review_feedback(
+    "workflow-123",
+    "请添加网络异常的错误处理。",
+    version=state.version,  # 乐观并发控制
+)
+print(f"更新后的轮次: {updated.round}")
+
+# 批准计划，让工作流继续执行
+result = client.approve_review("workflow-123", version=updated.version)
+print(f"审查状态: {result['status']}")
+```
+
+**CLI 用法：**
+
+```bash
+# 获取审查状态
+shannon review-get workflow-123
+
+# 提交反馈
+shannon review-feedback workflow-123 "添加错误处理"
+
+# 批准
+shannon review-approve workflow-123
+```
+
+## 技能
+
+列出并查看可用的技能：
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# 列出所有技能
+skills = client.list_skills()
+for s in skills:
+    print(f"{s.name} v{s.version} [{s.category}] - {s.description}")
+
+# 按类别过滤
+coding_skills = client.list_skills(category="coding")
+
+# 获取特定技能的详细信息
+detail = client.get_skill("web_search")
+print(f"作者: {detail.author}")
+print(f"所需工具: {detail.requires_tools}")
+print(f"内容: {detail.content}")
+
+# 获取技能的所有版本
+versions = client.get_skill_versions("web_search")
+for v in versions:
+    print(f"  {v.name} v{v.version}")
+```
+
+**CLI 用法：**
+
+```bash
+# 列出技能
+shannon skills-list
+
+# 获取技能详情
+shannon skill-get web_search
+
+# 获取技能版本
+shannon skill-versions web_search
+```
+
 ## CLI
 
 ```bash
 # 使用模型选择提交
 python -m shannon.cli --base-url http://localhost:8080 \
   submit "总结" --model-tier small --mode simple --wait
+
+# 使用集群模式提交
+python -m shannon.cli --base-url http://localhost:8080 \
+  submit "调研云服务商" --swarm --wait
 ```
