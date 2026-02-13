@@ -80,7 +80,7 @@
 
   <!-- Memory Types to Storage -->
   <line x1="150" y1="290" x2="160" y2="200" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <line x1="320" y1="290" x2="370" y2="200" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="320" y1="290" x2="580" y2="200" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
   <line x1="490" y1="290" x2="370" y2="200" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
   <line x1="660" y1="290" x2="580" y2="200" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
 </svg>

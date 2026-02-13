@@ -1,102 +1,114 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 650">
   <defs>
     <style>
       .label { font: 500 10px 'SF Mono', 'Hiragino Sans', 'Noto Sans JP', sans-serif; fill: #666; text-anchor: middle; }
       .box-text { font: 600 11px 'SF Mono', 'Hiragino Sans', 'Noto Sans JP', sans-serif; fill: #1a1a1a; text-anchor: middle; dominant-baseline: middle; }
       .decision { font: 600 10px 'SF Mono', 'Hiragino Sans', 'Noto Sans JP', sans-serif; fill: #1a1a1a; text-anchor: middle; dominant-baseline: middle; }
+      .annotation { font: 400 9px 'SF Mono', monospace; fill: #666; text-anchor: middle; }
     </style>
     <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
       <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
     </marker>
   </defs>
 
-  <!-- Background -->
-  <rect width="900" height="600" fill="#fff"/>
+  <rect width="900" height="650" fill="#fff"/>
 
   <!-- Start -->
   <ellipse cx="450" cy="40" rx="80" ry="30" fill="#e0f2fe" stroke="#1a1a1a" stroke-width="1.5"/>
   <text x="450" y="40" class="box-text">クエリ入力 / Query</text>
 
+  <line x1="450" y1="70" x2="450" y2="95" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Pre-Route Decision -->
+  <path d="M 390 100 L 510 100 L 530 130 L 510 160 L 390 160 L 370 130 Z" fill="#e0e7ff" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="450" y="125" class="decision">プリルーティング</text>
+  <text x="450" y="140" class="decision">Pre-Route</text>
+
+  <!-- Swarm branch (left) -->
+  <line x1="370" y1="130" x2="160" y2="130" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="265" y="123" class="annotation">force_swarm: true</text>
+
+  <rect x="60" y="110" width="100" height="40" fill="#c4b5fd" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="110" y="125" class="box-text">Swarm</text>
+  <text x="110" y="140" class="label">Workflow</text>
+
+  <!-- Supervisor branch (right) -->
+  <line x1="530" y1="130" x2="740" y2="130" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="635" y="123" class="annotation">mode: supervisor</text>
+
+  <rect x="740" y="110" width="110" height="40" fill="#c4b5fd" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="795" y="125" class="box-text">Supervisor</text>
+  <text x="795" y="140" class="label">Workflow</text>
+
+  <!-- Auto path continues down -->
+  <line x1="450" y1="160" x2="450" y2="190" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="475" y="180" class="annotation">auto</text>
+
   <!-- Decompose -->
-  <rect x="370" y="90" width="160" height="50" fill="#fef3c7" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
-  <text x="450" y="108" class="box-text">分解と分析</text>
-  <text x="450" y="123" class="label">Decompose & Analyze</text>
+  <rect x="370" y="195" width="160" height="50" fill="#fef3c7" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="450" y="213" class="box-text">分解と分析</text>
+  <text x="450" y="228" class="label">Decompose & Analyze</text>
+
+  <line x1="450" y1="245" x2="450" y2="275" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
 
   <!-- Complexity -->
-  <path d="M 450 170 L 520 220 L 450 270 L 380 220 Z" fill="#ffedd5" stroke="#1a1a1a" stroke-width="1.5"/>
-  <text x="450" y="213" class="decision">複雑度</text>
-  <text x="450" y="227" class="decision">スコア</text>
+  <path d="M 450 280 L 520 320 L 450 360 L 380 320 Z" fill="#ffedd5" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="450" y="315" class="decision">複雑度</text>
+  <text x="450" y="330" class="decision">スコア</text>
 
   <!-- Simple Task -->
-  <rect x="120" y="300" width="160" height="50" fill="#d1fae5" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
-  <text x="200" y="318" class="box-text">シンプルタスク</text>
-  <text x="200" y="333" class="label">Simple Task</text>
+  <line x1="380" y1="320" x2="220" y2="395" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="290" y="355" class="annotation">&lt; 0.3</text>
+
+  <rect x="120" y="400" width="160" height="50" fill="#d1fae5" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="200" y="418" class="box-text">シンプルタスク</text>
+  <text x="200" y="433" class="label">ExecuteSimpleTask</text>
 
   <!-- Cognitive Strategy -->
-  <path d="M 550 300 L 650 340 L 550 380 L 450 340 Z" fill="#dbeafe" stroke="#1a1a1a" stroke-width="1.5"/>
-  <text x="550" y="333" class="decision">認知戦略</text>
-  <text x="550" y="347" class="decision">Cognitive</text>
+  <line x1="520" y1="320" x2="600" y2="395" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="575" y="355" class="annotation">&gt;= 0.3</text>
 
-  <!-- ExecuteSimpleTask -->
-  <rect x="120" y="400" width="160" height="50" fill="#bfdbfe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
-  <text x="200" y="425" class="box-text">ExecuteSimpleTask</text>
+  <path d="M 530 400 L 670 400 L 650 440 L 550 440 Z" fill="#dbeafe" stroke="#1a1a1a" stroke-width="1.5"/>
+  <text x="600" y="417" class="decision">認知戦略</text>
+  <text x="600" y="432" class="decision">Cognitive</text>
 
   <!-- Exploratory -->
-  <rect x="330" y="460" width="140" height="50" fill="#fde047" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
-  <text x="400" y="478" class="box-text">Exploratory</text>
-  <text x="400" y="493" class="label">Workflow</text>
+  <line x1="550" y1="420" x2="380" y2="515" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="450" y="470" class="annotation">exploratory</text>
+
+  <rect x="310" y="520" width="140" height="45" fill="#fde047" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="380" y="538" class="box-text">Exploratory</text>
+  <text x="380" y="553" class="label">Workflow</text>
 
   <!-- Scientific -->
-  <rect x="490" y="460" width="140" height="50" fill="#c7d2fe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
-  <text x="560" y="478" class="box-text">Scientific</text>
-  <text x="560" y="493" class="label">Workflow</text>
+  <line x1="575" y1="440" x2="540" y2="515" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="545" y="480" class="annotation">scientific</text>
+
+  <rect x="470" y="520" width="140" height="45" fill="#c7d2fe" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="540" y="538" class="box-text">Scientific</text>
+  <text x="540" y="553" class="label">Workflow</text>
 
   <!-- React -->
-  <rect x="650" y="460" width="120" height="50" fill="#fecaca" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
-  <text x="710" y="478" class="box-text">React</text>
-  <text x="710" y="493" class="label">Workflow</text>
+  <line x1="625" y1="440" x2="700" y2="515" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="675" y="480" class="annotation">react</text>
+
+  <rect x="640" y="520" width="120" height="45" fill="#fecaca" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="700" y="538" class="box-text">React</text>
+  <text x="700" y="553" class="label">Workflow</text>
 
   <!-- Research -->
-  <rect x="490" y="540" width="120" height="50" fill="#bbf7d0" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
-  <text x="550" y="558" class="box-text">Research</text>
-  <text x="550" y="573" class="label">Workflow</text>
+  <line x1="600" y1="440" x2="540" y2="590" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="555" y="520" class="annotation">research</text>
+
+  <rect x="470" y="595" width="140" height="45" fill="#bbf7d0" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="540" y="613" class="box-text">Research</text>
+  <text x="540" y="628" class="label">Workflow</text>
 
   <!-- DAG -->
-  <rect x="650" y="540" width="120" height="50" fill="#e9d5ff" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
-  <text x="710" y="558" class="box-text">DAG</text>
-  <text x="710" y="573" class="label">Workflow</text>
+  <line x1="625" y1="440" x2="700" y2="590" stroke="#666" stroke-width="1.5" stroke-dasharray="5,5" marker-end="url(#arrow)"/>
+  <text x="680" y="520" class="annotation">default</text>
 
-  <!-- Arrows -->
-  <line x1="450" y1="70" x2="450" y2="85" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <line x1="450" y1="140" x2="450" y2="165" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
-
-  <!-- < 0.3 -->
-  <line x1="380" y1="220" x2="220" y2="295" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <text x="290" y="250" class="label">{"< 0.3"}</text>
-
-  <!-- >= 0.3 -->
-  <line x1="520" y1="220" x2="550" y2="295" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <text x="560" y="250" class="label">{">= 0.3"}</text>
-
-  <line x1="200" y1="350" x2="200" y2="395" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
-
-  <!-- exploratory -->
-  <line x1="480" y1="355" x2="420" y2="455" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <text x="440" y="400" class="label">exploratory</text>
-
-  <!-- scientific -->
-  <line x1="550" y1="380" x2="560" y2="455" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <text x="580" y="415" class="label">scientific</text>
-
-  <!-- react -->
-  <line x1="620" y1="355" x2="690" y2="455" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <text x="660" y="400" class="label">react</text>
-
-  <!-- research -->
-  <line x1="550" y1="380" x2="550" y2="535" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <text x="520" y="460" class="label">research</text>
-
-  <!-- default -->
-  <line x1="620" y1="355" x2="710" y2="535" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <text x="680" y="440" class="label">default</text>
+  <rect x="640" y="595" width="120" height="45" fill="#e9d5ff" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
+  <text x="700" y="613" class="box-text">DAG</text>
+  <text x="700" y="628" class="label">Workflow</text>
 </svg>
