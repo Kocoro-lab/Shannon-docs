@@ -1,0 +1,622 @@
+---
+title: "CLI Reference"
+description: "Complete reference for the Shannon CLI - submit tasks, stream events, manage sessions, schedules, and more from the terminal"
+---
+
+## Installation
+
+```bash
+pip install shannon-sdk
+```
+
+This installs the `shannon` CLI command. Verify with:
+
+```bash
+shannon --help
+```
+
+From source (development):
+
+```bash
+git clone https://github.com/Kocoro-lab/Shannon.git
+cd Shannon/clients/python
+pip install -e .
+```
+
+## Connection
+
+### Local (self-hosted)
+
+```bash
+shannon --base-url http://localhost:8080 submit "Hello world" --wait
+```
+
+### Shannon Cloud
+
+Register at [https://api-dev.shannon.run](https://api-dev.shannon.run) to get an API key, then:
+
+```bash
+shannon --base-url https://api-dev.shannon.run --api-key YOUR_API_KEY \
+  submit "Hello world" --wait
+```
+
+### Environment Variables
+
+Set these to avoid passing flags on every call:
+
+```bash
+export SHANNON_BASE_URL=https://api-dev.shannon.run   # or http://localhost:8080
+export SHANNON_API_KEY=sk_your_key_here
+# export SHANNON_BEARER_TOKEN=eyJ...    # alternative to API key
+```
+
+Then simply:
+
+```bash
+shannon submit "Hello world" --wait
+```
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SHANNON_BASE_URL` | `http://localhost:8080` | Gateway URL |
+| `SHANNON_API_KEY` | (none) | API key auth (sent as `X-API-Key` header) |
+| `SHANNON_BEARER_TOKEN` | (none) | Bearer token auth (alternative to API key) |
+
+## Global Options
+
+These go before the command name:
+
+```bash
+shannon [--base-url URL] [--api-key KEY] [--bearer-token TOKEN] COMMAND [OPTIONS]
+```
+
+---
+
+## Tasks
+
+### submit - Submit a task
+
+```bash
+shannon submit QUERY [OPTIONS]
+```
+
+**Arguments:**
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `QUERY` | Yes | The task query string |
+
+**Options:**
+
+| Flag | Type | Description |
+|------|------|-------------|
+| `--wait` | flag | Block until task completes, print result |
+| `--session-id` | string | Attach task to a session |
+| `--mode` | `simple` \| `standard` \| `complex` \| `supervisor` | Execution mode hint |
+| `--model-tier` | `small` \| `medium` \| `large` | Model tier selection |
+| `--model-override` | string | Specific model (e.g. `gpt-5-nano-2025-08-07`) |
+| `--provider-override` | string | Force provider: `openai`, `anthropic`, `google`, `groq`, `xai`, `deepseek`, `qwen`, `zai`, `ollama`, `mistral`, `cohere` |
+| `--force-research` | flag | Force ResearchWorkflow with citations |
+| `--research-strategy` | `quick` \| `standard` \| `deep` \| `academic` | Research strategy preset |
+| `--max-iterations` | int (1-50) | Override max research iterations |
+| `--max-concurrent-agents` | int (1-20) | Override max concurrent agents |
+| `--enable-verification` | flag | Enable claim verification |
+| `--disable-verification` | flag | Disable claim verification |
+| `--enable-citations` | flag | Enable citation collection |
+| `--disable-citations` | flag | Disable citation collection |
+| `--swarm` | flag | Force swarm multi-agent workflow |
+| `--idempotency-key` | string | Deduplicate submissions |
+| `--traceparent` | string | W3C traceparent for distributed tracing |
+
+**Examples:**
+
+```bash
+# Simple task
+shannon submit "What is 2+2?" --wait
+
+# Research with citations
+shannon submit "Latest advances in quantum computing" \
+  --force-research --research-strategy deep --wait
+
+# Cost-optimized with small model
+shannon submit "Summarize this text" --model-tier small --mode simple --wait
+
+# Specific model and provider
+shannon submit "Analyze trends" --model-override gpt-5-nano-2025-08-07 --provider-override openai --wait
+
+# Multi-agent swarm
+shannon submit "Compare top 3 cloud providers for AI workloads" --swarm --wait
+
+# Attach to a session
+shannon submit "Follow-up question" --session-id my-session --wait
+```
+
+**Output:**
+
+```
+Task submitted:
+  Task ID: task-abc123
+  Workflow ID: workflow-xyz789
+
+Waiting for completion...
+
+Result: 4
+```
+
+### status - Get task status
+
+```bash
+shannon status TASK_ID
+```
+
+**Example:**
+
+```bash
+shannon status task-abc123
+```
+
+**Output:**
+
+```
+Task: task-abc123
+Status: COMPLETED
+Progress: 100.0%
+Result: The answer is 4.
+```
+
+### cancel - Cancel a task
+
+```bash
+shannon cancel TASK_ID [--reason REASON]
+```
+
+**Example:**
+
+```bash
+shannon cancel task-abc123 --reason "No longer needed"
+```
+
+### pause - Pause a task
+
+Pauses at the next workflow checkpoint (not immediate).
+
+```bash
+shannon pause TASK_ID [--reason REASON]
+```
+
+**Example:**
+
+```bash
+shannon pause task-abc123 --reason "Review intermediate results"
+```
+
+### resume - Resume a paused task
+
+```bash
+shannon resume TASK_ID [--reason REASON]
+```
+
+**Example:**
+
+```bash
+shannon resume task-abc123 --reason "Continue after review"
+```
+
+### control-state - Get pause/cancel state
+
+```bash
+shannon control-state TASK_ID
+```
+
+**Output:**
+
+```
+Task: task-abc123
+Paused: True
+Cancelled: False
+Paused at: 2025-01-15T10:30:00
+Pause reason: Review intermediate results
+```
+
+---
+
+## Streaming
+
+### stream - Stream task events via SSE
+
+```bash
+shannon stream WORKFLOW_ID [OPTIONS]
+```
+
+| Flag | Type | Description |
+|------|------|-------------|
+| `--types` | string | Comma-separated event types to filter |
+| `--traceparent` | string | W3C traceparent for distributed tracing |
+
+**Event types:** `WORKFLOW_STARTED`, `WORKFLOW_COMPLETED`, `LLM_PROMPT`, `LLM_PARTIAL`, `LLM_OUTPUT`, `TOOL_INVOKED`, `TOOL_OBSERVATION`, `APPROVAL_REQUESTED`, `APPROVAL_DECISION`, `ERROR_OCCURRED`
+
+**Examples:**
+
+```bash
+# Stream all events
+shannon stream workflow-xyz789
+
+# Stream only LLM output and completion
+shannon stream workflow-xyz789 --types LLM_OUTPUT,WORKFLOW_COMPLETED
+```
+
+**Output:**
+
+```
+Streaming events for workflow: workflow-xyz789
+------------------------------------------------------------
+10:30:01 WORKFLOW_STARTED: Task started
+10:30:02 [agent-1] LLM_OUTPUT: The answer is 4.
+10:30:03 WORKFLOW_COMPLETED: Task completed successfully
+```
+
+---
+
+## HITL Review (Human-in-the-Loop)
+
+### review-get - Get review state
+
+```bash
+shannon review-get WORKFLOW_ID
+```
+
+**Output:**
+
+```
+Status: reviewing
+Round: 2
+Version: 3
+Current plan: 1. Research topic 2. Analyze data 3. Write report
+Query: Research AI trends
+
+Conversation (2 messages):
+  [system] (2025-01-15T10:00:00): Initial plan generated
+  [user] (2025-01-15T10:05:00): Add error handling section
+```
+
+### review-feedback - Submit feedback
+
+```bash
+shannon review-feedback WORKFLOW_ID MESSAGE [--version N]
+```
+
+The `--version` flag enables optimistic concurrency control.
+
+**Example:**
+
+```bash
+shannon review-feedback workflow-xyz789 "Add more detail on pricing" --version 3
+```
+
+### review-approve - Approve review plan
+
+```bash
+shannon review-approve WORKFLOW_ID [--version N]
+```
+
+**Example:**
+
+```bash
+shannon review-approve workflow-xyz789 --version 4
+```
+
+### approve - Approve/reject pending approval request
+
+```bash
+shannon approve APPROVAL_ID WORKFLOW_ID [--approve | --reject] [--feedback TEXT]
+```
+
+`--approve` is the default. Use `--reject` to reject.
+
+**Examples:**
+
+```bash
+# Approve
+shannon approve approval-001 workflow-xyz789 --feedback "Looks good"
+
+# Reject
+shannon approve approval-001 workflow-xyz789 --reject --feedback "Needs revision"
+```
+
+---
+
+## Sessions
+
+### session-list - List sessions
+
+```bash
+shannon session-list [--limit N] [--offset N]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--limit` | 50 | Max sessions to return |
+| `--offset` | 0 | Pagination offset |
+
+**Example:**
+
+```bash
+shannon session-list --limit 10
+```
+
+### session-get - Get session details
+
+```bash
+shannon session-get SESSION_ID [--no-history]
+```
+
+**Example:**
+
+```bash
+shannon session-get my-session
+shannon session-get my-session --no-history
+```
+
+### session-title - Update session title
+
+```bash
+shannon session-title SESSION_ID TITLE
+```
+
+**Example:**
+
+```bash
+shannon session-title my-session "Q1 Research Project"
+```
+
+### session-delete - Delete a session
+
+```bash
+shannon session-delete SESSION_ID
+```
+
+---
+
+## Schedules
+
+### schedule-create - Create a recurring task
+
+```bash
+shannon schedule-create NAME CRON QUERY [OPTIONS]
+```
+
+**Arguments:**
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `NAME` | Yes | Schedule name |
+| `CRON` | Yes | Cron expression |
+| `QUERY` | Yes | Task query to execute each run |
+
+**Options:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--description` | (none) | Schedule description |
+| `--timezone` | `UTC` | Timezone for cron evaluation |
+| `--force-research` | off | Enable research mode |
+| `--research-strategy` | (none) | `quick` \| `standard` \| `deep` \| `academic` |
+| `--budget` | (none) | Max budget per run in USD |
+| `--timeout` | (none) | Timeout per run in seconds |
+
+**Cron expression reference:**
+
+```
+MIN  HOUR  DAY  MONTH  WEEKDAY
+ 0    9     *     *      1-5     = Weekdays at 9:00 AM
+ 0    */4   *     *      *       = Every 4 hours
+ 0    0     *     *      1       = Every Monday at midnight
+ 30   8     1     *      *       = First of month at 8:30 AM
+```
+
+**Examples:**
+
+```bash
+# Daily research briefing
+shannon schedule-create "Daily AI News" "0 9 * * *" "Latest AI news summary" \
+  --timezone Asia/Tokyo --force-research --research-strategy quick
+
+# Weekly deep analysis
+shannon schedule-create "Weekly Market Report" "0 0 * * 1" \
+  "Comprehensive market analysis for the past week" \
+  --force-research --research-strategy deep --budget 5.0
+```
+
+### schedule-list - List schedules
+
+```bash
+shannon schedule-list [--page N] [--page-size N] [--status ACTIVE|PAUSED]
+```
+
+**Example:**
+
+```bash
+shannon schedule-list --status ACTIVE
+```
+
+**Output:**
+
+```
+Total: 3
+ sched-001  Daily AI News       0 9 * * *    ACTIVE
+ sched-002  Weekly Report        0 0 * * 1    ACTIVE
+ sched-003  Hourly Check         0 * * * *    PAUSED
+```
+
+### schedule-get - Get schedule details
+
+```bash
+shannon schedule-get SCHEDULE_ID
+```
+
+### schedule-update - Update a schedule
+
+```bash
+shannon schedule-update SCHEDULE_ID [OPTIONS]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--name` | New name |
+| `--description` | New description |
+| `--cron` | New cron expression |
+| `--timezone` | New timezone |
+| `--query` | New task query |
+| `--budget` | New max budget per run (USD) |
+| `--timeout` | New timeout per run (seconds) |
+| `--clear-context` | Clear task context |
+
+**Example:**
+
+```bash
+shannon schedule-update sched-001 --cron "0 10 * * *" --query "Updated news query"
+```
+
+### schedule-pause - Pause a schedule
+
+```bash
+shannon schedule-pause SCHEDULE_ID [--reason REASON]
+```
+
+### schedule-resume - Resume a schedule
+
+```bash
+shannon schedule-resume SCHEDULE_ID [--reason REASON]
+```
+
+### schedule-delete - Delete a schedule
+
+```bash
+shannon schedule-delete SCHEDULE_ID
+```
+
+### schedule-runs - View execution history
+
+```bash
+shannon schedule-runs SCHEDULE_ID [--page N] [--page-size N]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--page` | 1 | Page number |
+| `--page-size` | 10 | Items per page |
+
+**Output:**
+
+```
+Total runs: 42
+ 2025-01-15T09:00:00  COMPLETED  1523 tokens  $0.0032
+ 2025-01-14T09:00:00  COMPLETED  1891 tokens  $0.0041
+ 2025-01-13T09:00:00  FAILED     0 tokens     -
+```
+
+---
+
+## Skills
+
+### skills-list - List available skills
+
+```bash
+shannon skills-list [--category CATEGORY]
+```
+
+**Example:**
+
+```bash
+shannon skills-list
+shannon skills-list --category research
+```
+
+**Output:**
+
+```
+Name                      Version    Category        Description
+--------------------------------------------------------------------------------
+web_search                1.0        research        Search the web for information
+code_analysis             1.0        coding          Analyze code structure
+```
+
+### skill-get - Get skill details
+
+```bash
+shannon skill-get NAME
+```
+
+**Example:**
+
+```bash
+shannon skill-get web_search
+```
+
+### skill-versions - List skill versions
+
+```bash
+shannon skill-versions NAME
+```
+
+**Example:**
+
+```bash
+shannon skill-versions web_search
+```
+
+---
+
+## Common Workflows
+
+### Submit and stream results
+
+```bash
+# Submit task, capture workflow ID, then stream
+shannon submit "Research quantum computing breakthroughs" --force-research --research-strategy deep
+# Output: Workflow ID: workflow-xyz789
+
+shannon stream workflow-xyz789 --types LLM_OUTPUT,WORKFLOW_COMPLETED
+```
+
+### HITL review loop
+
+```bash
+# 1. Submit task that triggers review
+shannon submit "Create deployment plan for production" --wait
+
+# 2. Check review state
+shannon review-get workflow-xyz789
+
+# 3. Provide feedback
+shannon review-feedback workflow-xyz789 "Add rollback procedure"
+
+# 4. Approve when satisfied
+shannon review-approve workflow-xyz789
+```
+
+### Schedule with monitoring
+
+```bash
+# Create schedule
+shannon schedule-create "Daily Report" "0 9 * * 1-5" \
+  "Generate daily business report" --timezone America/New_York
+
+# Check runs
+shannon schedule-runs sched-001
+
+# Pause during holidays
+shannon schedule-pause sched-001 --reason "Holiday break"
+
+# Resume
+shannon schedule-resume sched-001
+```
+
+---
+
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | Error (task failure, API error, invalid arguments) |

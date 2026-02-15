@@ -1,0 +1,361 @@
+---
+title: "CLI 参考"
+description: "Shannon CLI 完整参考 - 从终端提交任务、流式传输事件、管理会话、定时任务等"
+---
+
+## 安装
+
+```bash
+pip install shannon-sdk
+```
+
+安装后可使用 `shannon` 命令。验证：
+
+```bash
+shannon --help
+```
+
+从源代码安装（开发）：
+
+```bash
+git clone https://github.com/Kocoro-lab/Shannon.git
+cd Shannon/clients/python
+pip install -e .
+```
+
+## 连接
+
+### 本地（自托管）
+
+```bash
+shannon --base-url http://localhost:8080 submit "Hello world" --wait
+```
+
+### Shannon Cloud
+
+在 [https://api-dev.shannon.run](https://api-dev.shannon.run) 注册获取 API Key：
+
+```bash
+shannon --base-url https://api-dev.shannon.run --api-key YOUR_API_KEY \
+  submit "Hello world" --wait
+```
+
+### 环境变量
+
+设置后无需每次传入参数：
+
+```bash
+export SHANNON_BASE_URL=https://api-dev.shannon.run   # 或 http://localhost:8080
+export SHANNON_API_KEY=sk_your_key_here
+# export SHANNON_BEARER_TOKEN=eyJ...    # API key 的替代方式
+```
+
+然后直接：
+
+```bash
+shannon submit "Hello world" --wait
+```
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `SHANNON_BASE_URL` | `http://localhost:8080` | 网关 URL |
+| `SHANNON_API_KEY` | (无) | API Key 认证（`X-API-Key` 请求头） |
+| `SHANNON_BEARER_TOKEN` | (无) | Bearer Token 认证（API Key 的替代方式） |
+
+## 全局选项
+
+这些参数放在命令名称之前：
+
+```bash
+shannon [--base-url URL] [--api-key KEY] [--bearer-token TOKEN] COMMAND [OPTIONS]
+```
+
+---
+
+## 任务
+
+### submit - 提交任务
+
+```bash
+shannon submit QUERY [OPTIONS]
+```
+
+**参数：**
+
+| 参数 | 必填 | 说明 |
+|------|------|------|
+| `QUERY` | 是 | 任务查询字符串 |
+
+**选项：**
+
+| 标志 | 类型 | 说明 |
+|------|------|------|
+| `--wait` | flag | 等待任务完成，打印结果 |
+| `--session-id` | string | 关联到指定会话 |
+| `--mode` | `simple` \| `standard` \| `complex` \| `supervisor` | 执行模式 |
+| `--model-tier` | `small` \| `medium` \| `large` | 模型层级 |
+| `--model-override` | string | 指定模型（如 `gpt-5-nano-2025-08-07`） |
+| `--provider-override` | string | 指定提供商：`openai`, `anthropic`, `google`, `groq`, `xai`, `deepseek`, `qwen`, `zai`, `ollama`, `mistral`, `cohere` |
+| `--force-research` | flag | 强制使用 ResearchWorkflow（带引用） |
+| `--research-strategy` | `quick` \| `standard` \| `deep` \| `academic` | 研究策略 |
+| `--max-iterations` | int (1-50) | 覆盖最大研究迭代次数 |
+| `--max-concurrent-agents` | int (1-20) | 覆盖最大并发代理数 |
+| `--enable-verification` | flag | 启用声明验证 |
+| `--disable-verification` | flag | 禁用声明验证 |
+| `--enable-citations` | flag | 启用引用收集 |
+| `--disable-citations` | flag | 禁用引用收集 |
+| `--swarm` | flag | 强制多代理 swarm 工作流 |
+| `--idempotency-key` | string | 去重提交 |
+| `--traceparent` | string | W3C traceparent 分布式追踪 |
+
+**示例：**
+
+```bash
+# 简单任务
+shannon submit "2+2等于多少？" --wait
+
+# 深度研究（带引用）
+shannon submit "量子计算最新进展" \
+  --force-research --research-strategy deep --wait
+
+# 低成本模式
+shannon submit "总结这段文字" --model-tier small --mode simple --wait
+
+# 指定模型和提供商
+shannon submit "分析趋势" --model-override gpt-5-nano-2025-08-07 --provider-override openai --wait
+
+# 多代理 swarm
+shannon submit "比较前3大云提供商的AI工作负载" --swarm --wait
+
+# 关联会话
+shannon submit "后续问题" --session-id my-session --wait
+```
+
+### status - 获取任务状态
+
+```bash
+shannon status TASK_ID
+```
+
+### cancel - 取消任务
+
+```bash
+shannon cancel TASK_ID [--reason REASON]
+```
+
+### pause - 暂停任务
+
+在下一个工作流检查点暂停（非即时）。
+
+```bash
+shannon pause TASK_ID [--reason REASON]
+```
+
+### resume - 恢复暂停的任务
+
+```bash
+shannon resume TASK_ID [--reason REASON]
+```
+
+### control-state - 获取暂停/取消状态
+
+```bash
+shannon control-state TASK_ID
+```
+
+---
+
+## 流式传输
+
+### stream - 通过 SSE 流式传输任务事件
+
+```bash
+shannon stream WORKFLOW_ID [OPTIONS]
+```
+
+| 标志 | 类型 | 说明 |
+|------|------|------|
+| `--types` | string | 逗号分隔的事件类型过滤 |
+| `--traceparent` | string | W3C traceparent 分布式追踪 |
+
+**事件类型：** `WORKFLOW_STARTED`, `WORKFLOW_COMPLETED`, `LLM_PROMPT`, `LLM_PARTIAL`, `LLM_OUTPUT`, `TOOL_INVOKED`, `TOOL_OBSERVATION`, `APPROVAL_REQUESTED`, `APPROVAL_DECISION`, `ERROR_OCCURRED`
+
+```bash
+# 流式传输所有事件
+shannon stream workflow-xyz789
+
+# 仅流式传输 LLM 输出和完成事件
+shannon stream workflow-xyz789 --types LLM_OUTPUT,WORKFLOW_COMPLETED
+```
+
+---
+
+## HITL 审查（人机协同）
+
+### review-get - 获取审查状态
+
+```bash
+shannon review-get WORKFLOW_ID
+```
+
+### review-feedback - 提交反馈
+
+```bash
+shannon review-feedback WORKFLOW_ID MESSAGE [--version N]
+```
+
+### review-approve - 批准审查计划
+
+```bash
+shannon review-approve WORKFLOW_ID [--version N]
+```
+
+### approve - 批准/拒绝待审批请求
+
+```bash
+shannon approve APPROVAL_ID WORKFLOW_ID [--approve | --reject] [--feedback TEXT]
+```
+
+`--approve` 为默认选项。使用 `--reject` 拒绝。
+
+```bash
+# 批准
+shannon approve approval-001 workflow-xyz789 --feedback "没问题"
+
+# 拒绝
+shannon approve approval-001 workflow-xyz789 --reject --feedback "需要修改"
+```
+
+---
+
+## 会话
+
+### session-list - 列出会话
+
+```bash
+shannon session-list [--limit N] [--offset N]
+```
+
+### session-get - 获取会话详情
+
+```bash
+shannon session-get SESSION_ID [--no-history]
+```
+
+### session-title - 更新会话标题
+
+```bash
+shannon session-title SESSION_ID TITLE
+```
+
+### session-delete - 删除会话
+
+```bash
+shannon session-delete SESSION_ID
+```
+
+---
+
+## 定时任务
+
+### schedule-create - 创建定时任务
+
+```bash
+shannon schedule-create NAME CRON QUERY [OPTIONS]
+```
+
+| 标志 | 默认值 | 说明 |
+|------|--------|------|
+| `--description` | (无) | 描述 |
+| `--timezone` | `UTC` | 时区 |
+| `--force-research` | 关闭 | 启用研究模式 |
+| `--research-strategy` | (无) | `quick` \| `standard` \| `deep` \| `academic` |
+| `--budget` | (无) | 每次运行最大预算（USD） |
+| `--timeout` | (无) | 每次运行超时（秒） |
+
+**Cron 表达式：**
+
+```
+分  时  日  月  周
+ 0   9   *   *  1-5     = 工作日 9:00
+ 0  */4   *   *   *     = 每4小时
+ 0   0   *   *   1      = 每周一午夜
+```
+
+```bash
+shannon schedule-create "每日AI新闻" "0 9 * * *" "最新AI新闻摘要" \
+  --timezone Asia/Shanghai --force-research --research-strategy quick
+```
+
+### schedule-list - 列出定时任务
+
+```bash
+shannon schedule-list [--page N] [--page-size N] [--status ACTIVE|PAUSED]
+```
+
+### schedule-get - 获取定时任务详情
+
+```bash
+shannon schedule-get SCHEDULE_ID
+```
+
+### schedule-update - 更新定时任务
+
+```bash
+shannon schedule-update SCHEDULE_ID [--name N] [--cron C] [--query Q] [--timezone T] [--budget B] [--timeout T] [--clear-context]
+```
+
+### schedule-pause - 暂停定时任务
+
+```bash
+shannon schedule-pause SCHEDULE_ID [--reason REASON]
+```
+
+### schedule-resume - 恢复定时任务
+
+```bash
+shannon schedule-resume SCHEDULE_ID [--reason REASON]
+```
+
+### schedule-delete - 删除定时任务
+
+```bash
+shannon schedule-delete SCHEDULE_ID
+```
+
+### schedule-runs - 查看执行历史
+
+```bash
+shannon schedule-runs SCHEDULE_ID [--page N] [--page-size N]
+```
+
+---
+
+## 技能
+
+### skills-list - 列出可用技能
+
+```bash
+shannon skills-list [--category CATEGORY]
+```
+
+### skill-get - 获取技能详情
+
+```bash
+shannon skill-get NAME
+```
+
+### skill-versions - 列出技能版本
+
+```bash
+shannon skill-versions NAME
+```
+
+---
+
+## 退出码
+
+| 码 | 含义 |
+|----|------|
+| 0 | 成功 |
+| 1 | 错误（任务失败、API 错误、参数无效） |

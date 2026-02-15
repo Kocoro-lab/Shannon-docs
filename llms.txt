@@ -38,8 +38,10 @@ Shannon orchestrates AI agents through a distributed microservices architecture:
 
 ## SDKs
 
-- [Python SDK Installation](https://docs.shannon.run/en/sdk/python/installation): pip install shannon
+- [Python SDK Installation](https://docs.shannon.run/en/sdk/python/installation): pip install shannon-sdk
 - [Python SDK Quickstart](https://docs.shannon.run/en/sdk/python/quickstart): Basic usage examples
+- [CLI Reference](https://docs.shannon.run/en/sdk/python/cli): Complete CLI reference - all 26 commands with flags and examples
+- [Streaming](https://docs.shannon.run/en/sdk/python/streaming): SSE and WebSocket event streaming
 - [Async Usage](https://docs.shannon.run/en/sdk/python/async-usage): AsyncShannonClient for concurrent tasks
 
 ## Deployment
@@ -80,11 +82,77 @@ echo "OPENAI_API_KEY=sk-your-key" >> .env
 # Run locally
 make dev
 
-# Submit a task
+# Submit a task via curl
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
   -d '{"query": "Analyze the benefits of microservices architecture"}'
 ```
+
+## Shannon CLI Quick Reference
+
+Install: `pip install shannon-sdk` (provides the `shannon` command)
+
+Connect to local: `shannon --base-url http://localhost:8080 COMMAND`
+Connect to cloud: `shannon --base-url https://api-dev.shannon.run --api-key YOUR_KEY COMMAND`
+Or set env vars: `SHANNON_BASE_URL`, `SHANNON_API_KEY`, `SHANNON_BEARER_TOKEN`
+
+**Tasks:**
+```bash
+shannon submit "Your query" --wait                              # submit and wait for result
+shannon submit "Query" --model-tier small --mode simple --wait  # cost-optimized
+shannon submit "Query" --force-research --research-strategy deep --wait  # deep research
+shannon submit "Query" --swarm --wait                           # multi-agent swarm
+shannon submit "Query" --model-override gpt-5-nano-2025-08-07 --provider-override openai --wait
+shannon status TASK_ID                                          # check task status
+shannon cancel TASK_ID --reason "reason"                        # cancel task
+shannon pause TASK_ID --reason "reason"                         # pause at checkpoint
+shannon resume TASK_ID --reason "reason"                        # resume paused task
+shannon control-state TASK_ID                                   # get pause/cancel state
+```
+
+**Streaming:**
+```bash
+shannon stream WORKFLOW_ID                                      # stream all events
+shannon stream WORKFLOW_ID --types LLM_OUTPUT,WORKFLOW_COMPLETED  # filter event types
+```
+
+**HITL Review:**
+```bash
+shannon review-get WORKFLOW_ID                                  # get review state
+shannon review-feedback WORKFLOW_ID "feedback message"          # submit feedback
+shannon review-approve WORKFLOW_ID --version N                  # approve plan
+shannon approve APPROVAL_ID WORKFLOW_ID --approve --feedback "ok"  # approve request
+shannon approve APPROVAL_ID WORKFLOW_ID --reject --feedback "no"   # reject request
+```
+
+**Sessions:**
+```bash
+shannon session-list --limit 10                                 # list sessions
+shannon session-get SESSION_ID                                  # get session details
+shannon session-title SESSION_ID "New Title"                    # update title
+shannon session-delete SESSION_ID                               # delete session
+```
+
+**Schedules:**
+```bash
+shannon schedule-create "Name" "0 9 * * *" "Query" --timezone Asia/Tokyo  # create
+shannon schedule-list --status ACTIVE                           # list active schedules
+shannon schedule-get SCHEDULE_ID                                # get details
+shannon schedule-update SCHEDULE_ID --cron "0 10 * * *" --query "new query"  # update
+shannon schedule-pause SCHEDULE_ID --reason "reason"            # pause
+shannon schedule-resume SCHEDULE_ID                             # resume
+shannon schedule-runs SCHEDULE_ID --page 1                      # execution history
+shannon schedule-delete SCHEDULE_ID                             # delete
+```
+
+**Skills:**
+```bash
+shannon skills-list --category research                         # list skills
+shannon skill-get SKILL_NAME                                    # get skill details
+shannon skill-versions SKILL_NAME                               # list versions
+```
+
+Full CLI reference: [https://docs.shannon.run/en/sdk/python/cli](https://docs.shannon.run/en/sdk/python/cli)
 
 ## Troubleshooting
 

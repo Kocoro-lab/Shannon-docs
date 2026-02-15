@@ -151,6 +151,7 @@
                 "pages": [
                   "en/sdk/python/installation",
                   "en/sdk/python/quickstart",
+                  "en/sdk/python/cli",
                   "en/sdk/python/streaming",
                   "en/sdk/python/async-usage",
                   "en/sdk/python/examples",
@@ -364,6 +365,7 @@
                 "pages": [
                   "cn/sdk/python/installation",
                   "cn/sdk/python/quickstart",
+                  "cn/sdk/python/cli",
                   "cn/sdk/python/streaming",
                   "cn/sdk/python/async-usage",
                   "cn/sdk/python/examples",
@@ -577,6 +579,7 @@
                 "pages": [
                   "ja/sdk/python/installation",
                   "ja/sdk/python/quickstart",
+                  "ja/sdk/python/cli",
                   "ja/sdk/python/streaming",
                   "ja/sdk/python/async-usage",
                   "ja/sdk/python/examples",

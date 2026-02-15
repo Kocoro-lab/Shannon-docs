@@ -1,0 +1,361 @@
+---
+title: "CLIリファレンス"
+description: "Shannon CLI 完全リファレンス - ターミナルからタスク送信、イベントストリーミング、セッション管理、スケジュール管理など"
+---
+
+## インストール
+
+```bash
+pip install shannon-sdk
+```
+
+`shannon` コマンドがインストールされます。確認：
+
+```bash
+shannon --help
+```
+
+ソースから（開発）:
+
+```bash
+git clone https://github.com/Kocoro-lab/Shannon.git
+cd Shannon/clients/python
+pip install -e .
+```
+
+## 接続
+
+### ローカル（セルフホスト）
+
+```bash
+shannon --base-url http://localhost:8080 submit "Hello world" --wait
+```
+
+### Shannon Cloud
+
+[https://api-dev.shannon.run](https://api-dev.shannon.run) で登録してAPIキーを取得：
+
+```bash
+shannon --base-url https://api-dev.shannon.run --api-key YOUR_API_KEY \
+  submit "Hello world" --wait
+```
+
+### 環境変数
+
+毎回フラグを渡さないように設定：
+
+```bash
+export SHANNON_BASE_URL=https://api-dev.shannon.run   # または http://localhost:8080
+export SHANNON_API_KEY=sk_your_key_here
+# export SHANNON_BEARER_TOKEN=eyJ...    # APIキーの代替
+```
+
+設定後：
+
+```bash
+shannon submit "Hello world" --wait
+```
+
+| 変数 | デフォルト | 説明 |
+|------|-----------|------|
+| `SHANNON_BASE_URL` | `http://localhost:8080` | ゲートウェイURL |
+| `SHANNON_API_KEY` | (なし) | APIキー認証（`X-API-Key`ヘッダー） |
+| `SHANNON_BEARER_TOKEN` | (なし) | Bearerトークン認証（APIキーの代替） |
+
+## グローバルオプション
+
+コマンド名の前に指定：
+
+```bash
+shannon [--base-url URL] [--api-key KEY] [--bearer-token TOKEN] COMMAND [OPTIONS]
+```
+
+---
+
+## タスク
+
+### submit - タスク送信
+
+```bash
+shannon submit QUERY [OPTIONS]
+```
+
+**引数：**
+
+| 引数 | 必須 | 説明 |
+|------|------|------|
+| `QUERY` | はい | タスククエリ文字列 |
+
+**オプション：**
+
+| フラグ | 型 | 説明 |
+|--------|-----|------|
+| `--wait` | flag | タスク完了まで待機し結果を表示 |
+| `--session-id` | string | セッションに紐付け |
+| `--mode` | `simple` \| `standard` \| `complex` \| `supervisor` | 実行モード |
+| `--model-tier` | `small` \| `medium` \| `large` | モデルティア |
+| `--model-override` | string | 特定モデル指定（例: `gpt-5-nano-2025-08-07`） |
+| `--provider-override` | string | プロバイダー指定: `openai`, `anthropic`, `google`, `groq`, `xai`, `deepseek`, `qwen`, `zai`, `ollama`, `mistral`, `cohere` |
+| `--force-research` | flag | ResearchWorkflow（引用付き）を強制 |
+| `--research-strategy` | `quick` \| `standard` \| `deep` \| `academic` | リサーチ戦略 |
+| `--max-iterations` | int (1-50) | 最大リサーチ反復回数を上書き |
+| `--max-concurrent-agents` | int (1-20) | 最大同時エージェント数を上書き |
+| `--enable-verification` | flag | クレーム検証を有効化 |
+| `--disable-verification` | flag | クレーム検証を無効化 |
+| `--enable-citations` | flag | 引用収集を有効化 |
+| `--disable-citations` | flag | 引用収集を無効化 |
+| `--swarm` | flag | マルチエージェントswarmワークフローを強制 |
+| `--idempotency-key` | string | 重複送信を防止 |
+| `--traceparent` | string | W3C traceparent 分散トレーシング |
+
+**例：**
+
+```bash
+# シンプルなタスク
+shannon submit "2+2は？" --wait
+
+# ディープリサーチ（引用付き）
+shannon submit "量子コンピューティングの最新進展" \
+  --force-research --research-strategy deep --wait
+
+# コスト最適化
+shannon submit "このテキストを要約" --model-tier small --mode simple --wait
+
+# モデルとプロバイダーを指定
+shannon submit "トレンドを分析" --model-override gpt-5-nano-2025-08-07 --provider-override openai --wait
+
+# マルチエージェントswarm
+shannon submit "AI ワークロード向けトップ3クラウドプロバイダーを比較" --swarm --wait
+
+# セッションに紐付け
+shannon submit "フォローアップ質問" --session-id my-session --wait
+```
+
+### status - タスクステータス取得
+
+```bash
+shannon status TASK_ID
+```
+
+### cancel - タスクキャンセル
+
+```bash
+shannon cancel TASK_ID [--reason REASON]
+```
+
+### pause - タスク一時停止
+
+次のワークフローチェックポイントで一時停止します（即時ではありません）。
+
+```bash
+shannon pause TASK_ID [--reason REASON]
+```
+
+### resume - 一時停止中のタスクを再開
+
+```bash
+shannon resume TASK_ID [--reason REASON]
+```
+
+### control-state - 一時停止/キャンセル状態を取得
+
+```bash
+shannon control-state TASK_ID
+```
+
+---
+
+## ストリーミング
+
+### stream - SSEでタスクイベントをストリーミング
+
+```bash
+shannon stream WORKFLOW_ID [OPTIONS]
+```
+
+| フラグ | 型 | 説明 |
+|--------|-----|------|
+| `--types` | string | カンマ区切りのイベントタイプフィルター |
+| `--traceparent` | string | W3C traceparent 分散トレーシング |
+
+**イベントタイプ：** `WORKFLOW_STARTED`, `WORKFLOW_COMPLETED`, `LLM_PROMPT`, `LLM_PARTIAL`, `LLM_OUTPUT`, `TOOL_INVOKED`, `TOOL_OBSERVATION`, `APPROVAL_REQUESTED`, `APPROVAL_DECISION`, `ERROR_OCCURRED`
+
+```bash
+# 全イベントをストリーミング
+shannon stream workflow-xyz789
+
+# LLM出力と完了イベントのみ
+shannon stream workflow-xyz789 --types LLM_OUTPUT,WORKFLOW_COMPLETED
+```
+
+---
+
+## HITLレビュー（Human-in-the-Loop）
+
+### review-get - レビュー状態を取得
+
+```bash
+shannon review-get WORKFLOW_ID
+```
+
+### review-feedback - フィードバック送信
+
+```bash
+shannon review-feedback WORKFLOW_ID MESSAGE [--version N]
+```
+
+### review-approve - レビュープランを承認
+
+```bash
+shannon review-approve WORKFLOW_ID [--version N]
+```
+
+### approve - 承認リクエストの承認/拒否
+
+```bash
+shannon approve APPROVAL_ID WORKFLOW_ID [--approve | --reject] [--feedback TEXT]
+```
+
+`--approve` がデフォルト。拒否するには `--reject` を使用。
+
+```bash
+# 承認
+shannon approve approval-001 workflow-xyz789 --feedback "問題なし"
+
+# 拒否
+shannon approve approval-001 workflow-xyz789 --reject --feedback "修正が必要"
+```
+
+---
+
+## セッション
+
+### session-list - セッション一覧
+
+```bash
+shannon session-list [--limit N] [--offset N]
+```
+
+### session-get - セッション詳細
+
+```bash
+shannon session-get SESSION_ID [--no-history]
+```
+
+### session-title - セッションタイトル更新
+
+```bash
+shannon session-title SESSION_ID TITLE
+```
+
+### session-delete - セッション削除
+
+```bash
+shannon session-delete SESSION_ID
+```
+
+---
+
+## スケジュール
+
+### schedule-create - 定期タスク作成
+
+```bash
+shannon schedule-create NAME CRON QUERY [OPTIONS]
+```
+
+| フラグ | デフォルト | 説明 |
+|--------|-----------|------|
+| `--description` | (なし) | 説明 |
+| `--timezone` | `UTC` | タイムゾーン |
+| `--force-research` | オフ | リサーチモードを有効化 |
+| `--research-strategy` | (なし) | `quick` \| `standard` \| `deep` \| `academic` |
+| `--budget` | (なし) | 実行ごとの最大予算（USD） |
+| `--timeout` | (なし) | 実行ごとのタイムアウト（秒） |
+
+**Cron式：**
+
+```
+分  時  日  月  曜日
+ 0   9   *   *  1-5     = 平日9:00
+ 0  */4   *   *   *     = 4時間ごと
+ 0   0   *   *   1      = 毎週月曜日0:00
+```
+
+```bash
+shannon schedule-create "毎日AIニュース" "0 9 * * *" "最新AIニュース要約" \
+  --timezone Asia/Tokyo --force-research --research-strategy quick
+```
+
+### schedule-list - スケジュール一覧
+
+```bash
+shannon schedule-list [--page N] [--page-size N] [--status ACTIVE|PAUSED]
+```
+
+### schedule-get - スケジュール詳細
+
+```bash
+shannon schedule-get SCHEDULE_ID
+```
+
+### schedule-update - スケジュール更新
+
+```bash
+shannon schedule-update SCHEDULE_ID [--name N] [--cron C] [--query Q] [--timezone T] [--budget B] [--timeout T] [--clear-context]
+```
+
+### schedule-pause - スケジュール一時停止
+
+```bash
+shannon schedule-pause SCHEDULE_ID [--reason REASON]
+```
+
+### schedule-resume - スケジュール再開
+
+```bash
+shannon schedule-resume SCHEDULE_ID [--reason REASON]
+```
+
+### schedule-delete - スケジュール削除
+
+```bash
+shannon schedule-delete SCHEDULE_ID
+```
+
+### schedule-runs - 実行履歴
+
+```bash
+shannon schedule-runs SCHEDULE_ID [--page N] [--page-size N]
+```
+
+---
+
+## スキル
+
+### skills-list - 利用可能なスキル一覧
+
+```bash
+shannon skills-list [--category CATEGORY]
+```
+
+### skill-get - スキル詳細
+
+```bash
+shannon skill-get NAME
+```
+
+### skill-versions - スキルバージョン一覧
+
+```bash
+shannon skill-versions NAME
+```
+
+---
+
+## 終了コード
+
+| コード | 意味 |
+|--------|------|
+| 0 | 成功 |
+| 1 | エラー（タスク失敗、APIエラー、引数エラー） |
