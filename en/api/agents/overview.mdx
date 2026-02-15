@@ -1,0 +1,340 @@
+---
+title: "Agents Overview"
+description: "Single-purpose agents for specialized tasks"
+---
+
+## What are Shannon Agents?
+
+Shannon Agents are **single-purpose, deterministic tools** that execute specific tasks without LLM orchestration. Each agent wraps one underlying tool and returns structured results.
+
+**Key characteristics:**
+- ✅ **Deterministic** - Same input always produces same output
+- ✅ **Fast** - No AI planning overhead, direct tool execution
+- ✅ **Structured** - Validated input/output schemas
+- ✅ **Cost-effective** - Only pay for the tool, not orchestration
+
+## Agents vs Tasks
+
+| Aspect | Agents API | Tasks API |
+|--------|-----------|----------|
+| **Execution** | Direct tool call | Multi-step workflow |
+| **LLM Use** | Only if tool requires it | Planning + execution |
+| **Latency** | Seconds | Seconds to minutes |
+| **Use Case** | Single data retrieval | Complex analysis |
+
+**When to use Agents:**
+- You need specific data (ads, news, SEC filings)
+- You know exactly which tool to use
+- You want predictable, structured output
+
+**When to use Tasks:**
+- You need AI to plan the approach
+- Multiple tools may be needed
+- You want natural language interaction
+
+---
+
+## Feature Availability
+
+Shannon provides agents in two deployment models:
+
+<Note type="info">
+**Shannon Open Source**: Self-hosted deployment with core platform features
+**Shannon Cloud**: Managed SaaS platform with enterprise features and integrations
+</Note>
+
+### Availability Matrix
+
+| Feature Category | Agent/Tool | Shannon OSS | Shannon Cloud |
+|-----------------|-----------|-------------|---------------|
+| **Ads Research** | | | |
+| | serp-ads | ❌ | ✅ |
+| | yahoo-jp-ads | ❌ | ✅ |
+| | meta-ad-library | ❌ | ✅ |
+| | competitor-discover | ❌ | ✅ |
+| | ads-transparency | ❌ | ✅ |
+| | lp-visual-analyze | ❌ | ✅ |
+| | lp-batch-analyze | ❌ | ✅ |
+| | ad-creative-analyze | ❌ | ✅ |
+| | keyword-extract | ✅* | ✅ |
+| | browser-screenshot | ❌ | ✅ |
+| **Financial Research** | | | |
+| | sec-filings | ✅ | ✅ |
+| | twitter-sentiment | ❌ | ✅ |
+| | alpaca-news | ✅* | ✅ |
+| | news-aggregator | ❌ | ✅ |
+| **Platform APIs** | | | |
+| | Agents API | ✅ | ✅ |
+| | Blob Storage API | ✅ | ✅ |
+| | Role Presets | ✅ | ✅ |
+| | Skills System | ✅ | ✅ |
+| | Research Workflows | ✅ | ✅ |
+| | Swarm Coordination | ✅ | ✅ |
+
+**Legend:**
+- ✅ Available
+- ❌ Not available
+- ✅* Available if you provide your own API keys
+
+---
+
+## Why Some Features are Cloud-Only
+
+<AccordionGroup>
+  <Accordion title="Paid External APIs">
+    Many agents use commercial APIs that require billing accounts:
+    - **SerpAPI** - Google search ads discovery
+    - **SearchAPI.io** - Meta Ad Library access
+    - **xAI API** - Twitter sentiment analysis
+
+    Shannon Cloud provides managed API keys and cost accounting. Self-hosted deployments would need individual API subscriptions.
+  </Accordion>
+
+  <Accordion title="Infrastructure Requirements">
+    Some agents require specialized infrastructure:
+    - **Playwright service** - Browser automation for screenshots and LP analysis
+    - **Vision LLM services** - Image analysis with GPT-4V or Claude 3
+    - **IP rotation** - Yahoo JP scraping requires distributed IP pools
+
+    These services are provisioned and maintained in Shannon Cloud.
+  </Accordion>
+
+  <Accordion title="Cost Accounting & Quotas">
+    Shannon Cloud provides:
+    - Per-tenant usage tracking
+    - Rate limiting and quotas
+    - Detailed cost breakdowns
+    - Billing integration
+
+    Self-hosted deployments would need to implement these features separately.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Using OSS Features in Self-Hosted
+
+For agents marked ✅*, you can use them in Shannon OSS by providing your own API keys:
+
+```bash
+# .env for OSS deployment
+SERPAPI_API_KEY=your_key_here
+SEARCHAPI_API_KEY=your_key_here
+XAI_API_KEY=your_key_here
+ALPACA_API_KEY=your_key_here
+```
+
+**Available for self-hosting with your API keys:**
+- `keyword-extract` - Uses your LLM provider (OpenAI/Anthropic)
+- `sec-filings` - Free SEC EDGAR API (no key required)
+- `alpaca-news` - Alpaca Markets free tier available
+
+<Warning>
+**API Costs**: When providing your own API keys, you are responsible for API usage costs. Monitor your usage to avoid unexpected bills.
+</Warning>
+
+---
+
+## Agent Categories
+
+Shannon agents are organized into functional categories:
+
+### Ads Research
+
+<Note type="enterprise">
+**Shannon Cloud Only**: These agents require Shannon Cloud subscription and use paid external APIs (SerpAPI, SearchAPI.io, Playwright service).
+</Note>
+
+**10 agents** for competitive advertising analysis, landing page research, and creative insights.
+
+<Card title="Ads Research Agents" icon="bullhorn" href="/en/api/agents/ads-research">
+  Extract competitor ads from Google, Yahoo JP, Meta (Facebook/Instagram), analyze landing pages, and discover creative patterns.
+</Card>
+
+**Use cases:**
+- Competitor ad discovery
+- Landing page analysis
+- Creative messaging research
+- Market intelligence
+
+---
+
+### Financial Research
+
+<Note type="mixed">
+**Mixed Availability**: Some agents work in OSS (sec-filings), others require Shannon Cloud (twitter-sentiment, news-aggregator).
+</Note>
+
+**4 agents** for stock news, SEC filings, sentiment analysis, and multi-source aggregation.
+
+<Card title="Financial Research Agents" icon="chart-line" href="/en/api/agents/financial">
+  Access SEC filings, Twitter sentiment, stock news, and aggregated financial data for equity research.
+</Card>
+
+**Use cases:**
+- Equity research
+- Event monitoring (8-K filings)
+- Social sentiment tracking
+- News aggregation
+
+---
+
+## Quick Start
+
+### 1. List Available Agents
+
+```bash
+curl http://localhost:8080/api/v1/agents \
+  -H "X-API-Key: sk_your_api_key"
+```
+
+### 2. Get Agent Schema
+
+```bash
+curl http://localhost:8080/api/v1/agents/serp-ads \
+  -H "X-API-Key: sk_your_api_key"
+```
+
+### 3. Execute Agent
+
+```bash
+curl -X POST http://localhost:8080/api/v1/agents/serp-ads \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "keywords": "running shoes",
+      "country": "us"
+    }
+  }'
+```
+
+### 4. Retrieve Results
+
+```bash
+# Use task_id from step 3
+curl http://localhost:8080/api/v1/tasks/{task_id} \
+  -H "X-API-Key: sk_your_api_key"
+```
+
+---
+
+## API Reference
+
+<CardGroup cols={2}>
+  <Card title="Agents API" icon="code" href="/en/api/rest/agents">
+    Complete API reference for agent endpoints
+  </Card>
+  <Card title="Ads Research" icon="bullhorn" href="/en/api/agents/ads-research">
+    Ads research agent catalog
+  </Card>
+  <Card title="Financial Research" icon="chart-line" href="/en/api/agents/financial">
+    Financial research agent catalog
+  </Card>
+  <Card title="Get Task Status" icon="circle-info" href="/en/api/rest/get-status">
+    Retrieve agent execution results
+  </Card>
+</CardGroup>
+
+---
+
+## Common Patterns
+
+### Pattern 1: Sequential Agent Calls
+
+Execute multiple agents in sequence, passing results between them:
+
+```python
+import httpx
+
+client = httpx.Client(
+    base_url="http://localhost:8080",
+    headers={"X-API-Key": "sk_your_api_key"}
+)
+
+# Step 1: Extract keywords
+keywords_resp = client.post("/api/v1/agents/keyword-extract", json={
+    "input": {"query": "Find shoes for marathon training"}
+}).json()
+
+# Wait for completion
+task_id = keywords_resp["task_id"]
+# ... poll for result ...
+
+# Step 2: Use extracted keywords for ad search
+ads_resp = client.post("/api/v1/agents/serp-ads", json={
+    "input": {"keywords": extracted_keywords}
+}).json()
+```
+
+### Pattern 2: Parallel Agent Execution
+
+Execute multiple agents concurrently for faster results:
+
+```python
+import asyncio
+import httpx
+
+async def execute_agent(client, agent_id, input_data):
+    response = await client.post(
+        f"/api/v1/agents/{agent_id}",
+        json={"input": input_data}
+    )
+    return response.json()
+
+async def main():
+    async with httpx.AsyncClient(
+        base_url="http://localhost:8080",
+        headers={"X-API-Key": "sk_your_api_key"}
+    ) as client:
+        # Execute 3 agents in parallel
+        results = await asyncio.gather(
+            execute_agent(client, "serp-ads", {"keywords": "shoes"}),
+            execute_agent(client, "sec-filings", {"ticker": "NKE"}),
+            execute_agent(client, "alpaca-news", {"symbols": "NKE"})
+        )
+
+        print("All agents submitted:", [r["task_id"] for r in results])
+```
+
+### Pattern 3: Batch Processing
+
+Process multiple items using batch-enabled agents:
+
+```python
+# Analyze multiple landing pages in one call
+response = httpx.post(
+    "http://localhost:8080/api/v1/agents/lp-batch-analyze",
+    headers={"X-API-Key": "sk_your_api_key"},
+    json={
+        "input": {
+            "urls": [
+                "https://competitor1.com/product",
+                "https://competitor2.com/landing",
+                "https://competitor3.com/offer"
+            ],
+            "device": "mobile",
+            "language": "en"
+        }
+    }
+).json()
+```
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="code" href="/en/api/rest/agents">
+    Complete endpoint documentation
+  </Card>
+  <Card title="Ads Research Agents" icon="bullhorn" href="/en/api/agents/ads-research">
+    Explore ads research agents
+  </Card>
+  <Card title="Financial Agents" icon="chart-line" href="/en/api/agents/financial">
+    Explore financial research agents
+  </Card>
+  <Card title="Python SDK" icon="python" href="/en/sdk/python/quickstart">
+    Use agents with Python SDK
+  </Card>
+</CardGroup>

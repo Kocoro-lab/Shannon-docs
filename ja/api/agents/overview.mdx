@@ -1,0 +1,340 @@
+---
+title: "エージェント概要"
+description: "特化したタスクのための単一目的エージェント"
+---
+
+## Shannonエージェントとは?
+
+Shannonエージェントは、LLMオーケストレーションなしで特定のタスクを実行する**単一目的、決定論的ツール**です。各エージェントは1つの基礎となるツールをラップし、構造化された結果を返します。
+
+**主な特徴:**
+- ✅ **決定論的** - 同じ入力は常に同じ出力を生成
+- ✅ **高速** - AIプランニングのオーバーヘッドなし、直接的なツール実行
+- ✅ **構造化** - 検証された入出力スキーマ
+- ✅ **コスト効率** - ツールのみに支払い、オーケストレーションには支払わない
+
+## エージェント vs タスク
+
+| 側面 | エージェントAPI | タスクAPI |
+|--------|-----------|----------|
+| **実行** | 直接的なツール呼び出し | 複数ステップのワークフロー |
+| **LLM使用** | ツールが必要な場合のみ | プランニング + 実行 |
+| **レイテンシ** | 秒単位 | 秒から分 |
+| **ユースケース** | 単一データ取得 | 複雑な分析 |
+
+**エージェントを使用する場合:**
+- 特定のデータが必要 (広告、ニュース、SEC提出書類)
+- 使用するツールを正確に知っている
+- 予測可能で構造化された出力が必要
+
+**タスクを使用する場合:**
+- AIにアプローチを計画させる必要がある
+- 複数のツールが必要な場合がある
+- 自然言語のインタラクションが必要
+
+---
+
+## 機能の利用可能性
+
+Shannonは2つのデプロイメントモデルでエージェントを提供します:
+
+<Note type="info">
+**Shannonオープンソース**: コアプラットフォーム機能を備えたセルフホスト型デプロイメント
+**Shannon Cloud**: エンタープライズ機能と統合を備えたマネージドSaaSプラットフォーム
+</Note>
+
+### 利用可能性マトリックス
+
+| 機能カテゴリ | エージェント/ツール | Shannon OSS | Shannon Cloud |
+|-----------------|-----------|-------------|---------------|
+| **広告リサーチ** | | | |
+| | serp-ads | ❌ | ✅ |
+| | yahoo-jp-ads | ❌ | ✅ |
+| | meta-ad-library | ❌ | ✅ |
+| | competitor-discover | ❌ | ✅ |
+| | ads-transparency | ❌ | ✅ |
+| | lp-visual-analyze | ❌ | ✅ |
+| | lp-batch-analyze | ❌ | ✅ |
+| | ad-creative-analyze | ❌ | ✅ |
+| | keyword-extract | ✅* | ✅ |
+| | browser-screenshot | ❌ | ✅ |
+| **金融リサーチ** | | | |
+| | sec-filings | ✅ | ✅ |
+| | twitter-sentiment | ❌ | ✅ |
+| | alpaca-news | ✅* | ✅ |
+| | news-aggregator | ❌ | ✅ |
+| **プラットフォームAPI** | | | |
+| | エージェントAPI | ✅ | ✅ |
+| | Blob Storage API | ✅ | ✅ |
+| | ロールプリセット | ✅ | ✅ |
+| | スキルシステム | ✅ | ✅ |
+| | リサーチワークフロー | ✅ | ✅ |
+| | Swarm調整 | ✅ | ✅ |
+
+**凡例:**
+- ✅ 利用可能
+- ❌ 利用不可
+- ✅* 独自のAPIキーを提供すれば利用可能
+
+---
+
+## 一部の機能がCloud専用である理由
+
+<AccordionGroup>
+  <Accordion title="有料の外部API">
+    多くのエージェントは課金アカウントが必要な商用APIを使用します:
+    - **SerpAPI** - Google検索広告の発見
+    - **SearchAPI.io** - Meta広告ライブラリへのアクセス
+    - **xAI API** - Twitterの感情分析
+
+    Shannon Cloudはマネージド型APIキーとコストアカウンティングを提供します。セルフホスト型デプロイメントには個別のAPIサブスクリプションが必要です。
+  </Accordion>
+
+  <Accordion title="インフラストラクチャ要件">
+    一部のエージェントは特殊なインフラストラクチャを必要とします:
+    - **Playwrightサービス** - スクリーンショットとLP分析のためのブラウザ自動化
+    - **Vision LLMサービス** - GPT-4VまたはClaude 3による画像分析
+    - **IPローテーション** - Yahoo JPスクレイピングには分散IPプールが必要
+
+    これらのサービスはShannon Cloudでプロビジョニングおよび維持されます。
+  </Accordion>
+
+  <Accordion title="コストアカウンティングとクォータ">
+    Shannon Cloudは以下を提供します:
+    - テナントごとの使用状況追跡
+    - レート制限とクォータ
+    - 詳細なコスト内訳
+    - 課金統合
+
+    セルフホスト型デプロイメントはこれらの機能を個別に実装する必要があります。
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## セルフホストでのOSS機能の使用
+
+✅*でマークされたエージェントは、独自のAPIキーを提供することでShannon OSSで使用できます:
+
+```bash
+# OSSデプロイメント用の.env
+SERPAPI_API_KEY=your_key_here
+SEARCHAPI_API_KEY=your_key_here
+XAI_API_KEY=your_key_here
+ALPACA_API_KEY=your_key_here
+```
+
+**独自のAPIキーでセルフホスティング可能:**
+- `keyword-extract` - LLMプロバイダー (OpenAI/Anthropic) を使用
+- `sec-filings` - 無料のSEC EDGAR API (キー不要)
+- `alpaca-news` - Alpaca Marketsの無料ティアが利用可能
+
+<Warning>
+**APIコスト**: 独自のAPIキーを提供する場合、API使用料金はあなたの責任となります。予期しない請求を避けるため、使用状況を監視してください。
+</Warning>
+
+---
+
+## エージェントカテゴリ
+
+Shannonエージェントは機能カテゴリごとに整理されています:
+
+### 広告リサーチ
+
+<Note type="enterprise">
+**Shannon Cloud専用**: これらのエージェントはShannon Cloudサブスクリプションが必要であり、有料の外部API (SerpAPI、SearchAPI.io、Playwrightサービス) を使用します。
+</Note>
+
+競合広告分析、ランディングページリサーチ、クリエイティブインサイトのための**10のエージェント**。
+
+<Card title="広告リサーチエージェント" icon="bullhorn" href="/ja/api/agents/ads-research">
+  Google、Yahoo JP、Meta (Facebook/Instagram) から競合広告を抽出し、ランディングページを分析し、クリエイティブパターンを発見します。
+</Card>
+
+**ユースケース:**
+- 競合広告の発見
+- ランディングページ分析
+- クリエイティブメッセージングリサーチ
+- 市場インテリジェンス
+
+---
+
+### 金融リサーチ
+
+<Note type="mixed">
+**混合利用可能性**: 一部のエージェントはOSSで動作 (sec-filings)、その他はShannon Cloudが必要 (twitter-sentiment、news-aggregator)。
+</Note>
+
+株式ニュース、SEC提出書類、感情分析、マルチソース集約のための**4のエージェント**。
+
+<Card title="金融リサーチエージェント" icon="chart-line" href="/ja/api/agents/financial">
+  株式リサーチのためにSEC提出書類、Twitterの感情、株式ニュース、集約された金融データにアクセスします。
+</Card>
+
+**ユースケース:**
+- 株式リサーチ
+- イベント監視 (8-K提出書類)
+- ソーシャル感情追跡
+- ニュース集約
+
+---
+
+## クイックスタート
+
+### 1. 利用可能なエージェントをリスト
+
+```bash
+curl http://localhost:8080/api/v1/agents \
+  -H "X-API-Key: sk_your_api_key"
+```
+
+### 2. エージェントスキーマを取得
+
+```bash
+curl http://localhost:8080/api/v1/agents/serp-ads \
+  -H "X-API-Key: sk_your_api_key"
+```
+
+### 3. エージェントを実行
+
+```bash
+curl -X POST http://localhost:8080/api/v1/agents/serp-ads \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "keywords": "ランニングシューズ",
+      "country": "jp"
+    }
+  }'
+```
+
+### 4. 結果を取得
+
+```bash
+# ステップ3からtask_idを使用
+curl http://localhost:8080/api/v1/tasks/{task_id} \
+  -H "X-API-Key: sk_your_api_key"
+```
+
+---
+
+## APIリファレンス
+
+<CardGroup cols={2}>
+  <Card title="エージェントAPI" icon="code" href="/ja/api/rest/agents">
+    エージェントエンドポイントの完全なAPIリファレンス
+  </Card>
+  <Card title="広告リサーチ" icon="bullhorn" href="/ja/api/agents/ads-research">
+    広告リサーチエージェントカタログ
+  </Card>
+  <Card title="金融リサーチ" icon="chart-line" href="/ja/api/agents/financial">
+    金融リサーチエージェントカタログ
+  </Card>
+  <Card title="タスクステータス取得" icon="circle-info" href="/ja/api/rest/get-status">
+    エージェント実行結果を取得
+  </Card>
+</CardGroup>
+
+---
+
+## 一般的なパターン
+
+### パターン1: シーケンシャルエージェント呼び出し
+
+複数のエージェントを順番に実行し、それらの間で結果を渡します:
+
+```python
+import httpx
+
+client = httpx.Client(
+    base_url="http://localhost:8080",
+    headers={"X-API-Key": "sk_your_api_key"}
+)
+
+# ステップ1: キーワードを抽出
+keywords_resp = client.post("/api/v1/agents/keyword-extract", json={
+    "input": {"query": "マラソントレーニング用のシューズを見つける"}
+}).json()
+
+# 完了を待つ
+task_id = keywords_resp["task_id"]
+# ... 結果をポーリング ...
+
+# ステップ2: 抽出されたキーワードを広告検索に使用
+ads_resp = client.post("/api/v1/agents/serp-ads", json={
+    "input": {"keywords": extracted_keywords}
+}).json()
+```
+
+### パターン2: 並列エージェント実行
+
+複数のエージェントを同時に実行してより速い結果を得ます:
+
+```python
+import asyncio
+import httpx
+
+async def execute_agent(client, agent_id, input_data):
+    response = await client.post(
+        f"/api/v1/agents/{agent_id}",
+        json={"input": input_data}
+    )
+    return response.json()
+
+async def main():
+    async with httpx.AsyncClient(
+        base_url="http://localhost:8080",
+        headers={"X-API-Key": "sk_your_api_key"}
+    ) as client:
+        # 3つのエージェントを並列実行
+        results = await asyncio.gather(
+            execute_agent(client, "serp-ads", {"keywords": "シューズ"}),
+            execute_agent(client, "sec-filings", {"ticker": "NKE"}),
+            execute_agent(client, "alpaca-news", {"symbols": "NKE"})
+        )
+
+        print("すべてのエージェント送信完了:", [r["task_id"] for r in results])
+```
+
+### パターン3: バッチ処理
+
+バッチ対応エージェントを使用して複数のアイテムを処理します:
+
+```python
+# 1回の呼び出しで複数のランディングページを分析
+response = httpx.post(
+    "http://localhost:8080/api/v1/agents/lp-batch-analyze",
+    headers={"X-API-Key": "sk_your_api_key"},
+    json={
+        "input": {
+            "urls": [
+                "https://competitor1.com/product",
+                "https://competitor2.com/landing",
+                "https://competitor3.com/offer"
+            ],
+            "device": "mobile",
+            "language": "ja"
+        }
+    }
+).json()
+```
+
+---
+
+## 次のステップ
+
+<CardGroup cols={2}>
+  <Card title="APIリファレンス" icon="code" href="/ja/api/rest/agents">
+    完全なエンドポイントドキュメント
+  </Card>
+  <Card title="広告リサーチエージェント" icon="bullhorn" href="/ja/api/agents/ads-research">
+    広告リサーチエージェントを探索
+  </Card>
+  <Card title="金融エージェント" icon="chart-line" href="/ja/api/agents/financial">
+    金融リサーチエージェントを探索
+  </Card>
+  <Card title="Python SDK" icon="python" href="/ja/sdk/python/quickstart">
+    Python SDKでエージェントを使用
+  </Card>
+</CardGroup>

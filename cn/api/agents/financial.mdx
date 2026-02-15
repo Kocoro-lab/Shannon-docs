@@ -1,0 +1,530 @@
+---
+title: "金融研究智能体"
+description: "股票新闻、SEC文件和情感分析"
+---
+
+<Note type="mixed">
+**混合可用性**:
+- ✅ **开源版本**: `sec-filings`(免费SEC EDGAR API)
+- ✅ **Shannon云版本**: 所有智能体及托管API访问
+- ✅* **开源版(自有API密钥)**: `alpaca-news`(Alpaca免费层级)、`twitter-sentiment`(xAI API)
+</Note>
+
+## 概览
+
+Shannon提供**4个专用智能体**用于金融研究和股票分析,结合免费公共数据(SEC文件)与高级情感分析(Twitter/xAI)和新闻聚合(Alpaca、Benzinga)。
+
+**使用场景:**
+- 事件监控(8-K重大事件、内部交易)
+- 社交情感跟踪(Twitter提及、影响者分析)
+- 新闻聚合(多源新闻及情感评分)
+- 股票研究工作流
+
+---
+
+## 可用智能体
+
+### sec-filings
+
+<Note type="success">
+**开源兼容**: 免费SEC EDGAR API。在开源版和云版本中均可使用,无需API密钥。
+</Note>
+
+获取股票代码的最近SEC文件(8-K、10-K、10-Q等)。
+
+**智能体ID:** `sec-filings`
+
+**输入模式:**
+
+| 字段 | 类型 | 必需 | 默认值 | 描述 |
+|-------|------|----------|---------|-------------|
+| `ticker` | string | 是 | - | 股票代码(例如 'NVDA'、'TSLA') |
+| `days_back` | integer | 否 | `30` | 搜索历史天数(1-365) |
+| `forms` | string | 否 | `"8-K,10-K,10-Q,4,SC 13D"` | 逗号分隔的表单类型 |
+
+**支持的表单类型:**
+- **8-K**: 重大事件(收购、高管变动等)
+- **10-K**: 年度报告
+- **10-Q**: 季度报告
+- **4**: 内部交易(高管、董事)
+- **SC 13D**: 主要股东文件(>5%所有权)
+- **DEF 14A**: 委托书
+- **S-1**: IPO注册
+
+**请求示例:**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/sec-filings \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "ticker": "NVDA",
+      "days_back": 90,
+      "forms": "8-K,10-K,10-Q"
+    }
+  }'
+```
+
+**输出结构:**
+
+```json
+{
+  "source": "sec_edgar",
+  "ticker": "NVDA",
+  "company_name": "NVIDIA CORP",
+  "cik": "0001045810",
+  "filings": [
+    {
+      "form_type": "8-K",
+      "filed_date": "2026-01-15",
+      "description": "Current Report",
+      "filing_url": "https://www.sec.gov/Archives/edgar/data/1045810/...",
+      "is_material": true
+    },
+    {
+      "form_type": "10-Q",
+      "filed_date": "2025-11-20",
+      "description": "Quarterly Report",
+      "filing_url": "https://www.sec.gov/Archives/edgar/data/1045810/...",
+      "is_material": false
+    }
+  ],
+  "has_material_events": true,
+  "total_count": 5
+}
+```
+
+**用例示例:**
+
+```python
+# 监控重大事件
+import httpx
+
+def check_material_events(ticker):
+    response = httpx.post(
+        "https://api-dev.shannon.run/api/v1/agents/sec-filings",
+        headers={"X-API-Key": "sk_your_api_key"},
+        json={"input": {"ticker": ticker, "forms": "8-K"}}
+    ).json()
+
+    # 等待任务完成
+    task_id = response["task_id"]
+    # ... 轮询结果 ...
+
+    if result["has_material_events"]:
+        print(f"⚠️  {ticker}的重大事件:")
+        for filing in result["filings"]:
+            if filing["is_material"]:
+                print(f"  - {filing['filed_date']}: {filing['description']}")
+```
+
+---
+
+### twitter-sentiment
+
+<Note type="enterprise">
+**仅限Shannon云版本**: 使用xAI API进行Twitter/X情感分析。
+</Note>
+
+使用xAI的Grok模型分析股票的X/Twitter情感。
+
+**智能体ID:** `twitter-sentiment`
+
+**输入模式:**
+
+| 字段 | 类型 | 必需 | 默认值 | 描述 |
+|-------|------|----------|---------|-------------|
+| `ticker` | string | 是 | - | 股票代码(例如 'NVDA'、'TSLA') |
+| `days_back` | integer | 否 | `1` | 搜索历史天数(1-7) |
+
+**请求示例:**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/twitter-sentiment \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "ticker": "NVDA",
+      "days_back": 3
+    }
+  }'
+```
+
+**输出结构:**
+
+```json
+{
+  "ticker": "NVDA",
+  "analysis": "近期Twitter对NVIDIA的情感以看涨为主。关键影响者正在讨论强劲的第四季度收益和AI芯片需求。值得注意的提及包括:\n- @analyst123: 'NVDA超出预期'\n- @investor_daily: 'AI需求没有放缓迹象'",
+  "sentiment": "bullish",
+  "citations": [
+    "https://x.com/analyst123/status/123456789",
+    "https://x.com/investor_daily/status/987654321"
+  ],
+  "cost_usd": 0.30
+}
+```
+
+**情感值:**
+- `bullish` - 积极情感,买入兴趣
+- `bearish` - 消极情感,卖出压力
+- `mixed` - 信号冲突
+- `neutral` - 无明确方向性情感
+
+<Warning>
+**API成本**: Twitter情感分析使用xAI的Grok模型,每次分析成本约$0.30。请监控使用情况以控制成本。
+</Warning>
+
+---
+
+### alpaca-news
+
+<Note type="success">
+**开源兼容**: Alpaca Markets提供免费层级。在开源版中使用您的Alpaca API密钥即可工作。
+</Note>
+
+从Alpaca Markets API(由Benzinga提供支持)获取最近的股票新闻。
+
+**智能体ID:** `alpaca-news`
+
+**输入模式:**
+
+| 字段 | 类型 | 必需 | 默认值 | 描述 |
+|-------|------|----------|---------|-------------|
+| `symbols` | string | 是 | - | 逗号分隔的股票代码(例如 'NVDA'或 'NVDA,AAPL') |
+| `hours_back` | integer | 否 | `24` | 搜索历史小时数(1-168) |
+| `limit` | integer | 否 | `10` | 返回的最大新闻条目数(1-50) |
+
+**请求示例:**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/alpaca-news \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "symbols": "NVDA,AMD",
+      "hours_back": 48,
+      "limit": 20
+    }
+  }'
+```
+
+**输出结构:**
+
+```json
+{
+  "symbols": "NVDA,AMD",
+  "news": [
+    {
+      "headline": "NVIDIA宣布新AI芯片突破",
+      "summary": "NVIDIA公司推出其下一代AI加速器...",
+      "author": "Tech News Daily",
+      "created_at": "2026-02-15T09:30:00Z",
+      "updated_at": "2026-02-15T09:30:00Z",
+      "url": "https://example.com/nvidia-ai-chip",
+      "symbols": ["NVDA"],
+      "source": "benzinga"
+    },
+    {
+      "headline": "AMD在数据中心GPU市场份额增长",
+      "summary": "Advanced Micro Devices报告数据中心收入增长...",
+      "author": "Market Watch",
+      "created_at": "2026-02-15T08:15:00Z",
+      "updated_at": "2026-02-15T08:15:00Z",
+      "url": "https://example.com/amd-datacenter",
+      "symbols": ["AMD"],
+      "source": "benzinga"
+    }
+  ],
+  "total_count": 18
+}
+```
+
+**Alpaca免费层级:**
+- 每月200次新闻请求
+- 实时新闻源
+- Benzinga新闻源
+
+---
+
+### news-aggregator
+
+<Note type="enterprise">
+**仅限Shannon云版本**: 结合多个高级来源(Alpaca、SEC、xAI)。
+</Note>
+
+从多个来源(Alpaca、SEC、Twitter)获取股票的综合新闻和情感。
+
+**智能体ID:** `news-aggregator`
+
+**输入模式:**
+
+| 字段 | 类型 | 必需 | 默认值 | 描述 |
+|-------|------|----------|---------|-------------|
+| `ticker` | string | 是 | - | 股票代码(例如 'NVDA') |
+| `include_filings` | boolean | 否 | `true` | 在结果中包含SEC文件 |
+| `include_twitter` | boolean | 否 | `true` | 在结果中包含Twitter情感 |
+
+**请求示例:**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/news-aggregator \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "ticker": "NVDA",
+      "include_filings": true,
+      "include_twitter": true
+    }
+  }'
+```
+
+**输出结构:**
+
+```json
+{
+  "ticker": "NVDA",
+  "as_of": "2026-02-15T10:30:00Z",
+  "sources_used": ["alpaca", "sec", "twitter"],
+  "overall_sentiment": {
+    "score": 0.72,
+    "label": "bullish"
+  },
+  "alpaca": {
+    "articles": [
+      {
+        "headline": "NVIDIA宣布新AI芯片突破",
+        "summary": "...",
+        "created_at": "2026-02-15T09:30:00Z",
+        "url": "https://..."
+      }
+    ],
+    "total_count": 18,
+    "heuristic_sentiment_score": 0.65
+  },
+  "sec": {
+    "filings": [
+      {
+        "form_type": "8-K",
+        "filed_date": "2026-01-15",
+        "description": "Current Report",
+        "filing_url": "https://www.sec.gov/...",
+        "is_material": true
+      }
+    ],
+    "has_material_events": true,
+    "total_count": 3
+  },
+  "twitter": {
+    "analysis": "近期Twitter情感以看涨为主...",
+    "sentiment": "bullish",
+    "citations": ["https://x.com/..."]
+  }
+}
+```
+
+**综合情感计算:**
+
+聚合器计算加权情感评分:
+- **Alpaca新闻**: 40%权重(启发式关键词分析)
+- **Twitter**: 40%权重(xAI情感)
+- **SEC文件**: 20%权重(重大事件指标)
+
+**评分范围:**
+- `0.6 - 1.0`: 看涨
+- `0.4 - 0.6`: 中性
+- `0.0 - 0.4`: 看跌
+
+---
+
+## 常用工作流
+
+### 工作流1: 每日事件监控
+
+监控多个股票代码的重大SEC事件:
+
+```python
+import httpx
+
+tickers = ["NVDA", "AAPL", "MSFT", "GOOGL", "AMZN"]
+client = httpx.Client(
+    base_url="https://api-dev.shannon.run",
+    headers={"X-API-Key": "sk_your_api_key"}
+)
+
+for ticker in tickers:
+    response = client.post("/api/v1/agents/sec-filings", json={
+        "input": {
+            "ticker": ticker,
+            "days_back": 1,
+            "forms": "8-K"
+        }
+    }).json()
+
+    task_id = response["task_id"]
+    # ... 轮询结果 ...
+
+    if result.get("has_material_events"):
+        print(f"⚠️  {ticker}: {len(result['filings'])} 个新8-K文件")
+```
+
+### 工作流2: 综合股票分析
+
+结合单个股票代码的所有来源:
+
+```python
+# 获取聚合视图
+aggregated = client.post("/api/v1/agents/news-aggregator", json={
+    "input": {"ticker": "NVDA"}
+}).json()
+
+task_id = aggregated["task_id"]
+# ... 轮询结果 ...
+
+print(f"综合情感: {result['overall_sentiment']['label']}")
+print(f"来源: {', '.join(result['sources_used'])}")
+print(f"新闻文章: {result['alpaca']['total_count']}")
+print(f"重大事件: {result['sec']['has_material_events']}")
+```
+
+### 工作流3: 同行情感比较
+
+比较多个股票代码的情感:
+
+```python
+peer_group = ["NVDA", "AMD", "INTC"]
+sentiments = {}
+
+for ticker in peer_group:
+    response = client.post("/api/v1/agents/twitter-sentiment", json={
+        "input": {"ticker": ticker, "days_back": 1}
+    }).json()
+
+    task_id = response["task_id"]
+    # ... 轮询结果 ...
+
+    sentiments[ticker] = result["sentiment"]
+
+print("同行情感比较:")
+for ticker, sentiment in sentiments.items():
+    print(f"  {ticker}: {sentiment}")
+```
+
+### 工作流4: 新闻驱动的交易提醒
+
+监控特定关键词的新闻:
+
+```python
+response = client.post("/api/v1/agents/alpaca-news", json={
+    "input": {
+        "symbols": "NVDA",
+        "hours_back": 1,
+        "limit": 50
+    }
+}).json()
+
+task_id = response["task_id"]
+# ... 轮询结果 ...
+
+keywords = ["突破", "合作", "收购", "诉讼"]
+
+for article in result["news"]:
+    headline_lower = article["headline"].lower()
+    if any(kw in headline_lower for kw in keywords):
+        print(f"🚨 提醒: {article['headline']}")
+        print(f"   URL: {article['url']}")
+```
+
+---
+
+## 自托管开源版设置
+
+在Shannon开源版中使用金融智能体:
+
+### sec-filings(无需API密钥)
+
+开箱即用 - SEC EDGAR是免费公共API。
+
+```bash
+# 无需配置
+docker compose up -d
+```
+
+### alpaca-news(有免费层级)
+
+1. **注册Alpaca**(免费层级): https://alpaca.markets
+2. **从仪表板获取API密钥**
+3. **添加到.env**:
+
+```bash
+# .env
+ALPACA_API_KEY=your_api_key_here
+ALPACA_SECRET_KEY=your_secret_key_here
+```
+
+4. **重启服务**:
+
+```bash
+docker compose restart llm-service
+```
+
+### twitter-sentiment(付费API)
+
+1. **注册xAI**(需要付费): https://x.ai
+2. **获取API密钥**
+3. **添加到.env**:
+
+```bash
+# .env
+XAI_API_KEY=your_xai_api_key_here
+```
+
+4. **重启服务**:
+
+```bash
+docker compose restart llm-service
+```
+
+<Warning>
+**xAI成本**: Twitter情感分析每次请求成本约$0.30。请仔细监控使用情况。
+</Warning>
+
+---
+
+## 成本比较
+
+| 智能体 | 开源版(自托管) | Shannon云版本 |
+|-------|-------------------|---------------|
+| `sec-filings` | 免费(SEC EDGAR) | 免费(已包含) |
+| `alpaca-news` | 免费层级(200次/月) | 托管(已包含) |
+| `twitter-sentiment` | ~$0.30/次调用(自有xAI密钥) | ~$0.30/次调用(托管) |
+| `news-aggregator` | 免费 + $0.30(组合) | ~$0.35/次调用(托管) |
+
+**Shannon云版本优势:**
+- ✅ 托管API密钥(无需注册)
+- ✅ 按租户成本核算
+- ✅ 速率限制和配额
+- ✅ 基础设施(无需服务器维护)
+
+---
+
+## 相关资源
+
+<CardGroup cols={2}>
+  <Card title="智能体API参考" icon="code" href="/cn/api/rest/agents">
+    完整API端点文档
+  </Card>
+  <Card title="广告研究智能体" icon="bullhorn" href="/cn/api/agents/ads-research">
+    竞争广告情报智能体
+  </Card>
+  <Card title="获取任务状态" icon="circle-info" href="/cn/api/rest/get-status">
+    检索智能体执行结果
+  </Card>
+  <Card title="智能体概览" icon="list" href="/cn/api/agents/overview">
+    完整智能体目录和可用性矩阵
+  </Card>
+</CardGroup>

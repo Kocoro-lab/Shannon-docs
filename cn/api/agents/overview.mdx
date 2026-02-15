@@ -1,0 +1,340 @@
+---
+title: "智能体概览"
+description: "专用于特定任务的单一用途智能体"
+---
+
+## 什么是Shannon智能体?
+
+Shannon智能体是**单一用途、确定性的工具**,无需LLM编排即可执行特定任务。每个智能体封装一个底层工具并返回结构化结果。
+
+**核心特性:**
+- ✅ **确定性** - 相同输入始终产生相同输出
+- ✅ **快速** - 无AI规划开销,直接执行工具
+- ✅ **结构化** - 经过验证的输入/输出模式
+- ✅ **成本低** - 仅为工具付费,无编排成本
+
+## 智能体 vs 任务
+
+| 维度 | 智能体API | 任务API |
+|--------|-----------|----------|
+| **执行方式** | 直接调用工具 | 多步骤工作流 |
+| **LLM使用** | 仅在工具需要时 | 规划 + 执行 |
+| **延迟** | 秒级 | 秒到分钟 |
+| **使用场景** | 单一数据检索 | 复杂分析 |
+
+**何时使用智能体:**
+- 您需要特定数据(广告、新闻、SEC文件)
+- 您明确知道要使用哪个工具
+- 您想要可预测的结构化输出
+
+**何时使用任务:**
+- 您需要AI来规划方法
+- 可能需要多个工具
+- 您想要自然语言交互
+
+---
+
+## 功能可用性
+
+Shannon在两种部署模式下提供智能体:
+
+<Note type="info">
+**Shannon开源版本**: 自托管部署,包含核心平台功能
+**Shannon云版本**: 托管SaaS平台,包含企业功能和集成
+</Note>
+
+### 可用性矩阵
+
+| 功能类别 | 智能体/工具 | Shannon开源版 | Shannon云版本 |
+|-----------------|-----------|-------------|---------------|
+| **广告研究** | | | |
+| | serp-ads | ❌ | ✅ |
+| | yahoo-jp-ads | ❌ | ✅ |
+| | meta-ad-library | ❌ | ✅ |
+| | competitor-discover | ❌ | ✅ |
+| | ads-transparency | ❌ | ✅ |
+| | lp-visual-analyze | ❌ | ✅ |
+| | lp-batch-analyze | ❌ | ✅ |
+| | ad-creative-analyze | ❌ | ✅ |
+| | keyword-extract | ✅* | ✅ |
+| | browser-screenshot | ❌ | ✅ |
+| **金融研究** | | | |
+| | sec-filings | ✅ | ✅ |
+| | twitter-sentiment | ❌ | ✅ |
+| | alpaca-news | ✅* | ✅ |
+| | news-aggregator | ❌ | ✅ |
+| **平台API** | | | |
+| | 智能体API | ✅ | ✅ |
+| | Blob存储API | ✅ | ✅ |
+| | 角色预设 | ✅ | ✅ |
+| | 技能系统 | ✅ | ✅ |
+| | 研究工作流 | ✅ | ✅ |
+| | 集群协作 | ✅ | ✅ |
+
+**图例:**
+- ✅ 可用
+- ❌ 不可用
+- ✅* 需要您提供自己的API密钥
+
+---
+
+## 为什么某些功能仅限云版本
+
+<AccordionGroup>
+  <Accordion title="付费外部API">
+    许多智能体使用需要计费账户的商业API:
+    - **SerpAPI** - Google搜索广告发现
+    - **SearchAPI.io** - Meta广告库访问
+    - **xAI API** - Twitter情感分析
+
+    Shannon云版本提供托管API密钥和成本核算。自托管部署需要单独的API订阅。
+  </Accordion>
+
+  <Accordion title="基础设施要求">
+    某些智能体需要专用基础设施:
+    - **Playwright服务** - 用于截图和落地页分析的浏览器自动化
+    - **视觉LLM服务** - 使用GPT-4V或Claude 3进行图像分析
+    - **IP轮换** - Yahoo JP抓取需要分布式IP池
+
+    这些服务在Shannon云版本中已配置和维护。
+  </Accordion>
+
+  <Accordion title="成本核算和配额">
+    Shannon云版本提供:
+    - 按租户使用跟踪
+    - 速率限制和配额
+    - 详细成本分解
+    - 计费集成
+
+    自托管部署需要单独实现这些功能。
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## 在自托管中使用开源功能
+
+对于标记为✅*的智能体,您可以通过提供自己的API密钥在Shannon开源版中使用:
+
+```bash
+# 开源部署的.env配置
+SERPAPI_API_KEY=your_key_here
+SEARCHAPI_API_KEY=your_key_here
+XAI_API_KEY=your_key_here
+ALPACA_API_KEY=your_key_here
+```
+
+**可使用自有API密钥自托管:**
+- `keyword-extract` - 使用您的LLM提供商(OpenAI/Anthropic)
+- `sec-filings` - 免费SEC EDGAR API(无需密钥)
+- `alpaca-news` - Alpaca Markets有免费层级
+
+<Warning>
+**API成本**: 使用自有API密钥时,您需要承担API使用成本。请监控使用情况以避免意外账单。
+</Warning>
+
+---
+
+## 智能体类别
+
+Shannon智能体按功能类别组织:
+
+### 广告研究
+
+<Note type="enterprise">
+**仅限Shannon云版本**: 这些智能体需要Shannon云订阅,并使用付费外部API(SerpAPI、SearchAPI.io、Playwright服务)。
+</Note>
+
+**10个智能体**用于竞争广告分析、落地页研究和创意洞察。
+
+<Card title="广告研究智能体" icon="bullhorn" href="/cn/api/agents/ads-research">
+  从Google、Yahoo JP、Meta(Facebook/Instagram)提取竞争对手广告,分析落地页并发现创意模式。
+</Card>
+
+**使用场景:**
+- 竞争对手广告发现
+- 落地页分析
+- 创意文案研究
+- 市场情报
+
+---
+
+### 金融研究
+
+<Note type="mixed">
+**混合可用性**: 部分智能体在开源版中可用(sec-filings),其他需要Shannon云版本(twitter-sentiment、news-aggregator)。
+</Note>
+
+**4个智能体**用于股票新闻、SEC文件、情感分析和多源聚合。
+
+<Card title="金融研究智能体" icon="chart-line" href="/cn/api/agents/financial">
+  访问SEC文件、Twitter情感、股票新闻和聚合金融数据,用于股票研究。
+</Card>
+
+**使用场景:**
+- 股票研究
+- 事件监控(8-K文件)
+- 社交情感跟踪
+- 新闻聚合
+
+---
+
+## 快速开始
+
+### 1. 列出可用智能体
+
+```bash
+curl http://localhost:8080/api/v1/agents \
+  -H "X-API-Key: sk_your_api_key"
+```
+
+### 2. 获取智能体模式
+
+```bash
+curl http://localhost:8080/api/v1/agents/serp-ads \
+  -H "X-API-Key: sk_your_api_key"
+```
+
+### 3. 执行智能体
+
+```bash
+curl -X POST http://localhost:8080/api/v1/agents/serp-ads \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "keywords": "running shoes",
+      "country": "us"
+    }
+  }'
+```
+
+### 4. 获取结果
+
+```bash
+# 使用步骤3返回的task_id
+curl http://localhost:8080/api/v1/tasks/{task_id} \
+  -H "X-API-Key: sk_your_api_key"
+```
+
+---
+
+## API参考
+
+<CardGroup cols={2}>
+  <Card title="智能体API" icon="code" href="/cn/api/rest/agents">
+    完整的智能体端点API参考
+  </Card>
+  <Card title="广告研究" icon="bullhorn" href="/cn/api/agents/ads-research">
+    广告研究智能体目录
+  </Card>
+  <Card title="金融研究" icon="chart-line" href="/cn/api/agents/financial">
+    金融研究智能体目录
+  </Card>
+  <Card title="获取任务状态" icon="circle-info" href="/cn/api/rest/get-status">
+    检索智能体执行结果
+  </Card>
+</CardGroup>
+
+---
+
+## 常用模式
+
+### 模式1: 顺序智能体调用
+
+按顺序执行多个智能体,在它们之间传递结果:
+
+```python
+import httpx
+
+client = httpx.Client(
+    base_url="http://localhost:8080",
+    headers={"X-API-Key": "sk_your_api_key"}
+)
+
+# 步骤1: 提取关键词
+keywords_resp = client.post("/api/v1/agents/keyword-extract", json={
+    "input": {"query": "Find shoes for marathon training"}
+}).json()
+
+# 等待完成
+task_id = keywords_resp["task_id"]
+# ... 轮询结果 ...
+
+# 步骤2: 使用提取的关键词搜索广告
+ads_resp = client.post("/api/v1/agents/serp-ads", json={
+    "input": {"keywords": extracted_keywords}
+}).json()
+```
+
+### 模式2: 并行智能体执行
+
+并发执行多个智能体以获得更快的结果:
+
+```python
+import asyncio
+import httpx
+
+async def execute_agent(client, agent_id, input_data):
+    response = await client.post(
+        f"/api/v1/agents/{agent_id}",
+        json={"input": input_data}
+    )
+    return response.json()
+
+async def main():
+    async with httpx.AsyncClient(
+        base_url="http://localhost:8080",
+        headers={"X-API-Key": "sk_your_api_key"}
+    ) as client:
+        # 并行执行3个智能体
+        results = await asyncio.gather(
+            execute_agent(client, "serp-ads", {"keywords": "shoes"}),
+            execute_agent(client, "sec-filings", {"ticker": "NKE"}),
+            execute_agent(client, "alpaca-news", {"symbols": "NKE"})
+        )
+
+        print("All agents submitted:", [r["task_id"] for r in results])
+```
+
+### 模式3: 批量处理
+
+使用支持批量的智能体处理多个项目:
+
+```python
+# 在一次调用中分析多个落地页
+response = httpx.post(
+    "http://localhost:8080/api/v1/agents/lp-batch-analyze",
+    headers={"X-API-Key": "sk_your_api_key"},
+    json={
+        "input": {
+            "urls": [
+                "https://competitor1.com/product",
+                "https://competitor2.com/landing",
+                "https://competitor3.com/offer"
+            ],
+            "device": "mobile",
+            "language": "en"
+        }
+    }
+).json()
+```
+
+---
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="API参考" icon="code" href="/cn/api/rest/agents">
+    完整端点文档
+  </Card>
+  <Card title="广告研究智能体" icon="bullhorn" href="/cn/api/agents/ads-research">
+    探索广告研究智能体
+  </Card>
+  <Card title="金融智能体" icon="chart-line" href="/cn/api/agents/financial">
+    探索金融研究智能体
+  </Card>
+  <Card title="Python SDK" icon="python" href="/cn/sdk/python/quickstart">
+    使用Python SDK调用智能体
+  </Card>
+</CardGroup>

@@ -1,0 +1,768 @@
+---
+title: "广告研究智能体"
+description: "竞争广告情报和落地页分析"
+---
+
+<Note type="enterprise">
+**仅限Shannon云版本**: 这些智能体需要Shannon云订阅,并使用付费外部API:
+- **SerpAPI** (Google搜索广告)
+- **SearchAPI.io** (Meta广告库)
+- **Playwright服务** (浏览器自动化)
+- **视觉LLM** (落地页分析)
+</Note>
+
+## 概览
+
+Shannon提供**10个专用智能体**用于竞争广告研究,从广告发现到创意分析。
+
+**使用场景:**
+- 监控竞争对手广告策略
+- 发现成功的广告创意模式
+- 分析落地页文案和设计
+- 跟踪多平台广告活动(Google、Yahoo JP、Meta)
+
+---
+
+## 可用智能体
+
+### serp-ads
+
+从Google搜索结果中提取指定关键词的付费广告。
+
+**智能体ID:** `serp-ads`
+
+**输入模式:**
+
+| 字段 | 类型 | 必需 | 默认值 | 描述 |
+|-------|------|----------|---------|-------------|
+| `keywords` | string | 是 | - | 要查找广告的搜索关键词 |
+| `country` | string | 否 | `"us"` | 国家代码(us、jp、uk等) |
+| `location` | string | 否 | - | 地理定位广告的具体位置 |
+| `language` | string | 否 | `"en"` | 语言代码(en、ja、zh等) |
+| `device` | string | 否 | `"desktop"` | 设备类型: `desktop`、`mobile`、`tablet` |
+| `google_domain` | string | 否 | `"google.com"` | 要查询的Google域名 |
+| `max_results` | integer | 否 | `10` | 返回的最大广告数 |
+
+**请求示例:**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/serp-ads \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "keywords": "信用卡推荐",
+      "country": "cn",
+      "device": "mobile",
+      "max_results": 5
+    }
+  }'
+```
+
+**输出结构:**
+
+```json
+{
+  "keywords": "信用卡推荐",
+  "location": "cn",
+  "total_ads": 5,
+  "ads": [
+    {
+      "position": 1,
+      "title": "2026年最佳信用卡",
+      "description": "比较顶级信用卡,找到最佳返现优惠...",
+      "link": "https://example.com/cards",
+      "domain": "example.com"
+    }
+  ],
+  "cost_usd": 0.015,
+  "timestamp": "2026-02-15T10:30:00Z"
+}
+```
+
+---
+
+### yahoo-jp-ads
+
+从Yahoo Japan搜索结果中提取赞助广告。
+
+**智能体ID:** `yahoo-jp-ads`
+
+<Note>
+**无需API密钥** - 使用网页抓取。免费,但仅限云版本,因为需要IP轮换。
+</Note>
+
+**输入模式:**
+
+| 字段 | 类型 | 必需 | 描述 |
+|-------|------|----------|-------------|
+| `keywords` | string | 是 | 搜索关键词(推荐使用日语) |
+
+**请求示例:**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/yahoo-jp-ads \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "keywords": "クレジットカード おすすめ"
+    }
+  }'
+```
+
+**输出结构:**
+
+```json
+{
+  "keywords": "クレジットカード おすすめ",
+  "total_ads": 3,
+  "ads": [
+    {
+      "position": 1,
+      "title": "セブンカード・プラス 公式サイト",
+      "description": "年会費無料でnanaco搭載...",
+      "link": "https://www.7card.co.jp/...",
+      "domain": "7card.co.jp",
+      "source": "yahoo_jp"
+    }
+  ],
+  "cost_usd": 0,
+  "timestamp": "2026-02-15T10:30:00Z"
+}
+```
+
+---
+
+### meta-ad-library
+
+在Meta广告库中搜索Facebook和Instagram广告。
+
+**智能体ID:** `meta-ad-library`
+
+**输入模式:**
+
+| 字段 | 类型 | 必需 | 默认值 | 描述 |
+|-------|------|----------|---------|-------------|
+| `query` | string | 是 | - | 搜索查询(品牌名称、关键词) |
+| `country` | string | 否 | `"US"` | 国家代码(US、JP、UK等) |
+| `platform` | string | 否 | 全部 | 筛选: `facebook`、`instagram`,或省略以包含全部 |
+
+**请求示例:**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/meta-ad-library \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "query": "nike running shoes",
+      "country": "US",
+      "platform": "instagram"
+    }
+  }'
+```
+
+**输出结构:**
+
+```json
+{
+  "search_params": {
+    "query": "nike running shoes",
+    "country": "US",
+    "source": "meta_ad_library"
+  },
+  "summary": {
+    "total_ads_found": 245,
+    "active_ads": 18,
+    "platforms": ["FACEBOOK", "INSTAGRAM"],
+    "unique_advertisers": 5
+  },
+  "competitors": [
+    {
+      "name": "Nike Official",
+      "domain": "nike.com",
+      "page_id": "123456789",
+      "ad_count": 18,
+      "platforms": ["INSTAGRAM"],
+      "sample_ads": [
+        {
+          "title": "跑得更远。跑得更快。",
+          "description": "探索全新Nike Air Zoom...",
+          "link": "https://www.nike.com/running",
+          "cta": "立即选购",
+          "platforms": ["INSTAGRAM"],
+          "images": ["https://..."],
+          "display_format": "image"
+        }
+      ],
+      "source": "meta_ad_library"
+    }
+  ],
+  "cost_usd": 0.004,
+  "timestamp": "2026-02-15T10:30:00Z"
+}
+```
+
+---
+
+### competitor-discover
+
+发现在指定关键词、设备和位置上投放广告的竞争对手。
+
+**智能体ID:** `competitor-discover`
+
+**输入模式:**
+
+| 字段 | 类型 | 必需 | 默认值 | 描述 |
+|-------|------|----------|---------|-------------|
+| `keywords` | array of strings | 是 | - | 用于查找竞争对手的搜索关键词 |
+| `country` | string | 否 | `"us"` | 国家代码 |
+| `language` | string | 否 | `"en"` | 语言代码 |
+| `location` | string | 否 | - | 具体位置(例如 "Tokyo, Japan") |
+| `devices` | array of strings | 否 | `["desktop", "mobile"]` | 要搜索的设备 |
+| `transparency_top_n` | integer | 否 | `5` | 获取透明度数据的前N名竞争对手 |
+| `max_competitors` | integer | 否 | `20` | 返回的最大竞争对手数 |
+| `include_transparency` | boolean | 否 | `false` | 获取Google广告透明度数据 |
+| `organic_fallback` | boolean | 否 | `true` | 无付费广告时使用自然结果 |
+
+**请求示例:**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/competitor-discover \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "keywords": ["跑鞋", "运动鞋"],
+      "country": "cn",
+      "devices": ["desktop", "mobile"],
+      "include_transparency": true,
+      "transparency_top_n": 3
+    }
+  }'
+```
+
+**输出结构:**
+
+```json
+{
+  "competitors": [
+    {
+      "domain": "nike.com",
+      "ad_count": 15,
+      "devices_found": ["desktop", "mobile"],
+      "sample_ads": [
+        {
+          "title": "Nike跑鞋",
+          "description": "找到您完美的跑鞋...",
+          "link": "https://nike.com/running",
+          "device": "desktop"
+        }
+      ],
+      "transparency_data": {
+        "advertiser_id": "AR12345678",
+        "total_ads": 523,
+        "platforms": ["SEARCH", "YOUTUBE"]
+      }
+    }
+  ],
+  "total_ads_found": 45,
+  "api_cost_usd": 0.03
+}
+```
+
+---
+
+### ads-transparency
+
+多平台广告透明度: Google透明度中心、Yahoo JP广告、Meta广告库。
+
+**智能体ID:** `ads-transparency`
+
+**输入模式:**
+
+| 字段 | 类型 | 必需 | 描述 |
+|-------|------|----------|-------------|
+| `advertiser_id` | string | 否 | Google Ads广告主ID(Google首选) |
+| `domain` | string | 否 | 域名(Google备用、Yahoo关键词、Meta查询) |
+| `country` | string | 否 | 国家代码(例如 'jp'、'us') - 控制自动平台选择 |
+| `platforms` | array | 否 | 覆盖自动选择: `['google', 'yahoo', 'meta']` |
+| `platform` | string | 否 | Google平台筛选: `SEARCH`、`YOUTUBE`、`SHOPPING`等 |
+| `meta_platform` | string | 否 | Meta平台筛选: `facebook`、`instagram` |
+| `creative_format` | string | 否 | Google广告格式: `TEXT`、`IMAGE`、`VIDEO` |
+| `start_date` | string | 否 | 起始日期(YYYY-MM-DD) |
+| `end_date` | string | 否 | 结束日期(YYYY-MM-DD) |
+
+**请求示例(日本市场,所有平台):**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/ads-transparency \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "domain": "7card.co.jp",
+      "country": "jp"
+    }
+  }'
+```
+
+**输出结构:**
+
+```json
+{
+  "google": {
+    "advertiser_id": "AR12345678",
+    "total_ads": 523,
+    "platforms": ["SEARCH", "YOUTUBE"],
+    "sample_ads": [...]
+  },
+  "yahoo_jp": {
+    "total_ads": 3,
+    "ads": [...]
+  },
+  "meta": {
+    "total_ads": 18,
+    "platforms": ["FACEBOOK", "INSTAGRAM"],
+    "advertisers": [...]
+  },
+  "platforms_queried": ["google", "yahoo_jp", "meta"],
+  "country": "jp",
+  "errors": {}
+}
+```
+
+---
+
+### lp-visual-analyze
+
+使用Playwright + 视觉LLM对落地页进行截图和分析。
+
+**智能体ID:** `lp-visual-analyze`
+
+**输入模式:**
+
+| 字段 | 类型 | 必需 | 默认值 | 描述 |
+|-------|------|----------|---------|-------------|
+| `url` | string | 是 | - | 要分析的落地页URL |
+| `language` | string | 否 | `"en"` | OCR语言(ja、zh、ko启用OCR) |
+| `full_page` | boolean | 否 | `true` | 捕获完整滚动页面 |
+| `analysis_prompt` | string | 否 | - | 自定义分析提示 |
+| `include_markdown` | boolean | 否 | `true` | 包含提取的文本内容 |
+| `enable_ocr` | boolean | 否 | 自动 | 强制启用/禁用OCR |
+| `capture_mode` | string | 否 | `"full_page"` | `full_page`或`sections` |
+| `device` | string | 否 | `"desktop"` | 设备视口: `desktop`、`mobile`、`tablet` |
+| `max_sections` | integer | 否 | `8` | sections模式下的最大分段数 |
+
+**请求示例(全页分析):**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/lp-visual-analyze \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "url": "https://www.7card.co.jp/lp/plus/",
+      "language": "ja",
+      "full_page": true,
+      "include_markdown": true
+    }
+  }'
+```
+
+**输出结构(full_page模式):**
+
+```json
+{
+  "url": "https://www.7card.co.jp/lp/plus/",
+  "screenshot_url": "https://storage.firecrawl.dev/...",
+  "vision_analysis": {
+    "success": true,
+    "structured": {
+      "above_the_fold": {
+        "main_headline": "セブンカード・プラス",
+        "primary_cta": {"text": "今すぐ申し込む", "color": "orange"}
+      },
+      "page_sections": [
+        {"name": "Hero", "position": 1, "key_content": "主标题和CTA"}
+      ],
+      "pricing": {"visible": true, "currency": "JPY"},
+      "trust_elements": {"testimonials": {"count": 3}},
+      "visual_design": {"primary_colors": ["orange", "white"], "style": "modern"}
+    },
+    "cost_usd": {
+      "vision": 0.0016,
+      "scrape": 0.0053,
+      "ocr": 0.0015,
+      "total": 0.0084
+    }
+  }
+}
+```
+
+<Warning>
+**大型二进制数据**: 超过500KB的截图存储在Redis中,并替换为blob引用。使用`/api/v1/blob/{key}`检索实际图像数据。详见[Blob存储API](/cn/api/rest/agents#blob-storage)。
+</Warning>
+
+---
+
+### lp-batch-analyze
+
+并行分析多个落地页。
+
+**智能体ID:** `lp-batch-analyze`
+
+**输入模式:**
+
+| 字段 | 类型 | 必需 | 默认值 | 描述 |
+|-------|------|----------|---------|-------------|
+| `urls` | array of strings | 是 | - | 落地页URL列表(最多10个) |
+| `language` | string | 否 | `"en"` | 语言代码 |
+| `full_page` | boolean | 否 | `false` | 捕获完整页面 |
+| `device` | string | 否 | `"desktop"` | 设备视口 |
+| `analysis_prompt` | string | 否 | - | 自定义分析提示 |
+| `include_markdown` | boolean | 否 | `false` | 包含提取的文本 |
+
+**请求示例:**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/lp-batch-analyze \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "urls": [
+        "https://competitor1.com/landing",
+        "https://competitor2.com/offer",
+        "https://competitor3.com/product"
+      ],
+      "device": "mobile",
+      "language": "zh"
+    }
+  }'
+```
+
+**输出结构:**
+
+```json
+{
+  "batch_id": "batch-abc123",
+  "total_urls": 3,
+  "successful": 3,
+  "failed": 0,
+  "results": [
+    {
+      "url": "https://competitor1.com/landing",
+      "success": true,
+      "vision_analysis": {
+        "structured": {"above_the_fold": {"main_headline": "..."}},
+        "cost_usd": {"total": 0.008}
+      }
+    }
+  ],
+  "cost_usd": {
+    "firecrawl": 0.0159,
+    "vision": 0.0045,
+    "total": 0.0204
+  }
+}
+```
+
+---
+
+### ad-creative-analyze
+
+分析广告文案模式、说服技巧和文案差距。
+
+**智能体ID:** `ad-creative-analyze`
+
+**输入模式:**
+
+| 字段 | 类型 | 必需 | 默认值 | 描述 |
+|-------|------|----------|---------|-------------|
+| `ads` | array of objects | 是 | - | 要分析的广告对象 |
+| `competitors` | array of objects | 否 | - | 可选的竞争对手对象 |
+| `industry` | string | 否 | `"general"` | 行业预设: `ecommerce`、`shoes`、`finance`、`saas`等 |
+| `language` | string | 否 | `"en"` | 广告文案语言 |
+
+**请求示例:**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/ad-creative-analyze \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "ads": [
+        {
+          "title": "2026年最佳跑鞋",
+          "description": "超轻设计,最大缓震...",
+          "domain": "nike.com"
+        },
+        {
+          "title": "像专业选手一样奔跑",
+          "description": "专业级性能,适合日常跑者...",
+          "domain": "adidas.com"
+        }
+      ],
+      "industry": "shoes",
+      "language": "zh"
+    }
+  }'
+```
+
+**输出结构:**
+
+```json
+{
+  "headline_patterns": [
+    "基于年份的紧迫感(2026)",
+    "最高级定位(最佳、超级)"
+  ],
+  "persuasion_techniques": [
+    "社会证明(专业背书)",
+    "性能优势(轻量、缓震)"
+  ],
+  "cta_patterns": [
+    "直接行动(立即购买)",
+    "寻求信息(了解更多)"
+  ],
+  "emotional_triggers": [
+    "向往(像专业选手一样跑)",
+    "安全(最大缓震)"
+  ],
+  "competitive_gaps": [
+    "竞争对手广告中无价格信息",
+    "有限的保修/保证提及"
+  ],
+  "recommendations": [
+    "测试聚焦价格的标题",
+    "在文案中添加退款保证"
+  ],
+  "api_cost_usd": 0.02
+}
+```
+
+---
+
+### keyword-extract
+
+从自然语言查询中提取搜索关键词。
+
+**智能体ID:** `keyword-extract`
+
+<Note type="success">
+**开源兼容**: 在Shannon开源版中使用您的LLM提供商API密钥即可工作。
+</Note>
+
+**输入模式:**
+
+| 字段 | 类型 | 必需 | 默认值 | 描述 |
+|-------|------|----------|---------|-------------|
+| `query` | string | 是 | - | 自然语言查询或产品描述 |
+| `country` | string | 否 | `"us"` | 关键词本地化的目标国家 |
+| `language` | string | 否 | 自动检测 | 关键词的首选语言 |
+| `max_keywords` | integer | 否 | `5` | 提取的最大关键词数 |
+
+**请求示例:**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/keyword-extract \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "query": "我需要适合冬季马拉松训练的鞋子",
+      "country": "cn",
+      "max_keywords": 3
+    }
+  }'
+```
+
+**输出结构:**
+
+```json
+{
+  "keywords": [
+    "马拉松训练鞋",
+    "冬季跑鞋",
+    "防寒运动鞋"
+  ],
+  "detected_language": "zh",
+  "detected_country": "cn",
+  "api_cost_usd": 0.001
+}
+```
+
+---
+
+### browser-screenshot
+
+使用Playwright导航到URL并捕获截图。
+
+**智能体ID:** `browser-screenshot`
+
+**输入模式:**
+
+| 字段 | 类型 | 必需 | 默认值 | 描述 |
+|-------|------|----------|---------|-------------|
+| `url` | string | 是 | - | 要捕获的URL |
+| `full_page` | boolean | 否 | `false` | 捕获完整滚动页面 |
+| `wait_until` | string | 否 | `"domcontentloaded"` | 导航完成时机: `load`、`domcontentloaded`、`networkidle` |
+| `timeout_ms` | integer | 否 | `30000` | 导航超时(毫秒) |
+
+**请求示例:**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/browser-screenshot \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "url": "https://www.nike.com",
+      "full_page": true
+    }
+  }'
+```
+
+**输出结构:**
+
+```json
+{
+  "screenshot": "iVBORw0KGgoAAAANSUhEUgA...",  // Base64 PNG
+  "url": "https://www.nike.com",
+  "title": "Nike. Just Do It."
+}
+```
+
+<Note>
+**Base64编码**: 截图以base64编码的PNG返回。对于大图像(>500KB),将返回blob引用。详见[Blob存储API](#blob-storage)。
+</Note>
+
+---
+
+## Blob存储API
+
+对于包含大型base64数据(截图>500KB)的响应,数据存储在Redis中并替换为引用对象。
+
+**带Blob引用的响应格式:**
+
+```json
+{
+  "screenshot_b64": null,
+  "screenshot_b64_ref": {
+    "redis_key": "shannon:blob:task-abc123:screenshot_b64",
+    "size": 1500000,
+    "ttl_days": 7
+  }
+}
+```
+
+**检索Blob数据:**
+
+```bash
+curl -H "X-API-Key: sk_your_api_key" \
+  "https://api-dev.shannon.run/api/v1/blob/shannon:blob:task-abc123:screenshot_b64"
+```
+
+**返回:** 原始base64字符串(Content-Type: text/plain)
+
+**Blob属性:**
+- TTL: 7天(每次访问时刷新)
+- Cache-Control: 7天客户端缓存
+- 受影响字段: `screenshot_b64`、`popup_screenshot_b64`、`data_base64`、`image_base64`、`screenshot`
+
+---
+
+## 常用工作流
+
+### 工作流1: 竞争对手广告发现
+
+```python
+import httpx
+
+client = httpx.Client(
+    base_url="https://api-dev.shannon.run",
+    headers={"X-API-Key": "sk_your_api_key"}
+)
+
+# 步骤1: 发现竞争对手
+competitors = client.post("/api/v1/agents/competitor-discover", json={
+    "input": {
+        "keywords": ["跑鞋", "运动鞋"],
+        "include_transparency": True
+    }
+}).json()
+
+# 步骤2: 分析他们的广告
+for competitor in competitors["competitors"][:3]:
+    ads_analysis = client.post("/api/v1/agents/ad-creative-analyze", json={
+        "input": {
+            "ads": competitor["sample_ads"],
+            "industry": "shoes"
+        }
+    }).json()
+
+    print(f"{competitor['domain']}: {ads_analysis['recommendations']}")
+```
+
+### 工作流2: 落地页竞争分析
+
+```python
+# 步骤1: 获取竞争对手域名
+competitors = client.post("/api/v1/agents/serp-ads", json={
+    "input": {"keywords": "信用卡", "max_results": 5}
+}).json()
+
+# 步骤2: 批量分析他们的落地页
+lp_urls = [ad["link"] for ad in competitors["ads"]]
+
+lp_analysis = client.post("/api/v1/agents/lp-batch-analyze", json={
+    "input": {
+        "urls": lp_urls,
+        "device": "mobile",
+        "language": "zh"
+    }
+}).json()
+
+# 步骤3: 比较结果
+for result in lp_analysis["results"]:
+    print(f"{result['url']}: {result['vision_analysis']['structured']['above_the_fold']}")
+```
+
+### 工作流3: 多平台广告跟踪
+
+```python
+# 跨Google、Yahoo JP、Meta跟踪单个品牌
+transparency = client.post("/api/v1/agents/ads-transparency", json={
+    "input": {
+        "domain": "7card.co.jp",
+        "country": "jp"
+    }
+}).json()
+
+print("发现的平台:")
+for platform in transparency["platforms_queried"]:
+    data = transparency[platform]
+    print(f"  {platform}: {data.get('total_ads', 0)} 个广告")
+```
+
+---
+
+## 相关资源
+
+<CardGroup cols={2}>
+  <Card title="智能体API参考" icon="code" href="/cn/api/rest/agents">
+    完整API端点文档
+  </Card>
+  <Card title="金融智能体" icon="chart-line" href="/cn/api/agents/financial">
+    股票新闻和情感分析智能体
+  </Card>
+  <Card title="获取任务状态" icon="circle-info" href="/cn/api/rest/get-status">
+    检索智能体执行结果
+  </Card>
+  <Card title="智能体概览" icon="list" href="/cn/api/agents/overview">
+    完整智能体目录和可用性矩阵
+  </Card>
+</CardGroup>

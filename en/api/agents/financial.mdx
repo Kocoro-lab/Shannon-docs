@@ -1,0 +1,530 @@
+---
+title: "Financial Research Agents"
+description: "Stock news, SEC filings, and sentiment analysis"
+---
+
+<Note type="mixed">
+**Mixed Availability**:
+- ✅ **Open Source**: `sec-filings` (free SEC EDGAR API)
+- ✅ **Shannon Cloud**: All agents with managed API access
+- ✅* **OSS with your API keys**: `alpaca-news` (Alpaca free tier), `twitter-sentiment` (xAI API)
+</Note>
+
+## Overview
+
+Shannon provides **4 specialized agents** for financial research and equity analysis, combining free public data (SEC filings) with premium sentiment analysis (Twitter/xAI) and news aggregation (Alpaca, Benzinga).
+
+**Use cases:**
+- Event monitoring (8-K material events, insider trading)
+- Social sentiment tracking (Twitter mentions, influencer analysis)
+- News aggregation (multi-source news with sentiment scoring)
+- Equity research workflows
+
+---
+
+## Available Agents
+
+### sec-filings
+
+<Note type="success">
+**Open Source Compatible**: Free SEC EDGAR API. Works in both OSS and Cloud with no API key required.
+</Note>
+
+Get recent SEC filings (8-K, 10-K, 10-Q, etc.) for a stock ticker.
+
+**Agent ID:** `sec-filings`
+
+**Input Schema:**
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `ticker` | string | Yes | - | Stock ticker symbol (e.g., 'NVDA', 'TSLA') |
+| `days_back` | integer | No | `30` | Days of history to search (1-365) |
+| `forms` | string | No | `"8-K,10-K,10-Q,4,SC 13D"` | Comma-separated form types |
+
+**Supported Form Types:**
+- **8-K**: Material events (acquisitions, executive changes, etc.)
+- **10-K**: Annual report
+- **10-Q**: Quarterly report
+- **4**: Insider trading (officers, directors)
+- **SC 13D**: Major shareholder filings (>5% ownership)
+- **DEF 14A**: Proxy statement
+- **S-1**: IPO registration
+
+**Example Request:**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/sec-filings \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "ticker": "NVDA",
+      "days_back": 90,
+      "forms": "8-K,10-K,10-Q"
+    }
+  }'
+```
+
+**Output Structure:**
+
+```json
+{
+  "source": "sec_edgar",
+  "ticker": "NVDA",
+  "company_name": "NVIDIA CORP",
+  "cik": "0001045810",
+  "filings": [
+    {
+      "form_type": "8-K",
+      "filed_date": "2026-01-15",
+      "description": "Current Report",
+      "filing_url": "https://www.sec.gov/Archives/edgar/data/1045810/...",
+      "is_material": true
+    },
+    {
+      "form_type": "10-Q",
+      "filed_date": "2025-11-20",
+      "description": "Quarterly Report",
+      "filing_url": "https://www.sec.gov/Archives/edgar/data/1045810/...",
+      "is_material": false
+    }
+  ],
+  "has_material_events": true,
+  "total_count": 5
+}
+```
+
+**Use Case Example:**
+
+```python
+# Monitor for material events
+import httpx
+
+def check_material_events(ticker):
+    response = httpx.post(
+        "https://api-dev.shannon.run/api/v1/agents/sec-filings",
+        headers={"X-API-Key": "sk_your_api_key"},
+        json={"input": {"ticker": ticker, "forms": "8-K"}}
+    ).json()
+
+    # Wait for task completion
+    task_id = response["task_id"]
+    # ... poll for result ...
+
+    if result["has_material_events"]:
+        print(f"⚠️  Material events for {ticker}:")
+        for filing in result["filings"]:
+            if filing["is_material"]:
+                print(f"  - {filing['filed_date']}: {filing['description']}")
+```
+
+---
+
+### twitter-sentiment
+
+<Note type="enterprise">
+**Shannon Cloud Only**: Uses xAI API for Twitter/X sentiment analysis.
+</Note>
+
+Analyze X/Twitter sentiment for a stock using xAI's Grok model.
+
+**Agent ID:** `twitter-sentiment`
+
+**Input Schema:**
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `ticker` | string | Yes | - | Stock ticker symbol (e.g., 'NVDA', 'TSLA') |
+| `days_back` | integer | No | `1` | Days of history to search (1-7) |
+
+**Example Request:**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/twitter-sentiment \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "ticker": "NVDA",
+      "days_back": 3
+    }
+  }'
+```
+
+**Output Structure:**
+
+```json
+{
+  "ticker": "NVDA",
+  "analysis": "Recent Twitter sentiment for NVIDIA is predominantly bullish. Key influencers are discussing strong Q4 earnings and AI chip demand. Notable mentions include:\n- @analyst123: 'NVDA crushing expectations'\n- @investor_daily: 'AI demand shows no signs of slowing'",
+  "sentiment": "bullish",
+  "citations": [
+    "https://x.com/analyst123/status/123456789",
+    "https://x.com/investor_daily/status/987654321"
+  ],
+  "cost_usd": 0.30
+}
+```
+
+**Sentiment Values:**
+- `bullish` - Positive sentiment, buying interest
+- `bearish` - Negative sentiment, selling pressure
+- `mixed` - Conflicting signals
+- `neutral` - No clear directional sentiment
+
+<Warning>
+**API Cost**: Twitter sentiment uses xAI's Grok model, which costs approximately $0.30 per analysis. Monitor usage to control costs.
+</Warning>
+
+---
+
+### alpaca-news
+
+<Note type="success">
+**Open Source Compatible**: Alpaca Markets offers a free tier. Works in OSS with your Alpaca API key.
+</Note>
+
+Get recent stock news from Alpaca Markets API (powered by Benzinga).
+
+**Agent ID:** `alpaca-news`
+
+**Input Schema:**
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `symbols` | string | Yes | - | Comma-separated stock symbols (e.g., 'NVDA' or 'NVDA,AAPL') |
+| `hours_back` | integer | No | `24` | Hours of history to search (1-168) |
+| `limit` | integer | No | `10` | Maximum number of news items to return (1-50) |
+
+**Example Request:**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/alpaca-news \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "symbols": "NVDA,AMD",
+      "hours_back": 48,
+      "limit": 20
+    }
+  }'
+```
+
+**Output Structure:**
+
+```json
+{
+  "symbols": "NVDA,AMD",
+  "news": [
+    {
+      "headline": "NVIDIA announces new AI chip breakthrough",
+      "summary": "NVIDIA Corporation unveiled its next-generation AI accelerator...",
+      "author": "Tech News Daily",
+      "created_at": "2026-02-15T09:30:00Z",
+      "updated_at": "2026-02-15T09:30:00Z",
+      "url": "https://example.com/nvidia-ai-chip",
+      "symbols": ["NVDA"],
+      "source": "benzinga"
+    },
+    {
+      "headline": "AMD gains market share in datacenter GPUs",
+      "summary": "Advanced Micro Devices reported increased datacenter revenue...",
+      "author": "Market Watch",
+      "created_at": "2026-02-15T08:15:00Z",
+      "updated_at": "2026-02-15T08:15:00Z",
+      "url": "https://example.com/amd-datacenter",
+      "symbols": ["AMD"],
+      "source": "benzinga"
+    }
+  ],
+  "total_count": 18
+}
+```
+
+**Alpaca Free Tier:**
+- 200 news requests per month
+- Real-time news feed
+- Benzinga news source
+
+---
+
+### news-aggregator
+
+<Note type="enterprise">
+**Shannon Cloud Only**: Combines multiple premium sources (Alpaca, SEC, xAI).
+</Note>
+
+Fetch comprehensive news and sentiment from multiple sources (Alpaca, SEC, Twitter) for a stock.
+
+**Agent ID:** `news-aggregator`
+
+**Input Schema:**
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `ticker` | string | Yes | - | Stock ticker symbol (e.g., 'NVDA') |
+| `include_filings` | boolean | No | `true` | Include SEC filings in results |
+| `include_twitter` | boolean | No | `true` | Include Twitter sentiment in results |
+
+**Example Request:**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/news-aggregator \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "ticker": "NVDA",
+      "include_filings": true,
+      "include_twitter": true
+    }
+  }'
+```
+
+**Output Structure:**
+
+```json
+{
+  "ticker": "NVDA",
+  "as_of": "2026-02-15T10:30:00Z",
+  "sources_used": ["alpaca", "sec", "twitter"],
+  "overall_sentiment": {
+    "score": 0.72,
+    "label": "bullish"
+  },
+  "alpaca": {
+    "articles": [
+      {
+        "headline": "NVIDIA announces new AI chip breakthrough",
+        "summary": "...",
+        "created_at": "2026-02-15T09:30:00Z",
+        "url": "https://..."
+      }
+    ],
+    "total_count": 18,
+    "heuristic_sentiment_score": 0.65
+  },
+  "sec": {
+    "filings": [
+      {
+        "form_type": "8-K",
+        "filed_date": "2026-01-15",
+        "description": "Current Report",
+        "filing_url": "https://www.sec.gov/...",
+        "is_material": true
+      }
+    ],
+    "has_material_events": true,
+    "total_count": 3
+  },
+  "twitter": {
+    "analysis": "Recent Twitter sentiment is predominantly bullish...",
+    "sentiment": "bullish",
+    "citations": ["https://x.com/..."]
+  }
+}
+```
+
+**Overall Sentiment Calculation:**
+
+The aggregator calculates a weighted sentiment score:
+- **Alpaca news**: 40% weight (heuristic keyword analysis)
+- **Twitter**: 40% weight (xAI sentiment)
+- **SEC filings**: 20% weight (material events indicator)
+
+**Score Ranges:**
+- `0.6 - 1.0`: Bullish
+- `0.4 - 0.6`: Neutral
+- `0.0 - 0.4`: Bearish
+
+---
+
+## Common Workflows
+
+### Workflow 1: Daily Event Monitoring
+
+Monitor multiple tickers for material SEC events:
+
+```python
+import httpx
+
+tickers = ["NVDA", "AAPL", "MSFT", "GOOGL", "AMZN"]
+client = httpx.Client(
+    base_url="https://api-dev.shannon.run",
+    headers={"X-API-Key": "sk_your_api_key"}
+)
+
+for ticker in tickers:
+    response = client.post("/api/v1/agents/sec-filings", json={
+        "input": {
+            "ticker": ticker,
+            "days_back": 1,
+            "forms": "8-K"
+        }
+    }).json()
+
+    task_id = response["task_id"]
+    # ... poll for result ...
+
+    if result.get("has_material_events"):
+        print(f"⚠️  {ticker}: {len(result['filings'])} new 8-K filings")
+```
+
+### Workflow 2: Comprehensive Stock Analysis
+
+Combine all sources for a single ticker:
+
+```python
+# Get aggregated view
+aggregated = client.post("/api/v1/agents/news-aggregator", json={
+    "input": {"ticker": "NVDA"}
+}).json()
+
+task_id = aggregated["task_id"]
+# ... poll for result ...
+
+print(f"Overall sentiment: {result['overall_sentiment']['label']}")
+print(f"Sources: {', '.join(result['sources_used'])}")
+print(f"News articles: {result['alpaca']['total_count']}")
+print(f"Material events: {result['sec']['has_material_events']}")
+```
+
+### Workflow 3: Sentiment Comparison Across Peers
+
+Compare sentiment for multiple tickers:
+
+```python
+peer_group = ["NVDA", "AMD", "INTC"]
+sentiments = {}
+
+for ticker in peer_group:
+    response = client.post("/api/v1/agents/twitter-sentiment", json={
+        "input": {"ticker": ticker, "days_back": 1}
+    }).json()
+
+    task_id = response["task_id"]
+    # ... poll for result ...
+
+    sentiments[ticker] = result["sentiment"]
+
+print("Peer sentiment comparison:")
+for ticker, sentiment in sentiments.items():
+    print(f"  {ticker}: {sentiment}")
+```
+
+### Workflow 4: News-Driven Trading Alerts
+
+Monitor news for specific keywords:
+
+```python
+response = client.post("/api/v1/agents/alpaca-news", json={
+    "input": {
+        "symbols": "NVDA",
+        "hours_back": 1,
+        "limit": 50
+    }
+}).json()
+
+task_id = response["task_id"]
+# ... poll for result ...
+
+keywords = ["breakthrough", "partnership", "acquisition", "lawsuit"]
+
+for article in result["news"]:
+    headline_lower = article["headline"].lower()
+    if any(kw in headline_lower for kw in keywords):
+        print(f"🚨 Alert: {article['headline']}")
+        print(f"   URL: {article['url']}")
+```
+
+---
+
+## Self-Hosted OSS Setup
+
+To use financial agents in Shannon OSS:
+
+### sec-filings (No API Key Required)
+
+Works out of the box - SEC EDGAR is a free public API.
+
+```bash
+# No configuration needed
+docker compose up -d
+```
+
+### alpaca-news (Free Tier Available)
+
+1. **Sign up for Alpaca** (free tier): https://alpaca.markets
+2. **Get API keys** from dashboard
+3. **Add to .env**:
+
+```bash
+# .env
+ALPACA_API_KEY=your_api_key_here
+ALPACA_SECRET_KEY=your_secret_key_here
+```
+
+4. **Restart services**:
+
+```bash
+docker compose restart llm-service
+```
+
+### twitter-sentiment (Paid API)
+
+1. **Sign up for xAI** (requires payment): https://x.ai
+2. **Get API key**
+3. **Add to .env**:
+
+```bash
+# .env
+XAI_API_KEY=your_xai_api_key_here
+```
+
+4. **Restart services**:
+
+```bash
+docker compose restart llm-service
+```
+
+<Warning>
+**xAI Costs**: Twitter sentiment analysis costs approximately $0.30 per request. Monitor your usage carefully.
+</Warning>
+
+---
+
+## Cost Comparison
+
+| Agent | OSS (Self-Hosted) | Shannon Cloud |
+|-------|-------------------|---------------|
+| `sec-filings` | Free (SEC EDGAR) | Free (included) |
+| `alpaca-news` | Free tier (200/month) | Managed (included) |
+| `twitter-sentiment` | ~$0.30/call (your xAI key) | ~$0.30/call (managed) |
+| `news-aggregator` | Free + $0.30 (combined) | ~$0.35/call (managed) |
+
+**Shannon Cloud Benefits:**
+- ✅ Managed API keys (no signup needed)
+- ✅ Cost accounting per tenant
+- ✅ Rate limiting and quotas
+- ✅ Infrastructure (no server maintenance)
+
+---
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Agents API Reference" icon="code" href="/en/api/rest/agents">
+    Complete API endpoint documentation
+  </Card>
+  <Card title="Ads Research Agents" icon="bullhorn" href="/en/api/agents/ads-research">
+    Competitive advertising intelligence agents
+  </Card>
+  <Card title="Get Task Status" icon="circle-info" href="/en/api/rest/get-status">
+    Retrieve agent execution results
+  </Card>
+  <Card title="Agents Overview" icon="list" href="/en/api/agents/overview">
+    Full agent catalog and availability matrix
+  </Card>
+</CardGroup>

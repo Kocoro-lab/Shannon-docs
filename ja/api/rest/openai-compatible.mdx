@@ -43,15 +43,20 @@ X-API-Key: sk_your_api_key
 
 Shannonはモデル名を異なるワークフローモードと戦略にマッピングします。モデルを選択してリクエストの処理方法を制御します。
 
-| モデル | ワークフローモード | 説明 | デフォルト最大トークン数 |
-|--------|-------------------|------|------------------------|
-| `shannon-chat` | Simple | 一般的なチャット補完（デフォルト） | 4096 |
-| `shannon-standard-research` | Research | 適度な深度のバランスの取れた研究 | 4096 |
-| `shannon-deep-research` | Research | 反復改善による深度研究 | 8192 |
-| `shannon-quick-research` | Research | シンプルなクエリの高速研究 | 4096 |
-| `shannon-complex` | Supervisor | 複雑なタスクのマルチエージェントオーケストレーション | 8192 |
+| モデル | ワークフローモード | 説明 | デフォルト最大トークン数 | 利用可能性 |
+|--------|-------------------|------|------------------------|-----------|
+| `shannon-chat` | Simple | 一般的なチャット補完（デフォルト） | 4096 | すべて |
+| `shannon-standard-research` | Research | 適度な深度のバランスの取れた研究 | 4096 | すべて |
+| `shannon-deep-research` | Research | 反復改善による深度研究 | 8192 | すべて |
+| `shannon-quick-research` | Research | シンプルなクエリの高速研究 | 4096 | すべて |
+| `shannon-complex` | Supervisor | 複雑なタスクのマルチエージェントオーケストレーション | 8192 | すべて |
+| `shannon-ads-research` | Ads Research | マルチプラットフォーム広告競合分析 | 8192 | **Shannon Cloud のみ** |
 
 モデルが指定されない場合、`shannon-chat`が使用されます。
+
+<Note>
+**Shannon Cloud のみ**: `shannon-ads-research`モデルはエンタープライズ機能であり、広告リサーチベンダーアダプターが設定されたShannon Cloudデプロイメントでのみ利用可能です。
+</Note>
 
 <Tip>
 モデルは`config/openai_models.yaml`でカスタマイズできます。カスタムモデルの追加については、Shannon設定ドキュメントを参照してください。
@@ -333,6 +338,15 @@ response = client.chat.completions.create(
     messages=[
         {"role": "system", "content": "あなたは有能なアシスタントです。"},
         {"role": "user", "content": "Shannonとは何ですか？"}
+    ],
+)
+print(response.choices[0].message.content)
+
+# 広告リサーチ（Shannon Cloud のみ）
+response = client.chat.completions.create(
+    model="shannon-ads-research",
+    messages=[
+        {"role": "user", "content": "オーガニックスキンケア製品の競合広告を分析"}
     ],
 )
 print(response.choices[0].message.content)

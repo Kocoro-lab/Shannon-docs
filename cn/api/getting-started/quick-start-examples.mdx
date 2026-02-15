@@ -1,0 +1,75 @@
+---
+title: "快速开始示例"
+description: "快速开始使用 Shannon API - 完整的首次 API 调用示例"
+---
+
+<Note>
+**翻译进行中**
+
+此页面的中文翻译即将推出。目前请参考 [英文版本](/en/api/getting-started/quick-start-examples)。
+</Note>
+
+## 您的第一个 API 调用
+
+Shannon 的基本工作流程很简单：提交任务、获取任务 ID、检查状态并检索结果。
+
+### 完整示例 (cURL)
+
+```bash
+# 1. 提交任务
+RESPONSE=$(curl -sS -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "法国的首都是什么？"
+  }')
+
+# 2. 提取任务 ID
+TASK_ID=$(echo $RESPONSE | jq -r '.task_id')
+echo "任务 ID: $TASK_ID"
+
+# 3. 轮询结果
+while true; do
+  STATUS=$(curl -sS http://localhost:8080/api/v1/tasks/$TASK_ID \
+    -H "X-API-Key: sk_test_123456")
+
+  STATE=$(echo $STATUS | jq -r '.status')
+
+  if [ "$STATE" = "TASK_STATUS_COMPLETED" ]; then
+    echo $STATUS | jq -r '.result'
+    break
+  elif [ "$STATE" = "TASK_STATUS_FAILED" ]; then
+    echo "错误: $(echo $STATUS | jq -r '.error')"
+    exit 1
+  fi
+
+  sleep 2
+done
+```
+
+**预期输出**:
+```
+任务 ID: task_01HQZX3Y9K8M2P4N5S7T9W2V
+法国的首都是巴黎。
+```
+
+## 更多示例
+
+完整文档请参考 [英文版本](/en/api/getting-started/quick-start-examples)。
+
+## 下一步
+
+<CardGroup cols={2}>
+  <Card title="完整 API 参考" icon="book" href="/cn/api/rest/submit-task">
+    所有端点的完整文档
+  </Card>
+  <Card title="智能体目录" icon="users" href="/cn/api/agents/overview">
+    预构建的特定任务智能体
+  </Card>
+  <Card title="Python SDK" icon="python" href="/cn/sdk/python/quickstart">
+    官方 Python 客户端库
+  </Card>
+  <Card title="流式 API" icon="stream" href="/cn/api/rest/streaming">
+    使用 SSE 实时事件流
+  </Card>
+</CardGroup>

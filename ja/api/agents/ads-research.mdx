@@ -1,0 +1,768 @@
+---
+title: "広告リサーチエージェント"
+description: "競合広告インテリジェンスとランディングページ分析"
+---
+
+<Note type="enterprise">
+**Shannon Cloud専用**: これらのエージェントはShannon Cloudのサブスクリプションが必要であり、有料の外部APIを使用します:
+- **SerpAPI** (Google検索広告)
+- **SearchAPI.io** (Meta広告ライブラリ)
+- **Playwrightサービス** (ブラウザ自動化)
+- **Vision LLM** (ランディングページ分析)
+</Note>
+
+## 概要
+
+Shannonは、広告発見からクリエイティブ分析まで、競合広告リサーチのための**10の専門エージェント**を提供します。
+
+**ユースケース:**
+- 競合の広告戦略をモニタリング
+- 勝ちパターンの広告クリエイティブを発見
+- ランディングページのメッセージングとデザインを分析
+- マルチプラットフォームの広告キャンペーンを追跡 (Google、Yahoo JP、Meta)
+
+---
+
+## 利用可能なエージェント
+
+### serp-ads
+
+指定したキーワードでGoogle検索結果から有料広告を抽出します。
+
+**エージェントID:** `serp-ads`
+
+**入力スキーマ:**
+
+| フィールド | 型 | 必須 | デフォルト | 説明 |
+|-------|------|----------|---------|-------------|
+| `keywords` | string | はい | - | 広告を検索するキーワード |
+| `country` | string | いいえ | `"us"` | 国コード (us, jp, uk, など) |
+| `location` | string | いいえ | - | ジオターゲット広告の特定の場所 |
+| `language` | string | いいえ | `"en"` | 言語コード (en, ja, zh, など) |
+| `device` | string | いいえ | `"desktop"` | デバイスタイプ: `desktop`, `mobile`, `tablet` |
+| `google_domain` | string | いいえ | `"google.com"` | クエリ対象のGoogleドメイン |
+| `max_results` | integer | いいえ | `10` | 返す広告の最大数 |
+
+**リクエスト例:**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/serp-ads \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "keywords": "クレジットカード おすすめ",
+      "country": "jp",
+      "device": "mobile",
+      "max_results": 5
+    }
+  }'
+```
+
+**出力構造:**
+
+```json
+{
+  "keywords": "クレジットカード おすすめ",
+  "location": "jp",
+  "total_ads": 5,
+  "ads": [
+    {
+      "position": 1,
+      "title": "2026年おすすめクレジットカード",
+      "description": "トップのクレジットカードを比較して最高の特典を見つけよう...",
+      "link": "https://example.com/cards",
+      "domain": "example.com"
+    }
+  ],
+  "cost_usd": 0.015,
+  "timestamp": "2026-02-15T10:30:00Z"
+}
+```
+
+---
+
+### yahoo-jp-ads
+
+Yahoo Japan検索結果からスポンサー広告を抽出します。
+
+**エージェントID:** `yahoo-jp-ads`
+
+<Note>
+**APIキー不要** - Webスクレイピングを使用。無料ですが、IPローテーション要件のためCloud専用です。
+</Note>
+
+**入力スキーマ:**
+
+| フィールド | 型 | 必須 | 説明 |
+|-------|------|----------|-------------|
+| `keywords` | string | はい | 検索キーワード (日本語推奨) |
+
+**リクエスト例:**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/yahoo-jp-ads \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "keywords": "クレジットカード おすすめ"
+    }
+  }'
+```
+
+**出力構造:**
+
+```json
+{
+  "keywords": "クレジットカード おすすめ",
+  "total_ads": 3,
+  "ads": [
+    {
+      "position": 1,
+      "title": "セブンカード・プラス 公式サイト",
+      "description": "年会費無料でnanaco搭載...",
+      "link": "https://www.7card.co.jp/...",
+      "domain": "7card.co.jp",
+      "source": "yahoo_jp"
+    }
+  ],
+  "cost_usd": 0,
+  "timestamp": "2026-02-15T10:30:00Z"
+}
+```
+
+---
+
+### meta-ad-library
+
+FacebookとInstagram広告のためにMeta広告ライブラリを検索します。
+
+**エージェントID:** `meta-ad-library`
+
+**入力スキーマ:**
+
+| フィールド | 型 | 必須 | デフォルト | 説明 |
+|-------|------|----------|---------|-------------|
+| `query` | string | はい | - | 検索クエリ (ブランド名、キーワード) |
+| `country` | string | いいえ | `"US"` | 国コード (US, JP, UK, など) |
+| `platform` | string | いいえ | すべて | フィルタ: `facebook`, `instagram`, またはすべてを表示 |
+
+**リクエスト例:**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/meta-ad-library \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "query": "nike running shoes",
+      "country": "US",
+      "platform": "instagram"
+    }
+  }'
+```
+
+**出力構造:**
+
+```json
+{
+  "search_params": {
+    "query": "nike running shoes",
+    "country": "US",
+    "source": "meta_ad_library"
+  },
+  "summary": {
+    "total_ads_found": 245,
+    "active_ads": 18,
+    "platforms": ["FACEBOOK", "INSTAGRAM"],
+    "unique_advertisers": 5
+  },
+  "competitors": [
+    {
+      "name": "Nike Official",
+      "domain": "nike.com",
+      "page_id": "123456789",
+      "ad_count": 18,
+      "platforms": ["INSTAGRAM"],
+      "sample_ads": [
+        {
+          "title": "Run Further. Run Faster.",
+          "description": "Discover the new Nike Air Zoom...",
+          "link": "https://www.nike.com/running",
+          "cta": "Shop Now",
+          "platforms": ["INSTAGRAM"],
+          "images": ["https://..."],
+          "display_format": "image"
+        }
+      ],
+      "source": "meta_ad_library"
+    }
+  ],
+  "cost_usd": 0.004,
+  "timestamp": "2026-02-15T10:30:00Z"
+}
+```
+
+---
+
+### competitor-discover
+
+デバイスや場所全体で指定されたキーワードの競合広告主を発見します。
+
+**エージェントID:** `competitor-discover`
+
+**入力スキーマ:**
+
+| フィールド | 型 | 必須 | デフォルト | 説明 |
+|-------|------|----------|---------|-------------|
+| `keywords` | array of strings | はい | - | 競合を見つける検索キーワード |
+| `country` | string | いいえ | `"us"` | 国コード |
+| `language` | string | いいえ | `"en"` | 言語コード |
+| `location` | string | いいえ | - | 特定の場所 (例: "Tokyo, Japan") |
+| `devices` | array of strings | いいえ | `["desktop", "mobile"]` | 検索するデバイス |
+| `transparency_top_n` | integer | いいえ | `5` | 透明性データを取得する上位N競合 |
+| `max_competitors` | integer | いいえ | `20` | 返す競合の最大数 |
+| `include_transparency` | boolean | いいえ | `false` | Google広告透明性データを取得 |
+| `organic_fallback` | boolean | いいえ | `true` | 有料広告がない場合にオーガニック結果を使用 |
+
+**リクエスト例:**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/competitor-discover \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "keywords": ["ランニングシューズ", "スポーツシューズ"],
+      "country": "jp",
+      "devices": ["desktop", "mobile"],
+      "include_transparency": true,
+      "transparency_top_n": 3
+    }
+  }'
+```
+
+**出力構造:**
+
+```json
+{
+  "competitors": [
+    {
+      "domain": "nike.com",
+      "ad_count": 15,
+      "devices_found": ["desktop", "mobile"],
+      "sample_ads": [
+        {
+          "title": "Nike ランニングシューズ",
+          "description": "あなたにぴったりのランニングシューズを見つけよう...",
+          "link": "https://nike.com/running",
+          "device": "desktop"
+        }
+      ],
+      "transparency_data": {
+        "advertiser_id": "AR12345678",
+        "total_ads": 523,
+        "platforms": ["SEARCH", "YOUTUBE"]
+      }
+    }
+  ],
+  "total_ads_found": 45,
+  "api_cost_usd": 0.03
+}
+```
+
+---
+
+### ads-transparency
+
+マルチプラットフォーム広告透明性: Google透明性センター、Yahoo JP広告、Meta広告ライブラリ。
+
+**エージェントID:** `ads-transparency`
+
+**入力スキーマ:**
+
+| フィールド | 型 | 必須 | 説明 |
+|-------|------|----------|-------------|
+| `advertiser_id` | string | いいえ | Google広告の広告主ID (Google優先) |
+| `domain` | string | いいえ | ドメイン名 (Googleフォールバック、Yahooキーワード、Metaクエリ) |
+| `country` | string | いいえ | 国コード (例: 'jp', 'us') - 自動プラットフォーム選択を制御 |
+| `platforms` | array | いいえ | 自動選択を上書き: `['google', 'yahoo', 'meta']` |
+| `platform` | string | いいえ | Googleプラットフォームフィルタ: `SEARCH`, `YOUTUBE`, `SHOPPING`, など |
+| `meta_platform` | string | いいえ | Metaプラットフォームフィルタ: `facebook`, `instagram` |
+| `creative_format` | string | いいえ | Google広告フォーマット: `TEXT`, `IMAGE`, `VIDEO` |
+| `start_date` | string | いいえ | 開始日 (YYYY-MM-DD) |
+| `end_date` | string | いいえ | 終了日 (YYYY-MM-DD) |
+
+**リクエスト例 (日本市場、全プラットフォーム):**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/ads-transparency \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "domain": "7card.co.jp",
+      "country": "jp"
+    }
+  }'
+```
+
+**出力構造:**
+
+```json
+{
+  "google": {
+    "advertiser_id": "AR12345678",
+    "total_ads": 523,
+    "platforms": ["SEARCH", "YOUTUBE"],
+    "sample_ads": [...]
+  },
+  "yahoo_jp": {
+    "total_ads": 3,
+    "ads": [...]
+  },
+  "meta": {
+    "total_ads": 18,
+    "platforms": ["FACEBOOK", "INSTAGRAM"],
+    "advertisers": [...]
+  },
+  "platforms_queried": ["google", "yahoo_jp", "meta"],
+  "country": "jp",
+  "errors": {}
+}
+```
+
+---
+
+### lp-visual-analyze
+
+PlaywrightとVision LLMを使用してランディングページをスクリーンショットして分析します。
+
+**エージェントID:** `lp-visual-analyze`
+
+**入力スキーマ:**
+
+| フィールド | 型 | 必須 | デフォルト | 説明 |
+|-------|------|----------|---------|-------------|
+| `url` | string | はい | - | 分析するランディングページのURL |
+| `language` | string | いいえ | `"en"` | OCRの言語 (ja, zh, koでOCRを有効化) |
+| `full_page` | boolean | いいえ | `true` | ページ全体をスクロールしてキャプチャ |
+| `analysis_prompt` | string | いいえ | - | カスタム分析プロンプト |
+| `include_markdown` | boolean | いいえ | `true` | 抽出されたテキストコンテンツを含む |
+| `enable_ocr` | boolean | いいえ | 自動 | OCRを強制的に有効/無効化 |
+| `capture_mode` | string | いいえ | `"full_page"` | `full_page` または `sections` |
+| `device` | string | いいえ | `"desktop"` | デバイスビューポート: `desktop`, `mobile`, `tablet` |
+| `max_sections` | integer | いいえ | `8` | セクションモードでの最大セクション数 |
+
+**リクエスト例 (ページ全体の分析):**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/lp-visual-analyze \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "url": "https://www.7card.co.jp/lp/plus/",
+      "language": "ja",
+      "full_page": true,
+      "include_markdown": true
+    }
+  }'
+```
+
+**出力構造 (full_pageモード):**
+
+```json
+{
+  "url": "https://www.7card.co.jp/lp/plus/",
+  "screenshot_url": "https://storage.firecrawl.dev/...",
+  "vision_analysis": {
+    "success": true,
+    "structured": {
+      "above_the_fold": {
+        "main_headline": "セブンカード・プラス",
+        "primary_cta": {"text": "今すぐ申し込む", "color": "orange"}
+      },
+      "page_sections": [
+        {"name": "Hero", "position": 1, "key_content": "Main headline and CTA"}
+      ],
+      "pricing": {"visible": true, "currency": "JPY"},
+      "trust_elements": {"testimonials": {"count": 3}},
+      "visual_design": {"primary_colors": ["orange", "white"], "style": "modern"}
+    },
+    "cost_usd": {
+      "vision": 0.0016,
+      "scrape": 0.0053,
+      "ocr": 0.0015,
+      "total": 0.0084
+    }
+  }
+}
+```
+
+<Warning>
+**大きなバイナリデータ**: 500KBを超えるスクリーンショットはRedisに保存され、blobリファレンスに置き換えられます。実際の画像データを取得するには `/api/v1/blob/{key}` を使用してください。詳細は [Blob Storage API](/ja/api/rest/agents#blob-storage) を参照してください。
+</Warning>
+
+---
+
+### lp-batch-analyze
+
+複数のランディングページを並列で分析します。
+
+**エージェントID:** `lp-batch-analyze`
+
+**入力スキーマ:**
+
+| フィールド | 型 | 必須 | デフォルト | 説明 |
+|-------|------|----------|---------|-------------|
+| `urls` | array of strings | はい | - | ランディングページURLのリスト (最大10) |
+| `language` | string | いいえ | `"en"` | 言語コード |
+| `full_page` | boolean | いいえ | `false` | ページ全体をキャプチャ |
+| `device` | string | いいえ | `"desktop"` | デバイスビューポート |
+| `analysis_prompt` | string | いいえ | - | カスタム分析プロンプト |
+| `include_markdown` | boolean | いいえ | `false` | 抽出されたテキストを含む |
+
+**リクエスト例:**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/lp-batch-analyze \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "urls": [
+        "https://competitor1.com/landing",
+        "https://competitor2.com/offer",
+        "https://competitor3.com/product"
+      ],
+      "device": "mobile",
+      "language": "ja"
+    }
+  }'
+```
+
+**出力構造:**
+
+```json
+{
+  "batch_id": "batch-abc123",
+  "total_urls": 3,
+  "successful": 3,
+  "failed": 0,
+  "results": [
+    {
+      "url": "https://competitor1.com/landing",
+      "success": true,
+      "vision_analysis": {
+        "structured": {"above_the_fold": {"main_headline": "..."}},
+        "cost_usd": {"total": 0.008}
+      }
+    }
+  ],
+  "cost_usd": {
+    "firecrawl": 0.0159,
+    "vision": 0.0045,
+    "total": 0.0204
+  }
+}
+```
+
+---
+
+### ad-creative-analyze
+
+広告コピーのパターン、説得技術、メッセージングのギャップを分析します。
+
+**エージェントID:** `ad-creative-analyze`
+
+**入力スキーマ:**
+
+| フィールド | 型 | 必須 | デフォルト | 説明 |
+|-------|------|----------|---------|-------------|
+| `ads` | array of objects | はい | - | 分析する広告オブジェクト |
+| `competitors` | array of objects | いいえ | - | オプションの競合オブジェクト |
+| `industry` | string | いいえ | `"general"` | 業界プリセット: `ecommerce`, `shoes`, `finance`, `saas`, など |
+| `language` | string | いいえ | `"en"` | 広告コピーの言語 |
+
+**リクエスト例:**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/ad-creative-analyze \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "ads": [
+        {
+          "title": "2026年最高のランニングシューズ",
+          "description": "最大のクッション性を備えた超軽量設計...",
+          "domain": "nike.com"
+        },
+        {
+          "title": "プロのように走る",
+          "description": "毎日のランナーのためのプロレベルのパフォーマンス...",
+          "domain": "adidas.com"
+        }
+      ],
+      "industry": "shoes",
+      "language": "ja"
+    }
+  }'
+```
+
+**出力構造:**
+
+```json
+{
+  "headline_patterns": [
+    "年ベースの緊急性 (2026)",
+    "最上級のポジショニング (最高、超)"
+  ],
+  "persuasion_techniques": [
+    "社会的証明 (プロの推薦)",
+    "パフォーマンスのメリット (軽量、クッション性)"
+  ],
+  "cta_patterns": [
+    "直接行動 (今すぐ購入)",
+    "情報探索 (詳細を見る)"
+  ],
+  "emotional_triggers": [
+    "憧れ (プロのように走る)",
+    "安全性 (最大のクッション性)"
+  ],
+  "competitive_gaps": [
+    "競合広告に価格メッセージングなし",
+    "限定的な保証/保証の言及"
+  ],
+  "recommendations": [
+    "価格重視の見出しをテスト",
+    "コピーに返金保証を追加"
+  ],
+  "api_cost_usd": 0.02
+}
+```
+
+---
+
+### keyword-extract
+
+自然言語クエリから検索キーワードを抽出します。
+
+**エージェントID:** `keyword-extract`
+
+<Note type="success">
+**オープンソース互換**: LLMプロバイダーのAPIキーでShannon OSSで動作します。
+</Note>
+
+**入力スキーマ:**
+
+| フィールド | 型 | 必須 | デフォルト | 説明 |
+|-------|------|----------|---------|-------------|
+| `query` | string | はい | - | 自然言語クエリまたは製品説明 |
+| `country` | string | いいえ | `"us"` | キーワードのローカライゼーションのためのターゲット国 |
+| `language` | string | いいえ | 自動検出 | キーワードの優先言語 |
+| `max_keywords` | integer | いいえ | `5` | 抽出する最大キーワード数 |
+
+**リクエスト例:**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/keyword-extract \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "query": "冬の環境でマラソントレーニングに必要なシューズ",
+      "country": "jp",
+      "max_keywords": 3
+    }
+  }'
+```
+
+**出力構造:**
+
+```json
+{
+  "keywords": [
+    "マラソン トレーニング シューズ",
+    "冬用 ランニングシューズ",
+    "防寒 スポーツシューズ"
+  ],
+  "detected_language": "ja",
+  "detected_country": "jp",
+  "api_cost_usd": 0.001
+}
+```
+
+---
+
+### browser-screenshot
+
+Playwrightを使用してURLに移動してスクリーンショットをキャプチャします。
+
+**エージェントID:** `browser-screenshot`
+
+**入力スキーマ:**
+
+| フィールド | 型 | 必須 | デフォルト | 説明 |
+|-------|------|----------|---------|-------------|
+| `url` | string | はい | - | キャプチャするURL |
+| `full_page` | boolean | いいえ | `false` | ページ全体をスクロールしてキャプチャ |
+| `wait_until` | string | いいえ | `"domcontentloaded"` | ナビゲーション完了時: `load`, `domcontentloaded`, `networkidle` |
+| `timeout_ms` | integer | いいえ | `30000` | ナビゲーションタイムアウト (ミリ秒) |
+
+**リクエスト例:**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/browser-screenshot \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "url": "https://www.nike.com",
+      "full_page": true
+    }
+  }'
+```
+
+**出力構造:**
+
+```json
+{
+  "screenshot": "iVBORw0KGgoAAAANSUhEUgA...",  // Base64 PNG
+  "url": "https://www.nike.com",
+  "title": "Nike. Just Do It."
+}
+```
+
+<Note>
+**Base64エンコーディング**: スクリーンショットはbase64エンコードされたPNGとして返されます。大きな画像 (>500KB) の場合、代わりにblobリファレンスが返されます。[Blob Storage API](#blob-storage) を参照してください。
+</Note>
+
+---
+
+## Blob Storage API
+
+大きなbase64データ (500KBを超えるスクリーンショット) を含むレスポンスの場合、データはRedisに保存され、リファレンスオブジェクトに置き換えられます。
+
+**Blobリファレンス付きレスポンス形式:**
+
+```json
+{
+  "screenshot_b64": null,
+  "screenshot_b64_ref": {
+    "redis_key": "shannon:blob:task-abc123:screenshot_b64",
+    "size": 1500000,
+    "ttl_days": 7
+  }
+}
+```
+
+**Blobデータの取得:**
+
+```bash
+curl -H "X-API-Key: sk_your_api_key" \
+  "https://api-dev.shannon.run/api/v1/blob/shannon:blob:task-abc123:screenshot_b64"
+```
+
+**返却値:** 生のbase64文字列 (Content-Type: text/plain)
+
+**Blobプロパティ:**
+- TTL: 7日間 (各アクセスで更新)
+- Cache-Control: 7日間のクライアントキャッシング
+- 影響を受けるフィールド: `screenshot_b64`, `popup_screenshot_b64`, `data_base64`, `image_base64`, `screenshot`
+
+---
+
+## 一般的なワークフロー
+
+### ワークフロー1: 競合広告の発見
+
+```python
+import httpx
+
+client = httpx.Client(
+    base_url="https://api-dev.shannon.run",
+    headers={"X-API-Key": "sk_your_api_key"}
+)
+
+# ステップ1: 競合を発見
+competitors = client.post("/api/v1/agents/competitor-discover", json={
+    "input": {
+        "keywords": ["ランニングシューズ", "スポーツシューズ"],
+        "include_transparency": True
+    }
+}).json()
+
+# ステップ2: 彼らの広告を分析
+for competitor in competitors["competitors"][:3]:
+    ads_analysis = client.post("/api/v1/agents/ad-creative-analyze", json={
+        "input": {
+            "ads": competitor["sample_ads"],
+            "industry": "shoes"
+        }
+    }).json()
+
+    print(f"{competitor['domain']}: {ads_analysis['recommendations']}")
+```
+
+### ワークフロー2: ランディングページ競合分析
+
+```python
+# ステップ1: 競合ドメインを取得
+competitors = client.post("/api/v1/agents/serp-ads", json={
+    "input": {"keywords": "クレジットカード", "max_results": 5}
+}).json()
+
+# ステップ2: 彼らのランディングページをバッチ分析
+lp_urls = [ad["link"] for ad in competitors["ads"]]
+
+lp_analysis = client.post("/api/v1/agents/lp-batch-analyze", json={
+    "input": {
+        "urls": lp_urls,
+        "device": "mobile",
+        "language": "ja"
+    }
+}).json()
+
+# ステップ3: 結果を比較
+for result in lp_analysis["results"]:
+    print(f"{result['url']}: {result['vision_analysis']['structured']['above_the_fold']}")
+```
+
+### ワークフロー3: マルチプラットフォーム広告追跡
+
+```python
+# Google、Yahoo JP、Metaで単一ブランドを追跡
+transparency = client.post("/api/v1/agents/ads-transparency", json={
+    "input": {
+        "domain": "7card.co.jp",
+        "country": "jp"
+    }
+}).json()
+
+print("見つかったプラットフォーム:")
+for platform in transparency["platforms_queried"]:
+    data = transparency[platform]
+    print(f"  {platform}: {data.get('total_ads', 0)} 広告")
+```
+
+---
+
+## 関連
+
+<CardGroup cols={2}>
+  <Card title="エージェントAPIリファレンス" icon="code" href="/ja/api/rest/agents">
+    完全なAPIエンドポイントドキュメント
+  </Card>
+  <Card title="金融エージェント" icon="chart-line" href="/ja/api/agents/financial">
+    株式ニュースと感情分析エージェント
+  </Card>
+  <Card title="タスクステータス取得" icon="circle-info" href="/ja/api/rest/get-status">
+    エージェント実行結果を取得
+  </Card>
+  <Card title="エージェント概要" icon="list" href="/ja/api/agents/overview">
+    完全なエージェントカタログと利用可能性マトリックス
+  </Card>
+</CardGroup>

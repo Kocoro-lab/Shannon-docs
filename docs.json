@@ -71,17 +71,12 @@
             "tab": "API Reference",
             "groups": [
               {
-                "group": "Overview",
+                "group": "Getting Started",
                 "pages": [
                   "en/api/overview",
+                  "en/api/getting-started/quick-start-examples",
                   "en/api/rest/overview",
                   "en/api/authentication",
-                  "en/api/event-types"
-                ]
-              },
-              {
-                "group": "Authentication & Headers",
-                "pages": [
                   "en/api/rest/authentication"
                 ]
               },
@@ -99,21 +94,31 @@
                 ]
               },
               {
-                "group": "Swarm",
+                "group": "Streaming",
                 "pages": [
-                  "en/api/rest/swarm"
+                  "en/api/rest/streaming",
+                  "en/api/rest/openai-compatible"
                 ]
               },
               {
-                "group": "HITL Review",
+                "group": "Agents",
                 "pages": [
-                  "en/api/rest/hitl-review"
+                  "en/api/agents/overview",
+                  "en/api/rest/agents",
+                  "en/api/agents/ads-research",
+                  "en/api/agents/financial"
                 ]
               },
               {
                 "group": "Sessions",
                 "pages": [
                   "en/api/rest/sessions"
+                ]
+              },
+              {
+                "group": "Swarm",
+                "pages": [
+                  "en/api/rest/swarm"
                 ]
               },
               {
@@ -129,15 +134,15 @@
                 ]
               },
               {
-                "group": "Streaming",
+                "group": "HITL Review",
                 "pages": [
-                  "en/api/rest/streaming",
-                  "en/api/rest/openai-compatible"
+                  "en/api/rest/hitl-review"
                 ]
               },
               {
-                "group": "Models",
+                "group": "Reference",
                 "pages": [
+                  "en/api/event-types",
                   "en/api/models/overview"
                 ]
               }
@@ -285,17 +290,12 @@
             "tab": "API 参考",
             "groups": [
               {
-                "group": "概览",
+                "group": "入门指南",
                 "pages": [
                   "cn/api/overview",
+                  "cn/api/getting-started/quick-start-examples",
                   "cn/api/rest/overview",
                   "cn/api/authentication",
-                  "cn/api/event-types"
-                ]
-              },
-              {
-                "group": "认证与请求头",
-                "pages": [
                   "cn/api/rest/authentication"
                 ]
               },
@@ -313,21 +313,31 @@
                 ]
               },
               {
-                "group": "Swarm 集群",
+                "group": "流式",
                 "pages": [
-                  "cn/api/rest/swarm"
+                  "cn/api/rest/streaming",
+                  "cn/api/rest/openai-compatible"
                 ]
               },
               {
-                "group": "人机协同审查",
+                "group": "智能体",
                 "pages": [
-                  "cn/api/rest/hitl-review"
+                  "cn/api/agents/overview",
+                  "cn/api/rest/agents",
+                  "cn/api/agents/ads-research",
+                  "cn/api/agents/financial"
                 ]
               },
               {
                 "group": "会话",
                 "pages": [
                   "cn/api/rest/sessions"
+                ]
+              },
+              {
+                "group": "Swarm 集群",
+                "pages": [
+                  "cn/api/rest/swarm"
                 ]
               },
               {
@@ -343,15 +353,15 @@
                 ]
               },
               {
-                "group": "流式",
+                "group": "人机协同审查",
                 "pages": [
-                  "cn/api/rest/streaming",
-                  "cn/api/rest/openai-compatible"
+                  "cn/api/rest/hitl-review"
                 ]
               },
               {
-                "group": "模型",
+                "group": "参考",
                 "pages": [
+                  "cn/api/event-types",
                   "cn/api/models/overview"
                 ]
               }
@@ -499,17 +509,12 @@
             "tab": "APIリファレンス",
             "groups": [
               {
-                "group": "概要",
+                "group": "はじめに",
                 "pages": [
                   "ja/api/overview",
+                  "ja/api/getting-started/quick-start-examples",
                   "ja/api/rest/overview",
                   "ja/api/authentication",
-                  "ja/api/event-types"
-                ]
-              },
-              {
-                "group": "認証とヘッダー",
-                "pages": [
                   "ja/api/rest/authentication"
                 ]
               },
@@ -527,21 +532,31 @@
                 ]
               },
               {
-                "group": "Swarm",
+                "group": "ストリーミング",
                 "pages": [
-                  "ja/api/rest/swarm"
+                  "ja/api/rest/streaming",
+                  "ja/api/rest/openai-compatible"
                 ]
               },
               {
-                "group": "HITLレビュー",
+                "group": "エージェント",
                 "pages": [
-                  "ja/api/rest/hitl-review"
+                  "ja/api/agents/overview",
+                  "ja/api/rest/agents",
+                  "ja/api/agents/ads-research",
+                  "ja/api/agents/financial"
                 ]
               },
               {
                 "group": "セッション",
                 "pages": [
                   "ja/api/rest/sessions"
+                ]
+              },
+              {
+                "group": "Swarm",
+                "pages": [
+                  "ja/api/rest/swarm"
                 ]
               },
               {
@@ -557,15 +572,15 @@
                 ]
               },
               {
-                "group": "ストリーミング",
+                "group": "HITLレビュー",
                 "pages": [
-                  "ja/api/rest/streaming",
-                  "ja/api/rest/openai-compatible"
+                  "ja/api/rest/hitl-review"
                 ]
               },
               {
-                "group": "モデル",
+                "group": "リファレンス",
                 "pages": [
+                  "ja/api/event-types",
                   "ja/api/models/overview"
                 ]
               }

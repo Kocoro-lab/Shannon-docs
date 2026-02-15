@@ -115,7 +115,7 @@ X-API-Key: sk_test_123456
 
 認識されたキー:
 
-- `role` — 役割プリセット（例: `analysis`, `research`, `writer`）
+- `role` — 役割プリセット（例: `analysis`, `research`, `writer`, `ads_research`, `financial_news`, `browser_use`）
 - `system_prompt` — 役割プロンプトを上書き; `prompt_params`からの`${var}`をサポート
 - `prompt_params` — プロンプト/ツール/アダプタ用の任意のパラメータ
 - `model_tier` — トップレベルが提供されていない場合のフォールバック
@@ -131,12 +131,38 @@ X-API-Key: sk_test_123456
   - `iterative_research_enabled` — 反復カバレッジループの有効/無効（デフォルト: `true`）
   - `iterative_max_iterations` — 最大反復回数 1-5（戦略プリセットのシードデフォルト; それ以外は`3`にフォールバック）
   - `enable_fact_extraction` — 構造化された事実をメタデータに抽出（デフォルト: `false`）
+- **広告リサーチプラットフォームトグル**（`role: "ads_research"`の場合）:
+  - `platforms.google` — Google ショッピング広告の有効/無効（デフォルト: `true`）
+  - `platforms.yahoo_jp` — Yahoo Japan 広告の有効/無効（デフォルト: `true`）
+  - `platforms.meta` — Meta 広告ライブラリの有効/無効（デフォルト: `true`）
+  - `platforms.meta_platform` — Meta プラットフォームフィルタ: `facebook`, `instagram`, `messenger`, `whatsapp`, または `all`（デフォルト: `all`）
 
 ルール:
 - トップレベルのパラメータはコンテキストの同等物を上書きします: `model_tier`, `model_override`, `provider_override`, `skill`, `research_strategy`
 - `mode`は次をサポート: `simple|standard|complex|supervisor`（デフォルト: 自動検出）
 - `model_tier`は次をサポート: `small|medium|large`
 - **競合検証**: `disable_ai: true`は`model_tier`, `model_override`, または`provider_override`と組み合わせることはできません（400を返します）
+
+### 役割プリセット
+
+役割プリセットは、異なるタスクタイプに対して専門的なシステムプロンプトとツール許可リストを提供します。`context.role`を通じて設定:
+
+| 役割 | 説明 | 利用可能なツール | ユースケース |
+|------|------|------------------|--------------|
+| `generalist` | 汎用アシスタント（デフォルト） | すべてのツール | 簡単なクエリ、一般的な会話 |
+| `analysis` | 構造化された推論を持つ分析アシスタント | `web_search`, `file_read` | データ分析、構造化された推論 |
+| `research` | 情報収集と統合のためのリサーチアシスタント | `web_search`, `web_fetch`, `web_subpage_fetch`, `web_crawl` | 情報収集、事実調査 |
+| `writer` | 明確で整理された文章のためのテクニカルライター | `file_read` | ドキュメンテーション、コンテンツ作成 |
+| `critic` | 欠陥とリスクを特定するための批評的レビュアー | `file_read` | コードレビュー、品質保証 |
+| `developer` | ファイルシステムアクセス付き開発者アシスタント | `file_read`, `file_write`, `file_list`, `bash`, `python_executor` | コーディング、デバッグ、ファイル操作 |
+| `browser_use` | ブラウザ自動化スペシャリスト | `browser_*` ツール, `web_search` | Webスクレイピング、UI自動化、スクリーンショット撮影 |
+| `ads_research` **（Shannon Cloud のみ）** | マルチプラットフォーム広告競合分析 | `ads_serp_extract`, `ads_transparency_search`, `meta_ad_library`, `yahoo_jp_ads` | マーケティングリサーチ、競合広告分析 |
+| `financial_news` **（Shannon Cloud のみ）** | 金融ニュースとセンチメント分析 | `news_aggregator`, `alpaca_news`, `sec_filings`, `twitter_sentiment` | 株式ニュース、市場センチメント分析 |
+| `data_analytics` | ベンダー統合を備えたデータ分析 | ベンダー固有の分析ツール | ビジネスインテリジェンス、分析レポート |
+
+<Note>
+**Shannon Cloud のみ**: 「Shannon Cloud のみ」とマークされた役割はエンタープライズ機能であり、ベンダーアダプター設定を持つ Shannon Cloud デプロイメントが必要です。
+</Note>
 
 ## レスポンス
 
@@ -266,6 +292,60 @@ curl -X POST http://localhost:8080/api/v1/tasks \
     "mode": "supervisor"
   }'
 ```
+
+### 広告リサーチ（Shannon Cloud のみ）
+
+プラットフォームトグルを備えたマルチプラットフォーム広告競合分析。
+
+```bash
+# すべてのプラットフォームで競合を分析
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "オーガニックスキンケア製品の競合広告を分析",
+    "context": {
+      "role": "ads_research"
+    }
+  }'
+
+# Google ショッピング広告のみ
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "ワイヤレスイヤホンの競合価格戦略を見つける",
+    "context": {
+      "role": "ads_research",
+      "platforms": {
+        "google": true,
+        "yahoo_jp": false,
+        "meta": false
+      }
+    }
+  }'
+
+# Meta（Instagram のみ）+ Yahoo Japan
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Instagram と Yahoo Japan でのファッションブランドの広告をリサーチ",
+    "context": {
+      "role": "ads_research",
+      "platforms": {
+        "google": false,
+        "yahoo_jp": true,
+        "meta": true,
+        "meta_platform": "instagram"
+      }
+    }
+  }'
+```
+
+<Tip>
+**プラットフォームのデフォルト**: すべてのプラットフォームがデフォルトで有効です。`platforms`オブジェクトを使用してプラットフォームを選択的に無効にするか、Metaをプラットフォーム別にフィルタリングします（`facebook`, `instagram`, `messenger`, `whatsapp`, `all`）。
+</Tip>
 
 ### Deep Research 2.0
 

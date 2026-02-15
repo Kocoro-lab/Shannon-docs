@@ -1,0 +1,75 @@
+---
+title: "クイックスタート例"
+description: "Shannon API を数分で開始 - 最初の API 呼び出しの完全な例"
+---
+
+<Note>
+**翻訳作業中**
+
+このページの日本語翻訳は近日公開予定です。現在は [英語版](/en/api/getting-started/quick-start-examples) をご参照ください。
+</Note>
+
+## 最初の API 呼び出し
+
+Shannon の基本的なワークフローはシンプルです：タスクを送信し、タスク ID を取得し、ステータスを確認し、結果を取得します。
+
+### 完全な例 (cURL)
+
+```bash
+# 1. タスクを送信
+RESPONSE=$(curl -sS -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "フランスの首都は何ですか？"
+  }')
+
+# 2. タスク ID を抽出
+TASK_ID=$(echo $RESPONSE | jq -r '.task_id')
+echo "タスク ID: $TASK_ID"
+
+# 3. 結果をポーリング
+while true; do
+  STATUS=$(curl -sS http://localhost:8080/api/v1/tasks/$TASK_ID \
+    -H "X-API-Key: sk_test_123456")
+
+  STATE=$(echo $STATUS | jq -r '.status')
+
+  if [ "$STATE" = "TASK_STATUS_COMPLETED" ]; then
+    echo $STATUS | jq -r '.result'
+    break
+  elif [ "$STATE" = "TASK_STATUS_FAILED" ]; then
+    echo "エラー: $(echo $STATUS | jq -r '.error')"
+    exit 1
+  fi
+
+  sleep 2
+done
+```
+
+**期待される出力**:
+```
+タスク ID: task_01HQZX3Y9K8M2P4N5S7T9W2V
+フランスの首都はパリです。
+```
+
+## その他の例
+
+完全なドキュメントについては [英語版](/en/api/getting-started/quick-start-examples) をご参照ください。
+
+## 次のステップ
+
+<CardGroup cols={2}>
+  <Card title="完全な API リファレンス" icon="book" href="/ja/api/rest/submit-task">
+    すべてのエンドポイントの完全なドキュメント
+  </Card>
+  <Card title="エージェントカタログ" icon="users" href="/ja/api/agents/overview">
+    特定のタスク用の事前構築エージェント
+  </Card>
+  <Card title="Python SDK" icon="python" href="/ja/sdk/python/quickstart">
+    公式 Python クライアントライブラリ
+  </Card>
+  <Card title="ストリーミング API" icon="stream" href="/ja/api/rest/streaming">
+    SSE によるリアルタイムイベントストリーミング
+  </Card>
+</CardGroup>

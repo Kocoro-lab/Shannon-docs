@@ -43,15 +43,20 @@ X-API-Key: sk_your_api_key
 
 Shannon 将模型名称映射到不同的工作流模式和策略。选择模型来控制请求的处理方式。
 
-| 模型 | 工作流模式 | 描述 | 默认最大 Token 数 |
-|------|-----------|------|------------------|
-| `shannon-chat` | Simple | 通用聊天补全（默认） | 4096 |
-| `shannon-standard-research` | Research | 中等深度的平衡研究 | 4096 |
-| `shannon-deep-research` | Research | 迭代精炼的深度研究 | 8192 |
-| `shannon-quick-research` | Research | 简单查询的快速研究 | 4096 |
-| `shannon-complex` | Supervisor | 复杂任务的多智能体编排 | 8192 |
+| 模型 | 工作流模式 | 描述 | 默认最大 Token 数 | 可用性 |
+|------|-----------|------|------------------|--------|
+| `shannon-chat` | Simple | 通用聊天补全（默认） | 4096 | 全部 |
+| `shannon-standard-research` | Research | 中等深度的平衡研究 | 4096 | 全部 |
+| `shannon-deep-research` | Research | 迭代精炼的深度研究 | 8192 | 全部 |
+| `shannon-quick-research` | Research | 简单查询的快速研究 | 4096 | 全部 |
+| `shannon-complex` | Supervisor | 复杂任务的多智能体编排 | 8192 | 全部 |
+| `shannon-ads-research` | Ads Research | 多平台广告竞争分析 | 8192 | **仅限 Shannon Cloud** |
 
 如果未指定模型，默认使用 `shannon-chat`。
+
+<Note>
+**仅限 Shannon Cloud**：`shannon-ads-research` 模型是企业功能，仅适用于配置了广告研究供应商适配器的 Shannon Cloud 部署。
+</Note>
 
 <Tip>
 模型可通过 `config/openai_models.yaml` 自定义。有关添加自定义模型的详细信息，请参阅 Shannon 配置文档。
@@ -333,6 +338,15 @@ response = client.chat.completions.create(
     messages=[
         {"role": "system", "content": "你是一个有帮助的助手。"},
         {"role": "user", "content": "什么是 Shannon？"}
+    ],
+)
+print(response.choices[0].message.content)
+
+# 广告研究（仅限 Shannon Cloud）
+response = client.chat.completions.create(
+    model="shannon-ads-research",
+    messages=[
+        {"role": "user", "content": "分析有机护肤品的竞争对手广告"}
     ],
 )
 print(response.choices[0].message.content)

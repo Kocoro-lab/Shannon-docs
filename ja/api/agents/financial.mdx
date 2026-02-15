@@ -1,0 +1,530 @@
+---
+title: "金融リサーチエージェント"
+description: "株式ニュース、SEC提出書類、感情分析"
+---
+
+<Note type="mixed">
+**混合利用可能性**:
+- ✅ **オープンソース**: `sec-filings` (無料のSEC EDGAR API)
+- ✅ **Shannon Cloud**: マネージド型APIアクセスですべてのエージェント
+- ✅* **独自のAPIキーを持つOSS**: `alpaca-news` (Alpaca無料ティア)、`twitter-sentiment` (xAI API)
+</Note>
+
+## 概要
+
+Shannonは、無料の公開データ (SEC提出書類) とプレミアム感情分析 (Twitter/xAI) およびニュース集約 (Alpaca、Benzinga) を組み合わせた、金融リサーチと株式分析のための**4つの専門エージェント**を提供します。
+
+**ユースケース:**
+- イベント監視 (8-Kの重要イベント、インサイダー取引)
+- ソーシャル感情追跡 (Twitterメンション、インフルエンサー分析)
+- ニュース集約 (感情スコアリング付きのマルチソースニュース)
+- 株式リサーチワークフロー
+
+---
+
+## 利用可能なエージェント
+
+### sec-filings
+
+<Note type="success">
+**オープンソース互換**: 無料のSEC EDGAR API。APIキー不要でOSSとCloudの両方で動作します。
+</Note>
+
+株式ティッカーの最近のSEC提出書類 (8-K、10-K、10-Qなど) を取得します。
+
+**エージェントID:** `sec-filings`
+
+**入力スキーマ:**
+
+| フィールド | 型 | 必須 | デフォルト | 説明 |
+|-------|------|----------|---------|-------------|
+| `ticker` | string | はい | - | 株式ティッカーシンボル (例: 'NVDA', 'TSLA') |
+| `days_back` | integer | いいえ | `30` | 検索する履歴の日数 (1-365) |
+| `forms` | string | いいえ | `"8-K,10-K,10-Q,4,SC 13D"` | カンマ区切りのフォームタイプ |
+
+**サポートされているフォームタイプ:**
+- **8-K**: 重要なイベント (買収、役員変更など)
+- **10-K**: 年次報告書
+- **10-Q**: 四半期報告書
+- **4**: インサイダー取引 (役員、取締役)
+- **SC 13D**: 主要株主の提出 (>5%の所有権)
+- **DEF 14A**: 委任状
+- **S-1**: IPO登録
+
+**リクエスト例:**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/sec-filings \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "ticker": "NVDA",
+      "days_back": 90,
+      "forms": "8-K,10-K,10-Q"
+    }
+  }'
+```
+
+**出力構造:**
+
+```json
+{
+  "source": "sec_edgar",
+  "ticker": "NVDA",
+  "company_name": "NVIDIA CORP",
+  "cik": "0001045810",
+  "filings": [
+    {
+      "form_type": "8-K",
+      "filed_date": "2026-01-15",
+      "description": "Current Report",
+      "filing_url": "https://www.sec.gov/Archives/edgar/data/1045810/...",
+      "is_material": true
+    },
+    {
+      "form_type": "10-Q",
+      "filed_date": "2025-11-20",
+      "description": "Quarterly Report",
+      "filing_url": "https://www.sec.gov/Archives/edgar/data/1045810/...",
+      "is_material": false
+    }
+  ],
+  "has_material_events": true,
+  "total_count": 5
+}
+```
+
+**ユースケース例:**
+
+```python
+# 重要なイベントを監視
+import httpx
+
+def check_material_events(ticker):
+    response = httpx.post(
+        "https://api-dev.shannon.run/api/v1/agents/sec-filings",
+        headers={"X-API-Key": "sk_your_api_key"},
+        json={"input": {"ticker": ticker, "forms": "8-K"}}
+    ).json()
+
+    # タスク完了を待つ
+    task_id = response["task_id"]
+    # ... 結果をポーリング ...
+
+    if result["has_material_events"]:
+        print(f"⚠️  {ticker}の重要なイベント:")
+        for filing in result["filings"]:
+            if filing["is_material"]:
+                print(f"  - {filing['filed_date']}: {filing['description']}")
+```
+
+---
+
+### twitter-sentiment
+
+<Note type="enterprise">
+**Shannon Cloud専用**: Twitter/X感情分析にxAI APIを使用します。
+</Note>
+
+xAIのGrokモデルを使用して、株式のX/Twitter感情を分析します。
+
+**エージェントID:** `twitter-sentiment`
+
+**入力スキーマ:**
+
+| フィールド | 型 | 必須 | デフォルト | 説明 |
+|-------|------|----------|---------|-------------|
+| `ticker` | string | はい | - | 株式ティッカーシンボル (例: 'NVDA', 'TSLA') |
+| `days_back` | integer | いいえ | `1` | 検索する履歴の日数 (1-7) |
+
+**リクエスト例:**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/twitter-sentiment \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "ticker": "NVDA",
+      "days_back": 3
+    }
+  }'
+```
+
+**出力構造:**
+
+```json
+{
+  "ticker": "NVDA",
+  "analysis": "NVIDIAの最近のTwitter感情は圧倒的に強気です。主要なインフルエンサーは強力なQ4収益とAIチップの需要について議論しています。注目すべき言及には以下が含まれます:\n- @analyst123: 'NVIDAが期待を上回る'\n- @investor_daily: 'AIの需要は衰える兆候なし'",
+  "sentiment": "bullish",
+  "citations": [
+    "https://x.com/analyst123/status/123456789",
+    "https://x.com/investor_daily/status/987654321"
+  ],
+  "cost_usd": 0.30
+}
+```
+
+**感情値:**
+- `bullish` - ポジティブな感情、買い関心
+- `bearish` - ネガティブな感情、売り圧力
+- `mixed` - 相反するシグナル
+- `neutral` - 明確な方向性のある感情なし
+
+<Warning>
+**APIコスト**: Twitter感情はxAIのGrokモデルを使用し、分析あたり約$0.30のコストがかかります。コストを管理するために使用状況を監視してください。
+</Warning>
+
+---
+
+### alpaca-news
+
+<Note type="success">
+**オープンソース互換**: Alpaca Marketsは無料ティアを提供しています。Alpaca APIキーでOSSで動作します。
+</Note>
+
+Alpaca Markets API (Benzingaによる) から最近の株式ニュースを取得します。
+
+**エージェントID:** `alpaca-news`
+
+**入力スキーマ:**
+
+| フィールド | 型 | 必須 | デフォルト | 説明 |
+|-------|------|----------|---------|-------------|
+| `symbols` | string | はい | - | カンマ区切りの株式シンボル (例: 'NVDA' または 'NVDA,AAPL') |
+| `hours_back` | integer | いいえ | `24` | 検索する履歴の時間数 (1-168) |
+| `limit` | integer | いいえ | `10` | 返すニュースアイテムの最大数 (1-50) |
+
+**リクエスト例:**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/alpaca-news \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "symbols": "NVDA,AMD",
+      "hours_back": 48,
+      "limit": 20
+    }
+  }'
+```
+
+**出力構造:**
+
+```json
+{
+  "symbols": "NVDA,AMD",
+  "news": [
+    {
+      "headline": "NVIDIAが新しいAIチップのブレークスルーを発表",
+      "summary": "NVIDIA Corporationは次世代のAIアクセラレータを発表...",
+      "author": "Tech News Daily",
+      "created_at": "2026-02-15T09:30:00Z",
+      "updated_at": "2026-02-15T09:30:00Z",
+      "url": "https://example.com/nvidia-ai-chip",
+      "symbols": ["NVDA"],
+      "source": "benzinga"
+    },
+    {
+      "headline": "AMDがデータセンターGPUで市場シェアを獲得",
+      "summary": "Advanced Micro Devicesはデータセンター収益の増加を報告...",
+      "author": "Market Watch",
+      "created_at": "2026-02-15T08:15:00Z",
+      "updated_at": "2026-02-15T08:15:00Z",
+      "url": "https://example.com/amd-datacenter",
+      "symbols": ["AMD"],
+      "source": "benzinga"
+    }
+  ],
+  "total_count": 18
+}
+```
+
+**Alpaca無料ティア:**
+- 月間200ニュースリクエスト
+- リアルタイムニュースフィード
+- Benzingaニュースソース
+
+---
+
+### news-aggregator
+
+<Note type="enterprise">
+**Shannon Cloud専用**: 複数のプレミアムソース (Alpaca、SEC、xAI) を組み合わせます。
+</Note>
+
+株式の複数のソース (Alpaca、SEC、Twitter) から包括的なニュースと感情を取得します。
+
+**エージェントID:** `news-aggregator`
+
+**入力スキーマ:**
+
+| フィールド | 型 | 必須 | デフォルト | 説明 |
+|-------|------|----------|---------|-------------|
+| `ticker` | string | はい | - | 株式ティッカーシンボル (例: 'NVDA') |
+| `include_filings` | boolean | いいえ | `true` | 結果にSEC提出書類を含む |
+| `include_twitter` | boolean | いいえ | `true` | 結果にTwitter感情を含む |
+
+**リクエスト例:**
+
+```bash
+curl -X POST https://api-dev.shannon.run/api/v1/agents/news-aggregator \
+  -H "X-API-Key: sk_your_api_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "ticker": "NVDA",
+      "include_filings": true,
+      "include_twitter": true
+    }
+  }'
+```
+
+**出力構造:**
+
+```json
+{
+  "ticker": "NVDA",
+  "as_of": "2026-02-15T10:30:00Z",
+  "sources_used": ["alpaca", "sec", "twitter"],
+  "overall_sentiment": {
+    "score": 0.72,
+    "label": "bullish"
+  },
+  "alpaca": {
+    "articles": [
+      {
+        "headline": "NVIDIAが新しいAIチップのブレークスルーを発表",
+        "summary": "...",
+        "created_at": "2026-02-15T09:30:00Z",
+        "url": "https://..."
+      }
+    ],
+    "total_count": 18,
+    "heuristic_sentiment_score": 0.65
+  },
+  "sec": {
+    "filings": [
+      {
+        "form_type": "8-K",
+        "filed_date": "2026-01-15",
+        "description": "Current Report",
+        "filing_url": "https://www.sec.gov/...",
+        "is_material": true
+      }
+    ],
+    "has_material_events": true,
+    "total_count": 3
+  },
+  "twitter": {
+    "analysis": "最近のTwitter感情は圧倒的に強気です...",
+    "sentiment": "bullish",
+    "citations": ["https://x.com/..."]
+  }
+}
+```
+
+**全体的な感情計算:**
+
+アグリゲーターは加重感情スコアを計算します:
+- **Alpacaニュース**: 40%の重み (ヒューリスティックキーワード分析)
+- **Twitter**: 40%の重み (xAI感情)
+- **SEC提出書類**: 20%の重み (重要なイベント指標)
+
+**スコア範囲:**
+- `0.6 - 1.0`: 強気
+- `0.4 - 0.6`: 中立
+- `0.0 - 0.4`: 弱気
+
+---
+
+## 一般的なワークフロー
+
+### ワークフロー1: 日次イベント監視
+
+複数のティッカーの重要なSECイベントを監視します:
+
+```python
+import httpx
+
+tickers = ["NVDA", "AAPL", "MSFT", "GOOGL", "AMZN"]
+client = httpx.Client(
+    base_url="https://api-dev.shannon.run",
+    headers={"X-API-Key": "sk_your_api_key"}
+)
+
+for ticker in tickers:
+    response = client.post("/api/v1/agents/sec-filings", json={
+        "input": {
+            "ticker": ticker,
+            "days_back": 1,
+            "forms": "8-K"
+        }
+    }).json()
+
+    task_id = response["task_id"]
+    # ... 結果をポーリング ...
+
+    if result.get("has_material_events"):
+        print(f"⚠️  {ticker}: {len(result['filings'])} 新しい8-K提出書類")
+```
+
+### ワークフロー2: 包括的な株式分析
+
+単一のティッカーのすべてのソースを組み合わせます:
+
+```python
+# 集約されたビューを取得
+aggregated = client.post("/api/v1/agents/news-aggregator", json={
+    "input": {"ticker": "NVDA"}
+}).json()
+
+task_id = aggregated["task_id"]
+# ... 結果をポーリング ...
+
+print(f"全体的な感情: {result['overall_sentiment']['label']}")
+print(f"ソース: {', '.join(result['sources_used'])}")
+print(f"ニュース記事: {result['alpaca']['total_count']}")
+print(f"重要なイベント: {result['sec']['has_material_events']}")
+```
+
+### ワークフロー3: ピア間の感情比較
+
+複数のティッカーの感情を比較します:
+
+```python
+peer_group = ["NVDA", "AMD", "INTC"]
+sentiments = {}
+
+for ticker in peer_group:
+    response = client.post("/api/v1/agents/twitter-sentiment", json={
+        "input": {"ticker": ticker, "days_back": 1}
+    }).json()
+
+    task_id = response["task_id"]
+    # ... 結果をポーリング ...
+
+    sentiments[ticker] = result["sentiment"]
+
+print("ピア感情比較:")
+for ticker, sentiment in sentiments.items():
+    print(f"  {ticker}: {sentiment}")
+```
+
+### ワークフロー4: ニュース駆動型取引アラート
+
+特定のキーワードのニュースを監視します:
+
+```python
+response = client.post("/api/v1/agents/alpaca-news", json={
+    "input": {
+        "symbols": "NVDA",
+        "hours_back": 1,
+        "limit": 50
+    }
+}).json()
+
+task_id = response["task_id"]
+# ... 結果をポーリング ...
+
+keywords = ["ブレークスルー", "パートナーシップ", "買収", "訴訟"]
+
+for article in result["news"]:
+    headline_lower = article["headline"].lower()
+    if any(kw in headline_lower for kw in keywords):
+        print(f"🚨 アラート: {article['headline']}")
+        print(f"   URL: {article['url']}")
+```
+
+---
+
+## セルフホストOSSセットアップ
+
+Shannon OSSで金融エージェントを使用するには:
+
+### sec-filings (APIキー不要)
+
+すぐに動作します - SEC EDGARは無料の公開APIです。
+
+```bash
+# 設定不要
+docker compose up -d
+```
+
+### alpaca-news (無料ティアあり)
+
+1. **Alpacaにサインアップ** (無料ティア): https://alpaca.markets
+2. **ダッシュボードからAPIキーを取得**
+3. **.envに追加**:
+
+```bash
+# .env
+ALPACA_API_KEY=your_api_key_here
+ALPACA_SECRET_KEY=your_secret_key_here
+```
+
+4. **サービスを再起動**:
+
+```bash
+docker compose restart llm-service
+```
+
+### twitter-sentiment (有料API)
+
+1. **xAIにサインアップ** (支払いが必要): https://x.ai
+2. **APIキーを取得**
+3. **.envに追加**:
+
+```bash
+# .env
+XAI_API_KEY=your_xai_api_key_here
+```
+
+4. **サービスを再起動**:
+
+```bash
+docker compose restart llm-service
+```
+
+<Warning>
+**xAIコスト**: Twitter感情分析はリクエストあたり約$0.30のコストがかかります。使用状況を注意深く監視してください。
+</Warning>
+
+---
+
+## コスト比較
+
+| エージェント | OSS (セルフホスト) | Shannon Cloud |
+|-------|-------------------|---------------|
+| `sec-filings` | 無料 (SEC EDGAR) | 無料 (含まれる) |
+| `alpaca-news` | 無料ティア (200/月) | マネージド (含まれる) |
+| `twitter-sentiment` | ~$0.30/呼び出し (独自のxAIキー) | ~$0.30/呼び出し (マネージド) |
+| `news-aggregator` | 無料 + $0.30 (組み合わせ) | ~$0.35/呼び出し (マネージド) |
+
+**Shannon Cloudのメリット:**
+- ✅ マネージド型APIキー (サインアップ不要)
+- ✅ テナントごとのコストアカウンティング
+- ✅ レート制限とクォータ
+- ✅ インフラストラクチャ (サーバーメンテナンス不要)
+
+---
+
+## 関連
+
+<CardGroup cols={2}>
+  <Card title="エージェントAPIリファレンス" icon="code" href="/ja/api/rest/agents">
+    完全なAPIエンドポイントドキュメント
+  </Card>
+  <Card title="広告リサーチエージェント" icon="bullhorn" href="/ja/api/agents/ads-research">
+    競合広告インテリジェンスエージェント
+  </Card>
+  <Card title="タスクステータス取得" icon="circle-info" href="/ja/api/rest/get-status">
+    エージェント実行結果を取得
+  </Card>
+  <Card title="エージェント概要" icon="list" href="/ja/api/agents/overview">
+    完全なエージェントカタログと利用可能性マトリックス
+  </Card>
+</CardGroup>

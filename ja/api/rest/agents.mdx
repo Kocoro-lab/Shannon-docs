@@ -1,0 +1,656 @@
+---
+title: "エージェントAPI"
+description: "直接API呼び出しによる単一目的エージェントの実行"
+---
+
+## 概要
+
+エージェントAPIは、LLMオーケストレーションなしで単一目的エージェント (「クイックツール」とも呼ばれる) の直接実行を提供します。各エージェントは特定のツールをラップし、構造化された結果を返します。
+
+**タスクAPIとの主な違い:**
+- **エージェントAPI**: 直接的なツール実行、AIオーケストレーションなし、同期的な結果
+- **タスクAPI**: 複数ステップのワークフロー、LLMプランニング、非同期実行
+
+<Note>
+すべてのエージェント実行は、エージェントが単一の操作を実行する場合でも**非同期**です (task_idを返します)。結果を取得するには [タスクステータスAPI](/ja/api/rest/get-status) を使用します。
+</Note>
+
+## ベースURL
+
+```
+http://localhost:8080/api/v1/agents
+```
+
+本番環境: `https://api-dev.shannon.run/api/v1/agents`
+
+## 認証
+
+**必須**: はい
+
+ヘッダーにAPIキーを含めます:
+```
+X-API-Key: sk_your_api_key
+```
+
+<Note>
+**開発デフォルト**: `GATEWAY_SKIP_AUTH=1` が設定されている場合、認証は無効になります。
+</Note>
+
+---
+
+## エンドポイント
+
+### エージェントをリスト
+
+**GET /api/v1/agents**
+
+スキーマとメタデータを含む、利用可能なすべてのエージェントを返します。
+
+#### リクエスト
+
+```bash
+curl http://localhost:8080/api/v1/agents \
+  -H "X-API-Key: sk_test_123456"
+```
+
+#### レスポンス
+
+```json
+{
+  "agents": [
+    {
+      "id": "serp-ads",
+      "name": "SERP広告抽出",
+      "description": "指定されたキーワードでGoogle検索結果から有料広告を抽出",
+      "category": "ads_research",
+      "tool": "ads_serp_extract",
+      "input_schema": {
+        "required": ["keywords"],
+        "properties": {
+          "keywords": {
+            "type": "string",
+            "description": "広告を検索するキーワード"
+          },
+          "country": {
+            "type": "string",
+            "default": "us",
+            "description": "国コード (us, jp, uk, など)"
+          }
+        }
+      },
+      "cost_per_call": 0.015
+    }
+  ],
+  "count": 16
+}
+```
+
+#### レスポンスフィールド
+
+| フィールド | 型 | 説明 |
+|-------|------|-------------|
+| `agents` | array | エージェント定義のリスト |
+| `count` | integer | エージェントの総数 |
+
+**エージェントオブジェクト:**
+
+| フィールド | 型 | 説明 |
+|-------|------|-------------|
+| `id` | string | エージェント識別子 (実行エンドポイントで使用) |
+| `name` | string | 人間が読める名前 |
+| `description` | string | エージェントが行うこと |
+| `category` | string | エージェントカテゴリ (ads_research、financialなど) |
+| `tool` | string | 基礎となるツール名 |
+| `input_schema` | object | 入力検証のためのJSONスキーマ |
+| `cost_per_call` | number | 実行あたりの推定コスト (USD) |
+
+---
+
+### エージェント詳細を取得
+
+**GET /api/v1/agents/{id}**
+
+入力スキーマを含む、特定のエージェントの詳細を返します。
+
+#### リクエスト
+
+```bash
+curl http://localhost:8080/api/v1/agents/serp-ads \
+  -H "X-API-Key: sk_test_123456"
+```
+
+#### レスポンス
+
+```json
+{
+  "id": "serp-ads",
+  "name": "SERP広告抽出",
+  "description": "指定されたキーワードでGoogle検索結果から有料広告を抽出",
+  "category": "ads_research",
+  "tool": "ads_serp_extract",
+  "input_schema": {
+    "required": ["keywords"],
+    "properties": {
+      "keywords": {
+        "type": "string",
+        "description": "広告を検索するキーワード"
+      },
+      "country": {
+        "type": "string",
+        "default": "us"
+      },
+      "device": {
+        "type": "string",
+        "enum": ["desktop", "mobile", "tablet"],
+        "default": "desktop"
+      }
+    }
+  },
+  "cost_per_call": 0.015
+}
+```
+
+#### エラーレスポンス
+
+**404 Not Found** - エージェントが存在しません:
+
+```json
+{
+  "error": "Agent not found: invalid-agent-id"
+}
+```
+
+---
+
+### エージェントを実行
+
+**POST /api/v1/agents/{id}**
+
+提供された入力で特定のエージェントを実行します。すぐにタスクIDを返し、エージェントは非同期で実行されます。
+
+#### リクエストヘッダー
+
+| ヘッダー | 必須 | 説明 |
+|--------|----------|-------------|
+| `X-API-Key` | はい | API認証キー |
+| `Content-Type` | はい | `application/json` でなければなりません |
+
+#### リクエストボディ
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|------|----------|-------------|
+| `input` | object | はい | エージェント固有の入力パラメータ (`input_schema` に対して検証) |
+| `session_id` | string | いいえ | 追跡のためのセッション識別子 (省略した場合は自動生成) |
+| `stream` | boolean | いいえ | ストリーミングを有効化 (将来の使用のために予約) |
+
+#### 例: SERP広告エージェントの実行
+
+```bash
+curl -X POST http://localhost:8080/api/v1/agents/serp-ads \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "session_id": "user-session-123",
+    "input": {
+      "keywords": "クレジットカード おすすめ",
+      "country": "jp",
+      "device": "desktop"
+    }
+  }'
+```
+
+#### レスポンス
+
+**ステータス**: `202 Accepted`
+
+**ヘッダー**:
+- `X-Workflow-ID`: Temporalワークフロー識別子
+- `X-Session-ID`: セッション識別子
+
+**ボディ**:
+
+```json
+{
+  "task_id": "task-abc123",
+  "agent_id": "serp-ads",
+  "status": "STATUS_CODE_OK",
+  "created_at": "2026-02-15T10:30:00Z"
+}
+```
+
+#### 結果を取得
+
+返された `task_id` で [タスクステータス取得](/ja/api/rest/get-status) エンドポイントを使用します:
+
+```bash
+curl http://localhost:8080/api/v1/tasks/task-abc123 \
+  -H "X-API-Key: sk_test_123456"
+```
+
+**完了時のレスポンス:**
+
+```json
+{
+  "task_id": "task-abc123",
+  "status": "TASK_STATUS_COMPLETED",
+  "result": "{\"keywords\":\"クレジットカード おすすめ\",\"total_ads\":5,\"ads\":[...]}",
+  "response": {
+    "keywords": "クレジットカード おすすめ",
+    "total_ads": 5,
+    "ads": [
+      {
+        "position": 1,
+        "title": "2026年おすすめクレジットカード",
+        "description": "トップのクレジットカードを比較...",
+        "link": "https://example.com/cards",
+        "domain": "example.com"
+      }
+    ],
+    "cost_usd": 0.015,
+    "timestamp": "2026-02-15T10:30:00Z"
+  },
+  "model_used": "claude-sonnet-4-20250514",
+  "provider": "anthropic",
+  "usage": {
+    "total_tokens": 1250,
+    "input_tokens": 800,
+    "output_tokens": 450,
+    "estimated_cost": 0.018
+  }
+}
+```
+
+#### エラーレスポンス
+
+**400 Bad Request** - 無効な入力:
+
+```json
+{
+  "error": "input validation failed: missing required field: keywords"
+}
+```
+
+**404 Not Found** - エージェントが存在しません:
+
+```json
+{
+  "error": "Agent not found: invalid-agent"
+}
+```
+
+**429 Too Many Requests** - レート制限を超過:
+
+```json
+{
+  "error": "Rate limit exceeded"
+}
+```
+
+---
+
+## 入力検証
+
+すべてのエージェント入力は実行前にエージェントの `input_schema` に対して検証されます。
+
+**検証ルール:**
+1. **必須フィールド** は存在し、nullでない必要があります
+2. **型チェック** - 文字列、整数、ブール値、配列、オブジェクト
+3. **列挙型検証** - 値は許可されたリストにある必要があります
+4. **未知のフィールド** - セキュリティのために拒否 (スキーマにない)
+
+**スキーマ例:**
+
+```json
+{
+  "required": ["keywords"],
+  "properties": {
+    "keywords": {
+      "type": "string",
+      "description": "検索キーワード"
+    },
+    "device": {
+      "type": "string",
+      "enum": ["desktop", "mobile", "tablet"],
+      "default": "desktop"
+    },
+    "max_results": {
+      "type": "integer",
+      "default": 10
+    }
+  }
+}
+```
+
+**有効な入力:**
+
+```json
+{
+  "keywords": "最高のシューズ",
+  "device": "mobile",
+  "max_results": 5
+}
+```
+
+**無効な入力 (必須フィールドの欠落):**
+
+```json
+{
+  "device": "mobile"
+}
+```
+
+エラー: `"input validation failed: missing required field: keywords"`
+
+**無効な入力 (未知のフィールド):**
+
+```json
+{
+  "keywords": "シューズ",
+  "unknown_field": "value"
+}
+```
+
+エラー: `"input validation failed: unknown field: unknown_field (not defined in agent schema)"`
+
+---
+
+## 利用可能なエージェント
+
+Shannonは複数のカテゴリにわたって**16以上の専門エージェント**を提供します。
+
+詳細なスキーマと例を含む利用可能なエージェントの完全なカタログについては、以下を参照してください:
+
+<CardGroup cols={2}>
+  <Card title="広告リサーチエージェント" icon="bullhorn" href="/ja/api/agents/ads-research">
+    競合広告分析のための10のエージェント
+  </Card>
+  <Card title="金融リサーチエージェント" icon="chart-line" href="/ja/api/agents/financial">
+    株式ニュースと感情分析のための4のエージェント
+  </Card>
+</CardGroup>
+
+### カテゴリ別クイックリファレンス
+
+**広告リサーチ** (10エージェント):
+- `serp-ads` - Google有料広告を抽出
+- `yahoo-jp-ads` - Yahoo Japanスポンサー広告を抽出
+- `meta-ad-library` - Meta広告ライブラリ (Facebook/Instagram) を検索
+- `competitor-discover` - 競合広告主を見つける
+- `ads-transparency` - マルチプラットフォーム広告透明性データ
+- `lp-visual-analyze` - ランディングページをスクリーンショットして分析
+- `lp-batch-analyze` - 複数のランディングページをバッチ分析
+- `ad-creative-analyze` - 広告コピーパターンを分析
+- `keyword-extract` - テキストから検索キーワードを抽出
+- `browser-screenshot` - Webページのスクリーンショットをキャプチャ
+
+**金融ツール** (4エージェント):
+- `sec-filings` - SEC EDGAR提出書類検索
+- `twitter-sentiment` - xAI経由のX/Twitter感情
+- `alpaca-news` - Alpaca Marketsからの株式ニュース
+- `news-aggregator` - マルチソースニュース集約
+
+---
+
+## 統合タスクAPIの代替
+
+`context.agent` パラメータを使用して、**統合タスクAPI** を通じてエージェントを実行することもできます:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "NVDA",
+    "session_id": "user-session-123",
+    "context": {
+      "agent": "sec-filings",
+      "agent_input": {
+        "ticker": "NVDA",
+        "days_back": 90
+      }
+    }
+  }'
+```
+
+**両方のアプローチは同等です**:
+- 専用エンドポイント: `POST /api/v1/agents/{id}`
+- 統合エンドポイント: `context.agent` を持つ `POST /api/v1/tasks`
+
+---
+
+## ベストプラクティス
+
+### 1. 送信前に入力を検証
+
+GETエンドポイントを使用してエージェントのスキーマを取得し、クライアント側で入力を検証します:
+
+```python
+import httpx
+
+# スキーマを取得
+agent = httpx.get(
+    "http://localhost:8080/api/v1/agents/serp-ads",
+    headers={"X-API-Key": "sk_test_123456"}
+).json()
+
+# 必須フィールドを検証
+required = agent["input_schema"]["required"]
+input_data = {"keywords": "シューズ", "device": "mobile"}
+
+for field in required:
+    if field not in input_data:
+        raise ValueError(f"Missing required field: {field}")
+```
+
+### 2. 非同期結果を処理
+
+すべてのエージェントはすぐにタスクIDを返します。結果をポーリングします:
+
+```python
+import time
+
+# エージェントを実行
+response = httpx.post(
+    "http://localhost:8080/api/v1/agents/serp-ads",
+    headers={"X-API-Key": "sk_test_123456"},
+    json={"input": {"keywords": "シューズ"}}
+).json()
+
+task_id = response["task_id"]
+
+# 完了をポーリング
+while True:
+    status = httpx.get(
+        f"http://localhost:8080/api/v1/tasks/{task_id}",
+        headers={"X-API-Key": "sk_test_123456"}
+    ).json()
+
+    if status["status"] == "TASK_STATUS_COMPLETED":
+        print(status["response"])
+        break
+
+    time.sleep(2)
+```
+
+### 3. コンテキストにセッションを使用
+
+関連するエージェント呼び出し間で `session_id` を再利用します:
+
+```python
+session_id = "user-123-analysis"
+
+# 最初のエージェント呼び出し
+httpx.post(..., json={
+    "session_id": session_id,
+    "input": {"keywords": "シューズ"}
+})
+
+# 2番目のエージェント呼び出し (同じセッション)
+httpx.post(..., json={
+    "session_id": session_id,
+    "input": {"urls": ["https://example.com"]}
+})
+```
+
+### 4. コスト見積もりを確認
+
+高価なエージェントを実行する前に `cost_per_call` を確認します:
+
+```python
+agent = httpx.get(
+    "http://localhost:8080/api/v1/agents/twitter-sentiment",
+    headers={"X-API-Key": "sk_test_123456"}
+).json()
+
+if agent["cost_per_call"] > 0.10:
+    print(f"警告: 高コストのエージェント (${agent['cost_per_call']})")
+```
+
+---
+
+## コード例
+
+### httpxを使ったPython
+
+```python
+import httpx
+
+# すべてのエージェントをリスト
+agents = httpx.get(
+    "http://localhost:8080/api/v1/agents",
+    headers={"X-API-Key": "sk_test_123456"}
+).json()
+
+print(f"{agents['count']} エージェントが見つかりました")
+
+# 特定のエージェントを実行
+response = httpx.post(
+    "http://localhost:8080/api/v1/agents/serp-ads",
+    headers={
+        "X-API-Key": "sk_test_123456",
+        "Content-Type": "application/json"
+    },
+    json={
+        "session_id": "my-session",
+        "input": {
+            "keywords": "ランニングシューズ",
+            "country": "jp",
+            "device": "mobile"
+        }
+    }
+).json()
+
+print(f"タスクID: {response['task_id']}")
+```
+
+### JavaScript/Node.js
+
+```javascript
+const axios = require('axios');
+
+// エージェント詳細を取得
+const agent = await axios.get(
+  'http://localhost:8080/api/v1/agents/serp-ads',
+  {
+    headers: { 'X-API-Key': 'sk_test_123456' }
+  }
+);
+
+console.log('エージェントスキーマ:', agent.data.input_schema);
+
+// エージェントを実行
+const response = await axios.post(
+  'http://localhost:8080/api/v1/agents/serp-ads',
+  {
+    session_id: 'my-session',
+    input: {
+      keywords: 'ランニングシューズ',
+      country: 'jp'
+    }
+  },
+  {
+    headers: {
+      'X-API-Key': 'sk_test_123456',
+      'Content-Type': 'application/json'
+    }
+  }
+);
+
+console.log('タスクID:', response.data.task_id);
+```
+
+### Go
+
+```go
+package main
+
+import (
+    "bytes"
+    "encoding/json"
+    "fmt"
+    "net/http"
+)
+
+type AgentExecuteRequest struct {
+    SessionID string                 `json:"session_id,omitempty"`
+    Input     map[string]interface{} `json:"input"`
+}
+
+func executeAgent(agentID string, input map[string]interface{}) (string, error) {
+    req := AgentExecuteRequest{
+        SessionID: "my-session",
+        Input:     input,
+    }
+
+    body, _ := json.Marshal(req)
+
+    httpReq, _ := http.NewRequest(
+        "POST",
+        fmt.Sprintf("http://localhost:8080/api/v1/agents/%s", agentID),
+        bytes.NewBuffer(body),
+    )
+
+    httpReq.Header.Set("X-API-Key", "sk_test_123456")
+    httpReq.Header.Set("Content-Type", "application/json")
+
+    client := &http.Client{}
+    resp, err := client.Do(httpReq)
+    if err != nil {
+        return "", err
+    }
+    defer resp.Body.Close()
+
+    var result map[string]interface{}
+    json.NewDecoder(resp.Body).Decode(&result)
+
+    return result["task_id"].(string), nil
+}
+
+func main() {
+    taskID, _ := executeAgent("serp-ads", map[string]interface{}{
+        "keywords": "ランニングシューズ",
+        "country":  "jp",
+    })
+
+    fmt.Printf("タスクID: %s\n", taskID)
+}
+```
+
+---
+
+## 関連エンドポイント
+
+<CardGroup cols={2}>
+  <Card title="タスク送信" icon="paper-plane" href="/ja/api/rest/submit-task">
+    AIオーケストレーションによる統合タスク送信
+  </Card>
+  <Card title="タスクステータス取得" icon="circle-info" href="/ja/api/rest/get-status">
+    エージェント実行結果を取得
+  </Card>
+  <Card title="広告リサーチエージェント" icon="bullhorn" href="/ja/api/agents/ads-research">
+    完全な広告リサーチエージェントカタログ
+  </Card>
+  <Card title="金融エージェント" icon="chart-line" href="/ja/api/agents/financial">
+    金融リサーチエージェントカタログ
+  </Card>
+</CardGroup>

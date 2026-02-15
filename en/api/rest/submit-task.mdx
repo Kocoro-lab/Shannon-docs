@@ -115,7 +115,7 @@ X-API-Key: sk_test_123456
 
 Recognized keys:
 
-- `role` — role preset (e.g., `analysis`, `research`, `writer`)
+- `role` — role preset (e.g., `analysis`, `research`, `writer`, `ads_research`, `financial_news`, `browser_use`)
 - `system_prompt` — overrides role prompt; supports `${var}` from `prompt_params`
 - `prompt_params` — arbitrary parameters for prompts/tools/adapters
 - `model_tier` — fallback when top‑level not provided
@@ -131,12 +131,38 @@ Recognized keys:
   - `iterative_research_enabled` — Enable/disable iterative coverage loop (default: `true`)
   - `iterative_max_iterations` — Max iterations 1-5 (strategy presets seed defaults; otherwise falls back to `3`)
   - `enable_fact_extraction` — Extract structured facts into metadata (default: `false`)
+- **Ads Research Platform Toggles** (when `role: "ads_research"`):
+  - `platforms.google` — Enable/disable Google Shopping Ads (default: `true`)
+  - `platforms.yahoo_jp` — Enable/disable Yahoo Japan Ads (default: `true`)
+  - `platforms.meta` — Enable/disable Meta Ad Library (default: `true`)
+  - `platforms.meta_platform` — Meta platform filter: `facebook`, `instagram`, `messenger`, `whatsapp`, or `all` (default: `all`)
 
 Rules:
 - Top-level parameters override context equivalents: `model_tier`, `model_override`, `provider_override`, `skill`, `research_strategy`
 - `mode` supports: `simple|standard|complex|supervisor` (default: auto-detect)
 - `model_tier` supports: `small|medium|large`
 - **Conflict validation**: `disable_ai: true` cannot be combined with `model_tier`, `model_override`, or `provider_override` (returns 400)
+
+### Role Presets
+
+Role presets provide specialized system prompts and tool allowlists for different task types. Set via `context.role`:
+
+| Role | Description | Available Tools | Use Case |
+|------|-------------|-----------------|----------|
+| `generalist` | General-purpose assistant (default) | All tools | Simple queries, general chat |
+| `analysis` | Analytical assistant with structured reasoning | `web_search`, `file_read` | Data analysis, structured reasoning |
+| `research` | Research assistant for gathering and synthesizing information | `web_search`, `web_fetch`, `web_subpage_fetch`, `web_crawl` | Information gathering, fact-finding |
+| `writer` | Technical writer for clear, organized prose | `file_read` | Documentation, content creation |
+| `critic` | Critical reviewer for identifying flaws and risks | `file_read` | Code review, quality assurance |
+| `developer` | Developer assistant with filesystem access | `file_read`, `file_write`, `file_list`, `bash`, `python_executor` | Coding, debugging, file operations |
+| `browser_use` | Browser automation specialist | `browser_*` tools, `web_search` | Web scraping, UI automation, screenshot capture |
+| `ads_research` **(Shannon Cloud Only)** | Multi-platform ads competitor analysis | `ads_serp_extract`, `ads_transparency_search`, `meta_ad_library`, `yahoo_jp_ads` | Marketing research, competitor ads analysis |
+| `financial_news` **(Shannon Cloud Only)** | Financial news and sentiment analysis | `news_aggregator`, `alpaca_news`, `sec_filings`, `twitter_sentiment` | Stock news, market sentiment analysis |
+| `data_analytics` | Data analytics with vendor integrations | Vendor-specific analytics tools | Business intelligence, analytics reporting |
+
+<Note>
+**Shannon Cloud Only**: Roles marked as "Shannon Cloud Only" are enterprise features and require a Shannon Cloud deployment with vendor adapter configuration.
+</Note>
 
 ## Response
 
@@ -266,6 +292,60 @@ curl -X POST http://localhost:8080/api/v1/tasks \
     "mode": "supervisor"
   }'
 ```
+
+### Ads Research (Shannon Cloud Only)
+
+Multi-platform advertising competitor analysis with platform toggles.
+
+```bash
+# Analyze competitors across all platforms
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Analyze competitor ads for organic skincare products",
+    "context": {
+      "role": "ads_research"
+    }
+  }'
+
+# Google Shopping Ads only
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Find competitor pricing strategies for wireless earbuds",
+    "context": {
+      "role": "ads_research",
+      "platforms": {
+        "google": true,
+        "yahoo_jp": false,
+        "meta": false
+      }
+    }
+  }'
+
+# Meta (Instagram only) + Yahoo Japan
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Research fashion brand advertising on Instagram and Yahoo Japan",
+    "context": {
+      "role": "ads_research",
+      "platforms": {
+        "google": false,
+        "yahoo_jp": true,
+        "meta": true,
+        "meta_platform": "instagram"
+      }
+    }
+  }'
+```
+
+<Tip>
+**Platform Defaults**: All platforms are enabled by default. Use `platforms` object to selectively disable platforms or filter Meta by platform (`facebook`, `instagram`, `messenger`, `whatsapp`, `all`).
+</Tip>
 
 ### Deep Research 2.0
 

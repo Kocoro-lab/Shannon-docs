@@ -43,15 +43,20 @@ X-API-Key: sk_your_api_key
 
 Shannon maps model names to different workflow modes and strategies. Select a model to control how your request is processed.
 
-| Model | Workflow Mode | Description | Default Max Tokens |
-|-------|--------------|-------------|-------------------|
-| `shannon-chat` | Simple | General chat completion (default) | 4096 |
-| `shannon-standard-research` | Research | Balanced research with moderate depth | 4096 |
-| `shannon-deep-research` | Research | Deep research with iterative refinement | 8192 |
-| `shannon-quick-research` | Research | Fast research for simple queries | 4096 |
-| `shannon-complex` | Supervisor | Multi-agent orchestration for complex tasks | 8192 |
+| Model | Workflow Mode | Description | Default Max Tokens | Availability |
+|-------|--------------|-------------|-------------------|--------------|
+| `shannon-chat` | Simple | General chat completion (default) | 4096 | All |
+| `shannon-standard-research` | Research | Balanced research with moderate depth | 4096 | All |
+| `shannon-deep-research` | Research | Deep research with iterative refinement | 8192 | All |
+| `shannon-quick-research` | Research | Fast research for simple queries | 4096 | All |
+| `shannon-complex` | Supervisor | Multi-agent orchestration for complex tasks | 8192 | All |
+| `shannon-ads-research` | Ads Research | Multi-platform ads competitor analysis | 8192 | **Shannon Cloud Only** |
 
 If no model is specified, `shannon-chat` is used.
+
+<Note>
+**Shannon Cloud Only**: The `shannon-ads-research` model is an enterprise feature available only on Shannon Cloud deployments with ads research vendor adapters configured.
+</Note>
 
 <Tip>
 Models can be customized via `config/openai_models.yaml`. See the Shannon configuration documentation for details on adding custom models.
@@ -333,6 +338,15 @@ response = client.chat.completions.create(
     messages=[
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "What is Shannon?"}
+    ],
+)
+print(response.choices[0].message.content)
+
+# Ads Research (Shannon Cloud Only)
+response = client.chat.completions.create(
+    model="shannon-ads-research",
+    messages=[
+        {"role": "user", "content": "Analyze competitor ads for organic skincare products"}
     ],
 )
 print(response.choices[0].message.content)

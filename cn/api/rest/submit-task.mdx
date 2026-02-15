@@ -115,7 +115,7 @@ X-API-Key: sk_test_123456
 
 支持的键：
 
-- `role` — 角色预设（如 `analysis`、`research`、`writer`）
+- `role` — 角色预设（如 `analysis`、`research`、`writer`、`ads_research`、`financial_news`、`browser_use`）
 - `system_prompt` — 覆盖角色提示；支持从 `prompt_params` 引用 `${var}`
 - `prompt_params` — 提示/工具的自定义参数
 - `model_tier` — 当顶层未提供时作为回退
@@ -131,12 +131,38 @@ X-API-Key: sk_test_123456
   - `iterative_research_enabled` — 启用/禁用迭代覆盖循环（默认：`true`）
   - `iterative_max_iterations` — 最大迭代次数 1-5（策略预设会注入默认值；否则回退为 `3`）
   - `enable_fact_extraction` — 将结构化事实提取到元数据中（默认：`false`）
+- **广告研究平台开关**（当 `role: "ads_research"` 时）：
+  - `platforms.google` — 启用/禁用 Google 购物广告（默认：`true`）
+  - `platforms.yahoo_jp` — 启用/禁用 Yahoo Japan 广告（默认：`true`）
+  - `platforms.meta` — 启用/禁用 Meta 广告库（默认：`true`）
+  - `platforms.meta_platform` — Meta 平台过滤器：`facebook`、`instagram`、`messenger`、`whatsapp` 或 `all`（默认：`all`）
 
 规则：
 - 顶层参数会覆盖上下文中的等效参数：`model_tier`、`model_override`、`provider_override`、`skill`、`research_strategy`
 - `mode` 支持：`simple|standard|complex|supervisor`（默认：自动检测）
 - `model_tier` 支持：`small|medium|large`
 - **冲突验证**：`disable_ai: true` 不能与 `model_tier`、`model_override` 或 `provider_override` 组合使用（返回 400）
+
+### 角色预设
+
+角色预设为不同的任务类型提供专门的系统提示和工具允许列表。通过 `context.role` 设置：
+
+| 角色 | 描述 | 可用工具 | 使用场景 |
+|------|------|----------|----------|
+| `generalist` | 通用助手（默认） | 所有工具 | 简单查询、通用对话 |
+| `analysis` | 具有结构化推理的分析助手 | `web_search`, `file_read` | 数据分析、结构化推理 |
+| `research` | 用于收集和综合信息的研究助手 | `web_search`, `web_fetch`, `web_subpage_fetch`, `web_crawl` | 信息收集、事实查找 |
+| `writer` | 用于清晰、有组织的文章的技术写作者 | `file_read` | 文档编写、内容创作 |
+| `critic` | 用于识别缺陷和风险的批评性审查者 | `file_read` | 代码审查、质量保证 |
+| `developer` | 具有文件系统访问权限的开发者助手 | `file_read`, `file_write`, `file_list`, `bash`, `python_executor` | 编码、调试、文件操作 |
+| `browser_use` | 浏览器自动化专家 | `browser_*` 工具, `web_search` | 网页抓取、UI 自动化、截图捕获 |
+| `ads_research` **（仅限 Shannon Cloud）** | 多平台广告竞争分析 | `ads_serp_extract`, `ads_transparency_search`, `meta_ad_library`, `yahoo_jp_ads` | 营销研究、竞争对手广告分析 |
+| `financial_news` **（仅限 Shannon Cloud）** | 财经新闻和情绪分析 | `news_aggregator`, `alpaca_news`, `sec_filings`, `twitter_sentiment` | 股票新闻、市场情绪分析 |
+| `data_analytics` | 具有供应商集成的数据分析 | 供应商特定分析工具 | 商业智能、分析报告 |
+
+<Note>
+**仅限 Shannon Cloud**：标记为"仅限 Shannon Cloud"的角色是企业功能，需要配置了供应商适配器的 Shannon Cloud 部署。
+</Note>
 
 ## 响应
 
@@ -266,6 +292,60 @@ curl -X POST http://localhost:8080/api/v1/tasks \\
     "mode": "supervisor"
   }'
 ```
+
+### 广告研究（仅限 Shannon Cloud）
+
+多平台广告竞争分析，支持平台开关。
+
+```bash
+# 分析所有平台的竞争对手
+curl -X POST http://localhost:8080/api/v1/tasks \\
+  -H "X-API-Key: sk_test_123456" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "query": "分析有机护肤品的竞争对手广告",
+    "context": {
+      "role": "ads_research"
+    }
+  }'
+
+# 仅 Google 购物广告
+curl -X POST http://localhost:8080/api/v1/tasks \\
+  -H "X-API-Key: sk_test_123456" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "query": "查找无线耳机的竞争对手定价策略",
+    "context": {
+      "role": "ads_research",
+      "platforms": {
+        "google": true,
+        "yahoo_jp": false,
+        "meta": false
+      }
+    }
+  }'
+
+# Meta（仅 Instagram）+ Yahoo Japan
+curl -X POST http://localhost:8080/api/v1/tasks \\
+  -H "X-API-Key: sk_test_123456" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "query": "研究时尚品牌在 Instagram 和 Yahoo Japan 上的广告",
+    "context": {
+      "role": "ads_research",
+      "platforms": {
+        "google": false,
+        "yahoo_jp": true,
+        "meta": true,
+        "meta_platform": "instagram"
+      }
+    }
+  }'
+```
+
+<Tip>
+**平台默认值**：所有平台默认启用。使用 `platforms` 对象选择性地禁用平台或按平台过滤 Meta（`facebook`、`instagram`、`messenger`、`whatsapp`、`all`）。
+</Tip>
 
 ### Deep Research 2.0
 

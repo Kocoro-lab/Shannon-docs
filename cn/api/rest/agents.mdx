@@ -1,0 +1,656 @@
+---
+title: "智能体API"
+description: "通过直接API调用执行单一用途智能体"
+---
+
+## 概览
+
+智能体API提供无需LLM编排即可直接执行单一用途智能体(也称为"快速工具")。每个智能体封装一个特定工具并返回结构化结果。
+
+**与任务API的主要区别:**
+- **智能体API**: 直接工具执行,无AI编排,同步结果
+- **任务API**: 多步骤工作流,LLM规划,异步执行
+
+<Note>
+所有智能体执行都是**异步的**(返回task_id),即使智能体执行单一操作。使用[任务状态API](/cn/api/rest/get-status)检索结果。
+</Note>
+
+## 基础URL
+
+```
+http://localhost:8080/api/v1/agents
+```
+
+生产环境: `https://api-dev.shannon.run/api/v1/agents`
+
+## 认证
+
+**必需**: 是
+
+在请求头中包含API密钥:
+```
+X-API-Key: sk_your_api_key
+```
+
+<Note>
+**开发默认**: 当设置`GATEWAY_SKIP_AUTH=1`时禁用认证。
+</Note>
+
+---
+
+## 端点
+
+### 列出智能体
+
+**GET /api/v1/agents**
+
+返回所有可用智能体及其模式和元数据。
+
+#### 请求
+
+```bash
+curl http://localhost:8080/api/v1/agents \
+  -H "X-API-Key: sk_test_123456"
+```
+
+#### 响应
+
+```json
+{
+  "agents": [
+    {
+      "id": "serp-ads",
+      "name": "SERP广告提取",
+      "description": "从Google搜索结果中提取指定关键词的付费广告",
+      "category": "ads_research",
+      "tool": "ads_serp_extract",
+      "input_schema": {
+        "required": ["keywords"],
+        "properties": {
+          "keywords": {
+            "type": "string",
+            "description": "要查找广告的搜索关键词"
+          },
+          "country": {
+            "type": "string",
+            "default": "us",
+            "description": "国家代码(us、jp、uk等)"
+          }
+        }
+      },
+      "cost_per_call": 0.015
+    }
+  ],
+  "count": 16
+}
+```
+
+#### 响应字段
+
+| 字段 | 类型 | 描述 |
+|-------|------|-------------|
+| `agents` | array | 智能体定义列表 |
+| `count` | integer | 智能体总数 |
+
+**智能体对象:**
+
+| 字段 | 类型 | 描述 |
+|-------|------|-------------|
+| `id` | string | 智能体标识符(用于执行端点) |
+| `name` | string | 人类可读名称 |
+| `description` | string | 智能体功能 |
+| `category` | string | 智能体类别(ads_research、financial等) |
+| `tool` | string | 底层工具名称 |
+| `input_schema` | object | 输入验证的JSON模式 |
+| `cost_per_call` | number | 每次执行的估计成本(USD) |
+
+---
+
+### 获取智能体详情
+
+**GET /api/v1/agents/{id}**
+
+返回特定智能体的详情,包括其输入模式。
+
+#### 请求
+
+```bash
+curl http://localhost:8080/api/v1/agents/serp-ads \
+  -H "X-API-Key: sk_test_123456"
+```
+
+#### 响应
+
+```json
+{
+  "id": "serp-ads",
+  "name": "SERP广告提取",
+  "description": "从Google搜索结果中提取指定关键词的付费广告",
+  "category": "ads_research",
+  "tool": "ads_serp_extract",
+  "input_schema": {
+    "required": ["keywords"],
+    "properties": {
+      "keywords": {
+        "type": "string",
+        "description": "要查找广告的搜索关键词"
+      },
+      "country": {
+        "type": "string",
+        "default": "us"
+      },
+      "device": {
+        "type": "string",
+        "enum": ["desktop", "mobile", "tablet"],
+        "default": "desktop"
+      }
+    }
+  },
+  "cost_per_call": 0.015
+}
+```
+
+#### 错误响应
+
+**404 Not Found** - 智能体不存在:
+
+```json
+{
+  "error": "Agent not found: invalid-agent-id"
+}
+```
+
+---
+
+### 执行智能体
+
+**POST /api/v1/agents/{id}**
+
+使用提供的输入执行特定智能体。立即返回任务ID;智能体异步运行。
+
+#### 请求头
+
+| 请求头 | 必需 | 描述 |
+|--------|----------|-------------|
+| `X-API-Key` | 是 | API认证密钥 |
+| `Content-Type` | 是 | 必须是`application/json` |
+
+#### 请求体
+
+| 参数 | 类型 | 必需 | 描述 |
+|-----------|------|----------|-------------|
+| `input` | object | 是 | 智能体特定的输入参数(根据`input_schema`验证) |
+| `session_id` | string | 否 | 用于跟踪的会话标识符(如省略则自动生成) |
+| `stream` | boolean | 否 | 启用流式传输(保留供未来使用) |
+
+#### 示例: 执行SERP广告智能体
+
+```bash
+curl -X POST http://localhost:8080/api/v1/agents/serp-ads \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "session_id": "user-session-123",
+    "input": {
+      "keywords": "信用卡推荐",
+      "country": "cn",
+      "device": "desktop"
+    }
+  }'
+```
+
+#### 响应
+
+**状态**: `202 Accepted`
+
+**请求头**:
+- `X-Workflow-ID`: Temporal工作流标识符
+- `X-Session-ID`: 会话标识符
+
+**响应体**:
+
+```json
+{
+  "task_id": "task-abc123",
+  "agent_id": "serp-ads",
+  "status": "STATUS_CODE_OK",
+  "created_at": "2026-02-15T10:30:00Z"
+}
+```
+
+#### 检索结果
+
+使用返回的`task_id`调用[获取任务状态](/cn/api/rest/get-status)端点:
+
+```bash
+curl http://localhost:8080/api/v1/tasks/task-abc123 \
+  -H "X-API-Key: sk_test_123456"
+```
+
+**完成时的响应:**
+
+```json
+{
+  "task_id": "task-abc123",
+  "status": "TASK_STATUS_COMPLETED",
+  "result": "{\"keywords\":\"信用卡推荐\",\"total_ads\":5,\"ads\":[...]}",
+  "response": {
+    "keywords": "信用卡推荐",
+    "total_ads": 5,
+    "ads": [
+      {
+        "position": 1,
+        "title": "2026年最佳信用卡",
+        "description": "比较顶级信用卡...",
+        "link": "https://example.com/cards",
+        "domain": "example.com"
+      }
+    ],
+    "cost_usd": 0.015,
+    "timestamp": "2026-02-15T10:30:00Z"
+  },
+  "model_used": "claude-sonnet-4-20250514",
+  "provider": "anthropic",
+  "usage": {
+    "total_tokens": 1250,
+    "input_tokens": 800,
+    "output_tokens": 450,
+    "estimated_cost": 0.018
+  }
+}
+```
+
+#### 错误响应
+
+**400 Bad Request** - 输入无效:
+
+```json
+{
+  "error": "input validation failed: missing required field: keywords"
+}
+```
+
+**404 Not Found** - 智能体不存在:
+
+```json
+{
+  "error": "Agent not found: invalid-agent"
+}
+```
+
+**429 Too Many Requests** - 超过速率限制:
+
+```json
+{
+  "error": "Rate limit exceeded"
+}
+```
+
+---
+
+## 输入验证
+
+所有智能体输入在执行前都会根据智能体的`input_schema`进行验证。
+
+**验证规则:**
+1. **必需字段**必须存在且非空
+2. **类型检查** - 字符串、整数、布尔值、数组、对象
+3. **枚举验证** - 值必须在允许列表中
+4. **未知字段** - 出于安全考虑被拒绝(不在模式中)
+
+**模式示例:**
+
+```json
+{
+  "required": ["keywords"],
+  "properties": {
+    "keywords": {
+      "type": "string",
+      "description": "搜索关键词"
+    },
+    "device": {
+      "type": "string",
+      "enum": ["desktop", "mobile", "tablet"],
+      "default": "desktop"
+    },
+    "max_results": {
+      "type": "integer",
+      "default": 10
+    }
+  }
+}
+```
+
+**有效输入:**
+
+```json
+{
+  "keywords": "最佳跑鞋",
+  "device": "mobile",
+  "max_results": 5
+}
+```
+
+**无效输入(缺少必需字段):**
+
+```json
+{
+  "device": "mobile"
+}
+```
+
+错误: `"input validation failed: missing required field: keywords"`
+
+**无效输入(未知字段):**
+
+```json
+{
+  "keywords": "跑鞋",
+  "unknown_field": "value"
+}
+```
+
+错误: `"input validation failed: unknown field: unknown_field (not defined in agent schema)"`
+
+---
+
+## 可用智能体
+
+Shannon提供**16+专用智能体**,涵盖多个类别。
+
+有关可用智能体的完整目录及详细模式和示例,请参阅:
+
+<CardGroup cols={2}>
+  <Card title="广告研究智能体" icon="bullhorn" href="/cn/api/agents/ads-research">
+    10个用于竞争广告分析的智能体
+  </Card>
+  <Card title="金融研究智能体" icon="chart-line" href="/cn/api/agents/financial">
+    4个用于股票新闻和情感分析的智能体
+  </Card>
+</CardGroup>
+
+### 按类别快速参考
+
+**广告研究**(10个智能体):
+- `serp-ads` - 提取Google付费广告
+- `yahoo-jp-ads` - 提取Yahoo Japan赞助广告
+- `meta-ad-library` - 搜索Meta广告库(Facebook/Instagram)
+- `competitor-discover` - 发现竞争对手广告主
+- `ads-transparency` - 多平台广告透明度数据
+- `lp-visual-analyze` - 截图和分析落地页
+- `lp-batch-analyze` - 批量分析多个落地页
+- `ad-creative-analyze` - 分析广告文案模式
+- `keyword-extract` - 从文本提取搜索关键词
+- `browser-screenshot` - 捕获网页截图
+
+**金融工具**(4个智能体):
+- `sec-filings` - SEC EDGAR文件查询
+- `twitter-sentiment` - 通过xAI进行X/Twitter情感分析
+- `alpaca-news` - Alpaca Markets股票新闻
+- `news-aggregator` - 多源新闻聚合
+
+---
+
+## 统一任务API替代方案
+
+您也可以通过**统一任务API**使用`context.agent`参数执行智能体:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "NVDA",
+    "session_id": "user-session-123",
+    "context": {
+      "agent": "sec-filings",
+      "agent_input": {
+        "ticker": "NVDA",
+        "days_back": 90
+      }
+    }
+  }'
+```
+
+**两种方法等效**:
+- 专用端点: `POST /api/v1/agents/{id}`
+- 统一端点: `POST /api/v1/tasks` 配合`context.agent`
+
+---
+
+## 最佳实践
+
+### 1. 提交前验证输入
+
+使用GET端点检索智能体的模式,然后在客户端验证您的输入:
+
+```python
+import httpx
+
+# 获取模式
+agent = httpx.get(
+    "http://localhost:8080/api/v1/agents/serp-ads",
+    headers={"X-API-Key": "sk_test_123456"}
+).json()
+
+# 验证必需字段
+required = agent["input_schema"]["required"]
+input_data = {"keywords": "跑鞋", "device": "mobile"}
+
+for field in required:
+    if field not in input_data:
+        raise ValueError(f"Missing required field: {field}")
+```
+
+### 2. 处理异步结果
+
+所有智能体立即返回任务ID。轮询结果:
+
+```python
+import time
+
+# 执行智能体
+response = httpx.post(
+    "http://localhost:8080/api/v1/agents/serp-ads",
+    headers={"X-API-Key": "sk_test_123456"},
+    json={"input": {"keywords": "跑鞋"}}
+).json()
+
+task_id = response["task_id"]
+
+# 轮询完成
+while True:
+    status = httpx.get(
+        f"http://localhost:8080/api/v1/tasks/{task_id}",
+        headers={"X-API-Key": "sk_test_123456"}
+    ).json()
+
+    if status["status"] == "TASK_STATUS_COMPLETED":
+        print(status["response"])
+        break
+
+    time.sleep(2)
+```
+
+### 3. 使用会话保持上下文
+
+在相关的智能体调用中重用`session_id`:
+
+```python
+session_id = "user-123-analysis"
+
+# 第一次智能体调用
+httpx.post(..., json={
+    "session_id": session_id,
+    "input": {"keywords": "跑鞋"}
+})
+
+# 第二次智能体调用(同一会话)
+httpx.post(..., json={
+    "session_id": session_id,
+    "input": {"urls": ["https://example.com"]}
+})
+```
+
+### 4. 检查成本估算
+
+在执行昂贵的智能体之前,检查`cost_per_call`:
+
+```python
+agent = httpx.get(
+    "http://localhost:8080/api/v1/agents/twitter-sentiment",
+    headers={"X-API-Key": "sk_test_123456"}
+).json()
+
+if agent["cost_per_call"] > 0.10:
+    print(f"Warning: High cost agent (${agent['cost_per_call']})")
+```
+
+---
+
+## 代码示例
+
+### Python with httpx
+
+```python
+import httpx
+
+# 列出所有智能体
+agents = httpx.get(
+    "http://localhost:8080/api/v1/agents",
+    headers={"X-API-Key": "sk_test_123456"}
+).json()
+
+print(f"Found {agents['count']} agents")
+
+# 执行特定智能体
+response = httpx.post(
+    "http://localhost:8080/api/v1/agents/serp-ads",
+    headers={
+        "X-API-Key": "sk_test_123456",
+        "Content-Type": "application/json"
+    },
+    json={
+        "session_id": "my-session",
+        "input": {
+            "keywords": "跑鞋",
+            "country": "cn",
+            "device": "mobile"
+        }
+    }
+).json()
+
+print(f"Task ID: {response['task_id']}")
+```
+
+### JavaScript/Node.js
+
+```javascript
+const axios = require('axios');
+
+// 获取智能体详情
+const agent = await axios.get(
+  'http://localhost:8080/api/v1/agents/serp-ads',
+  {
+    headers: { 'X-API-Key': 'sk_test_123456' }
+  }
+);
+
+console.log('Agent schema:', agent.data.input_schema);
+
+// 执行智能体
+const response = await axios.post(
+  'http://localhost:8080/api/v1/agents/serp-ads',
+  {
+    session_id: 'my-session',
+    input: {
+      keywords: '跑鞋',
+      country: 'cn'
+    }
+  },
+  {
+    headers: {
+      'X-API-Key': 'sk_test_123456',
+      'Content-Type': 'application/json'
+    }
+  }
+);
+
+console.log('Task ID:', response.data.task_id);
+```
+
+### Go
+
+```go
+package main
+
+import (
+    "bytes"
+    "encoding/json"
+    "fmt"
+    "net/http"
+)
+
+type AgentExecuteRequest struct {
+    SessionID string                 `json:"session_id,omitempty"`
+    Input     map[string]interface{} `json:"input"`
+}
+
+func executeAgent(agentID string, input map[string]interface{}) (string, error) {
+    req := AgentExecuteRequest{
+        SessionID: "my-session",
+        Input:     input,
+    }
+
+    body, _ := json.Marshal(req)
+
+    httpReq, _ := http.NewRequest(
+        "POST",
+        fmt.Sprintf("http://localhost:8080/api/v1/agents/%s", agentID),
+        bytes.NewBuffer(body),
+    )
+
+    httpReq.Header.Set("X-API-Key", "sk_test_123456")
+    httpReq.Header.Set("Content-Type", "application/json")
+
+    client := &http.Client{}
+    resp, err := client.Do(httpReq)
+    if err != nil {
+        return "", err
+    }
+    defer resp.Body.Close()
+
+    var result map[string]interface{}
+    json.NewDecoder(resp.Body).Decode(&result)
+
+    return result["task_id"].(string), nil
+}
+
+func main() {
+    taskID, _ := executeAgent("serp-ads", map[string]interface{}{
+        "keywords": "跑鞋",
+        "country":  "cn",
+    })
+
+    fmt.Printf("Task ID: %s\n", taskID)
+}
+```
+
+---
+
+## 相关端点
+
+<CardGroup cols={2}>
+  <Card title="提交任务" icon="paper-plane" href="/cn/api/rest/submit-task">
+    带AI编排的统一任务提交
+  </Card>
+  <Card title="获取任务状态" icon="circle-info" href="/cn/api/rest/get-status">
+    检索智能体执行结果
+  </Card>
+  <Card title="广告研究智能体" icon="bullhorn" href="/cn/api/agents/ads-research">
+    完整广告研究智能体目录
+  </Card>
+  <Card title="金融智能体" icon="chart-line" href="/cn/api/agents/financial">
+    金融研究智能体目录
+  </Card>
+</CardGroup>

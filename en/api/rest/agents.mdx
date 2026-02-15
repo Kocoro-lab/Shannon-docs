@@ -1,0 +1,656 @@
+---
+title: "Agents API"
+description: "Execute single-purpose agents via direct API calls"
+---
+
+## Overview
+
+The Agents API provides direct execution of single-purpose agents (also called "Quick Tools") without LLM orchestration. Each agent wraps a specific tool and returns structured results.
+
+**Key Differences from Task API:**
+- **Agents API**: Direct tool execution, no AI orchestration, synchronous results
+- **Task API**: Multi-step workflows, LLM planning, asynchronous execution
+
+<Note>
+All agent executions are **asynchronous** (return task_id), even though agents perform single operations. Use the [Task Status API](/en/api/rest/get-status) to retrieve results.
+</Note>
+
+## Base URL
+
+```
+http://localhost:8080/api/v1/agents
+```
+
+Production: `https://api-dev.shannon.run/api/v1/agents`
+
+## Authentication
+
+**Required**: Yes
+
+Include API key in header:
+```
+X-API-Key: sk_your_api_key
+```
+
+<Note>
+**Development Default**: Authentication is disabled when `GATEWAY_SKIP_AUTH=1` is set.
+</Note>
+
+---
+
+## Endpoints
+
+### List Agents
+
+**GET /api/v1/agents**
+
+Returns all available agents with their schemas and metadata.
+
+#### Request
+
+```bash
+curl http://localhost:8080/api/v1/agents \
+  -H "X-API-Key: sk_test_123456"
+```
+
+#### Response
+
+```json
+{
+  "agents": [
+    {
+      "id": "serp-ads",
+      "name": "SERP Ads Extract",
+      "description": "Extract paid ads from Google Search results for given keywords",
+      "category": "ads_research",
+      "tool": "ads_serp_extract",
+      "input_schema": {
+        "required": ["keywords"],
+        "properties": {
+          "keywords": {
+            "type": "string",
+            "description": "Search keywords to find ads for"
+          },
+          "country": {
+            "type": "string",
+            "default": "us",
+            "description": "Country code (us, jp, uk, etc.)"
+          }
+        }
+      },
+      "cost_per_call": 0.015
+    }
+  ],
+  "count": 16
+}
+```
+
+#### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `agents` | array | List of agent definitions |
+| `count` | integer | Total number of agents |
+
+**Agent Object:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Agent identifier (used in execute endpoint) |
+| `name` | string | Human-readable name |
+| `description` | string | What the agent does |
+| `category` | string | Agent category (ads_research, financial, etc.) |
+| `tool` | string | Underlying tool name |
+| `input_schema` | object | JSON schema for input validation |
+| `cost_per_call` | number | Estimated cost per execution (USD) |
+
+---
+
+### Get Agent Details
+
+**GET /api/v1/agents/{id}**
+
+Returns details for a specific agent, including its input schema.
+
+#### Request
+
+```bash
+curl http://localhost:8080/api/v1/agents/serp-ads \
+  -H "X-API-Key: sk_test_123456"
+```
+
+#### Response
+
+```json
+{
+  "id": "serp-ads",
+  "name": "SERP Ads Extract",
+  "description": "Extract paid ads from Google Search results for given keywords",
+  "category": "ads_research",
+  "tool": "ads_serp_extract",
+  "input_schema": {
+    "required": ["keywords"],
+    "properties": {
+      "keywords": {
+        "type": "string",
+        "description": "Search keywords to find ads for"
+      },
+      "country": {
+        "type": "string",
+        "default": "us"
+      },
+      "device": {
+        "type": "string",
+        "enum": ["desktop", "mobile", "tablet"],
+        "default": "desktop"
+      }
+    }
+  },
+  "cost_per_call": 0.015
+}
+```
+
+#### Error Responses
+
+**404 Not Found** - Agent does not exist:
+
+```json
+{
+  "error": "Agent not found: invalid-agent-id"
+}
+```
+
+---
+
+### Execute Agent
+
+**POST /api/v1/agents/{id}**
+
+Executes a specific agent with provided input. Returns a task ID immediately; the agent runs asynchronously.
+
+#### Request Headers
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| `X-API-Key` | Yes | API authentication key |
+| `Content-Type` | Yes | Must be `application/json` |
+
+#### Request Body
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `input` | object | Yes | Agent-specific input parameters (validated against `input_schema`) |
+| `session_id` | string | No | Session identifier for tracking (auto-generated if omitted) |
+| `stream` | boolean | No | Enable streaming (reserved for future use) |
+
+#### Example: Execute SERP Ads Agent
+
+```bash
+curl -X POST http://localhost:8080/api/v1/agents/serp-ads \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "session_id": "user-session-123",
+    "input": {
+      "keywords": "best credit cards",
+      "country": "us",
+      "device": "desktop"
+    }
+  }'
+```
+
+#### Response
+
+**Status**: `202 Accepted`
+
+**Headers**:
+- `X-Workflow-ID`: Temporal workflow identifier
+- `X-Session-ID`: Session identifier
+
+**Body**:
+
+```json
+{
+  "task_id": "task-abc123",
+  "agent_id": "serp-ads",
+  "status": "STATUS_CODE_OK",
+  "created_at": "2026-02-15T10:30:00Z"
+}
+```
+
+#### Retrieve Results
+
+Use the [Get Task Status](/en/api/rest/get-status) endpoint with the returned `task_id`:
+
+```bash
+curl http://localhost:8080/api/v1/tasks/task-abc123 \
+  -H "X-API-Key: sk_test_123456"
+```
+
+**Response when completed:**
+
+```json
+{
+  "task_id": "task-abc123",
+  "status": "TASK_STATUS_COMPLETED",
+  "result": "{\"keywords\":\"best credit cards\",\"total_ads\":5,\"ads\":[...]}",
+  "response": {
+    "keywords": "best credit cards",
+    "total_ads": 5,
+    "ads": [
+      {
+        "position": 1,
+        "title": "Best Credit Cards 2026",
+        "description": "Compare top credit cards...",
+        "link": "https://example.com/cards",
+        "domain": "example.com"
+      }
+    ],
+    "cost_usd": 0.015,
+    "timestamp": "2026-02-15T10:30:00Z"
+  },
+  "model_used": "claude-sonnet-4-20250514",
+  "provider": "anthropic",
+  "usage": {
+    "total_tokens": 1250,
+    "input_tokens": 800,
+    "output_tokens": 450,
+    "estimated_cost": 0.018
+  }
+}
+```
+
+#### Error Responses
+
+**400 Bad Request** - Invalid input:
+
+```json
+{
+  "error": "input validation failed: missing required field: keywords"
+}
+```
+
+**404 Not Found** - Agent does not exist:
+
+```json
+{
+  "error": "Agent not found: invalid-agent"
+}
+```
+
+**429 Too Many Requests** - Rate limit exceeded:
+
+```json
+{
+  "error": "Rate limit exceeded"
+}
+```
+
+---
+
+## Input Validation
+
+All agent inputs are validated against the agent's `input_schema` before execution.
+
+**Validation Rules:**
+1. **Required fields** must be present and non-null
+2. **Type checking** - strings, integers, booleans, arrays, objects
+3. **Enum validation** - values must be in allowed list
+4. **Unknown fields** - rejected for security (not in schema)
+
+**Example Schema:**
+
+```json
+{
+  "required": ["keywords"],
+  "properties": {
+    "keywords": {
+      "type": "string",
+      "description": "Search keywords"
+    },
+    "device": {
+      "type": "string",
+      "enum": ["desktop", "mobile", "tablet"],
+      "default": "desktop"
+    },
+    "max_results": {
+      "type": "integer",
+      "default": 10
+    }
+  }
+}
+```
+
+**Valid input:**
+
+```json
+{
+  "keywords": "best shoes",
+  "device": "mobile",
+  "max_results": 5
+}
+```
+
+**Invalid input (missing required field):**
+
+```json
+{
+  "device": "mobile"
+}
+```
+
+Error: `"input validation failed: missing required field: keywords"`
+
+**Invalid input (unknown field):**
+
+```json
+{
+  "keywords": "shoes",
+  "unknown_field": "value"
+}
+```
+
+Error: `"input validation failed: unknown field: unknown_field (not defined in agent schema)"`
+
+---
+
+## Available Agents
+
+Shannon provides **16+ specialized agents** across multiple categories.
+
+For a complete catalog of available agents with detailed schemas and examples, see:
+
+<CardGroup cols={2}>
+  <Card title="Ads Research Agents" icon="bullhorn" href="/en/api/agents/ads-research">
+    10 agents for competitive advertising analysis
+  </Card>
+  <Card title="Financial Research Agents" icon="chart-line" href="/en/api/agents/financial">
+    4 agents for stock news and sentiment analysis
+  </Card>
+</CardGroup>
+
+### Quick Reference by Category
+
+**Ads Research** (10 agents):
+- `serp-ads` - Extract Google paid ads
+- `yahoo-jp-ads` - Extract Yahoo Japan sponsored ads
+- `meta-ad-library` - Search Meta Ad Library (Facebook/Instagram)
+- `competitor-discover` - Find competitor advertisers
+- `ads-transparency` - Multi-platform ad transparency data
+- `lp-visual-analyze` - Screenshot and analyze landing pages
+- `lp-batch-analyze` - Batch analyze multiple landing pages
+- `ad-creative-analyze` - Analyze ad copy patterns
+- `keyword-extract` - Extract search keywords from text
+- `browser-screenshot` - Capture webpage screenshots
+
+**Financial Tools** (4 agents):
+- `sec-filings` - SEC EDGAR filings lookup
+- `twitter-sentiment` - X/Twitter sentiment via xAI
+- `alpaca-news` - Stock news from Alpaca Markets
+- `news-aggregator` - Multi-source news aggregation
+
+---
+
+## Unified Task API Alternative
+
+You can also execute agents through the **unified Task API** using the `context.agent` parameter:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "NVDA",
+    "session_id": "user-session-123",
+    "context": {
+      "agent": "sec-filings",
+      "agent_input": {
+        "ticker": "NVDA",
+        "days_back": 90
+      }
+    }
+  }'
+```
+
+**Both approaches are equivalent**:
+- Dedicated endpoint: `POST /api/v1/agents/{id}`
+- Unified endpoint: `POST /api/v1/tasks` with `context.agent`
+
+---
+
+## Best Practices
+
+### 1. Validate Inputs Before Submission
+
+Use the GET endpoint to retrieve the agent's schema, then validate your input client-side:
+
+```python
+import httpx
+
+# Get schema
+agent = httpx.get(
+    "http://localhost:8080/api/v1/agents/serp-ads",
+    headers={"X-API-Key": "sk_test_123456"}
+).json()
+
+# Validate required fields
+required = agent["input_schema"]["required"]
+input_data = {"keywords": "shoes", "device": "mobile"}
+
+for field in required:
+    if field not in input_data:
+        raise ValueError(f"Missing required field: {field}")
+```
+
+### 2. Handle Async Results
+
+All agents return task IDs immediately. Poll for results:
+
+```python
+import time
+
+# Execute agent
+response = httpx.post(
+    "http://localhost:8080/api/v1/agents/serp-ads",
+    headers={"X-API-Key": "sk_test_123456"},
+    json={"input": {"keywords": "shoes"}}
+).json()
+
+task_id = response["task_id"]
+
+# Poll for completion
+while True:
+    status = httpx.get(
+        f"http://localhost:8080/api/v1/tasks/{task_id}",
+        headers={"X-API-Key": "sk_test_123456"}
+    ).json()
+
+    if status["status"] == "TASK_STATUS_COMPLETED":
+        print(status["response"])
+        break
+
+    time.sleep(2)
+```
+
+### 3. Use Sessions for Context
+
+Reuse `session_id` across related agent calls:
+
+```python
+session_id = "user-123-analysis"
+
+# First agent call
+httpx.post(..., json={
+    "session_id": session_id,
+    "input": {"keywords": "shoes"}
+})
+
+# Second agent call (same session)
+httpx.post(..., json={
+    "session_id": session_id,
+    "input": {"urls": ["https://example.com"]}
+})
+```
+
+### 4. Check Cost Estimates
+
+Before executing expensive agents, check `cost_per_call`:
+
+```python
+agent = httpx.get(
+    "http://localhost:8080/api/v1/agents/twitter-sentiment",
+    headers={"X-API-Key": "sk_test_123456"}
+).json()
+
+if agent["cost_per_call"] > 0.10:
+    print(f"Warning: High cost agent (${agent['cost_per_call']})")
+```
+
+---
+
+## Code Examples
+
+### Python with httpx
+
+```python
+import httpx
+
+# List all agents
+agents = httpx.get(
+    "http://localhost:8080/api/v1/agents",
+    headers={"X-API-Key": "sk_test_123456"}
+).json()
+
+print(f"Found {agents['count']} agents")
+
+# Execute specific agent
+response = httpx.post(
+    "http://localhost:8080/api/v1/agents/serp-ads",
+    headers={
+        "X-API-Key": "sk_test_123456",
+        "Content-Type": "application/json"
+    },
+    json={
+        "session_id": "my-session",
+        "input": {
+            "keywords": "running shoes",
+            "country": "us",
+            "device": "mobile"
+        }
+    }
+).json()
+
+print(f"Task ID: {response['task_id']}")
+```
+
+### JavaScript/Node.js
+
+```javascript
+const axios = require('axios');
+
+// Get agent details
+const agent = await axios.get(
+  'http://localhost:8080/api/v1/agents/serp-ads',
+  {
+    headers: { 'X-API-Key': 'sk_test_123456' }
+  }
+);
+
+console.log('Agent schema:', agent.data.input_schema);
+
+// Execute agent
+const response = await axios.post(
+  'http://localhost:8080/api/v1/agents/serp-ads',
+  {
+    session_id: 'my-session',
+    input: {
+      keywords: 'running shoes',
+      country: 'us'
+    }
+  },
+  {
+    headers: {
+      'X-API-Key': 'sk_test_123456',
+      'Content-Type': 'application/json'
+    }
+  }
+);
+
+console.log('Task ID:', response.data.task_id);
+```
+
+### Go
+
+```go
+package main
+
+import (
+    "bytes"
+    "encoding/json"
+    "fmt"
+    "net/http"
+)
+
+type AgentExecuteRequest struct {
+    SessionID string                 `json:"session_id,omitempty"`
+    Input     map[string]interface{} `json:"input"`
+}
+
+func executeAgent(agentID string, input map[string]interface{}) (string, error) {
+    req := AgentExecuteRequest{
+        SessionID: "my-session",
+        Input:     input,
+    }
+
+    body, _ := json.Marshal(req)
+
+    httpReq, _ := http.NewRequest(
+        "POST",
+        fmt.Sprintf("http://localhost:8080/api/v1/agents/%s", agentID),
+        bytes.NewBuffer(body),
+    )
+
+    httpReq.Header.Set("X-API-Key", "sk_test_123456")
+    httpReq.Header.Set("Content-Type", "application/json")
+
+    client := &http.Client{}
+    resp, err := client.Do(httpReq)
+    if err != nil {
+        return "", err
+    }
+    defer resp.Body.Close()
+
+    var result map[string]interface{}
+    json.NewDecoder(resp.Body).Decode(&result)
+
+    return result["task_id"].(string), nil
+}
+
+func main() {
+    taskID, _ := executeAgent("serp-ads", map[string]interface{}{
+        "keywords": "running shoes",
+        "country":  "us",
+    })
+
+    fmt.Printf("Task ID: %s\n", taskID)
+}
+```
+
+---
+
+## Related Endpoints
+
+<CardGroup cols={2}>
+  <Card title="Submit Task" icon="paper-plane" href="/en/api/rest/submit-task">
+    Unified task submission with AI orchestration
+  </Card>
+  <Card title="Get Task Status" icon="circle-info" href="/en/api/rest/get-status">
+    Retrieve agent execution results
+  </Card>
+  <Card title="Ads Research Agents" icon="bullhorn" href="/en/api/agents/ads-research">
+    Complete ads research agent catalog
+  </Card>
+  <Card title="Financial Agents" icon="chart-line" href="/en/api/agents/financial">
+    Financial research agent catalog
+  </Card>
+</CardGroup>

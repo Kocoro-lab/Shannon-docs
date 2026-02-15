@@ -1,0 +1,704 @@
+---
+title: "Quick Start Examples"
+description: "Get started with Shannon API in minutes - complete examples for your first API calls"
+---
+
+## Your First API Call
+
+The basic Shannon workflow is simple: submit a task, get a task ID, check the status, and retrieve the result.
+
+### Complete Example (cURL)
+
+```bash
+# 1. Submit a task
+RESPONSE=$(curl -sS -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What is the capital of France?"
+  }')
+
+# 2. Extract task ID
+TASK_ID=$(echo $RESPONSE | jq -r '.task_id')
+echo "Task ID: $TASK_ID"
+
+# 3. Poll for result
+while true; do
+  STATUS=$(curl -sS http://localhost:8080/api/v1/tasks/$TASK_ID \
+    -H "X-API-Key: sk_test_123456")
+
+  STATE=$(echo $STATUS | jq -r '.status')
+
+  if [ "$STATE" = "TASK_STATUS_COMPLETED" ]; then
+    echo $STATUS | jq -r '.result'
+    break
+  elif [ "$STATE" = "TASK_STATUS_FAILED" ]; then
+    echo "Error: $(echo $STATUS | jq -r '.error')"
+    exit 1
+  fi
+
+  sleep 2
+done
+```
+
+**Expected Output**:
+```
+Task ID: task_01HQZX3Y9K8M2P4N5S7T9W2V
+The capital of France is Paris.
+```
+
+## Common API Patterns
+
+### 1. Submit → Poll → Retrieve
+
+The standard workflow for any task:
+
+<CodeGroup>
+
+```python Python
+import httpx
+import time
+
+# Submit task
+response = httpx.post(
+    "http://localhost:8080/api/v1/tasks",
+    headers={"X-API-Key": "sk_test_123456"},
+    json={"query": "What is the capital of France?"}
+)
+task_id = response.json()["task_id"]
+print(f"Task submitted: {task_id}")
+
+# Poll until complete
+while True:
+    status_resp = httpx.get(
+        f"http://localhost:8080/api/v1/tasks/{task_id}",
+        headers={"X-API-Key": "sk_test_123456"}
+    )
+    status = status_resp.json()
+
+    if status["status"] == "TASK_STATUS_COMPLETED":
+        print("Result:", status["result"])
+        break
+    elif status["status"] == "TASK_STATUS_FAILED":
+        print("Error:", status["error"])
+        break
+
+    time.sleep(2)
+```
+
+```javascript JavaScript/Node.js
+const axios = require('axios');
+
+async function runTask() {
+  // Submit task
+  const submitResp = await axios.post(
+    'http://localhost:8080/api/v1/tasks',
+    { query: 'What is the capital of France?' },
+    { headers: { 'X-API-Key': 'sk_test_123456' } }
+  );
+
+  const taskId = submitResp.data.task_id;
+  console.log('Task submitted:', taskId);
+
+  // Poll until complete
+  while (true) {
+    const statusResp = await axios.get(
+      `http://localhost:8080/api/v1/tasks/${taskId}`,
+      { headers: { 'X-API-Key': 'sk_test_123456' } }
+    );
+
+    const { status, result, error } = statusResp.data;
+
+    if (status === 'TASK_STATUS_COMPLETED') {
+      console.log('Result:', result);
+      break;
+    } else if (status === 'TASK_STATUS_FAILED') {
+      console.log('Error:', error);
+      break;
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 2000));
+  }
+}
+
+runTask().catch(console.error);
+```
+
+```bash cURL
+#!/bin/bash
+
+API_KEY="sk_test_123456"
+
+# Submit
+TASK_ID=$(curl -sS -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What is the capital of France?"}' | jq -r '.task_id')
+
+echo "Task ID: $TASK_ID"
+
+# Poll
+while true; do
+  STATUS=$(curl -sS http://localhost:8080/api/v1/tasks/$TASK_ID \
+    -H "X-API-Key: $API_KEY" | jq -r '.status')
+
+  if [ "$STATUS" = "TASK_STATUS_COMPLETED" ]; then
+    curl -sS http://localhost:8080/api/v1/tasks/$TASK_ID \
+      -H "X-API-Key: $API_KEY" | jq -r '.result'
+    break
+  fi
+
+  sleep 2
+done
+```
+
+</CodeGroup>
+
+### 2. Multi-Turn Conversations (Sessions)
+
+Use the same `session_id` to maintain context across multiple tasks:
+
+<CodeGroup>
+
+```python Python
+import httpx
+
+API_KEY = "sk_test_123456"
+SESSION_ID = "user-123-chat"
+
+# Turn 1
+resp1 = httpx.post(
+    "http://localhost:8080/api/v1/tasks",
+    headers={"X-API-Key": API_KEY},
+    json={
+        "query": "What is Python?",
+        "session_id": SESSION_ID
+    }
+)
+print("Task 1:", resp1.json()["task_id"])
+
+# Turn 2 (references previous context)
+resp2 = httpx.post(
+    "http://localhost:8080/api/v1/tasks",
+    headers={"X-API-Key": API_KEY},
+    json={
+        "query": "What are its main advantages?",
+        "session_id": SESSION_ID  # Same session
+    }
+)
+print("Task 2:", resp2.json()["task_id"])
+```
+
+```javascript JavaScript
+const axios = require('axios');
+
+const API_KEY = 'sk_test_123456';
+const SESSION_ID = 'user-123-chat';
+
+async function multiTurnConversation() {
+  // Turn 1
+  const resp1 = await axios.post(
+    'http://localhost:8080/api/v1/tasks',
+    {
+      query: 'What is Python?',
+      session_id: SESSION_ID
+    },
+    { headers: { 'X-API-Key': API_KEY } }
+  );
+  console.log('Task 1:', resp1.data.task_id);
+
+  // Turn 2 (references previous context)
+  const resp2 = await axios.post(
+    'http://localhost:8080/api/v1/tasks',
+    {
+      query: 'What are its main advantages?',
+      session_id: SESSION_ID  // Same session
+    },
+    { headers: { 'X-API-Key': API_KEY } }
+  );
+  console.log('Task 2:', resp2.data.task_id);
+}
+
+multiTurnConversation();
+```
+
+```bash cURL
+API_KEY="sk_test_123456"
+SESSION_ID="user-123-chat"
+
+# Turn 1
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"query\": \"What is Python?\", \"session_id\": \"$SESSION_ID\"}"
+
+# Turn 2 (references previous context)
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"query\": \"What are its main advantages?\", \"session_id\": \"$SESSION_ID\"}"
+```
+
+</CodeGroup>
+
+### 3. Real-Time Streaming (SSE)
+
+Get live updates instead of polling:
+
+<CodeGroup>
+
+```python Python
+import httpx
+
+# Submit task
+response = httpx.post(
+    "http://localhost:8080/api/v1/tasks",
+    headers={"X-API-Key": "sk_test_123456"},
+    json={"query": "Write a haiku about coding"}
+)
+task_id = response.json()["task_id"]
+
+# Stream events
+with httpx.stream(
+    "GET",
+    f"http://localhost:8080/api/v1/tasks/{task_id}/stream",
+    headers={"X-API-Key": "sk_test_123456"}
+) as stream:
+    for line in stream.iter_lines():
+        if line.startswith("data: "):
+            event_data = line[6:]  # Remove "data: " prefix
+            print(event_data)
+```
+
+```javascript JavaScript
+const EventSource = require('eventsource');
+
+// Submit task first
+const axios = require('axios');
+const response = await axios.post(
+  'http://localhost:8080/api/v1/tasks',
+  { query: 'Write a haiku about coding' },
+  { headers: { 'X-API-Key': 'sk_test_123456' } }
+);
+
+const taskId = response.data.task_id;
+
+// Stream events
+const eventSource = new EventSource(
+  `http://localhost:8080/api/v1/tasks/${taskId}/stream`,
+  { headers: { 'X-API-Key': 'sk_test_123456' } }
+);
+
+eventSource.onmessage = (event) => {
+  console.log(event.data);
+};
+
+eventSource.onerror = (error) => {
+  console.error('Stream error:', error);
+  eventSource.close();
+};
+```
+
+```bash cURL
+# Submit task
+TASK_ID=$(curl -sS -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Write a haiku about coding"}' | jq -r '.task_id')
+
+# Stream events
+curl -N http://localhost:8080/api/v1/tasks/$TASK_ID/stream \
+  -H "X-API-Key: sk_test_123456"
+```
+
+</CodeGroup>
+
+### 4. Error Handling
+
+Always handle errors gracefully:
+
+<CodeGroup>
+
+```python Python
+import httpx
+
+try:
+    response = httpx.post(
+        "http://localhost:8080/api/v1/tasks",
+        headers={"X-API-Key": "sk_test_123456"},
+        json={"query": "Analyze this data"},
+        timeout=30.0
+    )
+    response.raise_for_status()
+
+    task = response.json()
+    print(f"Success: {task['task_id']}")
+
+except httpx.HTTPStatusError as e:
+    if e.response.status_code == 401:
+        print("Error: Invalid API key")
+    elif e.response.status_code == 429:
+        retry_after = e.response.headers.get("Retry-After", "60")
+        print(f"Rate limited. Retry after {retry_after}s")
+    else:
+        print(f"HTTP error: {e.response.status_code}")
+        print(e.response.json())
+
+except httpx.TimeoutException:
+    print("Request timed out")
+
+except Exception as e:
+    print(f"Unexpected error: {e}")
+```
+
+```javascript JavaScript
+const axios = require('axios');
+
+async function submitWithErrorHandling(query) {
+  try {
+    const response = await axios.post(
+      'http://localhost:8080/api/v1/tasks',
+      { query },
+      {
+        headers: { 'X-API-Key': 'sk_test_123456' },
+        timeout: 30000
+      }
+    );
+
+    console.log('Success:', response.data.task_id);
+    return response.data;
+
+  } catch (error) {
+    if (error.response) {
+      // Server responded with error status
+      switch (error.response.status) {
+        case 401:
+          console.error('Invalid API key');
+          break;
+        case 429:
+          const retryAfter = error.response.headers['retry-after'] || 60;
+          console.error(`Rate limited. Retry after ${retryAfter}s`);
+          break;
+        default:
+          console.error('HTTP error:', error.response.status);
+          console.error(error.response.data);
+      }
+    } else if (error.request) {
+      // No response received
+      console.error('No response from server');
+    } else {
+      // Request setup error
+      console.error('Error:', error.message);
+    }
+
+    throw error;
+  }
+}
+
+submitWithErrorHandling('Analyze this data');
+```
+
+```bash cURL
+#!/bin/bash
+
+API_KEY="sk_test_123456"
+
+RESPONSE=$(curl -sS -w "\n%{http_code}" -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Analyze this data"}')
+
+HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+BODY=$(echo "$RESPONSE" | head -n-1)
+
+case $HTTP_CODE in
+  200)
+    echo "Success: $(echo $BODY | jq -r '.task_id')"
+    ;;
+  401)
+    echo "Error: Invalid API key"
+    exit 1
+    ;;
+  429)
+    echo "Error: Rate limited"
+    exit 1
+    ;;
+  *)
+    echo "Error: HTTP $HTTP_CODE"
+    echo $BODY | jq
+    exit 1
+    ;;
+esac
+```
+
+</CodeGroup>
+
+## Authentication Setup
+
+### Getting Your API Key
+
+<Steps>
+  <Step title="Development Mode (Skip Auth)">
+    For local testing, you can disable authentication:
+
+    ```bash
+    # In .env file
+    GATEWAY_SKIP_AUTH=1
+    ```
+
+    Then use any placeholder key:
+    ```bash
+    curl -H "X-API-Key: dev" http://localhost:8080/api/v1/tasks
+    ```
+  </Step>
+
+  <Step title="Production Mode (Real API Keys)">
+    Generate an API key from your Shannon dashboard:
+
+    1. Log in to Shannon Cloud
+    2. Navigate to Settings → API Keys
+    3. Click "Create API Key"
+    4. Copy the key (starts with `sk_`)
+
+    Store it securely (e.g., environment variable):
+    ```bash
+    export SHANNON_API_KEY="sk_live_abc123..."
+    ```
+  </Step>
+</Steps>
+
+### Including the API Key
+
+Always include your API key in the `X-API-Key` header:
+
+```bash
+# ✅ Correct
+curl -H "X-API-Key: sk_test_123456" http://localhost:8080/api/v1/tasks
+
+# ❌ Wrong - Authorization header doesn't work for API keys
+curl -H "Authorization: Bearer sk_test_123456" http://localhost:8080/api/v1/tasks
+```
+
+<Warning>
+**Never commit API keys to version control**. Use environment variables or secret management tools.
+</Warning>
+
+## Complete Workflow Example
+
+Here's a real-world example that combines all patterns:
+
+<CodeGroup>
+
+```python Python
+import httpx
+import time
+import os
+
+class ShannonClient:
+    def __init__(self, base_url: str, api_key: str):
+        self.base_url = base_url
+        self.api_key = api_key
+
+    def submit_task(self, query: str, session_id: str = None):
+        """Submit a task and return task ID."""
+        response = httpx.post(
+            f"{self.base_url}/api/v1/tasks",
+            headers={"X-API-Key": self.api_key},
+            json={
+                "query": query,
+                "session_id": session_id
+            }
+        )
+        response.raise_for_status()
+        return response.json()["task_id"]
+
+    def wait_for_completion(self, task_id: str, timeout: int = 300):
+        """Poll until task completes."""
+        start_time = time.time()
+
+        while True:
+            if time.time() - start_time > timeout:
+                raise TimeoutError(f"Task timeout after {timeout}s")
+
+            response = httpx.get(
+                f"{self.base_url}/api/v1/tasks/{task_id}",
+                headers={"X-API-Key": self.api_key}
+            )
+            status = response.json()
+
+            if status["status"] == "TASK_STATUS_COMPLETED":
+                return status["result"]
+            elif status["status"] == "TASK_STATUS_FAILED":
+                raise Exception(f"Task failed: {status['error']}")
+
+            time.sleep(2)
+
+    def run_task(self, query: str, session_id: str = None):
+        """Submit and wait for result in one call."""
+        task_id = self.submit_task(query, session_id)
+        return self.wait_for_completion(task_id)
+
+# Usage
+client = ShannonClient(
+    base_url="http://localhost:8080",
+    api_key=os.getenv("SHANNON_API_KEY", "sk_test_123456")
+)
+
+# Single task
+result = client.run_task("What is the capital of France?")
+print(result)
+
+# Multi-turn conversation
+session_id = "chat-123"
+result1 = client.run_task("What is Python?", session_id)
+result2 = client.run_task("What are its advantages?", session_id)
+print(result1)
+print(result2)
+```
+
+```javascript JavaScript
+const axios = require('axios');
+
+class ShannonClient {
+  constructor(baseUrl, apiKey) {
+    this.baseUrl = baseUrl;
+    this.apiKey = apiKey;
+  }
+
+  async submitTask(query, sessionId = null) {
+    const response = await axios.post(
+      `${this.baseUrl}/api/v1/tasks`,
+      {
+        query,
+        session_id: sessionId
+      },
+      {
+        headers: { 'X-API-Key': this.apiKey }
+      }
+    );
+
+    return response.data.task_id;
+  }
+
+  async waitForCompletion(taskId, timeout = 300000) {
+    const startTime = Date.now();
+
+    while (true) {
+      if (Date.now() - startTime > timeout) {
+        throw new Error(`Task timeout after ${timeout}ms`);
+      }
+
+      const response = await axios.get(
+        `${this.baseUrl}/api/v1/tasks/${taskId}`,
+        { headers: { 'X-API-Key': this.apiKey } }
+      );
+
+      const { status, result, error } = response.data;
+
+      if (status === 'TASK_STATUS_COMPLETED') {
+        return result;
+      } else if (status === 'TASK_STATUS_FAILED') {
+        throw new Error(`Task failed: ${error}`);
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+  }
+
+  async runTask(query, sessionId = null) {
+    const taskId = await this.submitTask(query, sessionId);
+    return await this.waitForCompletion(taskId);
+  }
+}
+
+// Usage
+const client = new ShannonClient(
+  'http://localhost:8080',
+  process.env.SHANNON_API_KEY || 'sk_test_123456'
+);
+
+async function main() {
+  // Single task
+  const result = await client.runTask('What is the capital of France?');
+  console.log(result);
+
+  // Multi-turn conversation
+  const sessionId = 'chat-123';
+  const result1 = await client.runTask('What is Python?', sessionId);
+  const result2 = await client.runTask('What are its advantages?', sessionId);
+  console.log(result1);
+  console.log(result2);
+}
+
+main().catch(console.error);
+```
+
+</CodeGroup>
+
+## Next Steps
+
+Now that you know the basics, explore more advanced features:
+
+<CardGroup cols={2}>
+  <Card title="Full API Reference" icon="book" href="/en/api/rest/submit-task">
+    Complete documentation for all endpoints
+  </Card>
+  <Card title="Agents Catalog" icon="users" href="/en/api/agents/overview">
+    Pre-built agents for specific tasks
+  </Card>
+  <Card title="Python SDK" icon="python" href="/en/sdk/python/quickstart">
+    Official Python client library
+  </Card>
+  <Card title="Streaming API" icon="stream" href="/en/api/rest/streaming">
+    Real-time event streaming with SSE
+  </Card>
+</CardGroup>
+
+## Common Questions
+
+<AccordionGroup>
+  <Accordion title="How do I know when my task is complete?">
+    Poll the `GET /api/v1/tasks/{id}` endpoint until `status` is `TASK_STATUS_COMPLETED` or `TASK_STATUS_FAILED`. For long-running tasks, use streaming instead of polling.
+  </Accordion>
+
+  <Accordion title="What's the difference between result and response?">
+    - `result` is the raw text output from the LLM
+    - `response` is only present if `result` contains valid JSON (parsed automatically)
+
+    Most of the time, you'll use `result`.
+  </Accordion>
+
+  <Accordion title="How long do sessions last?">
+    Sessions persist for 30 days by default. All tasks with the same `session_id` share conversation history.
+  </Accordion>
+
+  <Accordion title="Can I cancel a running task?">
+    Yes, use `POST /api/v1/tasks/{id}/cancel`. The task will stop at the next safe checkpoint.
+  </Accordion>
+
+  <Accordion title="Why use streaming instead of polling?">
+    Streaming provides real-time updates with lower latency and less server load. Use it for long-running tasks or when you need immediate feedback.
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+### 401 Unauthorized
+- Check your API key is correct
+- Verify you're using the `X-API-Key` header (not `Authorization`)
+- In dev mode, ensure `GATEWAY_SKIP_AUTH=1` is set
+
+### 429 Rate Limited
+- Check the `Retry-After` header
+- Implement exponential backoff
+- Upgrade your API tier for higher limits
+
+### Task stuck in RUNNING
+- Wait longer (complex tasks take time)
+- Use streaming to see progress
+- Check Temporal UI for detailed workflow status
+
+### Empty result field
+- Task might still be running (check `status`)
+- Task failed (check `error` field)
+- Use streaming to see intermediate output
