@@ -57,14 +57,14 @@
 
   <!-- Left Branch: Simple Task -->
   <line x1="370" y1="305" x2="200" y2="375" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <text x="270" y="342" class="label">&lt; 0.3</text>
+  <text x="270" y="342" class="label">＜ 0.3</text>
 
   <rect x="130" y="380" width="140" height="40" fill="#d1fae5" stroke="#1a1a1a" stroke-width="1.5" rx="4"/>
   <text x="200" y="405" class="box-text-sm">ExecuteSimpleTask</text>
 
   <!-- Right Branch: Cognitive Strategy -->
   <line x1="530" y1="305" x2="660" y2="375" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <text x="610" y="342" class="label">&gt;= 0.3</text>
+  <text x="610" y="342" class="label">≥ 0.3</text>
 
   <path d="M 590 380 L 730 380 L 750 405 L 730 430 L 590 430 L 570 405 Z" fill="#fed7aa" stroke="#1a1a1a" stroke-width="1.5"/>
   <text x="660" y="409" class="box-text-sm">Cognitive Strategy</text>

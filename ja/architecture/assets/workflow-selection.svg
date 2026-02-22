@@ -58,7 +58,7 @@
 
   <!-- Simple Task -->
   <line x1="380" y1="320" x2="220" y2="395" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <text x="290" y="355" class="annotation">&lt; 0.3</text>
+  <text x="290" y="355" class="annotation">＜ 0.3</text>
 
   <rect x="120" y="400" width="160" height="50" fill="#d1fae5" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
   <text x="200" y="418" class="box-text">シンプルタスク</text>
@@ -66,7 +66,7 @@
 
   <!-- Cognitive Strategy -->
   <line x1="520" y1="320" x2="600" y2="395" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <text x="575" y="355" class="annotation">&gt;= 0.3</text>
+  <text x="575" y="355" class="annotation">≥ 0.3</text>
 
   <path d="M 530 400 L 670 400 L 650 440 L 550 440 Z" fill="#dbeafe" stroke="#1a1a1a" stroke-width="1.5"/>
   <text x="600" y="417" class="decision">認知戦略</text>

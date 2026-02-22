@@ -46,7 +46,7 @@
     <line x1="1142" y1="0" x2="1142" y2="7" stroke="#e2e8f0" stroke-width="1"/>
     <line x1="1360" y1="0" x2="1360" y2="7" stroke="#e2e8f0" stroke-width="1"/>
     <text x="136" y="20" class="spectrum-text">单代理</text>
-    <text x="136" y="33" class="spectrum-label">复杂度 &lt; 0.3</text>
+    <text x="136" y="33" class="spectrum-label">复杂度 ＜ 0.3</text>
     <text x="421" y="20" class="spectrum-text">DAG</text>
     <text x="421" y="33" class="spectrum-label">扇出 · 扇入</text>
     <text x="720" y="20" class="spectrum-text">ReAct</text>

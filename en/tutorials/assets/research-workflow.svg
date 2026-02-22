@@ -48,7 +48,7 @@
   <!-- Patterns -->
   <rect x="50" y="530" width="140" height="50" fill="#fbcfe8" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
   <text x="120" y="548" class="box-text-sm">React</text>
-  <text x="120" y="563" class="label">&lt; 0.5</text>
+  <text x="120" y="563" class="label">＜ 0.5</text>
 
   <rect x="220" y="530" width="140" height="50" fill="#fbcfe8" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
   <text x="290" y="548" class="box-text-sm">Parallel</text>
@@ -60,7 +60,7 @@
 
   <rect x="560" y="530" width="140" height="50" fill="#fbcfe8" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
   <text x="630" y="548" class="box-text-sm">React Per Task</text>
-  <text x="630" y="563" class="label">&gt; 0.7 + Deep</text>
+  <text x="630" y="563" class="label">＞ 0.7 + Deep</text>
 
   <!-- Entity Filtering -->
   <rect x="315" y="620" width="220" height="40" fill="#f9a8d4" stroke="#1a1a1a" stroke-width="1.5" rx="4"/>

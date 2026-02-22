@@ -56,7 +56,7 @@
   <!-- Tier branches -->
   <rect x="50" y="620" width="140" height="50" fill="#fbcfe8" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
   <text x="120" y="638" class="box-text-sm">Small Tier</text>
-  <text x="120" y="653" class="label">&lt; 0.3</text>
+  <text x="120" y="653" class="label">＜ 0.3</text>
 
   <rect x="220" y="620" width="140" height="50" fill="#fbcfe8" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
   <text x="290" y="638" class="box-text-sm">Medium Tier</text>
@@ -64,7 +64,7 @@
 
   <rect x="390" y="620" width="140" height="50" fill="#fbcfe8" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
   <text x="460" y="638" class="box-text-sm">Large Tier</text>
-  <text x="460" y="653" class="label">&gt; 0.7</text>
+  <text x="460" y="653" class="label">＞ 0.7</text>
 
   <!-- Priority Ranking -->
   <rect x="315" y="720" width="220" height="40" fill="#f9a8d4" stroke="#1a1a1a" stroke-width="1.5" rx="4"/>

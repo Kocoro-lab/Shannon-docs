@@ -63,7 +63,7 @@
 
   <!-- Branch < 0.3 -->
   <line x1="400" y1="315" x2="150" y2="370" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <text x="280" y="345" class="annotation">&lt; 0.3 简单</text>
+  <text x="280" y="345" class="annotation">＜ 0.3 简单</text>
 
   <rect x="70" y="375" width="160" height="45" fill="#d1fae5" stroke="#1a1a1a" stroke-width="1.5" rx="2"/>
   <text x="150" y="393" class="box-text">ExecuteSimpleTask</text>
