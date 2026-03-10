@@ -169,7 +169,7 @@ async def with_timeout_handling():
 优雅地处理 API 速率限制：
 
 ```python
-from shannon import ShannonClient, ConnectionError
+from shannon import ShannonClient, RateLimitError
 import time
 
 def handle_rate_limits(queries):
@@ -185,9 +185,9 @@ def handle_rate_limits(queries):
                 results.append(result)
                 break  # 成功，移到下一个
 
-            except ConnectionError:
-                # 速率限制或瞬时网络错误
-                print(f"触发速率限制/暂时性错误，{backoff}s 后重试…")
+            except RateLimitError:
+                # 触发速率限制
+                print(f"触发速率限制，{backoff}s 后重试…")
                 time.sleep(backoff)
                 backoff = min(backoff * 2, 30)
 
@@ -195,7 +195,7 @@ def handle_rate_limits(queries):
 ```
 
 <Note>
-导入说明：`from shannon import ConnectionError` 指的是 SDK 的异常类型（不是 Python 内置的 `ConnectionError`）。速率限制与断路器等高级模式属于参考实现，请根据生产环境验证与调整。
+导入说明：`from shannon import ConnectionError` 指的是 SDK 的异常类型（不是 Python 内置的 `ConnectionError`）。速率限制请使用 `RateLimitError`，网络问题请使用 `ConnectionError`。退避与断路器等高级模式属于参考实现，请根据生产环境验证与调整。
 </Note>
 
 ## 验证错误

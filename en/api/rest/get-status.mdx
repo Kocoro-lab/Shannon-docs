@@ -49,6 +49,7 @@ X-API-Key: sk_test_123456
 ```json
 {
   "task_id": "string",
+  "workflow_id": "string",
   "status": "string",
   "result": "string",
   "response": {},
@@ -58,6 +59,8 @@ X-API-Key: sk_test_123456
   "updated_at": "timestamp",
   "query": "string",
   "session_id": "string",
+  "context": {},
+  "unified_response": {},
   "mode": "string",
   "model_used": "string",
   "provider": "string",
@@ -75,6 +78,7 @@ X-API-Key: sk_test_123456
 | Field | Type | Description |
 |-------|------|-------------|
 | `task_id` | string | Unique task identifier |
+| `workflow_id` | string | Workflow identifier (same as task_id) |
 | `status` | string | Current task status |
 | `result` | string | Raw LLM output (plain text or JSON string) |
 | `response` | object | Parsed JSON (only present if `result` contains valid JSON) |
@@ -84,6 +88,8 @@ X-API-Key: sk_test_123456
 | `updated_at` | timestamp | Last update time |
 | `query` | string | Original task query |
 | `session_id` | string | Session identifier |
+| `context` | object | Task context (budget info, date, parameters) |
+| `unified_response` | object | Structured unified response with parsed result, performance metrics, and metadata |
 | `mode` | string | Execution mode used |
 | `model_used` | string | Primary model used (e.g., `gpt-5-mini-2025-08-07`) |
 | `provider` | string | Provider name (e.g., `openai`, `anthropic`) |
@@ -521,13 +527,23 @@ import (
 )
 
 type TaskStatusResponse struct {
-    TaskID    string                 `json:"task_id"`
-    Status    string                 `json:"status"`
-    Response  map[string]interface{} `json:"response"`
-    Error     string                 `json:"error"`
-    Query     string                 `json:"query"`
-    SessionID string                 `json:"session_id"`
-    Mode      string                 `json:"mode"`
+    TaskID          string                 `json:"task_id"`
+    WorkflowID      string                 `json:"workflow_id"`
+    Status          string                 `json:"status"`
+    Result          string                 `json:"result"`
+    Response        map[string]interface{} `json:"response"`
+    Error           string                 `json:"error"`
+    Query           string                 `json:"query"`
+    SessionID       string                 `json:"session_id"`
+    Mode            string                 `json:"mode"`
+    Context         map[string]interface{} `json:"context"`
+    ModelUsed       string                 `json:"model_used"`
+    Provider        string                 `json:"provider"`
+    CreatedAt       string                 `json:"created_at"`
+    UpdatedAt       string                 `json:"updated_at"`
+    Usage           map[string]interface{} `json:"usage"`
+    Metadata        map[string]interface{} `json:"metadata"`
+    UnifiedResponse map[string]interface{} `json:"unified_response"`
 }
 
 func getTaskStatus(taskID string) (*TaskStatusResponse, error) {
@@ -619,7 +635,7 @@ while true; do
       echo ""
       echo "✓ Task completed!"
       echo ""
-      echo $RESPONSE | jq -r '.response.result'
+      echo $RESPONSE | jq -r '.result'
       exit 0
       ;;
     "TASK_STATUS_FAILED")
@@ -673,7 +689,7 @@ def submit_and_wait(query: str, api_key: str):
         status = status_response.json()
 
         if status["status"] == "TASK_STATUS_COMPLETED":
-            return status["response"]["result"]
+            return status["result"]
         elif status["status"] == "TASK_STATUS_FAILED":
             raise Exception(status["error"])
 
@@ -768,7 +784,7 @@ match status["status"]:
     case "TASK_STATUS_RUNNING":
         print("Task is running...")
     case "TASK_STATUS_COMPLETED":
-        result = status["response"]["result"]
+        result = status["result"]
         print(f"Result: {result}")
     case "TASK_STATUS_FAILED":
         print(f"Failed: {status['error']}")

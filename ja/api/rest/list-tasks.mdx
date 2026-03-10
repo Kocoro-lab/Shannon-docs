@@ -48,6 +48,10 @@ X-API-Key: sk_test_123456
 - `CANCELLED` または `CANCELED` - キャンセルされたタスク
 - `TIMEOUT` - タイムアウトを超えたタスク
 
+<Note>
+フィルター値は短縮形式を使用します（例：`RUNNING`）。レスポンスのstatusフィールドには`TASK_STATUS_`プレフィックスが含まれます（例：`TASK_STATUS_RUNNING`）。
+</Note>
+
 ## レスポンス
 
 ### 成功レスポンス
@@ -95,6 +99,10 @@ X-API-Key: sk_test_123456
 | `created_at` | タイムスタンプ | タスク作成時間 (ISO 8601) |
 | `completed_at` | タイムスタンプ | タスク完了時間 (未完了の場合はnull) |
 | `total_token_usage` | オブジェクト | トークン使用量とコストのメトリクス |
+
+<Note>
+リスト応答の`mode`フィールドは`EXECUTION_MODE_`プレフィックスを使用します（例：`EXECUTION_MODE_STANDARD`）。単一タスクGETエンドポイントは短縮形式を返します（例：`standard`）。
+</Note>
 
 ### トークン使用量フィールド
 

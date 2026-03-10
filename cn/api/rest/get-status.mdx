@@ -49,6 +49,7 @@ X-API-Key: sk_test_123456
 ```json
 {
   "task_id": "string",
+  "workflow_id": "string",
   "status": "string",
   "result": "string",
   "response": {},
@@ -58,6 +59,8 @@ X-API-Key: sk_test_123456
   "updated_at": "timestamp",
   "query": "string",
   "session_id": "string",
+  "context": {},
+  "unified_response": {},
   "mode": "string",
   "model_used": "string",
   "provider": "string",
@@ -75,6 +78,7 @@ X-API-Key: sk_test_123456
 | 字段 | 类型 | 描述 |
 |------|------|------|
 | `task_id` | string | 唯一任务标识符 |
+| `workflow_id` | string | 工作流标识符（与 task_id 相同） |
 | `status` | string | 当前任务状态 |
 | `result` | string | 原始 LLM 输出（纯文本或 JSON 字符串） |
 | `response` | object | 解析后的 JSON（仅当 `result` 可解析为 JSON 时出现） |
@@ -84,6 +88,8 @@ X-API-Key: sk_test_123456
 | `updated_at` | timestamp | 最后更新时间 |
 | `query` | string | 原始任务查询 |
 | `session_id` | string | 会话标识符 |
+| `context` | object | 任务上下文（预算信息、日期、参数） |
+| `unified_response` | object | 结构化统一响应，包含解析结果、性能指标和元数据 |
 | `mode` | string | 使用的执行模式 |
 | `model_used` | string | 使用的主要模型（例如 `gpt-5-mini-2025-08-07`） |
 | `provider` | string | 提供商名称（例如 `openai`、`anthropic`） |
@@ -450,7 +456,7 @@ async function getTaskStatus(taskId) {
     console.log('状态：', status.status);
 
     if (status.status === 'TASK_STATUS_COMPLETED') {
-      console.log('结果：', status.response.result);
+      console.log('结果：', status.result);
     } else if (status.status === 'TASK_STATUS_FAILED') {
       console.error('错误：', status.error);
     }
@@ -482,7 +488,7 @@ async function waitForCompletion(taskId, timeout = 300000) {
       { headers: { 'X-API-Key': 'sk_test_123456' } }
     );
 
-    const { status, response: result, error } = response.data;
+    const { status, result, error } = response.data;
 
     if (status === 'TASK_STATUS_COMPLETED') {
       return result;
@@ -521,13 +527,23 @@ import (
 )
 
 type TaskStatusResponse struct {
-    TaskID    string                 `json:"task_id"`
-    Status    string                 `json:"status"`
-    Response  map[string]interface{} `json:"response"`
-    Error     string                 `json:"error"`
-    Query     string                 `json:"query"`
-    SessionID string                 `json:"session_id"`
-    Mode      string                 `json:"mode"`
+    TaskID          string                 `json:"task_id"`
+    WorkflowID      string                 `json:"workflow_id"`
+    Status          string                 `json:"status"`
+    Result          string                 `json:"result"`
+    Response        map[string]interface{} `json:"response"`
+    Error           string                 `json:"error"`
+    Query           string                 `json:"query"`
+    SessionID       string                 `json:"session_id"`
+    Mode            string                 `json:"mode"`
+    Context         map[string]interface{} `json:"context"`
+    ModelUsed       string                 `json:"model_used"`
+    Provider        string                 `json:"provider"`
+    CreatedAt       string                 `json:"created_at"`
+    UpdatedAt       string                 `json:"updated_at"`
+    Usage           map[string]interface{} `json:"usage"`
+    Metadata        map[string]interface{} `json:"metadata"`
+    UnifiedResponse map[string]interface{} `json:"unified_response"`
 }
 
 func getTaskStatus(taskID string) (*TaskStatusResponse, error) {
@@ -619,7 +635,7 @@ while true; do
       echo ""
       echo "✓ 任务完成！"
       echo ""
-      echo $RESPONSE | jq -r '.response.result'
+      echo $RESPONSE | jq -r '.result'
       exit 0
       ;;
     "TASK_STATUS_FAILED")
@@ -673,7 +689,7 @@ def submit_and_wait(query: str, api_key: str):
         status = status_response.json()
 
         if status["status"] == "TASK_STATUS_COMPLETED":
-            return status["response"]["result"]
+            return status["result"]
         elif status["status"] == "TASK_STATUS_FAILED":
             raise Exception(status["error"])
 
@@ -768,7 +784,7 @@ match status["status"]:
     case "TASK_STATUS_RUNNING":
         print("任务正在运行...")
     case "TASK_STATUS_COMPLETED":
-        result = status["response"]["result"]
+        result = status["result"]
         print(f"结果：{result}")
     case "TASK_STATUS_FAILED":
         print(f"失败：{status['error']}")

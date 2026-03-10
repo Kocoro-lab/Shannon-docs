@@ -48,6 +48,10 @@ X-API-Key: sk_test_123456
 - `CANCELLED` or `CANCELED` - Cancelled tasks
 - `TIMEOUT` - Tasks that exceeded timeout
 
+<Note>
+Filter values use short form (e.g., `RUNNING`). Response status fields include the `TASK_STATUS_` prefix (e.g., `TASK_STATUS_RUNNING`).
+</Note>
+
 ## Response
 
 ### Success Response
@@ -95,6 +99,10 @@ X-API-Key: sk_test_123456
 | `created_at` | timestamp | Task creation time (ISO 8601) |
 | `completed_at` | timestamp | Task completion time (null if not completed) |
 | `total_token_usage` | object | Token usage and cost metrics |
+
+<Note>
+The `mode` field uses the `EXECUTION_MODE_` prefix in list responses (e.g., `EXECUTION_MODE_STANDARD`). The single-task GET endpoint returns the short form (e.g., `standard`).
+</Note>
 
 ### Token Usage Fields
 

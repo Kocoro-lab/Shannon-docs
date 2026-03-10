@@ -172,7 +172,7 @@ async def with_timeout_handling():
 Handle API rate limits gracefully:
 
 ```python
-from shannon import ShannonClient, ConnectionError
+from shannon import ShannonClient, RateLimitError
 import time
 
 def handle_rate_limits(queries):
@@ -187,9 +187,9 @@ def handle_rate_limits(queries):
                 result = client.wait(handle.task_id)
                 results.append(result)
                 break  # Success, move to next
-            except ConnectionError:
-                # Rate limited or transient network error
-                print(f"Rate limited or transient error, retrying in {backoff}s...")
+            except RateLimitError:
+                # Rate limited
+                print(f"Rate limited, retrying in {backoff}s...")
                 time.sleep(backoff)
                 backoff = min(backoff * 2, 30)
 
@@ -197,7 +197,7 @@ def handle_rate_limits(queries):
 ```
 
 <Note>
-Import clarity: `from shannon import ConnectionError` refers to the SDK's exception (not Python's built‑in `ConnectionError`). Advanced patterns such as rate limiting backoff and circuit breakers are reference implementations — validate in your environment.
+Import clarity: `from shannon import ConnectionError` refers to the SDK's exception (not Python's built‑in `ConnectionError`). Use `RateLimitError` for rate limiting and `ConnectionError` for network issues. Advanced patterns such as backoff and circuit breakers are reference implementations — validate in your environment.
 </Note>
 
 ## Validation Errors

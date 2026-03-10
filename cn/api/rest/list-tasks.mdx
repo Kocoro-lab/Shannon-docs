@@ -48,6 +48,10 @@ X-API-Key: sk_test_123456
 - `CANCELLED` 或 `CANCELED` - 已取消的任务
 - `TIMEOUT` - 超时的任务
 
+<Note>
+筛选值使用短格式（如 `RUNNING`）。响应中的 status 字段包含 `TASK_STATUS_` 前缀（如 `TASK_STATUS_RUNNING`）。
+</Note>
+
 ## 响应
 
 ### 成功响应
@@ -95,6 +99,10 @@ X-API-Key: sk_test_123456
 | `created_at` | timestamp | 任务创建时间（ISO 8601） |
 | `completed_at` | timestamp | 任务完成时间（如果未完成则为 null） |
 | `total_token_usage` | object | 令牌使用量和成本指标 |
+
+<Note>
+列表响应中 `mode` 字段使用 `EXECUTION_MODE_` 前缀（如 `EXECUTION_MODE_STANDARD`）。单任务 GET 端点返回短格式（如 `standard`）。
+</Note>
 
 ### 令牌使用字段
 

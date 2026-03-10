@@ -11,9 +11,9 @@ http://localhost:8080/api/v1
 
 ## 端点摘要
 
-Shannon 提供 **19 个 REST 端点**，分为 4 个类别：
+Shannon 提供 **40+ 个 REST 端点**，分为 8 个类别：
 
-### 任务操作（8 个端点）
+### 任务操作（10 个端点）
 
 | 端点 | 描述 |
 |----------|-------------|
@@ -23,8 +23,10 @@ Shannon 提供 **19 个 REST 端点**，分为 4 个类别：
 | `GET /tasks/{id}` | 获取任务状态和结果 |
 | `GET /tasks/{id}/events` | 获取持久化事件历史 |
 | `GET /tasks/{id}/timeline` | 获取确定性 Temporal 时间线 |
+| `POST /tasks/{id}/pause` | 在工作流检查点暂停运行中的任务 |
+| `POST /tasks/{id}/resume` | 恢复之前暂停的任务 |
+| `GET /tasks/{id}/control-state` | 获取任务的暂停/取消控制状态 |
 | `POST /tasks/{id}/cancel` | 取消排队或运行中的任务 |
-| `POST /approvals/decision` | 提交人工审批决策 |
 
 ### 流式传输（2 个端点）
 
@@ -43,6 +45,48 @@ Shannon 提供 **19 个 REST 端点**，分为 4 个类别：
 | `GET /sessions/{sessionId}/events` | 获取会话事件（按轮次分组）|
 | `PATCH /sessions/{sessionId}` | 更新会话标题（UUID 或 external_id） |
 | `DELETE /sessions/{sessionId}` | 删除会话（软删除；幂等 204）|
+
+### 定时任务（8 个端点）
+
+| 端点 | 描述 |
+|----------|-------------|
+| `POST /schedules` | 创建新的定时任务 |
+| `GET /schedules` | 获取定时任务列表 |
+| `GET /schedules/{id}` | 获取定时任务详情 |
+| `GET /schedules/{id}/runs` | 获取定时任务执行历史 |
+| `PUT /schedules/{id}` | 更新定时任务配置 |
+| `POST /schedules/{id}/pause` | 暂停定时任务 |
+| `POST /schedules/{id}/resume` | 恢复定时任务 |
+| `DELETE /schedules/{id}` | 删除定时任务 |
+
+### 认证（8 个端点）
+
+| 端点 | 描述 |
+|----------|-------------|
+| `POST /auth/register` | 注册新用户 |
+| `POST /auth/login` | 登录并获取令牌 |
+| `POST /auth/refresh` | 刷新访问令牌 |
+| `GET /auth/me` | 获取当前用户信息 |
+| `POST /auth/api-keys/refresh` | 刷新 API 密钥 |
+| `GET /auth/api-keys` | 列出 API 密钥 |
+| `POST /auth/api-keys` | 创建新的 API 密钥 |
+| `DELETE /auth/api-keys/{id}` | 撤销 API 密钥 |
+
+### 审批与人工审核（3 个端点）
+
+| 端点 | 描述 |
+|----------|-------------|
+| `POST /approvals/decision` | 提交人工审批决策 |
+| `GET /tasks/{id}/review` | 获取人工审核详情 |
+| `POST /tasks/{id}/review` | 提交人工审核决策 |
+
+### OpenAI 兼容接口（3 个端点）
+
+| 端点 | 描述 |
+|----------|-------------|
+| `POST /v1/chat/completions` | 聊天补全（支持流式传输）|
+| `GET /v1/models` | 获取可用模型列表 |
+| `GET /v1/models/{model}` | 获取模型详情 |
 
 ### 健康检查和可观测性（3 个端点）
 

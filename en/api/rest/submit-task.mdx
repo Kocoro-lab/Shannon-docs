@@ -46,8 +46,8 @@ X-API-Key: sk_test_123456
 | `provider_override` | string | No | Force provider (e.g., `openai`, `anthropic`, `google`) |
 | `skill` | string | No | Markdown-defined skill to drive single-agent execution ([Skills System](/en/api/rest/skills)) |
 | `research_strategy` | string | No | Research strategy preset: `quick`, `standard`, `deep`, or `academic` |
-| `max_iterations` | integer | No | Maximum number of iterations for the task |
-| `max_concurrent_agents` | integer | No | Maximum number of concurrent agents |
+| `max_iterations` | integer | No | Maximum number of iterations for the task (1-50) |
+| `max_concurrent_agents` | integer | No | Maximum number of concurrent agents (1-20) |
 | `enable_verification` | boolean | No | Enable verification step after task completion |
 
 ### Request Body Schema
