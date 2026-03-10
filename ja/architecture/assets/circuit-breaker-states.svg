@@ -46,8 +46,8 @@
 
   <!-- Open to Half-Open -->
   <path d="M 580 330 Q 500 380 440 390" fill="none" stroke="#ea580c" stroke-width="2" marker-end="url(#arrow)"/>
-  <text x="530" y="360" class="arrow-label" fill="#ea580c">回復タイムアウト後</text>
-  <text x="530" y="375" class="label" fill="#ea580c">After Timeout</text>
+  <text x="540" y="345" class="arrow-label" fill="#ea580c">回復タイムアウト後</text>
+  <text x="540" y="358" class="label" fill="#ea580c">After Timeout</text>
 
   <!-- Half-Open to Closed -->
   <path d="M 280 380 Q 200 350 210 310" fill="none" stroke="#16a34a" stroke-width="2" marker-end="url(#arrow)"/>
@@ -55,12 +55,12 @@
 
   <!-- Half-Open to Open -->
   <path d="M 520 400 Q 580 350 590 310" fill="none" stroke="#dc2626" stroke-width="2" marker-end="url(#arrow)"/>
-  <text x="570" y="370" class="arrow-label" fill="#dc2626">失敗 / Failure</text>
+  <text x="575" y="388" class="arrow-label" fill="#dc2626">失敗 / Failure</text>
 
   <!-- Closed self-loop -->
   <path d="M 140 190 Q 100 200 100 250 Q 100 300 140 310" fill="none" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <text x="70" y="250" class="desc-text" fill="#16a34a">成功</text>
-  <text x="70" y="263" class="desc-text" fill="#16a34a">Success</text>
+  <text x="80" y="250" class="desc-text" fill="#16a34a">成功</text>
+  <text x="80" y="263" class="desc-text" fill="#16a34a">Success</text>
 
   <!-- Legend -->
   <rect x="50" y="450" width="700" height="40" fill="none" stroke="#ddd" stroke-width="1" rx="2"/>

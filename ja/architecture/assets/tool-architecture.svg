@@ -98,15 +98,15 @@
 
   <!-- Built-in -->
   <line x1="420" y1="300" x2="510" y2="300" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <text x="465" y="292" class="label">Built-in</text>
+  <text x="465" y="283" class="label">Built-in</text>
 
   <!-- MCP -->
   <line x1="430" y1="315" x2="630" y2="315" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <text x="530" y="307" class="label">MCP</text>
+  <text x="635" y="307" class="label">MCP</text>
 
   <!-- OpenAPI -->
   <line x1="410" y1="330" x2="540" y2="365" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <text x="470" y="340" class="label">OpenAPI</text>
+  <text x="460" y="355" class="label">OpenAPI</text>
 
   <line x1="570" y1="340" x2="320" y2="365" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
   <line x1="620" y1="320" x2="320" y2="365" stroke="#666" stroke-width="1.5" marker-end="url(#arrow)"/>
