@@ -136,9 +136,9 @@ Uses medium tier **but only Anthropic models** → `claude-sonnet-4-5-20250929`
 ### Python SDK Examples
 
 ```python
-from shannon import Shannon
+from shannon import ShannonClient
 
-client = Shannon(api_key="sk_test_123456")
+client = ShannonClient(api_key="sk_test_123456")
 
 # Auto-selection
 task = client.tasks.submit(query="Simple task")

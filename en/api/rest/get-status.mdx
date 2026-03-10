@@ -769,7 +769,7 @@ while True:
 # ✅ Good - Use streaming
 for event in client.stream(task_id):
     print(event.type, event.message)
-    if event.type == "TASK_COMPLETED":
+    if event.type == "WORKFLOW_COMPLETED":
         break
 ```
 

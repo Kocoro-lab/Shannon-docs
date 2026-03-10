@@ -452,7 +452,7 @@ REDIS_PORT=6379
 **服务**: 所有
 **热重载**: 否
 
-Redis 密码 (如果启用了身份验证)。
+Redis 密码 (如果启用了认证)。
 
 ```bash
 REDIS_PASSWORD=secure-password
@@ -694,7 +694,7 @@ DECOMPOSITION_MODEL_ID=claude-sonnet-4-5-20250929
 **服务**: LLM Service
 **热重载**: 是
 
-每次 LLM 调用的默认最大输出令牌数。
+每次 LLM 调用的默认最大输出Token数。
 
 ```bash
 MAX_TOKENS=2000
@@ -727,7 +727,7 @@ TEMPERATURE=0.7
 **服务**: Orchestrator
 **热重载**: 是
 
-每个任务请求的最大总令牌数。
+每个任务请求的最大总Token数。
 
 ```bash
 MAX_TOKENS_PER_REQUEST=10000
@@ -820,7 +820,7 @@ WORKFLOW_SYNTH_BYPASS_SINGLE=true
 **服务**: Orchestrator
 **热重载**: 是
 
-每次代理执行的令牌预算。
+每次智能体执行的Token预算。
 
 ```bash
 TOKEN_BUDGET_PER_AGENT=5000
@@ -833,7 +833,7 @@ TOKEN_BUDGET_PER_AGENT=5000
 **服务**: Orchestrator
 **热重载**: 是
 
-整个任务的令牌预算。
+整个任务的Token预算。
 
 ```bash
 TOKEN_BUDGET_PER_TASK=20000
@@ -1043,7 +1043,7 @@ STREAMING_RING_CAPACITY=1000
 COMPRESSION_TRIGGER_RATIO=0.75
 ```
 
-**影响**: 当使用了 75% 的令牌预算时压缩上下文
+**影响**: 当使用了 75% 的Token预算时压缩上下文
 
 ### COMPRESSION_TARGET_RATIO
 
@@ -1079,7 +1079,7 @@ ENFORCE_TIMEOUT_SECONDS=90
 **服务**: Agent Core
 **热重载**: 是
 
-每次代理执行的最大令牌数。
+每次智能体执行的最大Token数。
 
 ```bash
 ENFORCE_MAX_TOKENS=32768
@@ -1092,7 +1092,7 @@ ENFORCE_MAX_TOKENS=32768
 **服务**: Agent Core
 **热重载**: 是
 
-代理操作的速率限制 (每秒请求数)。
+智能体操作的速率限制 (每秒请求数)。
 
 ```bash
 ENFORCE_RATE_RPS=20
@@ -1218,10 +1218,10 @@ JWT_SECRET=secure-random-256-bit-key
 **服务**: Gateway
 **热重载**: 是 (建议重启)
 
-跳过身份验证 (仅限开发环境)。
+跳过认证 (仅限开发环境)。
 
 ```bash
-GATEWAY_SKIP_AUTH=0  # 启用身份验证
+GATEWAY_SKIP_AUTH=0  # 启用认证
 ```
 
 **安全**: **生产环境中必须设置为 `0`!**
@@ -1482,7 +1482,7 @@ MCP_TIMEOUT_SECONDS=10
 **服务**: LLM Service
 **热重载**: 是
 
-MCP 服务器注册的身份验证令牌。
+MCP 服务器注册的认证 Token。
 
 ```bash
 MCP_REGISTER_TOKEN=secret-token
@@ -1534,7 +1534,7 @@ MCP_CB_RECOVERY_SECONDS=60
 **服务**: LLM Service
 **热重载**: 是
 
-MCP 工具的令牌成本乘数。
+MCP 工具的Token成本乘数。
 
 ```bash
 MCP_COST_TO_TOKENS=100
@@ -1698,7 +1698,7 @@ SEED_DATA=true
 **服务**: Agent Core
 **热重载**: 是
 
-每次代理执行的最大运行时间。
+每次智能体执行的最大运行时间。
 
 ```bash
 AGENT_TIMEOUT_SECONDS=600

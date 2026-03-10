@@ -5,7 +5,7 @@ description: "Complete reference for Shannon streaming event types"
 
 ## Overview
 
-Shannon emits **real-time events** via Server-Sent Events (SSE) to provide visibility into task execution. This document catalogs the **35 event types** actually emitted by the platform, their structure, and when they occur.
+Shannon emits **real-time events** via Server-Sent Events (SSE) to provide visibility into task execution. This document catalogs the **37 event types** actually emitted by the platform, their structure, and when they occur.
 
 Events provide:
 - **Real-time progress** - Track task execution as it happens
@@ -77,12 +77,14 @@ Authoritative list of event types emitted by Shannon:
 | `AGENT_STARTED` | Agent | Agent begins processing |
 | `AGENT_THINKING` | Agent | Agent reasoning/planning |
 | `AGENT_COMPLETED` | Agent | Agent finishes successfully |
+| `AGENT_FAILED` | Agent | Agent encountered an error |
 | `TOOL_INVOKED` | Tool | Tool is called |
 | `TOOL_OBSERVATION` | Tool | Agent observes tool result |
 | `TEAM_RECRUITED` | Team | Multi-agent team assembled |
 | `TEAM_RETIRED` | Team | Team disbanded |
 | `TEAM_STATUS` | Team | Team coordination update |
 | `DEPENDENCY_SATISFIED` | Team | Dependencies resolved |
+| `DELEGATION` | Team | Task delegated to another agent |
 | `MESSAGE_SENT` | Message | Agent sends message |
 | `MESSAGE_RECEIVED` | Message | Agent receives message |
 | `LLM_PROMPT` | LLM | Prompt sent to LLM |
@@ -103,7 +105,7 @@ Authoritative list of event types emitted by Shannon:
 | `THREAD_MESSAGE_COMPLETED` | Stream | Message content fully delivered |
 | `STREAM_END` | Stream | Explicit end-of-stream signal (no more events for this workflow) |
 
-**Total**: 35 event types
+**Total**: 37 event types
 
 Note: Events such as `WORKFLOW_FAILED`, `TASK_COMPLETED`, `TOOL_COMPLETED`, `TOOL_FAILED`, and `BUDGET_UPDATE` are not emitted by the streaming API. Failures are surfaced via `ERROR_OCCURRED`; completion is indicated by `WORKFLOW_COMPLETED`. `STREAM_END` is emitted as a lifecycle signal after completion/termination when streaming ends.
 
@@ -603,25 +605,6 @@ Language model interaction events for debugging and monitoring.
 - `duration_ms`: Request duration in milliseconds
 
 **Note**: Usage metadata follows OpenAI's standard format and is now available for all providers including OpenAI, Anthropic, Google, Groq, xAI, and OpenAI-compatible endpoints. The `usage` object structure matches OpenAI's streaming response format for seamless integration. See the [OpenAI-Compatible API](/en/api/rest/openai-compatible) for details on using Shannon with OpenAI SDKs.
-
----
-
-### TOOL_OBSERVATION
-
-**Emitted**: Tool result observation by agent
-
-**Data**:
-```json
-{
-  "type": "TOOL_OBSERVATION",
-  "message": "Agent observed tool result",
-  "data": {
-    "tool_name": "web_search",
-    "observation": "Found 10 relevant results about AI trends",
-    "relevance_score": 0.85
-  }
-}
-```
 
 ---
 

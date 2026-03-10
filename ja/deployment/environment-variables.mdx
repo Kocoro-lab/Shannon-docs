@@ -46,7 +46,7 @@ docker compose restart
 
 ### ENVIRONMENT
 
-**タイプ**: String  
+**タイプ**: 文字列  
 **デフォルト**: `dev`  
 **有効な値**: `dev`, `staging`, `prod`  
 **サービス**: すべて  
@@ -65,7 +65,7 @@ ENVIRONMENT=prod
 
 ### DEBUG
 
-**タイプ**: Boolean  
+**タイプ**: ブール値  
 **デフォルト**: `false`  
 **有効な値**: `true`, `false`  
 **サービス**: すべて  
@@ -83,7 +83,7 @@ DEBUG=true
 
 ### SERVICE_NAME
 
-**タイプ**: String  
+**タイプ**: 文字列  
 **デフォルト**: `shannon-llm-service`  
 **サービス**: LLMサービス  
 **ホットリロード**: いいえ
@@ -98,7 +98,7 @@ SERVICE_NAME=shannon-llm-service
 
 ### OPENAI_API_KEY
 
-**タイプ**: String  
+**タイプ**: 文字列  
 **必須**: 少なくとも1つのプロバイダーキー  
 **サービス**: LLMサービス  
 **ホットリロード**: はい
@@ -117,7 +117,7 @@ OPENAI_API_KEY=sk-...
 
 ### ANTHROPIC_API_KEY
 
-**タイプ**: String  
+**タイプ**: 文字列  
 **サービス**: LLMサービス  
 **ホットリロード**: はい
 
@@ -131,7 +131,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 
 ### GOOGLE_API_KEY
 
-**タイプ**: String  
+**タイプ**: 文字列  
 **サービス**: LLMサービス  
 **ホットリロード**: はい
 
@@ -145,7 +145,7 @@ GOOGLE_API_KEY=...
 
 ### GROQ_API_KEY
 
-**タイプ**: String  
+**タイプ**: 文字列  
 **サービス**: LLMサービス  
 **ホットリロード**: はい
 
@@ -159,7 +159,7 @@ GROQ_API_KEY=...
 
 ### XAI_API_KEY
 
-**タイプ**: String  
+**タイプ**: 文字列  
 **サービス**: LLMサービス  
 **ホットリロード**: はい
 
@@ -171,7 +171,7 @@ XAI_API_KEY=...
 
 ### DEEPSEEK_API_KEY
 
-**タイプ**: String  
+**タイプ**: 文字列  
 **サービス**: LLMサービス  
 **ホットリロード**: はい
 
@@ -183,7 +183,7 @@ DEEPSEEK_API_KEY=...
 
 ### QWEN_API_KEY
 
-**タイプ**: String  
+**タイプ**: 文字列  
 **サービス**: LLMサービス  
 **ホットリロード**: はい
 
@@ -195,7 +195,7 @@ QWEN_API_KEY=...
 
 ### MISTRAL_API_KEY
 
-**タイプ**: String  
+**タイプ**: 文字列  
 **サービス**: LLMサービス  
 **ホットリロード**: はい
 
@@ -207,7 +207,7 @@ MISTRAL_API_KEY=...
 
 ### AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
 
-**タイプ**: String  
+**タイプ**: 文字列  
 **サービス**: LLMサービス  
 **ホットリロード**: はい
 
@@ -223,7 +223,7 @@ AWS_REGION=us-east-1
 
 ### ZAI_API_KEY
 
-**タイプ**: String  
+**タイプ**: 文字列  
 **サービス**: LLMサービス  
 **ホットリロード**: はい
 
@@ -237,7 +237,7 @@ ZAI_API_KEY=...
 
 ### WEB_SEARCH_PROVIDER
 
-**タイプ**: String
+**タイプ**: 文字列
 **デフォルト**: `google`
 **有効な値**: `google`, `serper`, `serpapi`, `searchapi`, `bing`, `exa`, `firecrawl`
 **サービス**: LLMサービス
@@ -254,7 +254,7 @@ WEB_SEARCH_PROVIDER=google
 
 ### GOOGLE_SEARCH_API_KEY
 
-**タイプ**: String  
+**タイプ**: 文字列  
 **サービス**: LLMサービス  
 **ホットリロード**: はい
 
@@ -269,7 +269,7 @@ GOOGLE_SEARCH_ENGINE_ID=...
 
 ### SERPER_API_KEY
 
-**タイプ**: String  
+**タイプ**: 文字列  
 **サービス**: LLMサービス  
 **ホットリロード**: はい
 
@@ -283,7 +283,7 @@ SERPER_API_KEY=...
 
 ### BING_API_KEY
 
-**タイプ**: String  
+**タイプ**: 文字列  
 **サービス**: LLMサービス  
 **ホットリロード**: はい
 
@@ -295,7 +295,7 @@ BING_API_KEY=...
 
 ### EXA_API_KEY
 
-**タイプ**: String  
+**タイプ**: 文字列  
 **サービス**: LLMサービス  
 **ホットリロード**: はい
 
@@ -1144,7 +1144,7 @@ ENFORCE_CB_MIN_REQUESTS=20
 
 ### APPROVAL_ENABLED
 
-**タイプ**: ブール  
+**タイプ**: ブール値
 **デフォルト**: `false`  
 **サービス**: Orchestrator  
 **ホットリロード**: はい  
@@ -1230,7 +1230,7 @@ GATEWAY_SKIP_AUTH=0  # 認証を有効にする
 
 ### TEMPLATE_FALLBACK_ENABLED
 
-**タイプ**: ブール  
+**タイプ**: ブール値
 **デフォルト**: `false`  
 **サービス**: Orchestrator  
 **ホットリロード**: はい  
@@ -1271,7 +1271,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=localhost:4317
 
 ### OTEL_ENABLED
 
-**タイプ**: ブール  
+**タイプ**: ブール値
 **デフォルト**: `false`  
 **サービス**: すべて  
 **ホットリロード**: いいえ  
@@ -1641,7 +1641,7 @@ SHANNON_WORKSPACE=./workspace
 
 ### SHANNON_SESSION_WORKSPACES_DIR
 
-**タイプ**: String
+**タイプ**: 文字列
 **デフォルト**: `/tmp/shannon-sessions`
 **サービス**: Gateway, Agent Core
 **ホットリロード**: いいえ
@@ -1654,7 +1654,7 @@ SHANNON_SESSION_WORKSPACES_DIR=/tmp/shannon-sessions
 
 ### SHANNON_USE_WASI_SANDBOX
 
-**タイプ**: Boolean (0/1)
+**タイプ**: ブール値 (0/1)
 **デフォルト**: `0`
 **サービス**: Agent Core
 **ホットリロード**: いいえ
@@ -1667,7 +1667,7 @@ SHANNON_USE_WASI_SANDBOX=1
 
 ### SHANNON_MAX_WORKSPACE_SIZE_MB
 
-**タイプ**: Integer
+**タイプ**: 整数
 **デフォルト**: `100`
 **サービス**: Agent Core
 **ホットリロード**: いいえ
