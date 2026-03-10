@@ -1639,6 +1639,45 @@ LLM_TIMEOUT_SECONDS=120
 SHANNON_WORKSPACE=./workspace
 ```
 
+### SHANNON_SESSION_WORKSPACES_DIR
+
+**タイプ**: String
+**デフォルト**: `/tmp/shannon-sessions`
+**サービス**: Gateway, Agent Core
+**ホットリロード**: いいえ
+
+セッション分離されたワークスペースファイルのベースディレクトリ。各セッションにサブディレクトリが割り当てられます。
+
+```bash
+SHANNON_SESSION_WORKSPACES_DIR=/tmp/shannon-sessions
+```
+
+### SHANNON_USE_WASI_SANDBOX
+
+**タイプ**: Boolean (0/1)
+**デフォルト**: `0`
+**サービス**: Agent Core
+**ホットリロード**: いいえ
+
+ファイル操作のWASIサンドボックスを有効にします。有効にすると、ファイルアクセスはFirecracker実行環境を介してセキュリティ分離されます。
+
+```bash
+SHANNON_USE_WASI_SANDBOX=1
+```
+
+### SHANNON_MAX_WORKSPACE_SIZE_MB
+
+**タイプ**: Integer
+**デフォルト**: `100`
+**サービス**: Agent Core
+**ホットリロード**: いいえ
+
+セッションワークスペースごとの最大ディスククォータ（MB）。
+
+```bash
+SHANNON_MAX_WORKSPACE_SIZE_MB=100
+```
+
 ### SEED_DATA
 
 **タイプ**: ブール値  

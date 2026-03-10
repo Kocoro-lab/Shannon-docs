@@ -64,7 +64,9 @@ Each time the Lead wakes, it selects one or more actions:
 | `shutdown_agent` | Terminate a specific agent |
 | `interim_reply` | Push a progress update to the user |
 | `noop` | Do nothing (no action needed right now) |
-| `done` | Declare all work complete and trigger synthesis |
+| `done` | Declare all work complete, proceed to closing phase |
+| `reply` | Return the final response directly to the user (closing phase only) |
+| `synthesize` | Trigger the synthesis pipeline instead of replying directly |
 
 ## Agent Actions
 

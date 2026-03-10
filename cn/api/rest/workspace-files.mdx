@@ -1,0 +1,223 @@
+---
+title: "工作空间文件"
+description: "访问和下载会话工作空间中的文件"
+---
+
+## 概述
+
+工作空间文件 API 提供对会话工作空间中任务执行期间生成的文件的访问。Agent 在执行过程中可以生成脚本、分析结果或数据导出等产物——此 API 允许您浏览和下载这些文件。
+
+## 接口列表
+
+| 接口 | 方法 | 描述 |
+|------|------|------|
+| `/api/v1/sessions/{sessionId}/files` | GET | 列出工作空间中的文件 |
+| `/api/v1/sessions/{sessionId}/files/{path...}` | GET | 下载指定文件 |
+
+---
+
+## 安全性
+
+Shannon 对所有工作空间文件操作实施严格的路径安全策略：
+
+- **路径穿越保护** -- 包含 `..` 或绝对路径的请求会被拒绝，返回 `400 Bad Request`
+- **符号链接验证** -- 指向工作空间外部的符号链接会被阻止
+- **文件大小限制** -- 单个文件下载上限为 **100 MB**
+
+<Warning>
+路径穿越尝试（如 `../../etc/passwd`）在网关层被阻止。所有路径都相对于会话工作空间根目录进行解析。
+</Warning>
+
+---
+
+## 列出工作空间文件
+
+列出会话工作空间中的文件和目录。
+
+<CodeGroup>
+```bash curl
+curl "http://localhost:8080/api/v1/sessions/{sessionId}/files" \
+  -H "X-API-Key: sk_test_123456"
+```
+
+```python Python
+import requests
+
+resp = requests.get(
+    "http://localhost:8080/api/v1/sessions/{session_id}/files",
+    headers={"X-API-Key": "sk_test_123456"},
+)
+data = resp.json()
+for f in data["files"]:
+    print(f"{f['name']}  {'DIR' if f['is_dir'] else f['size']} bytes")
+```
+</CodeGroup>
+
+### 路径参数
+
+| 参数 | 类型 | 必填 | 描述 |
+|------|------|------|------|
+| `sessionId` | string | 是 | 会话 ID（UUID 或 external_id） |
+
+### 查询参数
+
+| 参数 | 类型 | 必填 | 描述 |
+|------|------|------|------|
+| `path` | string | 否 | 要列出的子目录路径（默认为工作空间根目录 `/`） |
+| `recursive` | boolean | 否 | 若为 `true`，递归列出所有子目录中的文件 |
+
+### 子目录查询示例
+
+<CodeGroup>
+```bash curl
+curl "http://localhost:8080/api/v1/sessions/{sessionId}/files?path=output&recursive=true" \
+  -H "X-API-Key: sk_test_123456"
+```
+
+```python Python
+import requests
+
+resp = requests.get(
+    "http://localhost:8080/api/v1/sessions/{session_id}/files",
+    params={"path": "output", "recursive": True},
+    headers={"X-API-Key": "sk_test_123456"},
+)
+for f in resp.json()["files"]:
+    print(f"{f['path']}  {f['size']} bytes")
+```
+</CodeGroup>
+
+### 响应
+
+```json
+{
+  "session_id": "abc-123",
+  "path": "/",
+  "files": [
+    {
+      "name": "analysis.py",
+      "path": "/analysis.py",
+      "size": 1234,
+      "is_dir": false,
+      "modified_at": "2026-03-10T10:00:00Z"
+    },
+    {
+      "name": "output",
+      "path": "/output",
+      "size": 0,
+      "is_dir": true,
+      "modified_at": "2026-03-10T10:05:00Z"
+    },
+    {
+      "name": "results.csv",
+      "path": "/output/results.csv",
+      "size": 56789,
+      "is_dir": false,
+      "modified_at": "2026-03-10T10:10:00Z"
+    }
+  ]
+}
+```
+
+### 响应字段
+
+| 字段 | 类型 | 描述 |
+|------|------|------|
+| `session_id` | string | 会话标识符 |
+| `path` | string | 列出的目录路径 |
+| `files` | array | 文件条目列表 |
+| `files[].name` | string | 文件或目录名称 |
+| `files[].path` | string | 相对于工作空间根目录的完整路径 |
+| `files[].size` | integer | 文件大小（字节），目录为 0 |
+| `files[].is_dir` | boolean | 该条目是否为目录 |
+| `files[].modified_at` | string | 最后修改时间戳（ISO 8601） |
+
+---
+
+## 下载文件
+
+从会话工作空间下载指定文件。响应的 Content-Type 根据文件内容自动检测。
+
+<CodeGroup>
+```bash curl
+curl "http://localhost:8080/api/v1/sessions/{sessionId}/files/analysis.py" \
+  -H "X-API-Key: sk_test_123456" \
+  -o analysis.py
+```
+
+```python Python
+import requests
+
+resp = requests.get(
+    "http://localhost:8080/api/v1/sessions/{session_id}/files/output/results.csv",
+    headers={"X-API-Key": "sk_test_123456"},
+)
+with open("results.csv", "wb") as f:
+    f.write(resp.content)
+```
+</CodeGroup>
+
+### 路径参数
+
+| 参数 | 类型 | 必填 | 描述 |
+|------|------|------|------|
+| `sessionId` | string | 是 | 会话 ID（UUID 或 external_id） |
+| `path...` | string | 是 | 工作空间内的完整文件路径（如 `output/results.csv`） |
+
+### 响应
+
+- **Content-Type**: 自动检测（如 `text/plain`、`application/octet-stream`、`text/csv`）
+- **Body**: 原始文件内容
+
+<Note>
+当 Firecracker 执行器不可用时，网关会回退到从本地文件系统读取文件。此回退对客户端透明，但如果两种来源都不可访问，则可能返回 `502`。
+</Note>
+
+---
+
+## 错误响应
+
+| 状态码 | 描述 |
+|--------|------|
+| 400 | 无效的会话 ID 或路径穿越尝试（检测到 `..` 或绝对路径） |
+| 401 | 未授权——缺少或无效的 API key |
+| 404 | 会话工作空间未找到，或文件不存在 |
+| 413 | 文件超过 100 MB 大小限制 |
+| 502 | Firecracker 执行器不可用且本地回退也失败 |
+
+所有错误遵循标准格式：
+
+```json
+{
+  "error": "error message here"
+}
+```
+
+### 错误示例：路径穿越
+
+```json
+{
+  "error": "invalid path: traversal not allowed"
+}
+```
+
+### 错误示例：文件过大
+
+```json
+{
+  "error": "file exceeds maximum size limit (100MB)"
+}
+```
+
+---
+
+## 相关内容
+
+<CardGroup cols={2}>
+  <Card title="会话 API" icon="comments" href="/cn/api/rest/sessions">
+    管理会话和查看会话历史
+  </Card>
+  <Card title="工具执行" icon="gears" href="/cn/architecture/tool-execution">
+    Agent 如何生成工作空间产物
+  </Card>
+</CardGroup>

@@ -1,0 +1,223 @@
+---
+title: "ワークスペースファイル"
+description: "セッションワークスペースのファイルにアクセスしてダウンロード"
+---
+
+## 概要
+
+ワークスペースファイル API は、セッションワークスペース内でタスク実行中に生成されたファイルへのアクセスを提供します。Agent は実行中にスクリプト、分析結果、データエクスポートなどの成果物を生成できます。この API を使用して、それらのファイルを一覧表示およびダウンロードできます。
+
+## エンドポイント
+
+| エンドポイント | メソッド | 説明 |
+|---------------|---------|------|
+| `/api/v1/sessions/{sessionId}/files` | GET | ワークスペース内のファイルを一覧表示 |
+| `/api/v1/sessions/{sessionId}/files/{path...}` | GET | 特定のファイルをダウンロード |
+
+---
+
+## セキュリティ
+
+Shannon はすべてのワークスペースファイル操作に対して厳格なパスセキュリティを適用します：
+
+- **パストラバーサル保護** -- `..` や絶対パスを含むリクエストは `400 Bad Request` で拒否されます
+- **シンボリックリンク検証** -- ワークスペース外を指すシンボリックリンクはブロックされます
+- **ファイルサイズ制限** -- ダウンロードはファイルあたり **100 MB** に制限されています
+
+<Warning>
+パストラバーサルの試行（例：`../../etc/passwd`）はゲートウェイレベルでブロックされます。すべてのパスはセッションワークスペースのルートからの相対パスとして解決されます。
+</Warning>
+
+---
+
+## ワークスペースファイルの一覧表示
+
+セッションワークスペース内のファイルとディレクトリを一覧表示します。
+
+<CodeGroup>
+```bash curl
+curl "http://localhost:8080/api/v1/sessions/{sessionId}/files" \
+  -H "X-API-Key: sk_test_123456"
+```
+
+```python Python
+import requests
+
+resp = requests.get(
+    "http://localhost:8080/api/v1/sessions/{session_id}/files",
+    headers={"X-API-Key": "sk_test_123456"},
+)
+data = resp.json()
+for f in data["files"]:
+    print(f"{f['name']}  {'DIR' if f['is_dir'] else f['size']} bytes")
+```
+</CodeGroup>
+
+### パスパラメータ
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|------|------|------|
+| `sessionId` | string | はい | セッション ID（UUID または external_id） |
+
+### クエリパラメータ
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|------|------|------|
+| `path` | string | いいえ | 一覧表示するサブディレクトリパス（デフォルトはワークスペースルート `/`） |
+| `recursive` | boolean | いいえ | `true` の場合、サブディレクトリを含めて再帰的にファイルを一覧表示 |
+
+### サブディレクトリの一覧表示例
+
+<CodeGroup>
+```bash curl
+curl "http://localhost:8080/api/v1/sessions/{sessionId}/files?path=output&recursive=true" \
+  -H "X-API-Key: sk_test_123456"
+```
+
+```python Python
+import requests
+
+resp = requests.get(
+    "http://localhost:8080/api/v1/sessions/{session_id}/files",
+    params={"path": "output", "recursive": True},
+    headers={"X-API-Key": "sk_test_123456"},
+)
+for f in resp.json()["files"]:
+    print(f"{f['path']}  {f['size']} bytes")
+```
+</CodeGroup>
+
+### レスポンス
+
+```json
+{
+  "session_id": "abc-123",
+  "path": "/",
+  "files": [
+    {
+      "name": "analysis.py",
+      "path": "/analysis.py",
+      "size": 1234,
+      "is_dir": false,
+      "modified_at": "2026-03-10T10:00:00Z"
+    },
+    {
+      "name": "output",
+      "path": "/output",
+      "size": 0,
+      "is_dir": true,
+      "modified_at": "2026-03-10T10:05:00Z"
+    },
+    {
+      "name": "results.csv",
+      "path": "/output/results.csv",
+      "size": 56789,
+      "is_dir": false,
+      "modified_at": "2026-03-10T10:10:00Z"
+    }
+  ]
+}
+```
+
+### レスポンスフィールド
+
+| フィールド | 型 | 説明 |
+|-----------|------|------|
+| `session_id` | string | セッション識別子 |
+| `path` | string | 一覧表示されたディレクトリパス |
+| `files` | array | ファイルエントリのリスト |
+| `files[].name` | string | ファイルまたはディレクトリ名 |
+| `files[].path` | string | ワークスペースルートからの相対パス |
+| `files[].size` | integer | ファイルサイズ（バイト）、ディレクトリの場合は 0 |
+| `files[].is_dir` | boolean | エントリがディレクトリかどうか |
+| `files[].modified_at` | string | 最終更新タイムスタンプ（ISO 8601） |
+
+---
+
+## ファイルのダウンロード
+
+セッションワークスペースから特定のファイルをダウンロードします。レスポンスの Content-Type はファイル内容に基づいて自動的に検出されます。
+
+<CodeGroup>
+```bash curl
+curl "http://localhost:8080/api/v1/sessions/{sessionId}/files/analysis.py" \
+  -H "X-API-Key: sk_test_123456" \
+  -o analysis.py
+```
+
+```python Python
+import requests
+
+resp = requests.get(
+    "http://localhost:8080/api/v1/sessions/{session_id}/files/output/results.csv",
+    headers={"X-API-Key": "sk_test_123456"},
+)
+with open("results.csv", "wb") as f:
+    f.write(resp.content)
+```
+</CodeGroup>
+
+### パスパラメータ
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|------|------|------|
+| `sessionId` | string | はい | セッション ID（UUID または external_id） |
+| `path...` | string | はい | ワークスペース内の完全なファイルパス（例：`output/results.csv`） |
+
+### レスポンス
+
+- **Content-Type**: 自動検出（例：`text/plain`、`application/octet-stream`、`text/csv`）
+- **Body**: 生のファイルコンテンツ
+
+<Note>
+Firecracker エグゼキュータが利用できない場合、ゲートウェイはローカルファイルシステムからのファイル読み取りにフォールバックします。このフォールバックはクライアントに対して透過的ですが、どちらのソースもアクセスできない場合は `502` を返す可能性があります。
+</Note>
+
+---
+
+## エラーレスポンス
+
+| ステータス | 説明 |
+|-----------|------|
+| 400 | 無効なセッション ID またはパストラバーサルの試行（`..` や絶対パスが検出された） |
+| 401 | 認証されていない -- API key がないか無効 |
+| 404 | セッションワークスペースが見つからない、またはファイルが存在しない |
+| 413 | ファイルが 100 MB のサイズ制限を超過 |
+| 502 | Firecracker エグゼキュータが利用不可で、ローカルフォールバックも失敗 |
+
+すべてのエラーは標準フォーマットに従います：
+
+```json
+{
+  "error": "error message here"
+}
+```
+
+### エラー例：パストラバーサル
+
+```json
+{
+  "error": "invalid path: traversal not allowed"
+}
+```
+
+### エラー例：ファイルサイズ超過
+
+```json
+{
+  "error": "file exceeds maximum size limit (100MB)"
+}
+```
+
+---
+
+## 関連コンテンツ
+
+<CardGroup cols={2}>
+  <Card title="セッション API" icon="comments" href="/ja/api/rest/sessions">
+    セッションの管理とセッション履歴の表示
+  </Card>
+  <Card title="ツール実行" icon="gears" href="/ja/architecture/tool-execution">
+    Agent がワークスペース成果物を生成する仕組み
+  </Card>
+</CardGroup>

@@ -1639,6 +1639,45 @@ LLM_TIMEOUT_SECONDS=120
 SHANNON_WORKSPACE=./workspace
 ```
 
+### SHANNON_SESSION_WORKSPACES_DIR
+
+**类型**: String
+**默认值**: `/tmp/shannon-sessions`
+**服务**: Gateway, Agent Core
+**热重载**: 否
+
+会话隔离工作区文件的基础目录。每个会话会获得一个子目录。
+
+```bash
+SHANNON_SESSION_WORKSPACES_DIR=/tmp/shannon-sessions
+```
+
+### SHANNON_USE_WASI_SANDBOX
+
+**类型**: Boolean (0/1)
+**默认值**: `0`
+**服务**: Agent Core
+**热重载**: 否
+
+启用文件操作的 WASI 沙箱。启用后，文件访问将通过 Firecracker 执行器进行安全隔离。
+
+```bash
+SHANNON_USE_WASI_SANDBOX=1
+```
+
+### SHANNON_MAX_WORKSPACE_SIZE_MB
+
+**类型**: Integer
+**默认值**: `100`
+**服务**: Agent Core
+**热重载**: 否
+
+每个会话工作区的最大磁盘配额（MB）。
+
+```bash
+SHANNON_MAX_WORKSPACE_SIZE_MB=100
+```
+
 ### SEED_DATA
 
 **类型**: Boolean

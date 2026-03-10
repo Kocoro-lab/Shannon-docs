@@ -115,7 +115,8 @@
               {
                 "group": "Sessions",
                 "pages": [
-                  "en/api/rest/sessions"
+                  "en/api/rest/sessions",
+                  "en/api/rest/workspace-files"
                 ]
               },
               {
@@ -352,7 +353,8 @@
               {
                 "group": "会话",
                 "pages": [
-                  "cn/api/rest/sessions"
+                  "cn/api/rest/sessions",
+                  "cn/api/rest/workspace-files"
                 ]
               },
               {
@@ -589,7 +591,8 @@
               {
                 "group": "セッション",
                 "pages": [
-                  "ja/api/rest/sessions"
+                  "ja/api/rest/sessions",
+                  "ja/api/rest/workspace-files"
                 ]
               },
               {

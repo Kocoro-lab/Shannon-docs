@@ -1639,6 +1639,45 @@ Workspace directory for file operations.
 SHANNON_WORKSPACE=./workspace
 ```
 
+### SHANNON_SESSION_WORKSPACES_DIR
+
+**Type**: String
+**Default**: `/tmp/shannon-sessions`
+**Services**: Gateway, Agent Core
+**Hot-Reload**: No
+
+Base directory for session-isolated workspace files. Each session gets a subdirectory.
+
+```bash
+SHANNON_SESSION_WORKSPACES_DIR=/tmp/shannon-sessions
+```
+
+### SHANNON_USE_WASI_SANDBOX
+
+**Type**: Boolean (0/1)
+**Default**: `0`
+**Services**: Agent Core
+**Hot-Reload**: No
+
+Enable WASI sandbox for file operations. When enabled, file access is mediated through the Firecracker executor for security isolation.
+
+```bash
+SHANNON_USE_WASI_SANDBOX=1
+```
+
+### SHANNON_MAX_WORKSPACE_SIZE_MB
+
+**Type**: Integer
+**Default**: `100`
+**Services**: Agent Core
+**Hot-Reload**: No
+
+Maximum disk quota per session workspace in megabytes.
+
+```bash
+SHANNON_MAX_WORKSPACE_SIZE_MB=100
+```
+
 ### SEED_DATA
 
 **Type**: Boolean
