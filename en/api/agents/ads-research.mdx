@@ -46,7 +46,7 @@ Extract paid ads from Google Search results for given keywords.
 **Example Request:**
 
 ```bash
-curl -X POST https://api-dev.shannon.run/api/v1/agents/serp-ads \
+curl -X POST http://localhost:8080/api/v1/agents/serp-ads \
   -H "X-API-Key: sk_your_api_key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -101,7 +101,7 @@ Extract sponsored ads from Yahoo Japan search results.
 **Example Request:**
 
 ```bash
-curl -X POST https://api-dev.shannon.run/api/v1/agents/yahoo-jp-ads \
+curl -X POST http://localhost:8080/api/v1/agents/yahoo-jp-ads \
   -H "X-API-Key: sk_your_api_key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -151,7 +151,7 @@ Search Meta Ad Library for Facebook and Instagram ads.
 **Example Request:**
 
 ```bash
-curl -X POST https://api-dev.shannon.run/api/v1/agents/meta-ad-library \
+curl -X POST http://localhost:8080/api/v1/agents/meta-ad-library \
   -H "X-API-Key: sk_your_api_key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -229,7 +229,7 @@ Discover competitor advertisers for given keywords across devices and locations.
 **Example Request:**
 
 ```bash
-curl -X POST https://api-dev.shannon.run/api/v1/agents/competitor-discover \
+curl -X POST http://localhost:8080/api/v1/agents/competitor-discover \
   -H "X-API-Key: sk_your_api_key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -297,7 +297,7 @@ Multi-platform ad transparency: Google Transparency Center, Yahoo JP ads, Meta A
 **Example Request (Japan market, all platforms):**
 
 ```bash
-curl -X POST https://api-dev.shannon.run/api/v1/agents/ads-transparency \
+curl -X POST http://localhost:8080/api/v1/agents/ads-transparency \
   -H "X-API-Key: sk_your_api_key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -358,7 +358,7 @@ Screenshot and analyze a landing page using Playwright + Vision LLM.
 **Example Request (Full page analysis):**
 
 ```bash
-curl -X POST https://api-dev.shannon.run/api/v1/agents/lp-visual-analyze \
+curl -X POST http://localhost:8080/api/v1/agents/lp-visual-analyze \
   -H "X-API-Key: sk_your_api_key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -427,7 +427,7 @@ Analyze multiple landing pages in parallel.
 **Example Request:**
 
 ```bash
-curl -X POST https://api-dev.shannon.run/api/v1/agents/lp-batch-analyze \
+curl -X POST http://localhost:8080/api/v1/agents/lp-batch-analyze \
   -H "X-API-Key: sk_your_api_key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -489,7 +489,7 @@ Analyze ad copy patterns, persuasion techniques, and messaging gaps.
 **Example Request:**
 
 ```bash
-curl -X POST https://api-dev.shannon.run/api/v1/agents/ad-creative-analyze \
+curl -X POST http://localhost:8080/api/v1/agents/ad-creative-analyze \
   -H "X-API-Key: sk_your_api_key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -568,7 +568,7 @@ Extract search keywords from a natural language query.
 **Example Request:**
 
 ```bash
-curl -X POST https://api-dev.shannon.run/api/v1/agents/keyword-extract \
+curl -X POST http://localhost:8080/api/v1/agents/keyword-extract \
   -H "X-API-Key: sk_your_api_key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -615,7 +615,7 @@ Navigate to a URL and capture a screenshot using Playwright.
 **Example Request:**
 
 ```bash
-curl -X POST https://api-dev.shannon.run/api/v1/agents/browser-screenshot \
+curl -X POST http://localhost:8080/api/v1/agents/browser-screenshot \
   -H "X-API-Key: sk_your_api_key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -663,7 +663,7 @@ For responses containing large base64 data (screenshots >500KB), the data is sto
 
 ```bash
 curl -H "X-API-Key: sk_your_api_key" \
-  "https://api-dev.shannon.run/api/v1/blob/shannon:blob:task-abc123:screenshot_b64"
+  "http://localhost:8080/api/v1/blob/shannon:blob:task-abc123:screenshot_b64"
 ```
 
 **Returns:** Raw base64 string (Content-Type: text/plain)
@@ -683,7 +683,7 @@ curl -H "X-API-Key: sk_your_api_key" \
 import httpx
 
 client = httpx.Client(
-    base_url="https://api-dev.shannon.run",
+    base_url="http://localhost:8080",
     headers={"X-API-Key": "sk_your_api_key"}
 )
 

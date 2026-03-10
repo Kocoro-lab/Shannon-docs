@@ -209,6 +209,70 @@ client.tasks.submit(
 )
 ```
 
+## リサーチ階層型モデルアーキテクチャ
+
+<Note>
+Shannon v0.3.0で追加。リサーチワークフローにおいて、大型モデルの一律使用と比較して **50〜70%のコスト削減** を実現します。
+</Note>
+
+Shannonのリサーチワークフローは、実行の各段階に異なるモデルティアを自動的に割り当て、品質が最も重要な箇所にのみ高コストのモデルを使用します。
+
+### 仕組み
+
+| リサーチ段階 | デフォルトティア | ロール | 理由 |
+|---|---|---|---|
+| **探索 / リサーチエージェント** | `small` | `research_agent` | 情報収集は広範囲指向であり、小型モデルで十分かつコスト効率が高い |
+| **統合 / 最終出力** | `large`（設定可能） | `synthesis_agent` | 調査結果の組み合わせと推論にはより強力なモデルが必要 |
+| **クイック戦略** | `small` | `quick_research_agent` | 小型モデルでの並列実行を強制し、速度を最大化 |
+
+### 設定
+
+統合段階のティアは、タスクリクエストの `synthesis_model_tier` または `config/shannon.yaml` で設定できます：
+
+```yaml
+# config/shannon.yaml
+research:
+  default_research_tier: small       # 探索エージェントのティア
+  synthesis_model_tier: large        # 最終統合のティア
+```
+
+リクエストごとにオーバーライドも可能です：
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -d '{
+    "query": "LLMスケーリング則の影響を調査",
+    "strategy": "research",
+    "context": {
+      "synthesis_model_tier": "medium"
+    }
+  }'
+```
+
+### クイックリサーチ戦略
+
+`quick` 戦略は、すべてのリサーチエージェントを小型モデルで並列実行させ、深さよりも速度とコストを優先します：
+
+```python
+task = client.tasks.submit(
+    query="最近のML論文の概要を素早く調査",
+    strategy="quick"  # 並列実行、小型モデル、quick_research_agentロール
+)
+```
+
+### コスト比較
+
+**例：5エージェントのリサーチワークフロー**
+
+| アプローチ | モデル使用 | 推定コスト |
+|---|---|---|
+| 一律 `large` | 5 x large | 〜$0.50 |
+| 階層型（v0.3.0） | 4 x small + 1 x large | 〜$0.15-0.25 |
+| クイック戦略 | 5 x small（並列） | 〜$0.05 |
+
+結果：階層型アーキテクチャで **50〜70%のコスト削減** を実現し、統合品質を維持。
+
 ## 複雑性分析
 
 Shannonはタスクの複雑性をいくつかの要因を用いて分析します：

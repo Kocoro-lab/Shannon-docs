@@ -111,6 +111,10 @@ OPENAI_API_KEY=sk-...
 
 **有効なモデル**: GPT-5, GPT-5-mini, GPT-5-nano
 
+<Note>
+セマンティックメモリ機能（テキスト埋め込み）に必須です。このキーがない場合、ベクトル検索とエージェントメモリは無効になります。
+</Note>
+
 ### ANTHROPIC_API_KEY
 
 **タイプ**: String  
@@ -235,7 +239,7 @@ ZAI_API_KEY=...
 
 **タイプ**: String
 **デフォルト**: `google`
-**有効な値**: `google`, `serper`, `serpapi`, `bing`, `exa`, `firecrawl`
+**有効な値**: `google`, `serper`, `serpapi`, `searchapi`, `bing`, `exa`, `firecrawl`
 **サービス**: LLMサービス
 **ホットリロード**: はい
 
@@ -244,6 +248,9 @@ ZAI_API_KEY=...
 ```bash
 WEB_SEARCH_PROVIDER=google
 ```
+
+**プロバイダー**:
+- `searchapi` — SearchAPI.io — マルチエンジン検索 ($0.004/コール)
 
 ### GOOGLE_SEARCH_API_KEY
 
@@ -300,14 +307,28 @@ EXA_API_KEY=...
 
 ### FIRECRAWL_API_KEY
 
-**タイプ**: 文字列  
-**サービス**: LLMサービス  
-**ホットリロード**: はい  
+**タイプ**: 文字列
+**サービス**: LLMサービス
+**ホットリロード**: はい
 
 Webスクレイピング用のFirecrawl APIキー。
 
 ```bash
 FIRECRAWL_API_KEY=...
+```
+
+### SEARCHAPI_API_KEY
+
+**タイプ**: 文字列
+**必須**: いいえ
+**デフォルト**: (なし)
+**サービス**: LLMサービス
+**ホットリロード**: はい
+
+SearchAPI.io の API キー。[searchapi.io](https://www.searchapi.io) で取得できます。
+
+```bash
+SEARCHAPI_API_KEY=...
 ```
 
 ## データストア

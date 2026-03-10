@@ -92,7 +92,7 @@ print(f"Task ID: {task['task_id']}")
 {
   "task_id": "task-abc123...",
   "status": "STATUS_CODE_OK",
-  "message": "Task submitted successfully",
+  "message": "Task submitted successfully. Session: swarm-demo",
   "created_at": "2025-11-10T10:00:00Z"
 }
 ```
@@ -156,8 +156,9 @@ GET http://localhost:8080/api/v1/stream/sse?workflow_id={workflow_id}
 |---------|-----------|------|
 | `WORKFLOW_STARTED` | `swarm-supervisor` | Swarm 工作流已初始化 |
 | `PROGRESS`（规划） | `swarm-supervisor` | 任务分解进行中 |
-| `PROGRESS`（生成） | `swarm-supervisor` | 正在分配智能体 |
-| `PROGRESS`（监控） | `swarm-supervisor` | 智能体并行工作中 |
+| `LEAD_DECISION` | `swarm-lead` | Lead 做出协调决策（生成、分配、修订等） |
+| `TASKLIST_UPDATED` | `swarm-lead` | 任务依赖图已变更 |
+| `TEAM_STATUS` | `swarm-lead` | 团队组成变更（智能体生成或关闭） |
 | `AGENT_STARTED` | 智能体名称（如 `takao`） | 单个智能体开始执行 |
 | `PROGRESS`（迭代） | 智能体名称 | 智能体迭代进度 |
 | `AGENT_COMPLETED` | 智能体名称 | 单个智能体已完成 |
@@ -197,38 +198,40 @@ GET http://localhost:8080/api/v1/tasks/{task_id}
 ```json
 {
   "task_id": "task-abc123...",
+  "workflow_id": "task-abc123...",
   "status": "TASK_STATUS_COMPLETED",
   "result": "## AI Chip Market Comparison\n\n...",
+  "query": "Compare AI chip markets across US, Japan, and South Korea",
+  "session_id": "swarm-demo",
+  "mode": "standard",
+  "model_used": "claude-haiku-4-5-20251001",
+  "provider": "anthropic",
   "metadata": {
     "workflow_type": "swarm",
     "total_agents": 3,
-    "agents": [
+    "total_tokens": 598235,
+    "model_breakdown": [
       {
-        "agent_id": "takao",
-        "iterations": 8,
-        "tokens": 14200,
-        "success": true,
-        "model": "gpt-5-mini-2025-08-07"
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic",
+        "executions": 38,
+        "tokens": 297524,
+        "cost_usd": 0.372
       },
       {
-        "agent_id": "mitaka",
-        "iterations": 6,
-        "tokens": 9800,
-        "success": true,
-        "model": "gpt-5-mini-2025-08-07"
-      },
-      {
-        "agent_id": "kichijoji",
-        "iterations": 7,
-        "tokens": 11200,
-        "success": true,
-        "model": "gpt-5-mini-2025-08-07"
+        "model": "shannon_web_search",
+        "provider": "shannon-scraper",
+        "executions": 12,
+        "tokens": 90000,
+        "cost_usd": 0.048
       }
     ]
   },
   "usage": {
-    "total_tokens": 35200,
-    "estimated_cost": 0.042
+    "input_tokens": 289164,
+    "output_tokens": 309071,
+    "total_tokens": 598235,
+    "estimated_cost": 0.780
   }
 }
 ```
@@ -239,12 +242,13 @@ GET http://localhost:8080/api/v1/tasks/{task_id}
 |------|------|------|
 | `metadata.workflow_type` | string | Swarm 工作流始终为 `"swarm"` |
 | `metadata.total_agents` | integer | 参与的智能体总数（初始 + 动态） |
-| `metadata.agents` | array | 每个智能体的执行摘要 |
-| `metadata.agents[].agent_id` | string | 确定性智能体名称（日本车站名称） |
-| `metadata.agents[].iterations` | integer | 完成的推理-行动循环次数 |
-| `metadata.agents[].tokens` | integer | 消耗的总 Token 数 |
-| `metadata.agents[].success` | boolean | 智能体是否成功完成 |
-| `metadata.agents[].model` | string | 使用的 LLM 模型 |
+| `metadata.total_tokens` | integer | 所有智能体消耗的总 Token 数 |
+| `metadata.model_breakdown` | array | 每个模型的执行摘要 |
+| `metadata.model_breakdown[].model` | string | 模型标识符 |
+| `metadata.model_breakdown[].provider` | string | 提供商名称 |
+| `metadata.model_breakdown[].executions` | integer | 使用该模型的 LLM 调用次数 |
+| `metadata.model_breakdown[].tokens` | integer | 该模型消耗的 Token 数 |
+| `metadata.model_breakdown[].cost_usd` | number | 预估成本（美元） |
 
 ## 服务端配置
 
@@ -256,10 +260,13 @@ workflows:
     enabled: true                     # 启用/禁用 Swarm 路由
     max_agents: 10                    # 智能体总数上限（初始 + 动态）
     max_iterations_per_agent: 25      # 每个智能体的最大推理-行动循环次数
-    agent_timeout_seconds: 600        # 每个智能体超时
+    agent_timeout_seconds: 1800       # 每个智能体超时（30 分钟）
     max_messages_per_agent: 20        # 每个智能体的 P2P 消息上限
     workspace_snippet_chars: 800      # 提示中每个工作区条目的最大字符数
     workspace_max_entries: 5          # 每个主题显示的最近条目数
+    max_total_llm_calls: 200          # 全局 LLM 调用预算
+    max_total_tokens: 1000000         # 全局 Token 预算（1M）
+    max_wall_clock_minutes: 30        # 最大挂钟时间
 ```
 
 | 参数 | 默认值 | 描述 |
@@ -267,10 +274,13 @@ workflows:
 | `enabled` | `true` | 必须为 `true` 才能使 `force_swarm` 生效 |
 | `max_agents` | `10` | 总上限（含动态生成的辅助智能体） |
 | `max_iterations_per_agent` | `25` | 每个智能体的迭代限制 |
-| `agent_timeout_seconds` | `600` | 每个智能体 10 分钟超时 |
+| `agent_timeout_seconds` | `1800` | 每个智能体 30 分钟超时 |
 | `max_messages_per_agent` | `20` | 防止 P2P 消息泛滥 |
 | `workspace_snippet_chars` | `800` | 控制工作区上下文的 Token 消耗 |
 | `workspace_max_entries` | `5` | 限制智能体提示中每个主题的工作区条目 |
+| `max_total_llm_calls` | `200` | 所有智能体的最大 LLM 调用总数 |
+| `max_total_tokens` | `1000000` | 所有智能体的最大 Token 消耗总数 |
+| `max_wall_clock_minutes` | `30` | 整个 Swarm 的最大挂钟时间 |
 
 ## 错误处理和回退
 
@@ -289,11 +299,8 @@ workflows:
   "metadata": {
     "workflow_type": "swarm",
     "total_agents": 3,
-    "agents": [
-      {"agent_id": "takao", "success": false, "error": "consecutive tool errors"},
-      {"agent_id": "mitaka", "success": false, "error": "LLM step failed at iteration 2"},
-      {"agent_id": "kichijoji", "success": false, "error": "consecutive tool errors"}
-    ]
+    "total_tokens": 45200,
+    "cost_usd": 0.058
   }
 }
 ```

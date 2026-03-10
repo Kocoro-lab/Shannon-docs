@@ -1,53 +1,70 @@
 ---
 title: "Swarm Multi-Agent Orchestration"
-description: "Understanding Shannon's swarm workflow for persistent, autonomous multi-agent collaboration"
+description: "Understanding Shannon's swarm workflow with Lead Agent coordination for autonomous multi-agent collaboration"
 ---
 
 ## What is Swarm Mode?
 
-Swarm mode deploys multiple persistent, autonomous agents that work in parallel to solve complex tasks. Unlike the standard DAG or Supervisor workflows where agents execute once and return results, swarm agents run iterative **reason-act loops** -- checking their mailbox, calling tools, sharing findings with teammates, and converging independently.
+Swarm mode deploys multiple persistent, autonomous agents that work in parallel to solve complex tasks. An LLM-powered **Lead Agent** dynamically coordinates the team -- planning tasks, spawning agents, reassigning work, and making decisions based on real-time events.
 
-A swarm supervisor monitors execution and can dynamically spawn helper agents when an agent requests assistance.
+Unlike static orchestration where tasks are pre-decomposed and never change, the Lead Agent continuously monitors progress and adapts: creating new tasks, canceling redundant work, and reassigning idle agents as the situation evolves.
 
 ## How It Works
 
-Shannon's swarm workflow follows a four-phase lifecycle:
+Shannon's swarm workflow is driven by an **event-driven Lead Agent loop**:
 
-### Phase 1: Task Decomposition
+### Lead Agent Event Loop
 
-The supervisor receives your query and breaks it into subtasks using the same decomposition engine as other workflows. Each subtask becomes the assignment for one agent.
+The Lead Agent wakes on specific events and decides what to do next:
 
+```text
+Events that wake the Lead:
+├── agent_idle       — An agent finished its current task or became available
+├── agent_completed  — An agent produced final output
+├── help_request     — An agent requested the Lead to spawn a helper
+├── checkpoint       — Periodic timer (every 120s) to review overall progress
+└── human_input      — User sent new instructions mid-execution
 ```
-Query: "Compare AI chip markets across US, Japan, and South Korea"
 
-Subtasks:
-├── Agent 1: "Research US AI chip market landscape"
-├── Agent 2: "Research Japan AI chip market landscape"
-└── Agent 3: "Research South Korea AI chip market landscape"
+On each wake, the Lead receives the full team status (agents, tasks, budget) and chooses one or more actions.
+
+### Lifecycle Overview
+
+1. **Initial Planning** -- The Lead receives the user query and creates an initial set of tasks with optional dependency chains
+2. **Agent Spawning** -- The Lead spawns agents and assigns tasks, respecting dependency order
+3. **Event-Driven Coordination** -- As agents complete work, report idle, or hit checkpoints, the Lead dynamically reassigns tasks, revises the plan, or spawns new agents
+4. **Synthesis** -- When all tasks are complete, the Lead can spawn a dedicated synthesis agent or declare `done` to produce the final response
+
+### Task Dependencies (DAG)
+
+Tasks can declare dependencies on other tasks, forming a directed acyclic graph (DAG):
+
+```text
+Tasks:
+├── task-1: "Research US AI chip market"        (depends_on: [])
+├── task-2: "Research Japan AI chip market"     (depends_on: [])
+├── task-3: "Research South Korea AI chip market" (depends_on: [])
+└── task-4: "Write comparative analysis"        (depends_on: [task-1, task-2, task-3])
 ```
 
-### Phase 2: Agent Spawning
+The system enforces dependency order -- `task-4` cannot be assigned until all three research tasks are complete. The Lead can dynamically create new dependency chains via `revise_plan`.
 
-For each subtask, the supervisor spawns an **AgentLoop** child workflow. Each agent receives:
+## Lead Agent Actions
 
-- A unique name (deterministic, based on Japanese station names)
-- Its subtask description
-- A **team roster** listing all agents and their assignments
-- Access to the shared workspace
+Each time the Lead wakes, it selects one or more actions:
 
-### Phase 3: Parallel Execution
-
-All agents work simultaneously. Each runs up to 25 iterations (configurable) of a reason-act cycle:
-
-1. **Check mailbox** for messages from other agents
-2. **Read shared workspace** for findings published by teammates
-3. **Call LLM** to decide the next action
-4. **Execute action** (tool call, publish data, send message, request help, or finish)
-5. **Check convergence** (is the agent stuck or done?)
-
-### Phase 4: Synthesis
-
-Once all agents complete, the supervisor collects results and produces a unified response. If there is only one agent result, it returns directly. For multiple results, an LLM synthesis step merges findings into a coherent answer.
+| Action | Description |
+|--------|-------------|
+| `spawn_agent` | Create a new agent for a specific task |
+| `assign_task` | Assign a pending task to an idle agent |
+| `revise_plan` | Dynamically create new tasks or cancel existing ones |
+| `send_message` | Send a message to a specific agent |
+| `broadcast` | Send a message to all agents |
+| `file_read` | Read a workspace file (zero LLM cost, max 3 rounds) |
+| `shutdown_agent` | Terminate a specific agent |
+| `interim_reply` | Push a progress update to the user |
+| `noop` | Do nothing (no action needed right now) |
+| `done` | Declare all work complete and trigger synthesis |
 
 ## Agent Actions
 
@@ -58,8 +75,13 @@ Each iteration, an agent chooses exactly one action:
 | `tool_call` | Execute a tool (web search, file read, etc.) |
 | `publish_data` | Share findings with the team via the workspace |
 | `send_message` | Send a direct message to a specific teammate |
-| `request_help` | Ask the supervisor to spawn a new helper agent |
-| `done` | Return final response and exit |
+| `request_help` | Ask the Lead to spawn a new helper agent |
+| `idle` | Signal that the current task is complete and await reassignment |
+| `done` | Return final response (auto-converts to `idle`) |
+
+<Note>
+Agents cannot self-exit. When an agent returns `done`, it automatically converts to `idle` status. Only the Lead Agent can terminate agents via `shutdown_agent`. This ensures the Lead maintains full control over team composition.
+</Note>
 
 ## Inter-Agent Communication
 
@@ -75,7 +97,7 @@ Before each LLM call, the agent's mailbox is checked for new messages. Incoming 
 
 Agents publish findings to topic-based workspace lists. Before each iteration, every agent fetches recent workspace entries from all topics, so the entire team stays aware of collective progress.
 
-```
+```text
 Shared Workspace:
 ├── Topic: "findings"
 │   ├── Agent-Takao: "NVIDIA dominates US with 80% market share..."
@@ -84,16 +106,23 @@ Shared Workspace:
     └── Agent-Kichijoji: "Samsung foundry plans announced..."
 ```
 
-## Dynamic Agent Spawning
+## Knowledge Deduplication
 
-When an agent encounters a subtask it cannot handle alone, it can request help from the supervisor:
+Shannon prevents redundant work across agents with three layers of deduplication:
 
-1. Agent sends a `request_help` action with a description and required skills
-2. Supervisor receives the request through its mailbox (polled every 3 seconds)
-3. Supervisor spawns a new AgentLoop with the helper task
-4. Supervisor notifies the requesting agent with the new agent's ID
+<AccordionGroup>
+  <Accordion title="L1: Per-Agent URL Fetch Cache">
+    Each agent caches URLs it has already fetched. If the same URL is requested again within the same agent loop, the cached content is returned without a network call.
+  </Accordion>
 
-**Safety limits**: Each agent can spawn at most one helper, and total agents are capped at the configured maximum (default: 10).
+  <Accordion title="L2: Cross-Agent Shared URL Metadata">
+    URL metadata (title, summary, key facts) is shared across all agents in the team. When Agent B tries to fetch a URL that Agent A already processed, it receives the cached metadata instead of re-fetching -- saving both time and tokens.
+  </Accordion>
+
+  <Accordion title="L3: Search Overlap Detection">
+    URLs discovered by search results are tracked across all agents. When a new search returns URLs where 70% or more have already been discovered by other agents, the system injects a warning to find new angles. Additionally, a search saturation detector compares recent queries using Jaccard word-level similarity (threshold 0.7, window of 3 queries) to flag repetitive searches.
+  </Accordion>
+</AccordionGroup>
 
 ## Convergence Detection
 
@@ -101,7 +130,7 @@ Three mechanisms prevent agents from running indefinitely:
 
 <AccordionGroup>
   <Accordion title="No-Progress Detection">
-    If an agent takes 3 consecutive iterations without using any tools (only messaging or publishing), it is considered converged and returns partial findings.
+    If an agent takes 3 consecutive iterations with no meaningful action (empty or unrecognized actions), it is considered converged and transitions to idle status. Note that `tool_call`, `send_message`, and `publish_data` all reset this counter.
   </Accordion>
 
   <Accordion title="Consecutive Error Abort">
@@ -109,11 +138,23 @@ Three mechanisms prevent agents from running indefinitely:
   </Accordion>
 
   <Accordion title="Max Iterations Force-Done">
-    On the last iteration, if the agent has not called `done`, the workflow forces completion and builds a summary from the most recent iterations.
+    On the last iteration, if the agent has not called `done` or `idle`, the workflow forces completion and builds a summary from the most recent iterations.
   </Accordion>
 </AccordionGroup>
 
 Transient errors (rate limits, timeouts, 503s) trigger automatic retry with escalating backoff (5s increments, max 30s) and do not count toward the abort threshold.
+
+## Global Budget Control
+
+Swarm execution is bounded by three budget layers that prevent runaway costs:
+
+| Budget Layer | Default | Description |
+|-------------|---------|-------------|
+| `max_total_llm_calls` | `200` | Maximum LLM calls across all agents |
+| `max_total_tokens` | `1,000,000` | Maximum tokens consumed across all agents |
+| `max_wall_clock_minutes` | `30` | Maximum wall-clock time for the entire swarm |
+
+The Lead Agent receives budget information (remaining calls, tokens, time) in its context, enabling it to make cost-aware decisions -- such as shutting down low-priority agents or skipping optional tasks when budget is tight.
 
 ## When to Use Swarm vs Other Workflows
 
@@ -121,13 +162,15 @@ Transient errors (rate limits, timeouts, 503s) trigger automatic retry with esca
 |----------|---------------------|
 | Simple Q&A, single-step tasks | Simple / DAG |
 | Multi-step research with citations | Research Workflow |
-| Tasks requiring real-time agent collaboration | **Swarm** |
+| Multi-agent code review, testing, and fixes | **Swarm** |
+| Financial analysis with multiple analyst perspectives | **Swarm** |
+| Data processing pipelines with Python/Bash execution | **Swarm** |
 | Tasks where agents need to share intermediate findings | **Swarm** |
 | Long-running exploration with dynamic subtask discovery | **Swarm** |
-| Tasks needing tool iteration (search, analyze, refine) | **Swarm** |
+| Tasks with complex dependency chains between subtasks | **Swarm** |
 
 <Note>
-Swarm mode uses more tokens than standard workflows because each agent runs multiple LLM iterations. Use it for tasks that genuinely benefit from persistent, collaborative multi-agent execution.
+Swarm mode uses more tokens than standard workflows because each agent runs multiple LLM iterations and the Lead Agent consumes tokens for coordination decisions. Use it for tasks that genuinely benefit from persistent, collaborative multi-agent execution.
 </Note>
 
 ## Configuration
@@ -139,10 +182,13 @@ Swarm behavior is controlled via `config/features.yaml`:
 | `swarm.enabled` | `true` | Enable/disable swarm workflow |
 | `swarm.max_agents` | `10` | Maximum total agents (initial + dynamic) |
 | `swarm.max_iterations_per_agent` | `25` | Max reason-act loops per agent |
-| `swarm.agent_timeout_seconds` | `600` | Per-agent timeout (10 minutes) |
+| `swarm.agent_timeout_seconds` | `1800` | Per-agent timeout (30 minutes) |
 | `swarm.max_messages_per_agent` | `20` | P2P message cap per agent |
 | `swarm.workspace_snippet_chars` | `800` | Max chars per workspace entry in prompt |
 | `swarm.workspace_max_entries` | `5` | Max recent entries shown to each agent |
+| `swarm.max_total_llm_calls` | `200` | Global LLM call budget for the entire swarm |
+| `swarm.max_total_tokens` | `1000000` | Global token budget for the entire swarm |
+| `swarm.max_wall_clock_minutes` | `30` | Maximum wall-clock time for the swarm |
 
 ## Streaming Events
 
@@ -151,7 +197,10 @@ Swarm workflows emit SSE events for real-time monitoring:
 | Event Type | Agent ID | When |
 |------------|----------|------|
 | `WORKFLOW_STARTED` | `swarm-supervisor` | Workflow begins |
-| `PROGRESS` | `swarm-supervisor` | Planning, spawning, monitoring, synthesizing |
+| `PROGRESS` | `swarm-lead` / `swarm-supervisor` | Planning, spawning, reassigning |
+| `LEAD_DECISION` | `swarm-lead` | Lead made a planning decision (spawn, assign, revise, etc.) |
+| `TASKLIST_UPDATED` | `swarm-lead` | Task dependency graph changed (tasks created or canceled) |
+| `TEAM_STATUS` | `swarm-lead` | Team composition changed (agent spawned or shut down) |
 | `AGENT_STARTED` | Agent name | Agent begins first iteration |
 | `AGENT_COMPLETED` | Agent name | Agent finishes |
 | `WORKFLOW_COMPLETED` | `swarm-supervisor` | Final synthesis complete |

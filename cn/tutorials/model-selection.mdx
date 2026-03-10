@@ -209,6 +209,70 @@ client.tasks.submit(
 )
 ```
 
+## 研究分层模型架构
+
+<Note>
+Shannon v0.3.0 新增。该功能在研究工作流中相比统一使用大型模型可实现 **50-70% 的成本降低**。
+</Note>
+
+Shannon 的研究工作流会自动为不同执行阶段分配不同的模型层级，仅在质量最关键的环节使用昂贵的模型。
+
+### 工作原理
+
+| 研究阶段 | 默认层级 | 角色 | 原因 |
+|---|---|---|---|
+| **探索 / 研究 Agent** | `small` | `research_agent` | 信息收集以广度为导向，小型模型足够且性价比高 |
+| **综合 / 最终输出** | `large`（可配置） | `synthesis_agent` | 组合和推理研究结果需要更强大的模型 |
+| **快速策略** | `small` | `quick_research_agent` | 强制使用小型模型并行执行，最大化速度 |
+
+### 配置
+
+综合阶段的层级可通过任务请求中的 `synthesis_model_tier` 或 `config/shannon.yaml` 进行配置：
+
+```yaml
+# config/shannon.yaml
+research:
+  default_research_tier: small       # 探索 Agent 的层级
+  synthesis_model_tier: large        # 最终综合的层级
+```
+
+也可以按请求覆盖：
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -d '{
+    "query": "研究 LLM 缩放定律的影响",
+    "strategy": "research",
+    "context": {
+      "synthesis_model_tier": "medium"
+    }
+  }'
+```
+
+### 快速研究策略
+
+`quick` 策略强制所有研究 Agent 使用小型模型并行运行，优先考虑速度和成本而非深度：
+
+```python
+task = client.tasks.submit(
+    query="快速概述最近的 ML 论文",
+    strategy="quick"  # 并行执行、小型模型、quick_research_agent 角色
+)
+```
+
+### 成本对比
+
+**示例：5 个 Agent 的研究工作流**
+
+| 方案 | 模型使用 | 预估成本 |
+|---|---|---|
+| 统一 `large` | 5 x large | ~$0.50 |
+| 分层（v0.3.0） | 4 x small + 1 x large | ~$0.15-0.25 |
+| 快速策略 | 5 x small（并行） | ~$0.05 |
+
+结果：分层架构实现 **50-70% 成本降低**，同时保持综合质量。
+
 ## 复杂度分析
 
 Shannon 使用多个因素分析任务复杂度：

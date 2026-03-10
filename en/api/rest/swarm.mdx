@@ -92,7 +92,7 @@ print(f"Task ID: {task['task_id']}")
 {
   "task_id": "task-abc123...",
   "status": "STATUS_CODE_OK",
-  "message": "Task submitted successfully",
+  "message": "Task submitted successfully. Session: swarm-demo",
   "created_at": "2025-11-10T10:00:00Z"
 }
 ```
@@ -156,8 +156,9 @@ GET http://localhost:8080/api/v1/stream/sse?workflow_id={workflow_id}
 |------------|-----------|-------------|
 | `WORKFLOW_STARTED` | `swarm-supervisor` | Swarm workflow initialized |
 | `PROGRESS` (planning) | `swarm-supervisor` | Task decomposition in progress |
-| `PROGRESS` (spawning) | `swarm-supervisor` | Agents being assigned |
-| `PROGRESS` (monitoring) | `swarm-supervisor` | Agents working in parallel |
+| `LEAD_DECISION` | `swarm-lead` | Lead made a coordination decision (spawn, assign, revise, etc.) |
+| `TASKLIST_UPDATED` | `swarm-lead` | Task dependency graph changed |
+| `TEAM_STATUS` | `swarm-lead` | Team composition changed (agent spawned or shut down) |
 | `AGENT_STARTED` | Agent name (e.g., `takao`) | Individual agent began execution |
 | `PROGRESS` (iteration) | Agent name | Agent iteration progress |
 | `AGENT_COMPLETED` | Agent name | Individual agent finished |
@@ -197,38 +198,40 @@ When a swarm workflow completes, the status response includes swarm-specific met
 ```json
 {
   "task_id": "task-abc123...",
+  "workflow_id": "task-abc123...",
   "status": "TASK_STATUS_COMPLETED",
   "result": "## AI Chip Market Comparison\n\n...",
+  "query": "Compare AI chip markets across US, Japan, and South Korea",
+  "session_id": "swarm-demo",
+  "mode": "standard",
+  "model_used": "claude-haiku-4-5-20251001",
+  "provider": "anthropic",
   "metadata": {
     "workflow_type": "swarm",
     "total_agents": 3,
-    "agents": [
+    "total_tokens": 598235,
+    "model_breakdown": [
       {
-        "agent_id": "takao",
-        "iterations": 8,
-        "tokens": 14200,
-        "success": true,
-        "model": "gpt-5-mini-2025-08-07"
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic",
+        "executions": 38,
+        "tokens": 297524,
+        "cost_usd": 0.372
       },
       {
-        "agent_id": "mitaka",
-        "iterations": 6,
-        "tokens": 9800,
-        "success": true,
-        "model": "gpt-5-mini-2025-08-07"
-      },
-      {
-        "agent_id": "kichijoji",
-        "iterations": 7,
-        "tokens": 11200,
-        "success": true,
-        "model": "gpt-5-mini-2025-08-07"
+        "model": "shannon_web_search",
+        "provider": "shannon-scraper",
+        "executions": 12,
+        "tokens": 90000,
+        "cost_usd": 0.048
       }
     ]
   },
   "usage": {
-    "total_tokens": 35200,
-    "estimated_cost": 0.042
+    "input_tokens": 289164,
+    "output_tokens": 309071,
+    "total_tokens": 598235,
+    "estimated_cost": 0.780
   }
 }
 ```
@@ -239,12 +242,13 @@ When a swarm workflow completes, the status response includes swarm-specific met
 |-------|------|-------------|
 | `metadata.workflow_type` | string | Always `"swarm"` for swarm workflows |
 | `metadata.total_agents` | integer | Total agents that participated (initial + dynamic) |
-| `metadata.agents` | array | Per-agent execution summary |
-| `metadata.agents[].agent_id` | string | Deterministic agent name (Japanese station name) |
-| `metadata.agents[].iterations` | integer | Reason-act cycles completed |
-| `metadata.agents[].tokens` | integer | Total tokens consumed |
-| `metadata.agents[].success` | boolean | Whether the agent completed successfully |
-| `metadata.agents[].model` | string | LLM model used |
+| `metadata.total_tokens` | integer | Total tokens consumed across all agents |
+| `metadata.model_breakdown` | array | Per-model execution summary |
+| `metadata.model_breakdown[].model` | string | Model identifier |
+| `metadata.model_breakdown[].provider` | string | Provider name |
+| `metadata.model_breakdown[].executions` | integer | Number of LLM calls with this model |
+| `metadata.model_breakdown[].tokens` | integer | Tokens consumed by this model |
+| `metadata.model_breakdown[].cost_usd` | number | Estimated cost in USD |
 
 ## Server Configuration
 
@@ -256,10 +260,13 @@ workflows:
     enabled: true                     # Enable/disable swarm routing
     max_agents: 10                    # Total agent cap (initial + dynamic)
     max_iterations_per_agent: 25      # Max reason-act loops per agent
-    agent_timeout_seconds: 600        # Per-agent wall-clock timeout
+    agent_timeout_seconds: 1800       # Per-agent wall-clock timeout (30 min)
     max_messages_per_agent: 20        # P2P message cap per agent
     workspace_snippet_chars: 800      # Max chars per workspace entry in prompt
     workspace_max_entries: 5          # Recent entries shown per topic
+    max_total_llm_calls: 200          # Global LLM call budget
+    max_total_tokens: 1000000         # Global token budget (1M)
+    max_wall_clock_minutes: 30        # Max wall-clock time
 ```
 
 | Parameter | Default | Description |
@@ -267,10 +274,13 @@ workflows:
 | `enabled` | `true` | Must be `true` for `force_swarm` to work |
 | `max_agents` | `10` | Total cap including dynamically spawned helpers |
 | `max_iterations_per_agent` | `25` | Per-agent iteration limit |
-| `agent_timeout_seconds` | `600` | 10-minute per-agent timeout |
+| `agent_timeout_seconds` | `1800` | 30-minute per-agent timeout |
 | `max_messages_per_agent` | `20` | Prevents P2P message flooding |
 | `workspace_snippet_chars` | `800` | Controls token usage from workspace context |
 | `workspace_max_entries` | `5` | Limits workspace entries per topic in agent prompt |
+| `max_total_llm_calls` | `200` | Maximum LLM calls across all agents |
+| `max_total_tokens` | `1000000` | Maximum tokens consumed across all agents |
+| `max_wall_clock_minutes` | `30` | Maximum wall-clock time for the entire swarm |
 
 ## Error Handling and Fallback
 
@@ -289,11 +299,8 @@ If all agents fail, the response includes an error:
   "metadata": {
     "workflow_type": "swarm",
     "total_agents": 3,
-    "agents": [
-      {"agent_id": "takao", "success": false, "error": "consecutive tool errors"},
-      {"agent_id": "mitaka", "success": false, "error": "LLM step failed at iteration 2"},
-      {"agent_id": "kichijoji", "success": false, "error": "consecutive tool errors"}
-    ]
+    "total_tokens": 45200,
+    "cost_usd": 0.058
   }
 }
 ```

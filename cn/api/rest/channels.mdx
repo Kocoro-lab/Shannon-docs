@@ -1,0 +1,358 @@
+---
+title: "Channels API"
+description: "将 Shannon 连接到 Slack、LINE 等外部消息平台"
+---
+
+## 概述
+
+Channels API 允许您将 Shannon 与外部消息平台集成。创建 Channel 以连接 Slack 工作区或 LINE 账户，Shannon 将通过其 Agent 系统自动处理传入的消息。
+
+## 功能特性
+
+- **Slack 集成**，支持事件订阅和 Bot 消息
+- **LINE 集成**，基于 Webhook 的消息处理
+- **HMAC 签名验证**，确保入站 Webhook 安全
+- **Agent 路由**，通过 `agent_name` 配置将消息定向到指定 Agent
+- **用户隔离**，每个用户的 type + name 组合唯一
+- **凭据安全** — 凭据永远不会在 API 响应中暴露
+
+## 创建 Channel
+
+创建新的消息 Channel。
+
+<CodeGroup>
+```bash curl
+curl -X POST http://localhost:8080/api/v1/channels \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "type": "slack",
+    "name": "My Slack Channel",
+    "credentials": {
+      "signing_secret": "your-slack-signing-secret",
+      "bot_token": "xoxb-your-bot-token",
+      "app_id": "A0123456789"
+    },
+    "config": {
+      "agent_name": "research-agent"
+    }
+  }'
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient()
+channel = client.create_channel(
+    type="slack",
+    name="My Slack Channel",
+    credentials={
+        "signing_secret": "your-slack-signing-secret",
+        "bot_token": "xoxb-your-bot-token",
+        "app_id": "A0123456789",
+    },
+    config={"agent_name": "research-agent"},
+)
+print(f"Channel created: {channel.id}")
+```
+</CodeGroup>
+
+### 请求体
+
+| 字段 | 类型 | 必填 | 描述 |
+|------|------|------|------|
+| `type` | string | 是 | Channel 类型：`"slack"` 或 `"line"` |
+| `name` | string | 是 | Channel 显示名称 |
+| `credentials` | object | 是 | 平台相关凭据（参见下方） |
+| `config` | object | 否 | 可选配置（如 `agent_name`） |
+
+### 响应
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "user_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+  "type": "slack",
+  "name": "My Slack Channel",
+  "config": {
+    "agent_name": "research-agent"
+  },
+  "enabled": true,
+  "created_at": "2026-03-10T10:00:00Z",
+  "updated_at": "2026-03-10T10:00:00Z"
+}
+```
+
+<Note>
+出于安全考虑，`credentials` 字段**永远不会**在 API 响应中返回。请在您自己的系统中安全存储凭据。
+</Note>
+
+## 列出 Channel
+
+列出当前认证用户的所有 Channel。
+
+<CodeGroup>
+```bash curl
+curl http://localhost:8080/api/v1/channels \
+  -H "Authorization: Bearer <token>"
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient()
+channels = client.list_channels()
+for ch in channels:
+    print(f"{ch.name} ({ch.type}) — enabled: {ch.enabled}")
+```
+</CodeGroup>
+
+### 响应
+
+```json
+[
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "user_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+    "type": "slack",
+    "name": "My Slack Channel",
+    "config": {
+      "agent_name": "research-agent"
+    },
+    "enabled": true,
+    "created_at": "2026-03-10T10:00:00Z",
+    "updated_at": "2026-03-10T10:00:00Z"
+  }
+]
+```
+
+## 获取 Channel
+
+获取指定 Channel 的详细信息。
+
+<CodeGroup>
+```bash curl
+curl http://localhost:8080/api/v1/channels/{id} \
+  -H "Authorization: Bearer <token>"
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient()
+channel = client.get_channel("550e8400-e29b-41d4-a716-446655440000")
+print(f"{channel.name} — type: {channel.type}")
+```
+</CodeGroup>
+
+### 响应
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "user_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+  "type": "slack",
+  "name": "My Slack Channel",
+  "config": {
+    "agent_name": "research-agent"
+  },
+  "enabled": true,
+  "created_at": "2026-03-10T10:00:00Z",
+  "updated_at": "2026-03-10T10:00:00Z"
+}
+```
+
+## 更新 Channel
+
+更新现有 Channel。所有字段均为可选 — 仅更新提供的字段。
+
+<CodeGroup>
+```bash curl
+curl -X PUT http://localhost:8080/api/v1/channels/{id} \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "name": "Renamed Slack Channel",
+    "config": {
+      "agent_name": "financial-agent"
+    },
+    "enabled": false
+  }'
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient()
+channel = client.update_channel(
+    "550e8400-e29b-41d4-a716-446655440000",
+    name="Renamed Slack Channel",
+    config={"agent_name": "financial-agent"},
+    enabled=False,
+)
+print(f"Updated: {channel.name}, enabled: {channel.enabled}")
+```
+</CodeGroup>
+
+### 请求体
+
+| 字段 | 类型 | 必填 | 描述 |
+|------|------|------|------|
+| `name` | string | 否 | 新的 Channel 名称 |
+| `credentials` | object | 否 | 新的平台凭据 |
+| `config` | object | 否 | 新的配置 |
+| `enabled` | boolean | 否 | 启用或禁用 Channel |
+
+### 响应
+
+返回更新后的 Channel 对象（与[获取 Channel](#获取-channel) 的响应格式相同）。
+
+## 删除 Channel
+
+永久删除一个 Channel。
+
+<CodeGroup>
+```bash curl
+curl -X DELETE http://localhost:8080/api/v1/channels/{id} \
+  -H "Authorization: Bearer <token>"
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient()
+client.delete_channel("550e8400-e29b-41d4-a716-446655440000")
+print("Channel deleted")
+```
+</CodeGroup>
+
+### 响应
+
+成功时返回 HTTP 204 No Content。
+
+## 入站 Webhook
+
+接收来自外部平台的消息。当用户在 Slack 或 LINE 中发送消息时，平台会调用此端点。
+
+```bash
+POST /api/v1/channels/{channel_id}/webhook
+```
+
+<Warning>
+此端点**不需要认证**。每个平台使用自己的 HMAC 签名验证来确保请求的真实性。
+</Warning>
+
+### 响应
+
+```json
+{
+  "status": "dispatched"
+}
+```
+
+Webhook 会验证入站请求、提取消息内容，并异步将其分发到 Shannon 的 Agent 系统。响应会立即返回。
+
+## 凭据格式
+
+### Slack 凭据
+
+```json
+{
+  "signing_secret": "your-slack-signing-secret",
+  "bot_token": "xoxb-your-bot-token",
+  "app_id": "A0123456789"
+}
+```
+
+| 字段 | 描述 |
+|------|------|
+| `signing_secret` | 在 Slack 应用的 **Basic Information** 页面中获取 |
+| `bot_token` | Bot User OAuth Token（以 `xoxb-` 开头） |
+| `app_id` | 您的 Slack 应用 ID |
+
+### LINE 凭据
+
+```json
+{
+  "channel_secret": "your-line-channel-secret",
+  "channel_access_token": "your-line-channel-access-token"
+}
+```
+
+| 字段 | 描述 |
+|------|------|
+| `channel_secret` | 在 LINE Developer Console 的 Channel 设置中获取 |
+| `channel_access_token` | 从 LINE Developer Console 获取的长期有效 Channel Access Token |
+
+## Webhook 行为
+
+### Slack
+
+- **签名验证**：使用 Channel 的 `signing_secret` 通过 HMAC-SHA256 验证 `X-Slack-Request-Timestamp` 和 `X-Slack-Signature` 请求头
+- **时钟偏差**：超过 5 分钟的请求将被拒绝
+- **URL 验证**：在应用设置期间自动响应 Slack 的 `url_verification` challenge
+- **Bot 过滤**：忽略来自 Bot 的消息以防止循环
+- **支持的事件**：`message` 和 `app_mention`
+
+### LINE
+
+- **签名验证**：使用 Channel 的 `channel_secret` 通过 HMAC-SHA256（base64 编码）验证 `X-Line-Signature` 请求头
+- **回复行为**：使用 Reply Token 立即发送 "Thinking..." 回复
+- **消息处理**：处理事件载荷中的第一条文本消息
+
+### Agent 路由
+
+在 Channel 的 `config` 中设置 `agent_name` 字段，将传入消息路由到指定的 Agent：
+
+```json
+{
+  "config": {
+    "agent_name": "research-agent"
+  }
+}
+```
+
+如果未设置 `agent_name`，消息将由 Shannon 的默认 Agent 路由处理。
+
+## Channel 响应对象
+
+| 字段 | 类型 | 描述 |
+|------|------|------|
+| `id` | string (UUID) | Channel 唯一标识符 |
+| `user_id` | string (UUID) | 所属用户 ID（可选） |
+| `type` | string | Channel 类型：`"slack"` 或 `"line"` |
+| `name` | string | Channel 显示名称 |
+| `config` | object | Channel 配置 |
+| `enabled` | boolean | Channel 是否处于启用状态 |
+| `created_at` | string (ISO 8601) | 创建时间戳 |
+| `updated_at` | string (ISO 8601) | 最后更新时间戳 |
+
+## 错误响应
+
+| 状态码 | 错误 | 描述 |
+|--------|------|------|
+| 400 | Invalid request | 缺少必填字段或无效的 Channel 类型 |
+| 401 | Unauthorized | 缺少或无效的认证信息 |
+| 403 | Forbidden | 无法访问其他用户的 Channel |
+| 404 | Channel not found | 无效的 Channel ID |
+| 409 | Conflict | Channel 重复（相同用户 + 类型 + 名称） |
+| 500 | Internal server error | 服务器内部错误 |
+
+所有错误遵循标准格式：
+
+```json
+{
+  "error": "error message here"
+}
+```
+
+## 后续步骤
+
+<CardGroup cols={2}>
+  <Card title="提交任务" icon="paper-plane" href="/cn/api/rest/submit-task">
+    通过 API 直接提交任务
+  </Card>
+  <Card title="智能体" icon="robot" href="/cn/api/rest/agents">
+    配置 Agent 用于 Channel 路由
+  </Card>
+</CardGroup>

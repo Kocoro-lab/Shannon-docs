@@ -629,6 +629,172 @@ version: "1.0.0"  # Increment on breaking changes
   </Accordion>
 </AccordionGroup>
 
+## Synthesis Templates
+
+Synthesis templates control how Shannon formats final output after all agents complete their work. These Go templates live in `config/templates/synthesis/` and are rendered by the Orchestrator before returning results.
+
+### Available Templates
+
+| Template | Purpose |
+|----------|---------|
+| `normal_default.tmpl` | Default for non-research tasks |
+| `research_comprehensive.tmpl` | Detailed research reports |
+| `research_concise.tmpl` | Brief research summaries |
+| `research_with_facts.tmpl` | Research with fact-based citations |
+| `domain_analysis_digest.tmpl` | Domain analysis format |
+| `swarm_default.tmpl` | Swarm multi-agent output |
+| `test_bullet_summary.tmpl` | Bullet-point test format |
+
+### Base Contract
+
+All synthesis templates inherit behavioral rules from `_base.tmpl`:
+
+<AccordionGroup>
+  <Accordion title="Citation Handling">
+    - When **CitationAgent is enabled**: no inline `[n]` citations in synthesis — Citation Agent adds them separately
+    - When **CitationAgent is disabled**: use inline `[n]` matching the `AvailableCitations` list
+  </Accordion>
+
+  <Accordion title="Temporal References">
+    The `CurrentDate` field is injected into every template, enabling "as of" statements for time-sensitive content.
+  </Accordion>
+
+  <Accordion title="Structured Artifacts">
+    Templates must preserve structured artifacts (tables, code blocks, JSON) — never flatten them to prose.
+  </Accordion>
+
+  <Accordion title="Source Sections">
+    Templates should **not** include a "Sources" section. The system appends source citations automatically.
+  </Accordion>
+</AccordionGroup>
+
+### Template Data
+
+Every synthesis template receives a `SynthesisTemplateData` struct with the following fields:
+
+```go
+type SynthesisTemplateData struct {
+    Query                string   // Original user query
+    QueryLanguage        string   // Detected language (e.g., "en", "ja")
+    ResearchAreas        []string // Topics explored by agents
+    AvailableCitations   string   // Formatted citation list
+    CitationCount        int      // Total citations available
+    MinCitations         int      // Minimum citations to include
+    LanguageInstruction  string   // Output language directive
+    AgentResults         string   // Combined agent output
+    TargetWords          int      // Target word count
+    IsResearch           bool     // Whether task is research-type
+    SynthesisStyle       string   // Selected synthesis style
+    CitationAgentEnabled bool     // Whether Citation Agent is active
+    CurrentDate          string   // Current date for temporal context
+    NewsCount            int      // Number of news items found
+}
+```
+
+### Selecting a Synthesis Template
+
+The Orchestrator selects synthesis templates based on the task type and configuration:
+
+<Tabs>
+  <Tab title="Via Task Context">
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Research quantum computing trends",
+    "context": {
+      "synthesis_style": "research_comprehensive"
+    }
+  }'
+```
+  </Tab>
+  <Tab title="Via Workflow Template">
+```yaml
+name: "my_research"
+version: "1.0.0"
+defaults:
+  model_tier: "medium"
+  synthesis_style: "research_with_facts"
+```
+  </Tab>
+</Tabs>
+
+<Note>
+If no `synthesis_style` is specified, Shannon automatically selects `research_comprehensive` for research tasks and `normal_default` for all others.
+</Note>
+
+## Example Workflows
+
+Shannon ships with 8 example workflow templates in `config/workflows/examples/`. These serve as ready-to-use starting points and reference implementations.
+
+### Workflow Catalog
+
+| Template | Description | Nodes | Pattern |
+|----------|-------------|-------|---------|
+| `simple_analysis.yaml` | Quick summarization | 2 | Sequential (intake + summarize) |
+| `research_summary.yaml` | Multi-stage research | 4 | Sequential with degradation |
+| `research_summary_enterprise.yaml` | Enterprise research | 4+ | Sequential with large models |
+| `market_analysis.yaml` | Market research | 3+ | Sequential with tools |
+| `market_analysis_playbook.yaml` | Market playbook variant | 3+ | Playbook-driven |
+| `complex_dag.yaml` | Multi-parallel DAG | 5+ | DAG with fan-out/fan-in |
+| `parallel_dag_example.yaml` | Parallel execution demo | 4+ | DAG with parallel branches |
+| `parallel_items_example.yaml` | Batch item processing | 3+ | Parallel items |
+
+### YAML Structure Reference
+
+All example workflows follow this structure:
+
+```yaml
+name: workflow_id
+description: "Description"
+
+defaults:
+  model_tier: small|medium|large    # Model size for all nodes
+  budget_agent_max: 3000            # Total token budget
+  require_approval: false           # Human-in-the-loop gate
+
+nodes:
+  - id: node_id
+    type: simple|cognitive|dag      # Execution type
+    strategy: react|chain_of_thought|tree_of_thoughts
+    depends_on: [other_node_ids]    # DAG dependencies
+    budget_max: 1000                # Per-node token limit
+
+edges:
+  - from: node1
+    to: node2
+```
+
+### Pattern Degradation
+
+Example workflows demonstrate Shannon's automatic degradation behavior when resources are constrained:
+
+```
+DAG        → sequential        (if insufficient agents available)
+tree_of_thoughts → chain_of_thought  (if budget constrained)
+multi-node → single-node       (fallback for minimal environments)
+```
+
+<Warning>
+Degradation is automatic and logged. Check Orchestrator logs for `strategy_degraded` events to monitor when fallbacks activate.
+</Warning>
+
+### Learning Router
+
+When enabled, the **Learning Router** automatically selects workflow templates based on query similarity to past successful executions. This eliminates the need for callers to specify a template explicitly.
+
+```bash
+# Enable learning router via environment
+ORCHESTRATOR_LEARNING_ROUTER_ENABLED=true
+
+# The router will match incoming queries to historical patterns
+# and select the best-performing template automatically
+```
+
+<Tip>
+The Learning Router improves over time. For new deployments, explicitly specify templates until enough execution history accumulates (typically 50+ successful tasks).
+</Tip>
+
 ## Next Steps
 
 <CardGroup cols={2}>

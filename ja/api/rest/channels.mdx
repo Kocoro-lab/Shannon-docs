@@ -1,0 +1,358 @@
+---
+title: "Channels API"
+description: "Shannon を Slack や LINE などの外部メッセージングプラットフォームに接続"
+---
+
+## 概要
+
+Channels API を使用すると、Shannon を外部メッセージングプラットフォームと統合できます。Channel を作成して Slack ワークスペースや LINE アカウントに接続すると、Shannon が Agent システムを通じて受信メッセージを自動的に処理します。
+
+## 機能
+
+- **Slack 統合** — イベントサブスクリプションと Bot メッセージングに対応
+- **LINE 統合** — Webhook ベースのメッセージ処理
+- **HMAC 署名検証** — インバウンド Webhook のセキュリティを確保
+- **Agent ルーティング** — `agent_name` 設定でメッセージを特定の Agent に転送
+- **ユーザー分離** — ユーザーごとに type + name の組み合わせがユニーク
+- **認証情報の保護** — 認証情報は API レスポンスに含まれません
+
+## Channel の作成
+
+新しいメッセージング Channel を作成します。
+
+<CodeGroup>
+```bash curl
+curl -X POST http://localhost:8080/api/v1/channels \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "type": "slack",
+    "name": "My Slack Channel",
+    "credentials": {
+      "signing_secret": "your-slack-signing-secret",
+      "bot_token": "xoxb-your-bot-token",
+      "app_id": "A0123456789"
+    },
+    "config": {
+      "agent_name": "research-agent"
+    }
+  }'
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient()
+channel = client.create_channel(
+    type="slack",
+    name="My Slack Channel",
+    credentials={
+        "signing_secret": "your-slack-signing-secret",
+        "bot_token": "xoxb-your-bot-token",
+        "app_id": "A0123456789",
+    },
+    config={"agent_name": "research-agent"},
+)
+print(f"Channel created: {channel.id}")
+```
+</CodeGroup>
+
+### リクエストボディ
+
+| フィールド | 型 | 必須 | 説明 |
+|-----------|------|------|------|
+| `type` | string | はい | Channel タイプ：`"slack"` または `"line"` |
+| `name` | string | はい | Channel の表示名 |
+| `credentials` | object | はい | プラットフォーム固有の認証情報（下記参照） |
+| `config` | object | いいえ | オプション設定（例：`agent_name`） |
+
+### レスポンス
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "user_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+  "type": "slack",
+  "name": "My Slack Channel",
+  "config": {
+    "agent_name": "research-agent"
+  },
+  "enabled": true,
+  "created_at": "2026-03-10T10:00:00Z",
+  "updated_at": "2026-03-10T10:00:00Z"
+}
+```
+
+<Note>
+セキュリティのため、`credentials` フィールドは API レスポンスに**含まれません**。認証情報はご自身のシステムで安全に保管してください。
+</Note>
+
+## Channel の一覧取得
+
+認証済みユーザーの全 Channel を一覧表示します。
+
+<CodeGroup>
+```bash curl
+curl http://localhost:8080/api/v1/channels \
+  -H "Authorization: Bearer <token>"
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient()
+channels = client.list_channels()
+for ch in channels:
+    print(f"{ch.name} ({ch.type}) — enabled: {ch.enabled}")
+```
+</CodeGroup>
+
+### レスポンス
+
+```json
+[
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "user_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+    "type": "slack",
+    "name": "My Slack Channel",
+    "config": {
+      "agent_name": "research-agent"
+    },
+    "enabled": true,
+    "created_at": "2026-03-10T10:00:00Z",
+    "updated_at": "2026-03-10T10:00:00Z"
+  }
+]
+```
+
+## Channel の取得
+
+特定の Channel の詳細を取得します。
+
+<CodeGroup>
+```bash curl
+curl http://localhost:8080/api/v1/channels/{id} \
+  -H "Authorization: Bearer <token>"
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient()
+channel = client.get_channel("550e8400-e29b-41d4-a716-446655440000")
+print(f"{channel.name} — type: {channel.type}")
+```
+</CodeGroup>
+
+### レスポンス
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "user_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+  "type": "slack",
+  "name": "My Slack Channel",
+  "config": {
+    "agent_name": "research-agent"
+  },
+  "enabled": true,
+  "created_at": "2026-03-10T10:00:00Z",
+  "updated_at": "2026-03-10T10:00:00Z"
+}
+```
+
+## Channel の更新
+
+既存の Channel を更新します。すべてのフィールドはオプションです — 指定されたフィールドのみ更新されます。
+
+<CodeGroup>
+```bash curl
+curl -X PUT http://localhost:8080/api/v1/channels/{id} \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "name": "Renamed Slack Channel",
+    "config": {
+      "agent_name": "financial-agent"
+    },
+    "enabled": false
+  }'
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient()
+channel = client.update_channel(
+    "550e8400-e29b-41d4-a716-446655440000",
+    name="Renamed Slack Channel",
+    config={"agent_name": "financial-agent"},
+    enabled=False,
+)
+print(f"Updated: {channel.name}, enabled: {channel.enabled}")
+```
+</CodeGroup>
+
+### リクエストボディ
+
+| フィールド | 型 | 必須 | 説明 |
+|-----------|------|------|------|
+| `name` | string | いいえ | 新しい Channel 名 |
+| `credentials` | object | いいえ | 新しいプラットフォーム認証情報 |
+| `config` | object | いいえ | 新しい設定 |
+| `enabled` | boolean | いいえ | Channel の有効化・無効化 |
+
+### レスポンス
+
+更新された Channel オブジェクトを返します（[Channel の取得](#channel-の取得)と同じスキーマ）。
+
+## Channel の削除
+
+Channel を完全に削除します。
+
+<CodeGroup>
+```bash curl
+curl -X DELETE http://localhost:8080/api/v1/channels/{id} \
+  -H "Authorization: Bearer <token>"
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient()
+client.delete_channel("550e8400-e29b-41d4-a716-446655440000")
+print("Channel deleted")
+```
+</CodeGroup>
+
+### レスポンス
+
+成功時は HTTP 204 No Content を返します。
+
+## インバウンド Webhook
+
+外部プラットフォームからのメッセージを受信します。ユーザーが Slack や LINE でメッセージを送信すると、プラットフォームがこのエンドポイントを呼び出します。
+
+```bash
+POST /api/v1/channels/{channel_id}/webhook
+```
+
+<Warning>
+このエンドポイントは**認証不要**です。各プラットフォーム固有の HMAC 署名検証により、リクエストの正当性を確認します。
+</Warning>
+
+### レスポンス
+
+```json
+{
+  "status": "dispatched"
+}
+```
+
+Webhook はインバウンドリクエストを検証し、メッセージを抽出して、Shannon の Agent システムに非同期でディスパッチします。レスポンスは即座に返されます。
+
+## 認証情報のフォーマット
+
+### Slack 認証情報
+
+```json
+{
+  "signing_secret": "your-slack-signing-secret",
+  "bot_token": "xoxb-your-bot-token",
+  "app_id": "A0123456789"
+}
+```
+
+| フィールド | 説明 |
+|-----------|------|
+| `signing_secret` | Slack アプリの **Basic Information** ページで確認できます |
+| `bot_token` | Bot User OAuth Token（`xoxb-` で始まるもの） |
+| `app_id` | Slack アプリ ID |
+
+### LINE 認証情報
+
+```json
+{
+  "channel_secret": "your-line-channel-secret",
+  "channel_access_token": "your-line-channel-access-token"
+}
+```
+
+| フィールド | 説明 |
+|-----------|------|
+| `channel_secret` | LINE Developer Console の Channel 設定で確認できます |
+| `channel_access_token` | LINE Developer Console から取得した長期有効な Channel Access Token |
+
+## Webhook の動作
+
+### Slack
+
+- **署名検証**：Channel の `signing_secret` を使用して HMAC-SHA256 で `X-Slack-Request-Timestamp` と `X-Slack-Signature` ヘッダーを検証
+- **クロックスキュー**：5 分以上経過したリクエストは拒否されます
+- **URL 検証**：アプリ設定時に Slack の `url_verification` チャレンジに自動応答
+- **Bot フィルタリング**：ループ防止のため Bot からのメッセージは無視されます
+- **対応イベント**：`message` と `app_mention`
+
+### LINE
+
+- **署名検証**：Channel の `channel_secret` を使用して HMAC-SHA256（base64 エンコード）で `X-Line-Signature` ヘッダーを検証
+- **返信動作**：Reply Token を使用して即座に "Thinking..." 返信を送信
+- **メッセージ処理**：イベントペイロードの最初のテキストメッセージを処理
+
+### Agent ルーティング
+
+Channel の `config` で `agent_name` フィールドを設定して、受信メッセージを特定の Agent にルーティングします：
+
+```json
+{
+  "config": {
+    "agent_name": "research-agent"
+  }
+}
+```
+
+`agent_name` が未設定の場合、メッセージは Shannon のデフォルト Agent ルーティングで処理されます。
+
+## Channel レスポンスオブジェクト
+
+| フィールド | 型 | 説明 |
+|-----------|------|------|
+| `id` | string (UUID) | Channel の一意識別子 |
+| `user_id` | string (UUID) | 所有ユーザー ID（オプション） |
+| `type` | string | Channel タイプ：`"slack"` または `"line"` |
+| `name` | string | Channel の表示名 |
+| `config` | object | Channel 設定 |
+| `enabled` | boolean | Channel が有効かどうか |
+| `created_at` | string (ISO 8601) | 作成タイムスタンプ |
+| `updated_at` | string (ISO 8601) | 最終更新タイムスタンプ |
+
+## エラーレスポンス
+
+| ステータス | エラー | 説明 |
+|-----------|--------|------|
+| 400 | Invalid request | 必須フィールドの欠落または無効な Channel タイプ |
+| 401 | Unauthorized | 認証情報の欠落または無効 |
+| 403 | Forbidden | 他のユーザーの Channel にアクセスできません |
+| 404 | Channel not found | 無効な Channel ID |
+| 409 | Conflict | Channel の重複（同一ユーザー + タイプ + 名前） |
+| 500 | Internal server error | サーバー内部エラー |
+
+すべてのエラーは標準フォーマットに従います：
+
+```json
+{
+  "error": "error message here"
+}
+```
+
+## 次のステップ
+
+<CardGroup cols={2}>
+  <Card title="タスクの送信" icon="paper-plane" href="/ja/api/rest/submit-task">
+    API から直接タスクを送信
+  </Card>
+  <Card title="エージェント" icon="robot" href="/ja/api/rest/agents">
+    Channel ルーティング用の Agent を設定
+  </Card>
+</CardGroup>

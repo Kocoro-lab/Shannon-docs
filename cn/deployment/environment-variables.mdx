@@ -111,6 +111,10 @@ OPENAI_API_KEY=sk-...
 
 **启用的模型**: GPT-5, GPT-5-mini, GPT-5-nano
 
+<Note>
+语义记忆功能（文本嵌入）必需。如果未设置此密钥，向量搜索和 agent 记忆功能将被禁用。
+</Note>
+
 ### ANTHROPIC_API_KEY
 
 **类型**: String
@@ -235,7 +239,7 @@ ZAI_API_KEY=...
 
 **类型**: String
 **默认值**: `google`
-**有效值**: `google`, `serper`, `serpapi`, `bing`, `exa`, `firecrawl`
+**有效值**: `google`, `serper`, `serpapi`, `searchapi`, `bing`, `exa`, `firecrawl`
 **服务**: LLM Service
 **热重载**: 是
 
@@ -244,6 +248,9 @@ ZAI_API_KEY=...
 ```bash
 WEB_SEARCH_PROVIDER=google
 ```
+
+**提供商**:
+- `searchapi` — SearchAPI.io — 多引擎搜索 ($0.004/次调用)
 
 ### GOOGLE_SEARCH_API_KEY
 
@@ -308,6 +315,20 @@ EXA_API_KEY=...
 
 ```bash
 FIRECRAWL_API_KEY=...
+```
+
+### SEARCHAPI_API_KEY
+
+**类型**: String
+**必需**: 否
+**默认值**: (无)
+**服务**: LLM Service
+**热重载**: 是
+
+SearchAPI.io 的 API 密钥。在 [searchapi.io](https://www.searchapi.io) 获取。
+
+```bash
+SEARCHAPI_API_KEY=...
 ```
 
 ## 数据存储

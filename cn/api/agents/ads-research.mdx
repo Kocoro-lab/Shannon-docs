@@ -46,7 +46,7 @@ Shannon提供**10个专用智能体**用于竞争广告研究,从广告发现到
 **请求示例:**
 
 ```bash
-curl -X POST https://api-dev.shannon.run/api/v1/agents/serp-ads \
+curl -X POST http://localhost:8080/api/v1/agents/serp-ads \
   -H "X-API-Key: sk_your_api_key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -101,7 +101,7 @@ curl -X POST https://api-dev.shannon.run/api/v1/agents/serp-ads \
 **请求示例:**
 
 ```bash
-curl -X POST https://api-dev.shannon.run/api/v1/agents/yahoo-jp-ads \
+curl -X POST http://localhost:8080/api/v1/agents/yahoo-jp-ads \
   -H "X-API-Key: sk_your_api_key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -151,7 +151,7 @@ curl -X POST https://api-dev.shannon.run/api/v1/agents/yahoo-jp-ads \
 **请求示例:**
 
 ```bash
-curl -X POST https://api-dev.shannon.run/api/v1/agents/meta-ad-library \
+curl -X POST http://localhost:8080/api/v1/agents/meta-ad-library \
   -H "X-API-Key: sk_your_api_key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -229,7 +229,7 @@ curl -X POST https://api-dev.shannon.run/api/v1/agents/meta-ad-library \
 **请求示例:**
 
 ```bash
-curl -X POST https://api-dev.shannon.run/api/v1/agents/competitor-discover \
+curl -X POST http://localhost:8080/api/v1/agents/competitor-discover \
   -H "X-API-Key: sk_your_api_key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -297,7 +297,7 @@ curl -X POST https://api-dev.shannon.run/api/v1/agents/competitor-discover \
 **请求示例(日本市场,所有平台):**
 
 ```bash
-curl -X POST https://api-dev.shannon.run/api/v1/agents/ads-transparency \
+curl -X POST http://localhost:8080/api/v1/agents/ads-transparency \
   -H "X-API-Key: sk_your_api_key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -358,7 +358,7 @@ curl -X POST https://api-dev.shannon.run/api/v1/agents/ads-transparency \
 **请求示例(全页分析):**
 
 ```bash
-curl -X POST https://api-dev.shannon.run/api/v1/agents/lp-visual-analyze \
+curl -X POST http://localhost:8080/api/v1/agents/lp-visual-analyze \
   -H "X-API-Key: sk_your_api_key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -427,7 +427,7 @@ curl -X POST https://api-dev.shannon.run/api/v1/agents/lp-visual-analyze \
 **请求示例:**
 
 ```bash
-curl -X POST https://api-dev.shannon.run/api/v1/agents/lp-batch-analyze \
+curl -X POST http://localhost:8080/api/v1/agents/lp-batch-analyze \
   -H "X-API-Key: sk_your_api_key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -489,7 +489,7 @@ curl -X POST https://api-dev.shannon.run/api/v1/agents/lp-batch-analyze \
 **请求示例:**
 
 ```bash
-curl -X POST https://api-dev.shannon.run/api/v1/agents/ad-creative-analyze \
+curl -X POST http://localhost:8080/api/v1/agents/ad-creative-analyze \
   -H "X-API-Key: sk_your_api_key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -568,7 +568,7 @@ curl -X POST https://api-dev.shannon.run/api/v1/agents/ad-creative-analyze \
 **请求示例:**
 
 ```bash
-curl -X POST https://api-dev.shannon.run/api/v1/agents/keyword-extract \
+curl -X POST http://localhost:8080/api/v1/agents/keyword-extract \
   -H "X-API-Key: sk_your_api_key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -615,7 +615,7 @@ curl -X POST https://api-dev.shannon.run/api/v1/agents/keyword-extract \
 **请求示例:**
 
 ```bash
-curl -X POST https://api-dev.shannon.run/api/v1/agents/browser-screenshot \
+curl -X POST http://localhost:8080/api/v1/agents/browser-screenshot \
   -H "X-API-Key: sk_your_api_key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -663,7 +663,7 @@ curl -X POST https://api-dev.shannon.run/api/v1/agents/browser-screenshot \
 
 ```bash
 curl -H "X-API-Key: sk_your_api_key" \
-  "https://api-dev.shannon.run/api/v1/blob/shannon:blob:task-abc123:screenshot_b64"
+  "http://localhost:8080/api/v1/blob/shannon:blob:task-abc123:screenshot_b64"
 ```
 
 **返回:** 原始base64字符串(Content-Type: text/plain)
@@ -683,7 +683,7 @@ curl -H "X-API-Key: sk_your_api_key" \
 import httpx
 
 client = httpx.Client(
-    base_url="https://api-dev.shannon.run",
+    base_url="http://localhost:8080",
     headers={"X-API-Key": "sk_your_api_key"}
 )
 

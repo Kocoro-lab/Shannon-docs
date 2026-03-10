@@ -629,6 +629,172 @@ version: "1.0.0"  # 在破坏性更改时递增
   </Accordion>
 </AccordionGroup>
 
+## 合成模板
+
+合成模板控制 Shannon 在所有 agent 完成工作后如何格式化最终输出。这些 Go 模板位于 `config/templates/synthesis/` 目录中，由 Orchestrator 在返回结果前进行渲染。
+
+### 可用模板
+
+| 模板 | 用途 |
+|------|------|
+| `normal_default.tmpl` | 非研究任务的默认模板 |
+| `research_comprehensive.tmpl` | 详细的研究报告 |
+| `research_concise.tmpl` | 简明的研究摘要 |
+| `research_with_facts.tmpl` | 基于事实引用的研究 |
+| `domain_analysis_digest.tmpl` | 领域分析格式 |
+| `swarm_default.tmpl` | Swarm 多智能体输出 |
+| `test_bullet_summary.tmpl` | 要点式测试格式 |
+
+### 基础契约
+
+所有合成模板都从 `_base.tmpl` 继承行为规则：
+
+<AccordionGroup>
+  <Accordion title="引用处理">
+    - 当 **CitationAgent 启用**时：合成内容中不添加内联 `[n]` 引用 — Citation Agent 会单独添加
+    - 当 **CitationAgent 禁用**时：使用与 `AvailableCitations` 列表匹配的内联 `[n]` 引用
+  </Accordion>
+
+  <Accordion title="时间引用">
+    `CurrentDate` 字段会注入到每个模板中，支持在时效性内容中使用"截至"表述。
+  </Accordion>
+
+  <Accordion title="结构化产物">
+    模板必须保留结构化产物（表格、代码块、JSON）— 不得将其扁平化为纯文本。
+  </Accordion>
+
+  <Accordion title="来源章节">
+    模板**不应**包含"来源"章节。系统会自动追加来源引用。
+  </Accordion>
+</AccordionGroup>
+
+### 模板数据
+
+每个合成模板都会接收一个 `SynthesisTemplateData` 结构体，包含以下字段：
+
+```go
+type SynthesisTemplateData struct {
+    Query                string   // 原始用户查询
+    QueryLanguage        string   // 检测到的语言（如 "en"、"ja"）
+    ResearchAreas        []string // agent 探索的主题
+    AvailableCitations   string   // 格式化的引用列表
+    CitationCount        int      // 可用引用总数
+    MinCitations         int      // 需包含的最少引用数
+    LanguageInstruction  string   // 输出语言指令
+    AgentResults         string   // 合并的 agent 输出
+    TargetWords          int      // 目标字数
+    IsResearch           bool     // 是否为研究类型任务
+    SynthesisStyle       string   // 选定的合成样式
+    CitationAgentEnabled bool     // Citation Agent 是否激活
+    CurrentDate          string   // 当前日期（时间上下文）
+    NewsCount            int      // 找到的新闻条目数
+}
+```
+
+### 选择合成模板
+
+Orchestrator 根据任务类型和配置选择合成模板：
+
+<Tabs>
+  <Tab title="通过任务上下文">
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "研究量子计算趋势",
+    "context": {
+      "synthesis_style": "research_comprehensive"
+    }
+  }'
+```
+  </Tab>
+  <Tab title="通过工作流模板">
+```yaml
+name: "my_research"
+version: "1.0.0"
+defaults:
+  model_tier: "medium"
+  synthesis_style: "research_with_facts"
+```
+  </Tab>
+</Tabs>
+
+<Note>
+如果未指定 `synthesis_style`，Shannon 会自动为研究任务选择 `research_comprehensive`，为其他任务选择 `normal_default`。
+</Note>
+
+## 示例工作流
+
+Shannon 在 `config/workflows/examples/` 目录中附带了 8 个示例工作流模板。这些模板可作为即用型起点和参考实现。
+
+### 工作流目录
+
+| 模板 | 描述 | 节点数 | 模式 |
+|------|------|--------|------|
+| `simple_analysis.yaml` | 快速摘要 | 2 | 顺序执行（intake + summarize） |
+| `research_summary.yaml` | 多阶段研究 | 4 | 带降级的顺序执行 |
+| `research_summary_enterprise.yaml` | 企业级研究 | 4+ | 使用大模型的顺序执行 |
+| `market_analysis.yaml` | 市场研究 | 3+ | 带工具的顺序执行 |
+| `market_analysis_playbook.yaml` | 市场剧本变体 | 3+ | 剧本驱动 |
+| `complex_dag.yaml` | 多并行 DAG | 5+ | DAG 扇出/扇入 |
+| `parallel_dag_example.yaml` | 并行执行演示 | 4+ | DAG 并行分支 |
+| `parallel_items_example.yaml` | 批量项目处理 | 3+ | 并行项目 |
+
+### YAML 结构参考
+
+所有示例工作流遵循以下结构：
+
+```yaml
+name: workflow_id
+description: "描述"
+
+defaults:
+  model_tier: small|medium|large    # 所有节点的模型大小
+  budget_agent_max: 3000            # 总令牌预算
+  require_approval: false           # 人工审批门控
+
+nodes:
+  - id: node_id
+    type: simple|cognitive|dag      # 执行类型
+    strategy: react|chain_of_thought|tree_of_thoughts
+    depends_on: [other_node_ids]    # DAG 依赖
+    budget_max: 1000                # 每节点令牌限制
+
+edges:
+  - from: node1
+    to: node2
+```
+
+### 模式降级
+
+示例工作流展示了 Shannon 在资源受限时的自动降级行为：
+
+```
+DAG        → sequential        （可用 agent 不足时）
+tree_of_thoughts → chain_of_thought  （预算受限时）
+multi-node → single-node       （最小环境的回退）
+```
+
+<Warning>
+降级是自动进行的，并会记录日志。检查 Orchestrator 日志中的 `strategy_degraded` 事件以监控回退何时激活。
+</Warning>
+
+### 学习路由器
+
+启用后，**Learning Router** 会根据查询与过去成功执行的相似度自动选择工作流模板。这消除了调用方显式指定模板的需要。
+
+```bash
+# 通过环境变量启用学习路由器
+ORCHESTRATOR_LEARNING_ROUTER_ENABLED=true
+
+# 路由器将把传入查询与历史模式匹配
+# 并自动选择表现最佳的模板
+```
+
+<Tip>
+Learning Router 会随时间不断改进。对于新部署，建议在积累足够的执行历史（通常 50+ 次成功任务）之前显式指定模板。
+</Tip>
+
 ## 下一步
 
 <CardGroup cols={2}>

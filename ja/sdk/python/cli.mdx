@@ -36,7 +36,7 @@ shannon --base-url http://localhost:8080 submit "Hello world" --wait
 [https://shannon.run](https://shannon.run) で登録してAPIキーを取得：
 
 ```bash
-shannon --base-url https://api-dev.shannon.run --api-key YOUR_API_KEY \
+shannon --base-url http://localhost:8080 --api-key YOUR_API_KEY \
   submit "Hello world" --wait
 ```
 
@@ -45,7 +45,7 @@ shannon --base-url https://api-dev.shannon.run --api-key YOUR_API_KEY \
 毎回フラグを渡さないように設定：
 
 ```bash
-export SHANNON_BASE_URL=https://api-dev.shannon.run   # または http://localhost:8080
+export SHANNON_BASE_URL=http://localhost:8080   # または http://localhost:8080
 export SHANNON_API_KEY=sk_your_key_here
 # export SHANNON_BEARER_TOKEN=eyJ...    # APIキーの代替
 ```
