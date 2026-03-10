@@ -172,7 +172,7 @@ async def with_timeout_handling():
 APIのレート制限を適切に処理します：
 
 ```python
-from shannon import ShannonClient, ConnectionError
+from shannon import ShannonClient, RateLimitError
 import time
 
 def handle_rate_limits(queries):
@@ -187,9 +187,9 @@ def handle_rate_limits(queries):
                 result = client.wait(handle.task_id)
                 results.append(result)
                 break  # 成功、次へ進む
-            except ConnectionError:
-                # レート制限または一時的なネットワークエラー
-                print(f"レート制限または一時的なエラー、{backoff}s後に再試行します...")
+            except RateLimitError:
+                # レート制限
+                print(f"レート制限、{backoff}s後に再試行します...")
                 time.sleep(backoff)
                 backoff = min(backoff * 2, 30)
 
@@ -197,7 +197,7 @@ def handle_rate_limits(queries):
 ```
 
 <Note>
-インポートの明確さ：`from shannon import ConnectionError`はSDKの例外を指します（Pythonの組み込み`ConnectionError`ではありません）。レート制限のバックオフやサーキットブレーカーなどの高度なパターンは参照実装です — 環境で検証してください。
+インポートの明確さ：`from shannon import ConnectionError`はSDKの例外を指します（Pythonの組み込み`ConnectionError`ではありません）。レート制限には`RateLimitError`を、ネットワークの問題には`ConnectionError`を使用してください。バックオフやサーキットブレーカーなどの高度なパターンは参照実装です — 環境で検証してください。
 </Note>
 
 ## バリデーションエラー

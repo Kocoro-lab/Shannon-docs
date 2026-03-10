@@ -8,7 +8,7 @@ description: "Execute single-purpose agents via direct API calls"
 The Agents API provides direct execution of single-purpose agents (also called "Quick Tools") without LLM orchestration. Each agent wraps a specific tool and returns structured results.
 
 **Key Differences from Task API:**
-- **Agents API**: Direct tool execution, no AI orchestration, synchronous results
+- **Agents API**: Direct tool execution, no AI orchestration, asynchronous results
 - **Task API**: Multi-step workflows, LLM planning, asynchronous execution
 
 <Note>
@@ -21,7 +21,7 @@ All agent executions are **asynchronous** (return task_id), even though agents p
 http://localhost:8080/api/v1/agents
 ```
 
-Production: `https://api-dev.shannon.run/api/v1/agents`
+Production: `https://your-domain.com/api/v1/agents`
 
 ## Authentication
 
@@ -81,7 +81,7 @@ curl http://localhost:8080/api/v1/agents \
       "cost_per_call": 0.015
     }
   ],
-  "count": 16
+  "count": 14
 }
 ```
 
@@ -356,7 +356,7 @@ Error: `"input validation failed: unknown field: unknown_field (not defined in a
 
 ## Available Agents
 
-Shannon provides **16+ specialized agents** across multiple categories.
+Shannon provides **14+ specialized agents** across multiple categories.
 
 For a complete catalog of available agents with detailed schemas and examples, see:
 

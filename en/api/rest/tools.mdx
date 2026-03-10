@@ -1,0 +1,302 @@
+---
+title: "Tools API"
+description: "List, inspect, and execute tools registered in the Shannon platform"
+---
+
+## Overview
+
+The Tools API provides direct access to the tool registry in Shannon. You can list available tools, inspect their parameter schemas, and execute tools directly without going through a full task workflow.
+
+## Features
+
+- **Tool discovery** — browse all available tools with category filtering
+- **JSON Schema inspection** — retrieve full parameter schemas for any tool
+- **Direct execution** — invoke tools outside of agent workflows
+- **Dangerous tool blocking** — hazardous tools are automatically hidden and blocked at the gateway level
+- **Usage tracking** — token consumption and cost are recorded per execution
+- **Session context** — optionally bind execution to a session (sanitized to `session_id` and `user_id` only)
+
+## Security Model
+
+Shannon enforces a strict safety boundary around tools marked as `dangerous`:
+
+- **List endpoint** automatically applies `exclude_dangerous=true` — dangerous tools are never exposed
+- **Get and Execute endpoints** return `403 Forbidden` if the requested tool is marked dangerous
+- Tool metadata is cached in-memory for 5 minutes per gateway instance
+- The HTTP client timeout for tool execution is 120 seconds
+
+<Warning>
+Dangerous tools cannot be accessed through any public API endpoint. This restriction is enforced at the gateway level and cannot be overridden by clients.
+</Warning>
+
+## List Tools
+
+List all available tools. Dangerous tools are automatically excluded.
+
+<CodeGroup>
+```bash curl
+curl http://localhost:8080/api/v1/tools \
+  -H "Authorization: Bearer <token>"
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient()
+tools = client.list_tools()
+for tool in tools:
+    print(f"{tool.name} ({tool.category}) — {tool.description}")
+```
+</CodeGroup>
+
+### Query Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `category` | string | No | Filter tools by category (e.g., `"search"`, `"code"`) |
+
+### Example with Category Filter
+
+<CodeGroup>
+```bash curl
+curl "http://localhost:8080/api/v1/tools?category=search" \
+  -H "Authorization: Bearer <token>"
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient()
+search_tools = client.list_tools(category="search")
+```
+</CodeGroup>
+
+### Response
+
+```json
+[
+  {
+    "name": "web_search",
+    "description": "Search the web for current information",
+    "category": "search",
+    "version": "1.0",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "Search query"
+        },
+        "max_results": {
+          "type": "integer",
+          "description": "Maximum number of results",
+          "default": 10
+        }
+      },
+      "required": ["query"]
+    },
+    "timeout_seconds": 30,
+    "cost_per_use": 0.004
+  }
+]
+```
+
+## Get Tool
+
+Get metadata and parameter schema for a specific tool.
+
+<CodeGroup>
+```bash curl
+curl http://localhost:8080/api/v1/tools/web_search \
+  -H "Authorization: Bearer <token>"
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient()
+tool = client.get_tool("web_search")
+print(f"{tool.name} v{tool.version}")
+print(f"Parameters: {tool.parameters}")
+```
+</CodeGroup>
+
+### Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | string | Yes | Tool name |
+
+### Response
+
+```json
+{
+  "name": "web_search",
+  "description": "Search the web for current information",
+  "category": "search",
+  "version": "1.0",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "Search query"
+      },
+      "max_results": {
+        "type": "integer",
+        "description": "Maximum number of results",
+        "default": 10
+      }
+    },
+    "required": ["query"]
+  },
+  "timeout_seconds": 30,
+  "cost_per_use": 0.004
+}
+```
+
+## Execute Tool
+
+Execute a tool directly with the provided arguments.
+
+<CodeGroup>
+```bash curl
+curl -X POST http://localhost:8080/api/v1/tools/web_search/execute \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "arguments": {
+      "query": "latest AI news",
+      "max_results": 5
+    },
+    "session_id": "optional-session-id"
+  }'
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient()
+result = client.execute_tool(
+    "web_search",
+    arguments={"query": "latest AI news", "max_results": 5},
+    session_id="optional-session-id",
+)
+print(f"Success: {result.success}")
+print(f"Output: {result.text}")
+print(f"Execution time: {result.execution_time_ms}ms")
+print(f"Cost: ${result.usage.cost_usd}")
+```
+</CodeGroup>
+
+### Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | string | Yes | Tool name |
+
+### Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `arguments` | object | Yes | Tool-specific arguments matching the tool's parameter schema |
+| `session_id` | string | No | Session ID for context binding |
+
+<Note>
+When a `session_id` is provided, only `session_id` and `user_id` are passed to the tool. Other session fields such as `tenant_id` are stripped for security.
+</Note>
+
+### Response
+
+```json
+{
+  "success": true,
+  "output": {
+    "results": [
+      {
+        "title": "Major AI Breakthrough Announced",
+        "url": "https://example.com/ai-news",
+        "snippet": "Researchers announce a significant advancement in..."
+      }
+    ]
+  },
+  "text": "Found 5 results for 'latest AI news'",
+  "error": null,
+  "metadata": {
+    "source": "searchapi"
+  },
+  "execution_time_ms": 1234,
+  "usage": {
+    "tokens": 7500,
+    "cost_usd": 0.004
+  }
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | boolean | Whether the execution completed successfully |
+| `output` | object | Structured output from the tool |
+| `text` | string | Human-readable summary of the result |
+| `error` | string \| null | Error message if execution failed |
+| `metadata` | object | Tool-specific metadata (e.g., data source) |
+| `execution_time_ms` | integer | Execution duration in milliseconds |
+| `usage.tokens` | integer | Token count for this execution |
+| `usage.cost_usd` | number | Estimated cost in USD |
+
+<Tip>
+Usage is recorded asynchronously (fire-and-forget) to the `token_usage` table. Token counts are synthetic: `max(100, int(cost_usd / 0.000002))`.
+</Tip>
+
+## Tool Response Object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | Tool identifier |
+| `description` | string | Human-readable description |
+| `category` | string | Tool category (e.g., `"search"`, `"code"`, `"data"`) |
+| `version` | string | Tool version |
+| `parameters` | object (JSON Schema) | Parameter schema for the tool |
+| `timeout_seconds` | integer | Maximum execution time allowed |
+| `cost_per_use` | number | Estimated cost per invocation in USD |
+
+## Error Responses
+
+| Status | Error | Description |
+|--------|-------|-------------|
+| 400 | Bad request | Missing tool name or invalid request body |
+| 401 | Unauthorized | Missing or invalid authentication |
+| 403 | Forbidden | Tool is marked as dangerous and cannot be accessed |
+| 404 | Tool not found | No tool with the specified name exists |
+| 502 | Bad gateway | LLM service (tool backend) is unavailable |
+
+All errors follow the standard format:
+
+```json
+{
+  "error": "error message here"
+}
+```
+
+### Dangerous Tool Error
+
+Attempting to access a dangerous tool via Get or Execute returns:
+
+```json
+{
+  "error": "Tool not available via direct execution"
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Custom Tools" icon="wrench" href="/en/tutorials/custom-tools">
+    Learn how to create and register custom tools
+  </Card>
+  <Card title="Agents" icon="robot" href="/en/api/rest/agents">
+    Configure agents that use tools automatically
+  </Card>
+</CardGroup>

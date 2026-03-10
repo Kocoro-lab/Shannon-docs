@@ -111,6 +111,10 @@ OPENAI_API_KEY=sk-...
 
 **Models Enabled**: GPT-5, GPT-5-mini, GPT-5-nano
 
+<Note>
+Required for semantic memory features (text embeddings). Without this key, vector search and agent memory will be disabled.
+</Note>
+
 ### ANTHROPIC_API_KEY
 
 **Type**: String
@@ -235,7 +239,7 @@ ZAI_API_KEY=...
 
 **Type**: String
 **Default**: `google`
-**Valid Values**: `google`, `serper`, `serpapi`, `bing`, `exa`, `firecrawl`
+**Valid Values**: `google`, `serper`, `serpapi`, `searchapi`, `bing`, `exa`, `firecrawl`
 **Services**: LLM Service
 **Hot-Reload**: Yes
 
@@ -244,6 +248,9 @@ Active web search provider.
 ```bash
 WEB_SEARCH_PROVIDER=google
 ```
+
+**Providers**:
+- `searchapi` — SearchAPI.io — multi-engine search ($0.004/call)
 
 ### GOOGLE_SEARCH_API_KEY
 
@@ -308,6 +315,20 @@ Firecrawl API key for web scraping.
 
 ```bash
 FIRECRAWL_API_KEY=...
+```
+
+### SEARCHAPI_API_KEY
+
+**Type**: String
+**Required**: No
+**Default**: (none)
+**Services**: LLM Service
+**Hot-Reload**: Yes
+
+API key for SearchAPI.io. Get one at [searchapi.io](https://www.searchapi.io).
+
+```bash
+SEARCHAPI_API_KEY=...
 ```
 
 ## Data Stores
@@ -1616,6 +1637,45 @@ Workspace directory for file operations.
 
 ```bash
 SHANNON_WORKSPACE=./workspace
+```
+
+### SHANNON_SESSION_WORKSPACES_DIR
+
+**Type**: String
+**Default**: `/tmp/shannon-sessions`
+**Services**: Gateway, Agent Core
+**Hot-Reload**: No
+
+Base directory for session-isolated workspace files. Each session gets a subdirectory.
+
+```bash
+SHANNON_SESSION_WORKSPACES_DIR=/tmp/shannon-sessions
+```
+
+### SHANNON_USE_WASI_SANDBOX
+
+**Type**: Boolean (0/1)
+**Default**: `0`
+**Services**: Agent Core
+**Hot-Reload**: No
+
+Enable WASI sandbox for file operations. When enabled, file access is mediated through the Firecracker executor for security isolation.
+
+```bash
+SHANNON_USE_WASI_SANDBOX=1
+```
+
+### SHANNON_MAX_WORKSPACE_SIZE_MB
+
+**Type**: Integer
+**Default**: `100`
+**Services**: Agent Core
+**Hot-Reload**: No
+
+Maximum disk quota per session workspace in megabytes.
+
+```bash
+SHANNON_MAX_WORKSPACE_SIZE_MB=100
 ```
 
 ### SEED_DATA

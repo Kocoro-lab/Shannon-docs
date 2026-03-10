@@ -136,9 +136,9 @@ Uses medium tier **but only Anthropic models** → `claude-sonnet-4-5-20250929`
 ### Python SDK Examples
 
 ```python
-from shannon import Shannon
+from shannon import ShannonClient
 
-client = Shannon(api_key="sk_test_123456")
+client = ShannonClient(api_key="sk_test_123456")
 
 # Auto-selection
 task = client.tasks.submit(query="Simple task")
@@ -208,6 +208,70 @@ client.tasks.submit(
     model_tier="large"
 )
 ```
+
+## Research Tiered Model Architecture
+
+<Note>
+Added in Shannon v0.3.0. This feature achieves **50-70% cost reduction** compared to uniform large-model usage for research workflows.
+</Note>
+
+Shannon's research workflows automatically assign different model tiers to different stages of execution, using expensive models only where quality matters most.
+
+### How It Works
+
+| Research Stage | Default Tier | Role | Rationale |
+|---|---|---|---|
+| **Exploration / Research agents** | `small` | `research_agent` | Gathering information is breadth-oriented; small models are sufficient and cost-effective |
+| **Synthesis / Final output** | `large` (configurable) | `synthesis_agent` | Combining and reasoning over findings requires stronger models |
+| **Quick strategy** | `small` | `quick_research_agent` | Forces parallel execution with small models for maximum speed |
+
+### Configuration
+
+The synthesis tier is configurable via `synthesis_model_tier` in your task request or `config/shannon.yaml`:
+
+```yaml
+# config/shannon.yaml
+research:
+  default_research_tier: small       # Tier for exploration agents
+  synthesis_model_tier: large        # Tier for final synthesis
+```
+
+You can also override per-request:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "X-API-Key: sk_test_123456" \
+  -d '{
+    "query": "Research the impact of LLM scaling laws",
+    "strategy": "research",
+    "context": {
+      "synthesis_model_tier": "medium"
+    }
+  }'
+```
+
+### Quick Research Strategy
+
+The `quick` strategy forces all research agents to run in parallel using small models, optimizing for speed and cost over depth:
+
+```python
+task = client.tasks.submit(
+    query="Quick overview of recent ML papers",
+    strategy="quick"  # Parallel execution, small models, quick_research_agent role
+)
+```
+
+### Cost Comparison
+
+**Example: 5-agent research workflow**
+
+| Approach | Model Usage | Estimated Cost |
+|---|---|---|
+| Uniform `large` | 5 x large | ~$0.50 |
+| Tiered (v0.3.0) | 4 x small + 1 x large | ~$0.15-0.25 |
+| Quick strategy | 5 x small (parallel) | ~$0.05 |
+
+Result: **50-70% cost reduction** with tiered architecture, maintaining synthesis quality.
 
 ## Complexity Analysis
 

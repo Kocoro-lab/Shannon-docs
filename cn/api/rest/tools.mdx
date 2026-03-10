@@ -1,0 +1,302 @@
+---
+title: "工具 API"
+description: "列出、查看和执行 Shannon 平台中注册的工具"
+---
+
+## 概述
+
+Tools API 提供对 Shannon 工具注册表的直接访问。您可以浏览可用工具、查看参数 Schema，以及绕过完整的任务工作流直接执行工具。
+
+## 功能特性
+
+- **工具发现** — 浏览所有可用工具，支持按类别过滤
+- **JSON Schema 查看** — 获取任意工具的完整参数 Schema
+- **直接执行** — 在 Agent 工作流之外直接调用工具
+- **危险工具拦截** — 被标记为危险的工具在 Gateway 层自动隐藏和拦截
+- **用量追踪** — 每次执行记录 Token 消耗和成本
+- **Session 上下文** — 可选绑定到 Session（仅保留 `session_id` 和 `user_id`）
+
+## 安全模型
+
+Shannon 对标记为 `dangerous` 的工具实施严格的安全边界：
+
+- **List 端点**自动应用 `exclude_dangerous=true` — 危险工具永远不会暴露
+- **Get 和 Execute 端点**对危险工具返回 `403 Forbidden`
+- 工具元数据在每个 Gateway 实例中缓存 5 分钟
+- 工具执行的 HTTP 客户端超时时间为 120 秒
+
+<Warning>
+危险工具无法通过任何公共 API 端点访问。此限制在 Gateway 层强制执行，客户端无法绕过。
+</Warning>
+
+## 列出工具
+
+列出所有可用工具。危险工具会自动排除。
+
+<CodeGroup>
+```bash curl
+curl http://localhost:8080/api/v1/tools \
+  -H "Authorization: Bearer <token>"
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient()
+tools = client.list_tools()
+for tool in tools:
+    print(f"{tool.name} ({tool.category}) — {tool.description}")
+```
+</CodeGroup>
+
+### 查询参数
+
+| 参数 | 类型 | 必填 | 描述 |
+|------|------|------|------|
+| `category` | string | 否 | 按类别过滤工具（如 `"search"`、`"code"`） |
+
+### 按类别过滤示例
+
+<CodeGroup>
+```bash curl
+curl "http://localhost:8080/api/v1/tools?category=search" \
+  -H "Authorization: Bearer <token>"
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient()
+search_tools = client.list_tools(category="search")
+```
+</CodeGroup>
+
+### 响应
+
+```json
+[
+  {
+    "name": "web_search",
+    "description": "Search the web for current information",
+    "category": "search",
+    "version": "1.0",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "Search query"
+        },
+        "max_results": {
+          "type": "integer",
+          "description": "Maximum number of results",
+          "default": 10
+        }
+      },
+      "required": ["query"]
+    },
+    "timeout_seconds": 30,
+    "cost_per_use": 0.004
+  }
+]
+```
+
+## 获取工具
+
+获取指定工具的元数据和参数 Schema。
+
+<CodeGroup>
+```bash curl
+curl http://localhost:8080/api/v1/tools/web_search \
+  -H "Authorization: Bearer <token>"
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient()
+tool = client.get_tool("web_search")
+print(f"{tool.name} v{tool.version}")
+print(f"Parameters: {tool.parameters}")
+```
+</CodeGroup>
+
+### 路径参数
+
+| 参数 | 类型 | 必填 | 描述 |
+|------|------|------|------|
+| `name` | string | 是 | 工具名称 |
+
+### 响应
+
+```json
+{
+  "name": "web_search",
+  "description": "Search the web for current information",
+  "category": "search",
+  "version": "1.0",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "Search query"
+      },
+      "max_results": {
+        "type": "integer",
+        "description": "Maximum number of results",
+        "default": 10
+      }
+    },
+    "required": ["query"]
+  },
+  "timeout_seconds": 30,
+  "cost_per_use": 0.004
+}
+```
+
+## 执行工具
+
+使用提供的参数直接执行指定工具。
+
+<CodeGroup>
+```bash curl
+curl -X POST http://localhost:8080/api/v1/tools/web_search/execute \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "arguments": {
+      "query": "latest AI news",
+      "max_results": 5
+    },
+    "session_id": "optional-session-id"
+  }'
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient()
+result = client.execute_tool(
+    "web_search",
+    arguments={"query": "latest AI news", "max_results": 5},
+    session_id="optional-session-id",
+)
+print(f"Success: {result.success}")
+print(f"Output: {result.text}")
+print(f"Execution time: {result.execution_time_ms}ms")
+print(f"Cost: ${result.usage.cost_usd}")
+```
+</CodeGroup>
+
+### 路径参数
+
+| 参数 | 类型 | 必填 | 描述 |
+|------|------|------|------|
+| `name` | string | 是 | 工具名称 |
+
+### 请求体
+
+| 字段 | 类型 | 必填 | 描述 |
+|------|------|------|------|
+| `arguments` | object | 是 | 与工具参数 Schema 匹配的工具特定参数 |
+| `session_id` | string | 否 | 用于上下文绑定的 Session ID |
+
+<Note>
+提供 `session_id` 时，仅 `session_id` 和 `user_id` 会传递给工具。出于安全考虑，`tenant_id` 等其他 Session 字段会被剥离。
+</Note>
+
+### 响应
+
+```json
+{
+  "success": true,
+  "output": {
+    "results": [
+      {
+        "title": "Major AI Breakthrough Announced",
+        "url": "https://example.com/ai-news",
+        "snippet": "Researchers announce a significant advancement in..."
+      }
+    ]
+  },
+  "text": "Found 5 results for 'latest AI news'",
+  "error": null,
+  "metadata": {
+    "source": "searchapi"
+  },
+  "execution_time_ms": 1234,
+  "usage": {
+    "tokens": 7500,
+    "cost_usd": 0.004
+  }
+}
+```
+
+### 响应字段
+
+| 字段 | 类型 | 描述 |
+|------|------|------|
+| `success` | boolean | 执行是否成功完成 |
+| `output` | object | 工具返回的结构化输出 |
+| `text` | string | 人类可读的结果摘要 |
+| `error` | string \| null | 执行失败时的错误消息 |
+| `metadata` | object | 工具特定的元数据（如数据来源） |
+| `execution_time_ms` | integer | 执行耗时（毫秒） |
+| `usage.tokens` | integer | 本次执行的 Token 数量 |
+| `usage.cost_usd` | number | 预估成本（美元） |
+
+<Tip>
+用量以异步方式（fire-and-forget）记录到 `token_usage` 表。Token 数量为合成值：`max(100, int(cost_usd / 0.000002))`。
+</Tip>
+
+## 工具响应对象
+
+| 字段 | 类型 | 描述 |
+|------|------|------|
+| `name` | string | 工具标识符 |
+| `description` | string | 人类可读的描述 |
+| `category` | string | 工具类别（如 `"search"`、`"code"`、`"data"`） |
+| `version` | string | 工具版本 |
+| `parameters` | object (JSON Schema) | 工具的参数 Schema |
+| `timeout_seconds` | integer | 允许的最大执行时间 |
+| `cost_per_use` | number | 每次调用的预估成本（美元） |
+
+## 错误响应
+
+| 状态码 | 错误 | 描述 |
+|--------|------|------|
+| 400 | Bad request | 缺少工具名称或请求体无效 |
+| 401 | Unauthorized | 缺少或无效的认证信息 |
+| 403 | Forbidden | 工具被标记为危险，无法访问 |
+| 404 | Tool not found | 指定名称的工具不存在 |
+| 502 | Bad gateway | LLM Service（工具后端）不可用 |
+
+所有错误遵循标准格式：
+
+```json
+{
+  "error": "error message here"
+}
+```
+
+### 危险工具错误
+
+尝试通过 Get 或 Execute 访问危险工具时返回：
+
+```json
+{
+  "error": "Tool not available via direct execution"
+}
+```
+
+## 后续步骤
+
+<CardGroup cols={2}>
+  <Card title="自定义工具" icon="wrench" href="/cn/tutorials/custom-tools">
+    了解如何创建和注册自定义工具
+  </Card>
+  <Card title="智能体" icon="robot" href="/cn/api/rest/agents">
+    配置自动使用工具的 Agent
+  </Card>
+</CardGroup>

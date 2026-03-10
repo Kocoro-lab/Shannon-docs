@@ -39,8 +39,8 @@ Shannon 提供全面的监控和可观测性功能，以跟踪生产环境中的
 |--------|-------------|------|
 | `task.latency` | 端到端任务完成时间 | 毫秒 |
 | `task.cost` | 每个任务的总成本 | 美元 |
-| `task.tokens.input` | 消耗的输入令牌 | 数量 |
-| `task.tokens.output` | 生成的输出令牌 | 数量 |
+| `task.tokens.input` | 消耗的输入Token | 数量 |
+| `task.tokens.output` | 生成的输出Token | 数量 |
 | `task.iterations` | 智能体迭代次数 | 数量 |
 | `task.tools.invocations` | 工具使用次数 | 数量 |
 
@@ -66,7 +66,7 @@ curl http://localhost:8080/health
 ```json
 {
   "status": "healthy",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "time": "2025-01-20T10:00:00Z",
   "checks": {
     "gateway": "ok"
@@ -83,7 +83,7 @@ curl http://localhost:8080/readiness
 ```json
 {
   "status": "ready",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "time": "2025-01-20T10:00:02Z",
   "checks": {
     "orchestrator": "ok"

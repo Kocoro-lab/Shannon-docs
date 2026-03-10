@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 500">
   <defs>
     <style>
       .label { font: 500 10px 'SF Mono', 'PingFang SC', monospace; fill: #666; text-anchor: middle; }
@@ -76,8 +76,8 @@
   <text x="70" y="195" class="annotation" text-anchor="start">  Allow limited requests</text>
 
   <!-- Configuration -->
-  <rect x="550" y="70" width="200" height="150" fill="#f9fafb" stroke="#999" stroke-width="1" rx="2"/>
-  <text x="650" y="90" class="state-text">配置 Configuration</text>
+  <rect x="550" y="70" width="240" height="150" fill="#f9fafb" stroke="#999" stroke-width="1" rx="2"/>
+  <text x="670" y="90" class="state-text">配置 Configuration</text>
 
   <text x="570" y="110" class="annotation" text-anchor="start">MCP_CB_FAILURES=5</text>
   <text x="570" y="125" class="annotation" text-anchor="start">失败阈值 Failure threshold</text>

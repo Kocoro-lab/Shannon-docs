@@ -1,18 +1,18 @@
 ---
 title: "Swarm Multi-Agent Workflow"
-description: "Step-by-step guide to running persistent multi-agent swarm workflows in Shannon"
+description: "Step-by-step guide to running persistent multi-agent swarm workflows in Shannon with Lead Agent coordination"
 ---
 
 # Swarm Multi-Agent Workflow
 
-This tutorial shows how to use Shannon's **SwarmWorkflow** to deploy persistent, collaborating agents that work in parallel with inter-agent messaging and a shared workspace.
+This tutorial shows how to use Shannon's **SwarmWorkflow** to deploy persistent, collaborating agents coordinated by an LLM-powered Lead Agent. Agents work in parallel with inter-agent messaging, a shared workspace, and dynamic task reassignment.
 
 ## What You'll Learn
 
 - How to submit a swarm task via API and Python SDK
-- How agents decompose, execute, and synthesize results
+- How the Lead Agent coordinates agents through events
 - How to monitor agent progress with SSE streaming
-- How to configure swarm parameters
+- How to configure swarm parameters and budget controls
 - Real-world use cases and best practices
 
 ## Prerequisites
@@ -63,18 +63,22 @@ curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id=task-abc123..."
 ```
 
 You will see events like:
-```
-data: {"type":"WORKFLOW_STARTED","agent_id":"swarm-supervisor","message":"Assigning a team of agents"}
-data: {"type":"PROGRESS","agent_id":"swarm-supervisor","message":"Planning approach"}
-data: {"type":"PROGRESS","agent_id":"swarm-supervisor","message":"Assigning 3 agents"}
+```text
+data: {"type":"WORKFLOW_STARTED","agent_id":"swarm-supervisor","message":"Lead Agent initializing team"}
+data: {"type":"LEAD_DECISION","agent_id":"swarm-lead","message":"Creating initial plan with 3 tasks"}
+data: {"type":"TASKLIST_UPDATED","agent_id":"swarm-lead","message":"Task graph updated: 4 tasks (3 research + 1 synthesis)"}
+data: {"type":"TEAM_STATUS","agent_id":"swarm-lead","message":"Spawned agent takao"}
 data: {"type":"AGENT_STARTED","agent_id":"takao","message":"Agent takao started"}
+data: {"type":"TEAM_STATUS","agent_id":"swarm-lead","message":"Spawned agent mitaka"}
 data: {"type":"AGENT_STARTED","agent_id":"mitaka","message":"Agent mitaka started"}
+data: {"type":"TEAM_STATUS","agent_id":"swarm-lead","message":"Spawned agent kichijoji"}
 data: {"type":"AGENT_STARTED","agent_id":"kichijoji","message":"Agent kichijoji started"}
 data: {"type":"PROGRESS","agent_id":"takao","message":"Agent takao progress: iteration 1/25, action: tool_call"}
 data: {"type":"AGENT_COMPLETED","agent_id":"takao","message":"Agent takao completed"}
+data: {"type":"LEAD_DECISION","agent_id":"swarm-lead","message":"Assigning synthesis task to takao"}
 data: {"type":"AGENT_COMPLETED","agent_id":"mitaka","message":"Agent mitaka completed"}
 data: {"type":"AGENT_COMPLETED","agent_id":"kichijoji","message":"Agent kichijoji completed"}
-data: {"type":"PROGRESS","agent_id":"swarm-supervisor","message":"Combining findings from 3 agents"}
+data: {"type":"LEAD_DECISION","agent_id":"swarm-lead","message":"All tasks complete, finalizing"}
 data: {"type":"WORKFLOW_COMPLETED","agent_id":"swarm-supervisor","message":"All done"}
 ```
 
@@ -93,11 +97,29 @@ curl "http://localhost:8080/api/v1/tasks/task-abc123..."
   "metadata": {
     "workflow_type": "swarm",
     "total_agents": 3,
-    "agents": [
-      {"agent_id": "takao", "iterations": 8, "tokens": 12400, "success": true, "model": "gpt-5-mini-2025-08-07"},
-      {"agent_id": "mitaka", "iterations": 6, "tokens": 9800, "success": true, "model": "gpt-5-mini-2025-08-07"},
-      {"agent_id": "kichijoji", "iterations": 7, "tokens": 11200, "success": true, "model": "gpt-5-mini-2025-08-07"}
+    "total_tokens": 598235,
+    "model_breakdown": [
+      {
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic",
+        "executions": 38,
+        "tokens": 297524,
+        "cost_usd": 0.372
+      },
+      {
+        "model": "shannon_web_search",
+        "provider": "shannon-scraper",
+        "executions": 12,
+        "tokens": 90000,
+        "cost_usd": 0.048
+      }
     ]
+  },
+  "usage": {
+    "input_tokens": 289164,
+    "output_tokens": 309071,
+    "total_tokens": 598235,
+    "estimated_cost": 0.780
   }
 }
 ```
@@ -170,6 +192,8 @@ handle, stream_url = client.submit_and_stream(
 for event in client.stream(handle.workflow_id):
     if event.type == "AGENT_STARTED":
         print(f"Agent started: {event.agent_id}")
+    elif event.type == "LEAD_DECISION":
+        print(f"Lead decision: {event.message}")
     elif event.type == "PROGRESS":
         print(f"Progress: {event.message}")
     elif event.type == "AGENT_COMPLETED":
@@ -198,11 +222,20 @@ handle = client.submit_task(
 
 ## How Agents Collaborate
 
+### Lead Agent Coordination
+
+The Lead Agent acts as an event-driven coordinator. It does not execute tasks itself, but rather plans, assigns, and reassigns work based on events:
+
+- When an agent becomes **idle**, the Lead checks for pending tasks with met dependencies and assigns the next one
+- When an agent **completes**, the Lead evaluates whether to reassign it, shut it down, or revise the plan
+- On periodic **checkpoints** (every 120s), the Lead reviews overall progress and can adjust the plan
+- The Lead skips unnecessary LLM calls when there are no idle agents and no actionable pending tasks
+
 ### Team Roster
 
 Each agent receives a team roster showing all agents and their assignments. This enables agents to know who to contact for specific information:
 
-```
+```text
 ## Your Team (shared session workspace)
 - **takao (you)**: "Research US AI chip market"
 - mitaka: "Research Japan AI chip market"
@@ -213,7 +246,7 @@ Each agent receives a team roster showing all agents and their assignments. This
 
 Agents share discoveries via the shared workspace. These appear in every agent's prompt context:
 
-```
+```text
 ## Shared Findings
 - takao: NVIDIA dominates US with 80% market share...
 - mitaka: Japan focuses on edge AI chips with Preferred Networks leading...
@@ -223,20 +256,20 @@ Agents share discoveries via the shared workspace. These appear in every agent's
 
 Agents can send direct messages to specific teammates:
 
-```
+```text
 ## Inbox Messages
 - From mitaka (info): {"message": "Check Samsung's foundry plans for AI chips"}
 ```
 
 ### Requesting Help
 
-When an agent needs additional support, it requests help from the supervisor:
+When an agent needs additional support, it requests help from the Lead Agent:
 
 ```json
 {"action": "request_help", "help_description": "Need help analyzing EU regulatory impact on AI chips", "help_skills": ["web_search"]}
 ```
 
-The supervisor spawns a new agent to handle the request and notifies the original agent.
+The Lead Agent evaluates the request and may spawn a new agent, reassign an existing idle agent, or add the subtask to the pending task queue.
 
 ## Configuration
 
@@ -248,10 +281,13 @@ workflows:
     enabled: true
     max_agents: 10                    # Max total agents (initial + dynamic)
     max_iterations_per_agent: 25      # Max reason-act loops per agent
-    agent_timeout_seconds: 600        # Per-agent timeout (10 minutes)
+    agent_timeout_seconds: 1800       # Per-agent timeout (30 minutes)
     max_messages_per_agent: 20        # Max P2P messages per agent
     workspace_snippet_chars: 800      # Max chars per workspace entry in prompt
     workspace_max_entries: 5          # Max recent entries shown to agents
+    max_total_llm_calls: 200          # Global LLM call budget
+    max_total_tokens: 1000000         # Global token budget (1M)
+    max_wall_clock_minutes: 30        # Max wall-clock time
 ```
 
 ### Configuration Parameters
@@ -259,50 +295,53 @@ workflows:
 | Parameter | Default | Range | Description |
 |-----------|---------|-------|-------------|
 | `enabled` | `true` | `true`/`false` | Enable or disable swarm workflows |
-| `max_agents` | `10` | 1-50 | Total agent cap including dynamically spawned helpers |
+| `max_agents` | `10` | 1-50 | Total agent cap including dynamically spawned agents |
 | `max_iterations_per_agent` | `25` | 1-100 | Maximum reason-act cycles per agent |
-| `agent_timeout_seconds` | `600` | 60-3600 | Per-agent wall-clock timeout |
+| `agent_timeout_seconds` | `1800` | 60-7200 | Per-agent wall-clock timeout |
 | `max_messages_per_agent` | `20` | 1-100 | Cap on P2P messages an agent can send |
 | `workspace_snippet_chars` | `800` | 100-4000 | Truncation limit for workspace entries in agent prompt |
 | `workspace_max_entries` | `5` | 1-20 | Number of recent workspace entries shown per topic |
+| `max_total_llm_calls` | `200` | 10-1000 | Maximum LLM calls across all agents in the swarm |
+| `max_total_tokens` | `1000000` | 10000-10000000 | Maximum tokens consumed across all agents |
+| `max_wall_clock_minutes` | `30` | 1-120 | Maximum wall-clock time for the entire swarm execution |
 
 ## Real-World Use Cases
 
 <CardGroup cols={2}>
-  <Card title="Market Research" icon="chart-line">
-    Assign agents to research different markets or competitors in parallel, then synthesize into a unified report.
+  <Card title="Collaborative Coding" icon="code">
+    Agents review, implement, and test code collaboratively with sandboxed execution.
   </Card>
-  <Card title="Technical Comparison" icon="code-compare">
-    Each agent evaluates a different framework, library, or architecture, sharing findings as they discover them.
+  <Card title="Financial Analysis" icon="chart-line">
+    Bull/bear analysts, sentiment agents, and a portfolio manager synthesize investment insights.
   </Card>
-  <Card title="Multi-Region Analysis" icon="globe">
-    Agents research different geographic regions simultaneously with cross-pollination of findings.
+  <Card title="Data Processing" icon="database">
+    Parallel data pipelines with sandboxed Python execution, JSON querying, and statistical analysis.
   </Card>
-  <Card title="Literature Review" icon="book-open">
-    Agents explore different facets of a research topic, sharing sources and key findings via the workspace.
+  <Card title="Competitive Intelligence" icon="globe">
+    Monitor competitor websites, pricing, and social media with automatic cross-sharing of discoveries.
   </Card>
 </CardGroup>
 
-### Example: Technical Framework Comparison
+### Example: Collaborative Code Review
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
   -d '{
-    "query": "Compare LangChain, CrewAI, and AutoGen for building multi-agent systems. Evaluate architecture, community, performance, and production readiness.",
+    "query": "Review the Python files in /workspace/src for security vulnerabilities, code quality issues, and missing test coverage. Write fixes and add tests.",
     "context": { "force_swarm": true }
   }'
 ```
 
-This task gets decomposed into agents that each research one framework, sharing findings through the workspace so each agent can reference what others have discovered.
+The Lead Agent creates tasks for each concern (security audit, code quality, test coverage), assigns agents with the `developer` role, and creates a final synthesis task that depends on all reviews completing.
 
-### Example: Comprehensive Industry Analysis
+### Example: Multi-Site Price Monitoring
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
   -d '{
-    "query": "Analyze the global electric vehicle battery supply chain: raw materials sourcing, manufacturing capacity, technology trends, and geopolitical risks",
+    "query": "Compare pricing and features of AWS, Azure, and GCP for a startup needing GPU instances, object storage, and managed Kubernetes",
     "context": {
       "force_swarm": true,
       "model_tier": "medium"
@@ -312,42 +351,55 @@ curl -X POST http://localhost:8080/api/v1/tasks \
 
 ## Understanding the Response Metadata
 
-The swarm workflow returns metadata with per-agent details:
+The swarm workflow returns metadata with per-model execution breakdown and token usage:
 
 ```json
 {
   "metadata": {
     "workflow_type": "swarm",
-    "total_agents": 4,
-    "agents": [
+    "total_agents": 3,
+    "total_tokens": 598235,
+    "model_breakdown": [
       {
-        "agent_id": "takao",
-        "iterations": 8,
-        "tokens": 14200,
-        "success": true,
-        "model": "gpt-5-mini-2025-08-07"
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic",
+        "executions": 38,
+        "tokens": 297524,
+        "cost_usd": 0.372
       },
       {
-        "agent_id": "mitaka",
-        "iterations": 6,
-        "tokens": 9800,
-        "success": true,
-        "model": "gpt-5-mini-2025-08-07"
+        "model": "shannon_web_search",
+        "provider": "shannon-scraper",
+        "executions": 12,
+        "tokens": 90000,
+        "cost_usd": 0.048
       }
     ]
+  },
+  "usage": {
+    "input_tokens": 289164,
+    "output_tokens": 309071,
+    "total_tokens": 598235,
+    "estimated_cost": 0.780
   }
 }
 ```
 
 | Field | Description |
 |-------|-------------|
-| `workflow_type` | Always `"swarm"` for swarm workflows |
-| `total_agents` | Number of agents that participated |
-| `agents[].agent_id` | Unique agent name |
-| `agents[].iterations` | Number of reason-act cycles completed |
-| `agents[].tokens` | Total tokens consumed by this agent |
-| `agents[].success` | Whether the agent completed successfully |
-| `agents[].model` | LLM model used by this agent |
+| `metadata.workflow_type` | Always `"swarm"` for swarm workflows |
+| `metadata.total_agents` | Number of agents that participated |
+| `metadata.total_tokens` | Total tokens consumed across the entire swarm |
+| `metadata.model_breakdown[]` | Per-model execution summary |
+| `metadata.model_breakdown[].model` | Model identifier |
+| `metadata.model_breakdown[].provider` | Provider name |
+| `metadata.model_breakdown[].executions` | Number of LLM calls with this model |
+| `metadata.model_breakdown[].tokens` | Tokens consumed by this model |
+| `metadata.model_breakdown[].cost_usd` | Estimated cost in USD |
+| `usage.input_tokens` | Total input tokens across all agents |
+| `usage.output_tokens` | Total output tokens across all agents |
+| `usage.total_tokens` | Total tokens (input + output) |
+| `usage.estimated_cost` | Total estimated cost in USD |
 
 ## Tips and Best Practices
 
@@ -356,8 +408,9 @@ The swarm workflow returns metadata with per-agent details:
 
   - Set `context.force_swarm: true` to route to SwarmWorkflow
   - Start with default configuration and adjust based on results
-  - Monitor SSE events to understand agent behavior
+  - Monitor SSE events to understand Lead Agent decisions and agent behavior
   - Use sessions (`session_id`) for multi-turn swarm conversations
+  - Watch for `LEAD_DECISION` events to understand coordination logic
 
   </Tab>
   <Tab title="Performance">
@@ -366,6 +419,16 @@ The swarm workflow returns metadata with per-agent details:
   - Use `model_tier: "small"` for cost-effective exploration
   - Swarm agents use MEDIUM tier by default for balanced quality and speed
   - Keep workspace entries concise -- large entries consume prompt tokens
+  - Knowledge deduplication automatically reduces redundant fetches and searches
+  - The Lead skips checkpoint LLM calls when no agents are idle and no tasks are actionable
+
+  </Tab>
+  <Tab title="Budget Control">
+
+  - Set `max_total_llm_calls` to limit total LLM invocations across all agents
+  - Set `max_total_tokens` to cap token consumption for the entire swarm
+  - Set `max_wall_clock_minutes` to enforce a hard time limit
+  - The Lead Agent receives budget info and makes cost-aware decisions automatically
 
   </Tab>
   <Tab title="When Not to Use Swarm">
@@ -383,15 +446,17 @@ The swarm workflow returns metadata with per-agent details:
 <Warning>
 **Common Issues**:
 - **Swarm not triggering**: Ensure `force_swarm: true` is in the `context` object and swarm is enabled in `features.yaml`
-- **Agents timing out**: Increase `agent_timeout_seconds` for complex tasks
+- **Agents timing out**: Increase `agent_timeout_seconds` for complex tasks (default is 1800s / 30 minutes)
 - **Too many agents**: Reduce the number of subtasks by simplifying your query, or lower `max_agents`
-- **High token usage**: Lower `max_iterations_per_agent` or use `model_tier: "small"`
-- **Agents stuck in loops**: Convergence detection (3 consecutive non-tool iterations) should catch this automatically
+- **High token usage**: Lower `max_iterations_per_agent`, use `model_tier: "small"`, or reduce `max_total_tokens`
+- **Agents stuck in loops**: Convergence detection (3 consecutive non-tool iterations) catches this automatically
+- **Budget exceeded**: Check `max_total_llm_calls` and `max_total_tokens` settings; the Lead will attempt graceful shutdown when budget is tight
+- **Redundant searches**: Knowledge deduplication should catch this; if persisting, check that agents have access to the shared workspace
 </Warning>
 
 ## Fallback Behavior
 
-If the swarm workflow fails (decomposition error, all agents fail, etc.), Shannon automatically falls back to standard DAG/Supervisor workflow routing. The `force_swarm` flag is removed from context to prevent recursive failures.
+If the swarm workflow fails (planning error, all agents fail, etc.), Shannon automatically falls back to standard DAG/Supervisor workflow routing. The `force_swarm` flag is removed from context to prevent recursive failures.
 
 ## Next Steps
 

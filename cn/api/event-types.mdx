@@ -5,7 +5,7 @@ description: "Shannon 流式事件类型（权威清单）"
 
 ## 概述
 
-Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件**。本文档记录平台**实际发出的 33 种事件类型**、它们的结构以及发生时机。
+Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件**。本文档记录平台**实际发出的 35 种事件类型**、它们的结构以及发生时机。
 
 事件提供:
 - **实时进度** - 实时跟踪任务执行
@@ -95,11 +95,13 @@ Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件
 | `APPROVAL_DECISION` | 系统 | 批准决策已做出 |
 | `WORKSPACE_UPDATED` | 系统 | 内存/上下文已更新 |
 | `ROLE_ASSIGNED` | 系统 | 智能体角色已分配 |
-| `DELEGATION` | 系统 | 任务已委托 |
+| `STATUS_UPDATE` | 系统 | 通用状态更新 |
 | `BUDGET_THRESHOLD` | 系统/进度 | 任务预算达到预警阈值 |
+| `THREAD_MESSAGE_DELTA` | 流式 | 增量消息内容块 |
+| `THREAD_MESSAGE_COMPLETED` | 流式 | 消息内容已完整传递 |
 | `STREAM_END` | 流式 | 显式的流结束信号（该工作流不会再有新事件） |
 
-**总计**: 33 种事件类型
+**总计**: 35 种事件类型
 
 注意：`WORKFLOW_FAILED`、`TOOL_COMPLETED`、`TOOL_FAILED`、`BUDGET_UPDATE` 等事件不会由流式 API 发出。失败通过 `ERROR_OCCURRED` 表示；完成由 `WORKFLOW_COMPLETED` 表示。`STREAM_END` 作为生命周期信号在完成/终止后发出，用于标记流式事件结束。
 
@@ -824,20 +826,54 @@ Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件
 
 ---
 
-### DELEGATION
+### STATUS_UPDATE
 
-**发出时机**: 任务委托给另一个智能体时
+**发出时机**: 任务或工作流的通用状态更新
 
 **数据**:
 ```json
 {
-  "type": "DELEGATION",
-  "agent_id": "supervisor",
-  "message": "Delegated to data-analyst",
+  "type": "STATUS_UPDATE",
+  "message": "Task processing update",
   "data": {
-    "to_agent": "data-analyst",
-    "task": "Analyze revenue trends",
-    "priority": "HIGH"
+    "status": "string",
+    "details": "string"
+  }
+}
+```
+
+---
+
+### THREAD_MESSAGE_DELTA
+
+**发出时机**: 流式响应生成期间的增量内容块
+
+**数据**:
+```json
+{
+  "type": "THREAD_MESSAGE_DELTA",
+  "message": "Content chunk",
+  "data": {
+    "delta": "string",
+    "index": 0
+  }
+}
+```
+
+---
+
+### THREAD_MESSAGE_COMPLETED
+
+**发出时机**: 完整消息内容已传递
+
+**数据**:
+```json
+{
+  "type": "THREAD_MESSAGE_COMPLETED",
+  "message": "Message complete",
+  "data": {
+    "content": "string",
+    "total_tokens": 0
   }
 }
 ```
@@ -852,25 +888,25 @@ Shannon 通过服务器发送事件(Server-Sent Events, SSE)发出**实时事件
 ```json
 {
   "type": "BUDGET_THRESHOLD",
-  "message": "Budget threshold reached: 80%",
+  "message": "Task budget at 85.0% (threshold: 80.0%)",
   "data": {
-    "threshold_percentage": 80,
-    "tokens_used": 8000,
-    "tokens_limit": 10000,
-    "tokens_remaining": 2000,
-    "cost_usd": 0.24,
-    "estimated_cost_at_limit": 0.30
+    "usage_percent": 85.0,
+    "threshold_percent": 80.0,
+    "tokens_used": 8500,
+    "tokens_budget": 10000,
+    "level": "warning",
+    "budget_type": "task"
   }
 }
 ```
 
 **字段**:
-- `threshold_percentage`: 警告阈值（例如 80）
+- `usage_percent`: 当前使用百分比（例如 85.0）
+- `threshold_percent`: 警告阈值百分比（例如 80.0）
 - `tokens_used`: 目前累计消耗的 token 数
-- `tokens_limit`: 任务允许的最大 token 数
-- `tokens_remaining`: 达到限制前剩余的 token 数
-- `cost_usd`: 当前成本（美元）
-- `estimated_cost_at_limit`: 达到限制时的预计成本
+- `tokens_budget`: 任务允许的最大 token 数
+- `level`: 严重级别（`"warning"`）
+- `budget_type`: 触发事件的预算类型（`"task"`）
 
 **用途**: 监控此事件可在触发硬性预算限制之前警告用户，允许优雅降级或提前终止决策。
 

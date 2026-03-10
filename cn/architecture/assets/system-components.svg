@@ -3,7 +3,7 @@
     <style>
       .title { font: 700 17px -apple-system, 'PingFang SC', 'Inter', sans-serif; fill: #0f172a; }
       .title-sub { font: 400 13px -apple-system, 'PingFang SC', 'Inter', sans-serif; fill: #94a3b8; }
-      .tag { font: 700 9.5px -apple-system, 'Inter', sans-serif; fill: #fff; letter-spacing: 0.6px; text-transform: uppercase; }
+      .tag { font: 700 9.5px -apple-system, 'Inter', sans-serif; fill: #fff; letter-spacing: 0.6px; text-transform: uppercase; text-anchor: middle; }
       .box-text { font: 600 13px -apple-system, 'PingFang SC', 'Inter', sans-serif; fill: #1e293b; text-anchor: middle; }
       .box-text-sm { font: 600 11px -apple-system, 'PingFang SC', 'Inter', sans-serif; fill: #1e293b; text-anchor: middle; }
       .sub { font: 400 10px -apple-system, 'PingFang SC', 'Inter', sans-serif; fill: #64748b; text-anchor: middle; }

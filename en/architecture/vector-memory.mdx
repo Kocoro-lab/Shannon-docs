@@ -133,6 +133,91 @@ Memory features require OpenAI API access for text embeddings.
 - Compression is lossy (preserves key points only)
 - Cross-session memory requires explicit session linking
 
+## Enabling Semantic Memory
+
+Follow the steps below to enable Shannon's semantic memory system backed by Qdrant.
+
+### Prerequisites
+
+<Note>
+Before proceeding, ensure the following are in place:
+- **Qdrant** is running (included by default in Shannon's `docker-compose.yaml`)
+- **`OPENAI_API_KEY`** is set in your environment (required for the `text-embedding-3-small` embedding model)
+</Note>
+
+### Step-by-Step Setup
+
+<Steps>
+  <Step title="Enable vector memory in shannon.yaml">
+    Add or update the `vector` block in your `shannon.yaml` configuration:
+
+    ```yaml shannon.yaml
+    vector:
+      enabled: true                    # Must set to true (default: false)
+      host: "qdrant"
+      port: 6333
+      top_k: 10
+      threshold: 0.5
+      default_model: "text-embedding-3-small"
+      cache_ttl: "1h"
+      use_redis_cache: true
+      expected_embedding_dim: 1536
+    ```
+
+    <Warning>
+    `vector.enabled` defaults to `false`. You must explicitly set it to `true` for semantic memory to function.
+    </Warning>
+  </Step>
+
+  <Step title="Verify Qdrant collections">
+    Shannon automatically creates 5 collections (all using 1536-dimensional vectors from `text-embedding-3-small`):
+
+    | Collection | Purpose |
+    |---|---|
+    | `task_embeddings` | Task result embeddings for semantic search |
+    | `tool_results` | Tool execution result embeddings |
+    | `cases` | Case library for pattern matching |
+    | `document_chunks` | Document chunk embeddings for RAG |
+    | `summaries` | Summary embeddings |
+
+    You can verify the collections are created by querying the Qdrant REST API:
+
+    ```bash
+    curl http://localhost:6333/collections
+    ```
+  </Step>
+
+  <Step title="Configure MMR diversity reranking">
+    MMR (Maximal Marginal Relevance) balances relevance and diversity in retrieval results. When enabled, Shannon fetches a larger candidate pool and reranks to reduce redundancy while preserving relevance.
+
+    ```yaml shannon.yaml
+    mmr_enabled: true
+    mmr_lambda: 0.7           # 0 = pure diversity, 1 = pure relevance
+    mmr_pool_multiplier: 3    # Fetch 3x candidates for reranking
+    ```
+
+    <Note>
+    A `mmr_lambda` of `0.7` is a good default — it strongly favours relevance while still filtering out near-duplicate results.
+    </Note>
+  </Step>
+
+  <Step title="Configure embeddings endpoint">
+    If your LLM Service runs on a non-default address, or you want to tune caching behaviour, update the `embeddings` block:
+
+    ```yaml shannon.yaml
+    embeddings:
+      base_url: "http://llm-service:8000"
+      default_model: "text-embedding-3-small"
+      timeout: "10s"
+      cache_ttl: "1h"
+      max_lru: 4096
+    ```
+
+    - `cache_ttl` controls how long embedding vectors are cached in Redis.
+    - `max_lru` sets the maximum number of entries in the in-memory LRU cache.
+  </Step>
+</Steps>
+
 ## Next Steps
 
 <CardGroup cols={2}>

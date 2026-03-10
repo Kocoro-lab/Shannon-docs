@@ -83,6 +83,7 @@ Authorization: Bearer YOUR_TOKEN
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `task_id` | string | Unique task identifier |
 | `workflow_id` | string | Task/workflow identifier |
 | `stream_url` | string | Relative URL to SSE stream endpoint |
 
@@ -623,7 +624,6 @@ Over SSE, the `STREAM_END` lifecycle event is delivered as an SSE event named `d
 | `ROLE_ASSIGNED` | Agent role assigned |
 | `DELEGATION` | Task delegated |
 | `DEPENDENCY_SATISFIED` | Dependency resolved |
-| `BUDGET_THRESHOLD` | Token budget threshold reached |
 | `APPROVAL_REQUESTED` | Human approval needed |
 | `APPROVAL_DECISION` | Approval decision recorded |
 

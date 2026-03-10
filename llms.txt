@@ -35,6 +35,9 @@ Shannon orchestrates AI agents through a distributed microservices architecture:
 - [Streaming](https://docs.shannon.run/en/api/rest/streaming): SSE endpoint for real-time events
 - [Event Types](https://docs.shannon.run/en/api/event-types): SSE event schema reference
 - [Skills API](https://docs.shannon.run/en/api/rest/skills): POST /api/v1/skills - Dynamic skill execution
+- [Channels API](https://docs.shannon.run/en/api/rest/channels): Channel management for multi-tenant messaging
+- [Tools API](https://docs.shannon.run/en/api/rest/tools): Tool execution and management endpoints
+- [Daemon WebSocket](https://docs.shannon.run/en/api/rest/daemon-websocket): Persistent WebSocket connection for real-time daemon communication
 
 ## SDKs
 
@@ -93,7 +96,7 @@ curl -X POST http://localhost:8080/api/v1/tasks \
 Install: `pip install shannon-sdk` (provides the `shannon` command)
 
 Connect to local: `shannon --base-url http://localhost:8080 COMMAND`
-Connect to cloud: `shannon --base-url https://api-dev.shannon.run --api-key YOUR_KEY COMMAND`
+Connect to cloud: `shannon --base-url http://localhost:8080 --api-key YOUR_KEY COMMAND`
 Or set env vars: `SHANNON_BASE_URL`, `SHANNON_API_KEY`, `SHANNON_BEARER_TOKEN`
 
 **Tasks:**

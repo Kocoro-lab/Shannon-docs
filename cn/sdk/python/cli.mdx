@@ -36,7 +36,7 @@ shannon --base-url http://localhost:8080 submit "Hello world" --wait
 在 [https://shannon.run](https://shannon.run) 注册获取 API Key：
 
 ```bash
-shannon --base-url https://api-dev.shannon.run --api-key YOUR_API_KEY \
+shannon --base-url http://localhost:8080 --api-key YOUR_API_KEY \
   submit "Hello world" --wait
 ```
 
@@ -45,7 +45,7 @@ shannon --base-url https://api-dev.shannon.run --api-key YOUR_API_KEY \
 设置后无需每次传入参数：
 
 ```bash
-export SHANNON_BASE_URL=https://api-dev.shannon.run   # 或 http://localhost:8080
+export SHANNON_BASE_URL=http://localhost:8080   # 或 http://localhost:8080
 export SHANNON_API_KEY=sk_your_key_here
 # export SHANNON_BEARER_TOKEN=eyJ...    # API key 的替代方式
 ```
@@ -99,12 +99,12 @@ shannon submit QUERY [OPTIONS]
 | `--force-research` | flag | 强制使用 ResearchWorkflow（带引用） |
 | `--research-strategy` | `quick` \| `standard` \| `deep` \| `academic` | 研究策略 |
 | `--max-iterations` | int (1-50) | 覆盖最大研究迭代次数 |
-| `--max-concurrent-agents` | int (1-20) | 覆盖最大并发代理数 |
+| `--max-concurrent-agents` | int (1-20) | 覆盖最大并发智能体数 |
 | `--enable-verification` | flag | 启用声明验证 |
 | `--disable-verification` | flag | 禁用声明验证 |
 | `--enable-citations` | flag | 启用引用收集 |
 | `--disable-citations` | flag | 禁用引用收集 |
-| `--swarm` | flag | 强制多代理 swarm 工作流 |
+| `--swarm` | flag | 强制多智能体 swarm 工作流 |
 | `--idempotency-key` | string | 去重提交 |
 | `--traceparent` | string | W3C traceparent 分布式追踪 |
 
@@ -124,7 +124,7 @@ shannon submit "总结这段文字" --model-tier small --mode simple --wait
 # 指定模型和提供商
 shannon submit "分析趋势" --model-override gpt-5-nano-2025-08-07 --provider-override openai --wait
 
-# 多代理 swarm
+# 多智能体 swarm
 shannon submit "比较前3大云提供商的AI工作负载" --swarm --wait
 
 # 关联会话

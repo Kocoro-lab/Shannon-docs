@@ -36,7 +36,7 @@ shannon --base-url http://localhost:8080 submit "Hello world" --wait
 Register at [https://shannon.run](https://shannon.run) to get an API key, then:
 
 ```bash
-shannon --base-url https://api-dev.shannon.run --api-key YOUR_API_KEY \
+shannon --base-url http://localhost:8080 --api-key YOUR_API_KEY \
   submit "Hello world" --wait
 ```
 
@@ -45,7 +45,7 @@ shannon --base-url https://api-dev.shannon.run --api-key YOUR_API_KEY \
 Set these to avoid passing flags on every call:
 
 ```bash
-export SHANNON_BASE_URL=https://api-dev.shannon.run   # or http://localhost:8080
+export SHANNON_BASE_URL=http://localhost:8080
 export SHANNON_API_KEY=sk_your_key_here
 # export SHANNON_BEARER_TOKEN=eyJ...    # alternative to API key
 ```

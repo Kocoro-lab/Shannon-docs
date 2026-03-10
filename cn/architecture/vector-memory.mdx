@@ -20,7 +20,7 @@ Shannon 的记忆系统提供跨用户会话的智能上下文保留和检索，
 
 ### Redis
 - **会话缓存**：快速访问活跃会话数据（TTL: 3600秒）
-- **令牌预算**：实时令牌使用跟踪
+- **Token预算**：实时Token使用跟踪
 - **压缩状态**：跟踪上下文压缩状态
 
 ### Qdrant（向量存储）
@@ -42,7 +42,7 @@ Shannon 的记忆系统提供跨用户会话的智能上下文保留和检索，
 ### 智能体记忆
 单个智能体执行记录，包括：
 - 输入查询和生成的响应
-- 令牌使用和模型信息
+- Token使用和模型信息
 - 工具执行和结果
 
 ### 监督者记忆
@@ -73,8 +73,8 @@ Shannon 的记忆系统提供跨用户会话的智能上下文保留和检索，
 ## 核心功能
 
 ### 智能分块
-- 将长回答（>2000 令牌）拆分为可管理的块
-- 200 令牌重叠以保留上下文
+- 将长回答（>2000 Token）拆分为可管理的块
+- 200 Token重叠以保留上下文
 - 批量嵌入以提高效率
 
 ### MMR（最大边际相关性）
@@ -83,7 +83,7 @@ Shannon 的记忆系统提供跨用户会话的智能上下文保留和检索，
 - 获取 3 倍请求项，然后重排序以增加多样性
 
 ### 上下文压缩
-- 基于消息计数和令牌估计的自动触发
+- 基于消息计数和Token估计的自动触发
 - 速率限制防止过度压缩
 - 针对不同层级的模型感知阈值
 
@@ -132,6 +132,91 @@ Shannon 的记忆系统提供跨用户会话的智能上下文保留和检索，
 - 向量相似性可能遗漏精确关键词匹配
 - 压缩是有损的（仅保留关键点）
 - 跨会话记忆需要显式会话链接
+
+## 启用语义记忆
+
+按照以下步骤启用 Shannon 基于 Qdrant 的语义记忆系统。
+
+### 前置条件
+
+<Note>
+在开始之前，请确保以下条件已满足：
+- **Qdrant** 正在运行（Shannon 的 `docker-compose.yaml` 中已默认包含）
+- 环境中已设置 **`OPENAI_API_KEY`**（`text-embedding-3-small` embedding 模型所需）
+</Note>
+
+### 分步配置
+
+<Steps>
+  <Step title="在 shannon.yaml 中启用向量记忆">
+    在 `shannon.yaml` 配置文件中添加或更新 `vector` 配置块：
+
+    ```yaml shannon.yaml
+    vector:
+      enabled: true                    # 必须设为 true（默认值: false）
+      host: "qdrant"
+      port: 6333
+      top_k: 10
+      threshold: 0.5
+      default_model: "text-embedding-3-small"
+      cache_ttl: "1h"
+      use_redis_cache: true
+      expected_embedding_dim: 1536
+    ```
+
+    <Warning>
+    `vector.enabled` 默认为 `false`。必须显式设为 `true` 才能启用语义记忆功能。
+    </Warning>
+  </Step>
+
+  <Step title="验证 Qdrant 集合">
+    Shannon 会自动创建 5 个集合（均使用 `text-embedding-3-small` 的 1536 维向量）：
+
+    | 集合名称 | 用途 |
+    |---|---|
+    | `task_embeddings` | 任务结果 embedding，用于语义搜索 |
+    | `tool_results` | 工具执行结果 embedding |
+    | `cases` | 案例库，用于模式匹配 |
+    | `document_chunks` | 文档分块 embedding，用于 RAG |
+    | `summaries` | 摘要 embedding |
+
+    可通过查询 Qdrant REST API 来验证集合是否已创建：
+
+    ```bash
+    curl http://localhost:6333/collections
+    ```
+  </Step>
+
+  <Step title="配置 MMR 多样性重排序">
+    MMR（Maximal Marginal Relevance，最大边际相关性）在检索结果中平衡相关性和多样性。启用后，Shannon 会获取更大的候选池并重新排序，在保持相关性的同时减少冗余。
+
+    ```yaml shannon.yaml
+    mmr_enabled: true
+    mmr_lambda: 0.7           # 0 = 纯多样性，1 = 纯相关性
+    mmr_pool_multiplier: 3    # 获取 3 倍候选项进行重排序
+    ```
+
+    <Note>
+    `mmr_lambda` 设为 `0.7` 是一个理想的默认值——在强烈偏向相关性的同时，仍能过滤掉近乎重复的结果。
+    </Note>
+  </Step>
+
+  <Step title="配置 embeddings 端点">
+    如果 LLM Service 运行在非默认地址，或需要调整缓存行为，请更新 `embeddings` 配置块：
+
+    ```yaml shannon.yaml
+    embeddings:
+      base_url: "http://llm-service:8000"
+      default_model: "text-embedding-3-small"
+      timeout: "10s"
+      cache_ttl: "1h"
+      max_lru: 4096
+    ```
+
+    - `cache_ttl` 控制 embedding 向量在 Redis 中的缓存时间。
+    - `max_lru` 设置内存 LRU 缓存的最大条目数。
+  </Step>
+</Steps>
 
 ## 下一步
 

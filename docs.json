@@ -13,6 +13,9 @@
     "light": "#00A3FF",
     "dark": "#0051C3"
   },
+  "styling": {
+    "codeblocks": "dark"
+  },
   "topbar": {
     "style": "gradient"
   },
@@ -112,7 +115,8 @@
               {
                 "group": "Sessions",
                 "pages": [
-                  "en/api/rest/sessions"
+                  "en/api/rest/sessions",
+                  "en/api/rest/workspace-files"
                 ]
               },
               {
@@ -137,6 +141,24 @@
                 "group": "HITL Review",
                 "pages": [
                   "en/api/rest/hitl-review"
+                ]
+              },
+              {
+                "group": "Channels",
+                "pages": [
+                  "en/api/rest/channels"
+                ]
+              },
+              {
+                "group": "Tools",
+                "pages": [
+                  "en/api/rest/tools"
+                ]
+              },
+              {
+                "group": "Daemon WebSocket",
+                "pages": [
+                  "en/api/rest/daemon-websocket"
                 ]
               },
               {
@@ -331,7 +353,8 @@
               {
                 "group": "会话",
                 "pages": [
-                  "cn/api/rest/sessions"
+                  "cn/api/rest/sessions",
+                  "cn/api/rest/workspace-files"
                 ]
               },
               {
@@ -356,6 +379,24 @@
                 "group": "人机协同审查",
                 "pages": [
                   "cn/api/rest/hitl-review"
+                ]
+              },
+              {
+                "group": "Channels",
+                "pages": [
+                  "cn/api/rest/channels"
+                ]
+              },
+              {
+                "group": "Tools",
+                "pages": [
+                  "cn/api/rest/tools"
+                ]
+              },
+              {
+                "group": "Daemon WebSocket",
+                "pages": [
+                  "cn/api/rest/daemon-websocket"
                 ]
               },
               {
@@ -550,7 +591,8 @@
               {
                 "group": "セッション",
                 "pages": [
-                  "ja/api/rest/sessions"
+                  "ja/api/rest/sessions",
+                  "ja/api/rest/workspace-files"
                 ]
               },
               {
@@ -575,6 +617,24 @@
                 "group": "HITLレビュー",
                 "pages": [
                   "ja/api/rest/hitl-review"
+                ]
+              },
+              {
+                "group": "Channels",
+                "pages": [
+                  "ja/api/rest/channels"
+                ]
+              },
+              {
+                "group": "Tools",
+                "pages": [
+                  "ja/api/rest/tools"
+                ]
+              },
+              {
+                "group": "Daemon WebSocket",
+                "pages": [
+                  "ja/api/rest/daemon-websocket"
                 ]
               },
               {

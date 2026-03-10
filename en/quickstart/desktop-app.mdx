@@ -18,6 +18,18 @@ The desktop application has replaced the previous web dashboard and provides imp
 - **Session History** - Browse and continue previous conversations
 - **Multi-Platform** - macOS (Universal), Windows, Linux, iOS
 
+### Swarm Radar Canvas
+
+<Note>
+New in v0.3.0
+</Note>
+
+The desktop app includes a **Radar Canvas** for visualizing multi-agent swarm execution in real time:
+
+- **Lead Agent Pulse** — The central node pulses to indicate Lead decision-making activity
+- **Agent Color Coding** — Each swarm agent is displayed with a distinct color based on its role and status (idle, running, completed)
+- **Live Topology** — Agent spawn, shutdown, and message flow are animated on the canvas as they happen
+
 ## Supported Platforms
 
 | Platform | Architecture | Format |
@@ -38,7 +50,7 @@ The desktop application has replaced the previous web dashboard and provides imp
 
 ```bash
 # Or install via command line
-open shannon-desktop_0.2.0_universal.dmg
+open shannon-desktop_0.3.0_universal.dmg
 ```
 
 ### Building from Source
@@ -84,7 +96,7 @@ open shannon-desktop_0.2.0_universal.dmg
     npm run tauri:build
     ```
 
-    Output: `src-tauri/target/release/bundle/dmg/shannon-desktop_0.2.0_universal.dmg`
+    Output: `src-tauri/target/release/bundle/dmg/shannon-desktop_0.3.0_universal.dmg`
   </Step>
 </Steps>
 

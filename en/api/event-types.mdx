@@ -5,7 +5,7 @@ description: "Complete reference for Shannon streaming event types"
 
 ## Overview
 
-Shannon emits **real-time events** via Server-Sent Events (SSE) to provide visibility into task execution. This document catalogs the **33 event types** actually emitted by the platform, their structure, and when they occur.
+Shannon emits **real-time events** via Server-Sent Events (SSE) to provide visibility into task execution. This document catalogs the **37 event types** actually emitted by the platform, their structure, and when they occur.
 
 Events provide:
 - **Real-time progress** - Track task execution as it happens
@@ -77,12 +77,14 @@ Authoritative list of event types emitted by Shannon:
 | `AGENT_STARTED` | Agent | Agent begins processing |
 | `AGENT_THINKING` | Agent | Agent reasoning/planning |
 | `AGENT_COMPLETED` | Agent | Agent finishes successfully |
+| `AGENT_FAILED` | Agent | Agent encountered an error |
 | `TOOL_INVOKED` | Tool | Tool is called |
 | `TOOL_OBSERVATION` | Tool | Agent observes tool result |
 | `TEAM_RECRUITED` | Team | Multi-agent team assembled |
 | `TEAM_RETIRED` | Team | Team disbanded |
 | `TEAM_STATUS` | Team | Team coordination update |
 | `DEPENDENCY_SATISFIED` | Team | Dependencies resolved |
+| `DELEGATION` | Team | Task delegated to another agent |
 | `MESSAGE_SENT` | Message | Agent sends message |
 | `MESSAGE_RECEIVED` | Message | Agent receives message |
 | `LLM_PROMPT` | LLM | Prompt sent to LLM |
@@ -97,11 +99,13 @@ Authoritative list of event types emitted by Shannon:
 | `APPROVAL_DECISION` | System | Approval decision made |
 | `WORKSPACE_UPDATED` | System | Memory/context updated |
 | `ROLE_ASSIGNED` | System | Agent role assigned |
-| `DELEGATION` | System | Task delegated |
+| `STATUS_UPDATE` | System | General status update |
 | `BUDGET_THRESHOLD` | System/Progress | Budget warning threshold reached for a task |
+| `THREAD_MESSAGE_DELTA` | Stream | Incremental message content chunk |
+| `THREAD_MESSAGE_COMPLETED` | Stream | Message content fully delivered |
 | `STREAM_END` | Stream | Explicit end-of-stream signal (no more events for this workflow) |
 
-**Total**: 33 event types
+**Total**: 37 event types
 
 Note: Events such as `WORKFLOW_FAILED`, `TASK_COMPLETED`, `TOOL_COMPLETED`, `TOOL_FAILED`, and `BUDGET_UPDATE` are not emitted by the streaming API. Failures are surfaced via `ERROR_OCCURRED`; completion is indicated by `WORKFLOW_COMPLETED`. `STREAM_END` is emitted as a lifecycle signal after completion/termination when streaming ends.
 
@@ -604,25 +608,6 @@ Language model interaction events for debugging and monitoring.
 
 ---
 
-### TOOL_OBSERVATION
-
-**Emitted**: Tool result observation by agent
-
-**Data**:
-```json
-{
-  "type": "TOOL_OBSERVATION",
-  "message": "Agent observed tool result",
-  "data": {
-    "tool_name": "web_search",
-    "observation": "Found 10 relevant results about AI trends",
-    "relevance_score": 0.85
-  }
-}
-```
-
----
-
 ## Progress Events
 
 Task progress and status updates for user feedback.
@@ -824,20 +809,54 @@ System-level events and errors.
 
 ---
 
-### DELEGATION
+### STATUS_UPDATE
 
-**Emitted**: Task delegated to another agent
+**Emitted**: General status update for the task or workflow
 
 **Data**:
 ```json
 {
-  "type": "DELEGATION",
-  "agent_id": "supervisor",
-  "message": "Delegated to data-analyst",
+  "type": "STATUS_UPDATE",
+  "message": "Task processing update",
   "data": {
-    "to_agent": "data-analyst",
-    "task": "Analyze revenue trends",
-    "priority": "HIGH"
+    "status": "string",
+    "details": "string"
+  }
+}
+```
+
+---
+
+### THREAD_MESSAGE_DELTA
+
+**Emitted**: Incremental content chunk during streaming response generation
+
+**Data**:
+```json
+{
+  "type": "THREAD_MESSAGE_DELTA",
+  "message": "Content chunk",
+  "data": {
+    "delta": "string",
+    "index": 0
+  }
+}
+```
+
+---
+
+### THREAD_MESSAGE_COMPLETED
+
+**Emitted**: Full message content has been delivered
+
+**Data**:
+```json
+{
+  "type": "THREAD_MESSAGE_COMPLETED",
+  "message": "Message complete",
+  "data": {
+    "content": "string",
+    "total_tokens": 0
   }
 }
 ```
@@ -852,25 +871,25 @@ System-level events and errors.
 ```json
 {
   "type": "BUDGET_THRESHOLD",
-  "message": "Budget threshold reached: 80%",
+  "message": "Task budget at 85.0% (threshold: 80.0%)",
   "data": {
-    "threshold_percentage": 80,
-    "tokens_used": 8000,
-    "tokens_limit": 10000,
-    "tokens_remaining": 2000,
-    "cost_usd": 0.24,
-    "estimated_cost_at_limit": 0.30
+    "usage_percent": 85.0,
+    "threshold_percent": 80.0,
+    "tokens_used": 8500,
+    "tokens_budget": 10000,
+    "level": "warning",
+    "budget_type": "task"
   }
 }
 ```
 
 **Fields**:
-- `threshold_percentage`: Warning threshold (e.g., 80)
+- `usage_percent`: Current usage as a percentage (e.g., 85.0)
+- `threshold_percent`: Warning threshold percentage (e.g., 80.0)
 - `tokens_used`: Cumulative tokens consumed so far
-- `tokens_limit`: Maximum allowed tokens for task
-- `tokens_remaining`: Tokens left before limit
-- `cost_usd`: Current cost in USD
-- `estimated_cost_at_limit`: Projected cost if limit is reached
+- `tokens_budget`: Maximum allowed tokens for the task
+- `level`: Severity level (`"warning"`)
+- `budget_type`: Type of budget that triggered the event (`"task"`)
 
 **Usage**: Monitor this event to warn users before hitting hard budget limits, allowing graceful degradation or early termination decisions.
 

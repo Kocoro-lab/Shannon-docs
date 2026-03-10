@@ -1,0 +1,302 @@
+---
+title: "Tools API"
+description: "Shannon プラットフォームに登録されたツールの一覧表示、詳細確認、直接実行"
+---
+
+## 概要
+
+Tools API は Shannon のツールレジストリへの直接アクセスを提供します。利用可能なツールの一覧表示、パラメータ Schema の確認、タスクワークフローを経由せずにツールを直接実行できます。
+
+## 機能
+
+- **ツール検索** — カテゴリフィルタリングで利用可能なすべてのツールを閲覧
+- **JSON Schema 確認** — 任意のツールの完全なパラメータ Schema を取得
+- **直接実行** — Agent ワークフロー外でツールを呼び出し
+- **危険なツールのブロック** — 危険とマークされたツールは Gateway レベルで自動的に非表示・ブロック
+- **使用量トラッキング** — 実行ごとに Token 消費量とコストを記録
+- **Session コンテキスト** — オプションで Session にバインド（`session_id` と `user_id` のみに制限）
+
+## セキュリティモデル
+
+Shannon は `dangerous` とマークされたツールに対して厳格なセキュリティ境界を適用します：
+
+- **List エンドポイント**は `exclude_dangerous=true` を自動適用 — 危険なツールは公開されません
+- **Get および Execute エンドポイント**は危険なツールに対して `403 Forbidden` を返します
+- ツールメタデータは各 Gateway インスタンスで 5 分間インメモリキャッシュされます
+- ツール実行の HTTP クライアントタイムアウトは 120 秒です
+
+<Warning>
+危険なツールはいかなる公開 API エンドポイントからもアクセスできません。この制限は Gateway レベルで強制され、クライアントから回避することはできません。
+</Warning>
+
+## ツール一覧の取得
+
+利用可能なすべてのツールを一覧表示します。危険なツールは自動的に除外されます。
+
+<CodeGroup>
+```bash curl
+curl http://localhost:8080/api/v1/tools \
+  -H "Authorization: Bearer <token>"
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient()
+tools = client.list_tools()
+for tool in tools:
+    print(f"{tool.name} ({tool.category}) — {tool.description}")
+```
+</CodeGroup>
+
+### クエリパラメータ
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|------|------|------|
+| `category` | string | いいえ | カテゴリでフィルタリング（例：`"search"`、`"code"`） |
+
+### カテゴリフィルタの例
+
+<CodeGroup>
+```bash curl
+curl "http://localhost:8080/api/v1/tools?category=search" \
+  -H "Authorization: Bearer <token>"
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient()
+search_tools = client.list_tools(category="search")
+```
+</CodeGroup>
+
+### レスポンス
+
+```json
+[
+  {
+    "name": "web_search",
+    "description": "Search the web for current information",
+    "category": "search",
+    "version": "1.0",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "Search query"
+        },
+        "max_results": {
+          "type": "integer",
+          "description": "Maximum number of results",
+          "default": 10
+        }
+      },
+      "required": ["query"]
+    },
+    "timeout_seconds": 30,
+    "cost_per_use": 0.004
+  }
+]
+```
+
+## ツールの取得
+
+指定したツールのメタデータとパラメータ Schema を取得します。
+
+<CodeGroup>
+```bash curl
+curl http://localhost:8080/api/v1/tools/web_search \
+  -H "Authorization: Bearer <token>"
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient()
+tool = client.get_tool("web_search")
+print(f"{tool.name} v{tool.version}")
+print(f"Parameters: {tool.parameters}")
+```
+</CodeGroup>
+
+### パスパラメータ
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|------|------|------|
+| `name` | string | はい | ツール名 |
+
+### レスポンス
+
+```json
+{
+  "name": "web_search",
+  "description": "Search the web for current information",
+  "category": "search",
+  "version": "1.0",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "Search query"
+      },
+      "max_results": {
+        "type": "integer",
+        "description": "Maximum number of results",
+        "default": 10
+      }
+    },
+    "required": ["query"]
+  },
+  "timeout_seconds": 30,
+  "cost_per_use": 0.004
+}
+```
+
+## ツールの実行
+
+指定した引数でツールを直接実行します。
+
+<CodeGroup>
+```bash curl
+curl -X POST http://localhost:8080/api/v1/tools/web_search/execute \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "arguments": {
+      "query": "latest AI news",
+      "max_results": 5
+    },
+    "session_id": "optional-session-id"
+  }'
+```
+
+```python Python SDK
+from shannon import ShannonClient
+
+client = ShannonClient()
+result = client.execute_tool(
+    "web_search",
+    arguments={"query": "latest AI news", "max_results": 5},
+    session_id="optional-session-id",
+)
+print(f"Success: {result.success}")
+print(f"Output: {result.text}")
+print(f"Execution time: {result.execution_time_ms}ms")
+print(f"Cost: ${result.usage.cost_usd}")
+```
+</CodeGroup>
+
+### パスパラメータ
+
+| パラメータ | 型 | 必須 | 説明 |
+|-----------|------|------|------|
+| `name` | string | はい | ツール名 |
+
+### リクエストボディ
+
+| フィールド | 型 | 必須 | 説明 |
+|-----------|------|------|------|
+| `arguments` | object | はい | ツールのパラメータ Schema に一致するツール固有の引数 |
+| `session_id` | string | いいえ | コンテキストバインド用の Session ID |
+
+<Note>
+`session_id` を指定した場合、ツールには `session_id` と `user_id` のみが渡されます。セキュリティのため、`tenant_id` などの他の Session フィールドは除去されます。
+</Note>
+
+### レスポンス
+
+```json
+{
+  "success": true,
+  "output": {
+    "results": [
+      {
+        "title": "Major AI Breakthrough Announced",
+        "url": "https://example.com/ai-news",
+        "snippet": "Researchers announce a significant advancement in..."
+      }
+    ]
+  },
+  "text": "Found 5 results for 'latest AI news'",
+  "error": null,
+  "metadata": {
+    "source": "searchapi"
+  },
+  "execution_time_ms": 1234,
+  "usage": {
+    "tokens": 7500,
+    "cost_usd": 0.004
+  }
+}
+```
+
+### レスポンスフィールド
+
+| フィールド | 型 | 説明 |
+|-----------|------|------|
+| `success` | boolean | 実行が正常に完了したかどうか |
+| `output` | object | ツールからの構造化出力 |
+| `text` | string | 人間が読める結果の要約 |
+| `error` | string \| null | 実行失敗時のエラーメッセージ |
+| `metadata` | object | ツール固有のメタデータ（例：データソース） |
+| `execution_time_ms` | integer | 実行時間（ミリ秒） |
+| `usage.tokens` | integer | この実行の Token 数 |
+| `usage.cost_usd` | number | 推定コスト（USD） |
+
+<Tip>
+使用量は非同期（fire-and-forget）で `token_usage` テーブルに記録されます。Token 数は合成値です：`max(100, int(cost_usd / 0.000002))`。
+</Tip>
+
+## ツールレスポンスオブジェクト
+
+| フィールド | 型 | 説明 |
+|-----------|------|------|
+| `name` | string | ツール識別子 |
+| `description` | string | 人間が読める説明 |
+| `category` | string | ツールカテゴリ（例：`"search"`、`"code"`、`"data"`） |
+| `version` | string | ツールバージョン |
+| `parameters` | object (JSON Schema) | ツールのパラメータ Schema |
+| `timeout_seconds` | integer | 許容される最大実行時間 |
+| `cost_per_use` | number | 1 回の呼び出しあたりの推定コスト（USD） |
+
+## エラーレスポンス
+
+| ステータス | エラー | 説明 |
+|-----------|--------|------|
+| 400 | Bad request | ツール名の欠落またはリクエストボディが無効 |
+| 401 | Unauthorized | 認証情報の欠落または無効 |
+| 403 | Forbidden | ツールが危険とマークされておりアクセス不可 |
+| 404 | Tool not found | 指定された名前のツールが存在しない |
+| 502 | Bad gateway | LLM Service（ツールバックエンド）が利用不可 |
+
+すべてのエラーは標準フォーマットに従います：
+
+```json
+{
+  "error": "error message here"
+}
+```
+
+### 危険なツールのエラー
+
+Get または Execute で危険なツールにアクセスしようとすると以下が返されます：
+
+```json
+{
+  "error": "Tool not available via direct execution"
+}
+```
+
+## 次のステップ
+
+<CardGroup cols={2}>
+  <Card title="カスタムツール" icon="wrench" href="/ja/tutorials/custom-tools">
+    カスタムツールの作成と登録方法を学ぶ
+  </Card>
+  <Card title="エージェント" icon="robot" href="/ja/api/rest/agents">
+    ツールを自動的に使用する Agent を設定
+  </Card>
+</CardGroup>

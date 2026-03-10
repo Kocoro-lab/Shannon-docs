@@ -1,18 +1,18 @@
 ---
 title: "Swarm 多智能体工作流"
-description: "在 Shannon 中运行持久化多智能体 Swarm 工作流的分步指南"
+description: "在 Shannon 中运行由 Lead Agent 协调的持久化多智能体 Swarm 工作流的分步指南"
 ---
 
 # Swarm 多智能体工作流
 
-本教程演示如何使用 Shannon 的 **SwarmWorkflow** 部署持久化协作智能体，它们并行工作，支持智能体间消息传递和共享工作区。
+本教程演示如何使用 Shannon 的 **SwarmWorkflow** 部署由 LLM 驱动的 Lead Agent 协调的持久化协作智能体。智能体并行工作，支持智能体间消息传递、共享工作区和动态任务重新分配。
 
 ## 你将学到
 
 - 如何通过 API 和 Python SDK 提交 Swarm 任务
-- 智能体如何分解、执行和综合结果
+- Lead Agent 如何通过事件协调智能体
 - 如何通过 SSE 流式传输监控智能体进度
-- 如何配置 Swarm 参数
+- 如何配置 Swarm 参数和预算控制
 - 实际用例与最佳实践
 
 ## 前置条件
@@ -63,18 +63,22 @@ curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id=task-abc123..."
 ```
 
 你将看到如下事件：
-```
-data: {"type":"WORKFLOW_STARTED","agent_id":"swarm-supervisor","message":"Assigning a team of agents"}
-data: {"type":"PROGRESS","agent_id":"swarm-supervisor","message":"Planning approach"}
-data: {"type":"PROGRESS","agent_id":"swarm-supervisor","message":"Assigning 3 agents"}
+```text
+data: {"type":"WORKFLOW_STARTED","agent_id":"swarm-supervisor","message":"Lead Agent initializing team"}
+data: {"type":"LEAD_DECISION","agent_id":"swarm-lead","message":"Creating initial plan with 3 tasks"}
+data: {"type":"TASKLIST_UPDATED","agent_id":"swarm-lead","message":"Task graph updated: 4 tasks (3 research + 1 synthesis)"}
+data: {"type":"TEAM_STATUS","agent_id":"swarm-lead","message":"Spawned agent takao"}
 data: {"type":"AGENT_STARTED","agent_id":"takao","message":"Agent takao started"}
+data: {"type":"TEAM_STATUS","agent_id":"swarm-lead","message":"Spawned agent mitaka"}
 data: {"type":"AGENT_STARTED","agent_id":"mitaka","message":"Agent mitaka started"}
+data: {"type":"TEAM_STATUS","agent_id":"swarm-lead","message":"Spawned agent kichijoji"}
 data: {"type":"AGENT_STARTED","agent_id":"kichijoji","message":"Agent kichijoji started"}
 data: {"type":"PROGRESS","agent_id":"takao","message":"Agent takao progress: iteration 1/25, action: tool_call"}
 data: {"type":"AGENT_COMPLETED","agent_id":"takao","message":"Agent takao completed"}
+data: {"type":"LEAD_DECISION","agent_id":"swarm-lead","message":"Assigning synthesis task to takao"}
 data: {"type":"AGENT_COMPLETED","agent_id":"mitaka","message":"Agent mitaka completed"}
 data: {"type":"AGENT_COMPLETED","agent_id":"kichijoji","message":"Agent kichijoji completed"}
-data: {"type":"PROGRESS","agent_id":"swarm-supervisor","message":"Combining findings from 3 agents"}
+data: {"type":"LEAD_DECISION","agent_id":"swarm-lead","message":"All tasks complete, finalizing"}
 data: {"type":"WORKFLOW_COMPLETED","agent_id":"swarm-supervisor","message":"All done"}
 ```
 
@@ -93,11 +97,29 @@ curl "http://localhost:8080/api/v1/tasks/task-abc123..."
   "metadata": {
     "workflow_type": "swarm",
     "total_agents": 3,
-    "agents": [
-      {"agent_id": "takao", "iterations": 8, "tokens": 12400, "success": true, "model": "gpt-5-mini-2025-08-07"},
-      {"agent_id": "mitaka", "iterations": 6, "tokens": 9800, "success": true, "model": "gpt-5-mini-2025-08-07"},
-      {"agent_id": "kichijoji", "iterations": 7, "tokens": 11200, "success": true, "model": "gpt-5-mini-2025-08-07"}
+    "total_tokens": 598235,
+    "model_breakdown": [
+      {
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic",
+        "executions": 38,
+        "tokens": 297524,
+        "cost_usd": 0.372
+      },
+      {
+        "model": "shannon_web_search",
+        "provider": "shannon-scraper",
+        "executions": 12,
+        "tokens": 90000,
+        "cost_usd": 0.048
+      }
     ]
+  },
+  "usage": {
+    "input_tokens": 289164,
+    "output_tokens": 309071,
+    "total_tokens": 598235,
+    "estimated_cost": 0.780
   }
 }
 ```
@@ -170,6 +192,8 @@ handle, stream_url = client.submit_and_stream(
 for event in client.stream(handle.workflow_id):
     if event.type == "AGENT_STARTED":
         print(f"智能体已启动: {event.agent_id}")
+    elif event.type == "LEAD_DECISION":
+        print(f"Lead 决策: {event.message}")
     elif event.type == "PROGRESS":
         print(f"进度: {event.message}")
     elif event.type == "AGENT_COMPLETED":
@@ -198,11 +222,20 @@ handle = client.submit_task(
 
 ## 智能体协作方式
 
+### Lead Agent 协调
+
+Lead Agent 作为事件驱动的协调者。它不执行任务本身，而是基于事件进行规划、分配和重新分配工作：
+
+- 当智能体变为 **idle** 时，Lead 检查是否有依赖已满足的待处理任务并分配下一个
+- 当智能体 **完成** 时，Lead 评估是否重新分配它、关闭它或修订计划
+- 在定期 **检查点**（每 120 秒）时，Lead 审查整体进度并可调整计划
+- 当没有空闲智能体且没有可操作的待处理任务时，Lead 跳过不必要的 LLM 调用
+
 ### 团队名册
 
 每个智能体都会收到团队名册，显示所有智能体及其任务分配。这使智能体知道就特定信息联系谁：
 
-```
+```text
 ## Your Team (shared session workspace)
 - **takao (you)**: "Research US AI chip market"
 - mitaka: "Research Japan AI chip market"
@@ -213,7 +246,7 @@ handle = client.submit_task(
 
 智能体通过共享工作区分享发现。这些内容会出现在每个智能体的提示上下文中：
 
-```
+```text
 ## Shared Findings
 - takao: NVIDIA dominates US with 80% market share...
 - mitaka: Japan focuses on edge AI chips with Preferred Networks leading...
@@ -223,20 +256,20 @@ handle = client.submit_task(
 
 智能体可以向特定队友发送直接消息：
 
-```
+```text
 ## Inbox Messages
 - From mitaka (info): {"message": "Check Samsung's foundry plans for AI chips"}
 ```
 
 ### 请求帮助
 
-当智能体需要额外支持时，可以向监督者请求帮助：
+当智能体需要额外支持时，可以向 Lead Agent 请求帮助：
 
 ```json
 {"action": "request_help", "help_description": "Need help analyzing EU regulatory impact on AI chips", "help_skills": ["web_search"]}
 ```
 
-监督者会生成新智能体处理请求，并通知原始智能体。
+Lead Agent 评估请求后，可能生成新智能体、重新分配现有空闲智能体，或将子任务添加到待处理任务队列。
 
 ## 配置
 
@@ -248,10 +281,13 @@ workflows:
     enabled: true
     max_agents: 10                    # 最大智能体总数（初始 + 动态）
     max_iterations_per_agent: 25      # 每个智能体的最大推理-行动循环次数
-    agent_timeout_seconds: 600        # 每个智能体超时（10 分钟）
+    agent_timeout_seconds: 1800       # 每个智能体超时（30 分钟）
     max_messages_per_agent: 20        # 每个智能体的 P2P 消息上限
     workspace_snippet_chars: 800      # 提示中每个工作区条目的最大字符数
     workspace_max_entries: 5          # 向每个智能体显示的最近条目数
+    max_total_llm_calls: 200          # 全局 LLM 调用预算
+    max_total_tokens: 1000000         # 全局 Token 预算 (1M)
+    max_wall_clock_minutes: 30        # 最大挂钟时间
 ```
 
 ### 配置参数
@@ -261,48 +297,51 @@ workflows:
 | `enabled` | `true` | `true`/`false` | 启用或禁用 Swarm 工作流 |
 | `max_agents` | `10` | 1-50 | 智能体总数上限（含动态生成） |
 | `max_iterations_per_agent` | `25` | 1-100 | 每个智能体的最大推理-行动循环次数 |
-| `agent_timeout_seconds` | `600` | 60-3600 | 每个智能体的超时时间 |
+| `agent_timeout_seconds` | `1800` | 60-7200 | 每个智能体的超时时间 |
 | `max_messages_per_agent` | `20` | 1-100 | 每个智能体可发送的 P2P 消息上限 |
 | `workspace_snippet_chars` | `800` | 100-4000 | 智能体提示中工作区条目的截断限制 |
 | `workspace_max_entries` | `5` | 1-20 | 每个主题显示的最近工作区条目数 |
+| `max_total_llm_calls` | `200` | 10-1000 | 整个 Swarm 中所有智能体的最大 LLM 调用次数 |
+| `max_total_tokens` | `1000000` | 10000-10000000 | 所有智能体消耗的最大 Token 数 |
+| `max_wall_clock_minutes` | `30` | 1-120 | 整个 Swarm 执行的最大挂钟时间 |
 
 ## 实际用例
 
 <CardGroup cols={2}>
-  <Card title="市场研究" icon="chart-line">
-    分配智能体并行研究不同市场或竞争对手，然后综合为统一报告。
+  <Card title="协作编码" icon="code">
+    智能体协作审查、实现和测试代码，支持沙箱化执行。
   </Card>
-  <Card title="技术对比" icon="code-compare">
-    每个智能体评估不同的框架、库或架构，在发现过程中实时分享。
+  <Card title="金融分析" icon="chart-line">
+    多空分析师、情绪智能体和投资组合经理协作综合投资洞察。
   </Card>
-  <Card title="多区域分析" icon="globe">
-    智能体同时研究不同地理区域，发现交叉传播。
+  <Card title="数据处理" icon="database">
+    并行数据流水线，支持沙箱化 Python 执行、JSON 查询和统计分析。
   </Card>
-  <Card title="文献综述" icon="book-open">
-    智能体探索研究课题的不同方面，通过工作区分享来源和关键发现。
+  <Card title="竞争情报" icon="globe">
+    同时监控竞争对手网站、定价和社交媒体，发现自动交叉共享。
   </Card>
 </CardGroup>
 
-### 示例：技术框架对比
+### 示例：协作代码审查
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
   -d '{
-    "query": "Compare LangChain, CrewAI, and AutoGen for building multi-agent systems. Evaluate architecture, community, performance, and production readiness.",
+    "query": "Review the Python files in /workspace/src for security vulnerabilities, code quality issues, and missing test coverage. Write fixes and add tests.",
     "context": { "force_swarm": true }
   }'
 ```
 
-此任务会被分解为多个智能体，每个研究一个框架，通过工作区分享发现，使每个智能体可以引用其他人的发现。
+Lead Agent 为每个关注点（安全审计、代码质量、测试覆盖）创建任务，分配 `developer` 角色的智能体，并创建依赖于所有审查完成的最终综合任务。
 
-### 示例：综合行业分析
+### 示例：多站点价格监控
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/tasks \
   -H "Content-Type: application/json" \
   -d '{
-    "query": "Analyze the global electric vehicle battery supply chain: raw materials sourcing, manufacturing capacity, technology trends, and geopolitical risks",
+    "query": "Compare pricing and features of AWS, Azure, and GCP for a startup needing GPU instances, object storage, and managed Kubernetes",
     "context": {
       "force_swarm": true,
       "model_tier": "medium"
@@ -312,42 +351,55 @@ curl -X POST http://localhost:8080/api/v1/tasks \
 
 ## 理解响应元数据
 
-Swarm 工作流返回包含每个智能体详情的元数据：
+Swarm 工作流返回包含模型执行明细和 Token 用量的元数据：
 
 ```json
 {
   "metadata": {
     "workflow_type": "swarm",
-    "total_agents": 4,
-    "agents": [
+    "total_agents": 3,
+    "total_tokens": 598235,
+    "model_breakdown": [
       {
-        "agent_id": "takao",
-        "iterations": 8,
-        "tokens": 14200,
-        "success": true,
-        "model": "gpt-5-mini-2025-08-07"
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic",
+        "executions": 38,
+        "tokens": 297524,
+        "cost_usd": 0.372
       },
       {
-        "agent_id": "mitaka",
-        "iterations": 6,
-        "tokens": 9800,
-        "success": true,
-        "model": "gpt-5-mini-2025-08-07"
+        "model": "shannon_web_search",
+        "provider": "shannon-scraper",
+        "executions": 12,
+        "tokens": 90000,
+        "cost_usd": 0.048
       }
     ]
+  },
+  "usage": {
+    "input_tokens": 289164,
+    "output_tokens": 309071,
+    "total_tokens": 598235,
+    "estimated_cost": 0.780
   }
 }
 ```
 
 | 字段 | 描述 |
 |------|------|
-| `workflow_type` | Swarm 工作流始终为 `"swarm"` |
-| `total_agents` | 参与的智能体总数 |
-| `agents[].agent_id` | 唯一智能体名称 |
-| `agents[].iterations` | 完成的推理-行动循环次数 |
-| `agents[].tokens` | 该智能体消耗的总 Token 数 |
-| `agents[].success` | 智能体是否成功完成 |
-| `agents[].model` | 智能体使用的 LLM 模型 |
+| `metadata.workflow_type` | Swarm 工作流始终为 `"swarm"` |
+| `metadata.total_agents` | 参与的智能体总数 |
+| `metadata.total_tokens` | 整个 Swarm 消耗的 Token 总数 |
+| `metadata.model_breakdown[]` | 按模型汇总的执行明细 |
+| `metadata.model_breakdown[].model` | 模型标识符 |
+| `metadata.model_breakdown[].provider` | 提供商名称 |
+| `metadata.model_breakdown[].executions` | 使用该模型的 LLM 调用次数 |
+| `metadata.model_breakdown[].tokens` | 该模型消耗的 Token 数 |
+| `metadata.model_breakdown[].cost_usd` | 预估成本（美元） |
+| `usage.input_tokens` | 所有智能体的输入 Token 总数 |
+| `usage.output_tokens` | 所有智能体的输出 Token 总数 |
+| `usage.total_tokens` | Token 总数（输入 + 输出） |
+| `usage.estimated_cost` | 总预估成本（美元） |
 
 ## 提示与最佳实践
 
@@ -356,8 +408,9 @@ Swarm 工作流返回包含每个智能体详情的元数据：
 
   - 设置 `context.force_swarm: true` 路由到 SwarmWorkflow
   - 从默认配置开始，根据结果进行调整
-  - 通过 SSE 事件监控智能体行为
+  - 通过 SSE 事件监控 Lead Agent 决策和智能体行为
   - 使用会话（`session_id`）进行多轮 Swarm 对话
+  - 关注 `LEAD_DECISION` 事件以理解协调逻辑
 
   </Tab>
   <Tab title="性能">
@@ -366,6 +419,16 @@ Swarm 工作流返回包含每个智能体详情的元数据：
   - 使用 `model_tier: "small"` 以更低成本进行探索
   - Swarm 智能体默认使用 MEDIUM 级别，平衡质量和速度
   - 保持工作区条目简洁——大条目会消耗提示 Token
+  - 知识去重自动减少冗余的获取和搜索
+  - 当没有空闲智能体和可操作任务时，Lead 跳过检查点 LLM 调用
+
+  </Tab>
+  <Tab title="预算控制">
+
+  - 设置 `max_total_llm_calls` 限制所有智能体的 LLM 调用总次数
+  - 设置 `max_total_tokens` 限制整个 Swarm 的 Token 消耗
+  - 设置 `max_wall_clock_minutes` 强制执行硬性时间限制
+  - Lead Agent 接收预算信息并自动做出成本感知决策
 
   </Tab>
   <Tab title="不适用场景">
@@ -383,15 +446,17 @@ Swarm 工作流返回包含每个智能体详情的元数据：
 <Warning>
 **常见问题**：
 - **Swarm 未触发**：确保 `force_swarm: true` 在 `context` 对象中，且 `features.yaml` 中已启用 Swarm
-- **智能体超时**：对复杂任务增加 `agent_timeout_seconds`
+- **智能体超时**：对复杂任务增加 `agent_timeout_seconds`（默认 1800 秒 / 30 分钟）
 - **智能体过多**：简化查询以减少子任务数量，或降低 `max_agents`
-- **Token 消耗过高**：降低 `max_iterations_per_agent` 或使用 `model_tier: "small"`
+- **Token 消耗过高**：降低 `max_iterations_per_agent`、使用 `model_tier: "small"`，或降低 `max_total_tokens`
 - **智能体陷入循环**：收敛检测（连续 3 次非工具迭代）应自动捕获此情况
+- **预算超限**：检查 `max_total_llm_calls` 和 `max_total_tokens` 设置；Lead 会在预算紧张时尝试优雅关闭
+- **重复搜索**：知识去重应自动处理；如持续出现，检查智能体是否可访问共享工作区
 </Warning>
 
 ## 回退行为
 
-如果 Swarm 工作流失败（分解错误、所有智能体失败等），Shannon 会自动回退到标准 DAG/Supervisor 工作流路由。`force_swarm` 标志会从上下文中移除以防止递归失败。
+如果 Swarm 工作流失败（规划错误、所有智能体失败等），Shannon 会自动回退到标准 DAG/Supervisor 工作流路由。`force_swarm` 标志会从上下文中移除以防止递归失败。
 
 ## 下一步
 

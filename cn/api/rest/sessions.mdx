@@ -29,7 +29,7 @@ GET /api/v1/sessions?limit=20&offset=0
       "session_id": "a0c2b1e2-...",
       "user_id": "00000000-0000-0000-0000-000000000002",
       "task_count": 3,
-      "tokens_used": 1234,
+      "total_tokens_used": 1234,
       "token_budget": 10000,
       "created_at": "2025-10-28T06:00:00Z"
     }
@@ -47,7 +47,7 @@ GET /api/v1/sessions/{sessionId}
 路径参数：
 - `sessionId`（uuid）
 
-响应（200）：返回会话元数据（令牌用量、任务数量等）。
+响应（200）：返回会话元数据（Token用量、任务数量等）。
 错误：401、403、404。
 
 ## 获取会话历史

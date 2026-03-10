@@ -92,7 +92,7 @@ print(f"Task ID: {task['task_id']}")
 {
   "task_id": "task-abc123...",
   "status": "STATUS_CODE_OK",
-  "message": "Task submitted successfully",
+  "message": "Task submitted successfully. Session: swarm-demo",
   "created_at": "2025-11-10T10:00:00Z"
 }
 ```
@@ -156,8 +156,9 @@ GET http://localhost:8080/api/v1/stream/sse?workflow_id={workflow_id}
 |-------------|-----------|------|
 | `WORKFLOW_STARTED` | `swarm-supervisor` | Swarmワークフローが初期化された |
 | `PROGRESS`（計画） | `swarm-supervisor` | タスク分解が進行中 |
-| `PROGRESS`（生成） | `swarm-supervisor` | Agentの割り当て中 |
-| `PROGRESS`（監視） | `swarm-supervisor` | Agentが並列で作業中 |
+| `LEAD_DECISION` | `swarm-lead` | Leadが調整決定を行った（生成、割り当て、修正など） |
+| `TASKLIST_UPDATED` | `swarm-lead` | タスク依存グラフが変更された |
+| `TEAM_STATUS` | `swarm-lead` | チーム構成が変更された（Agentの生成または停止） |
 | `AGENT_STARTED` | Agent名（例：`takao`） | 個別のAgentが実行を開始 |
 | `PROGRESS`（イテレーション） | Agent名 | Agentのイテレーション進捗 |
 | `AGENT_COMPLETED` | Agent名 | 個別のAgentが完了 |
@@ -197,38 +198,40 @@ Swarmワークフローが完了すると、ステータスレスポンスにSwa
 ```json
 {
   "task_id": "task-abc123...",
+  "workflow_id": "task-abc123...",
   "status": "TASK_STATUS_COMPLETED",
   "result": "## AI Chip Market Comparison\n\n...",
+  "query": "Compare AI chip markets across US, Japan, and South Korea",
+  "session_id": "swarm-demo",
+  "mode": "standard",
+  "model_used": "claude-haiku-4-5-20251001",
+  "provider": "anthropic",
   "metadata": {
     "workflow_type": "swarm",
     "total_agents": 3,
-    "agents": [
+    "total_tokens": 598235,
+    "model_breakdown": [
       {
-        "agent_id": "takao",
-        "iterations": 8,
-        "tokens": 14200,
-        "success": true,
-        "model": "gpt-5-mini-2025-08-07"
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic",
+        "executions": 38,
+        "tokens": 297524,
+        "cost_usd": 0.372
       },
       {
-        "agent_id": "mitaka",
-        "iterations": 6,
-        "tokens": 9800,
-        "success": true,
-        "model": "gpt-5-mini-2025-08-07"
-      },
-      {
-        "agent_id": "kichijoji",
-        "iterations": 7,
-        "tokens": 11200,
-        "success": true,
-        "model": "gpt-5-mini-2025-08-07"
+        "model": "shannon_web_search",
+        "provider": "shannon-scraper",
+        "executions": 12,
+        "tokens": 90000,
+        "cost_usd": 0.048
       }
     ]
   },
   "usage": {
-    "total_tokens": 35200,
-    "estimated_cost": 0.042
+    "input_tokens": 289164,
+    "output_tokens": 309071,
+    "total_tokens": 598235,
+    "estimated_cost": 0.780
   }
 }
 ```
@@ -239,12 +242,13 @@ Swarmワークフローが完了すると、ステータスレスポンスにSwa
 |-----------|--------|------|
 | `metadata.workflow_type` | string | Swarmワークフローでは常に`"swarm"` |
 | `metadata.total_agents` | integer | 参加したAgent総数（初期 + 動的） |
-| `metadata.agents` | array | Agentごとの実行サマリー |
-| `metadata.agents[].agent_id` | string | 決定論的なAgent名（日本の駅名） |
-| `metadata.agents[].iterations` | integer | 完了した推論-行動サイクル数 |
-| `metadata.agents[].tokens` | integer | 消費された総トークン数 |
-| `metadata.agents[].success` | boolean | Agentが正常に完了したかどうか |
-| `metadata.agents[].model` | string | 使用されたLLMモデル |
+| `metadata.total_tokens` | integer | すべてのAgentで消費された総トークン数 |
+| `metadata.model_breakdown` | array | モデルごとの実行サマリー |
+| `metadata.model_breakdown[].model` | string | モデル識別子 |
+| `metadata.model_breakdown[].provider` | string | プロバイダー名 |
+| `metadata.model_breakdown[].executions` | integer | このモデルでのLLM呼び出し回数 |
+| `metadata.model_breakdown[].tokens` | integer | このモデルで消費されたトークン数 |
+| `metadata.model_breakdown[].cost_usd` | number | 推定コスト（USD） |
 
 ## サーバー設定
 
@@ -256,10 +260,13 @@ workflows:
     enabled: true                     # Swarmルーティングの有効/無効
     max_agents: 10                    # Agent総数の上限（初期 + 動的）
     max_iterations_per_agent: 25      # Agentごとの推論-行動ループの最大回数
-    agent_timeout_seconds: 600        # Agentごとのウォールクロックタイムアウト
+    agent_timeout_seconds: 1800       # Agentごとのウォールクロックタイムアウト（30分）
     max_messages_per_agent: 20        # AgentごとのP2Pメッセージ上限
     workspace_snippet_chars: 800      # プロンプト内のワークスペースエントリの最大文字数
     workspace_max_entries: 5          # トピックごとの最近のエントリ表示数
+    max_total_llm_calls: 200          # グローバルLLM呼び出し予算
+    max_total_tokens: 1000000         # グローバルトークン予算（1M）
+    max_wall_clock_minutes: 30        # 最大ウォールクロック時間
 ```
 
 | パラメータ | デフォルト | 説明 |
@@ -267,10 +274,13 @@ workflows:
 | `enabled` | `true` | `force_swarm`を機能させるには`true`が必要 |
 | `max_agents` | `10` | 動的に生成されたヘルパーを含む総上限 |
 | `max_iterations_per_agent` | `25` | Agentごとのイテレーション制限 |
-| `agent_timeout_seconds` | `600` | Agentごと10分のタイムアウト |
+| `agent_timeout_seconds` | `1800` | Agentごと30分のタイムアウト |
 | `max_messages_per_agent` | `20` | P2Pメッセージの氾濫を防止 |
 | `workspace_snippet_chars` | `800` | ワークスペースコンテキストからのトークン使用量を制御 |
 | `workspace_max_entries` | `5` | Agentプロンプト内のトピックごとのワークスペースエントリを制限 |
+| `max_total_llm_calls` | `200` | すべてのAgentにわたるLLM呼び出しの最大数 |
+| `max_total_tokens` | `1000000` | すべてのAgentにわたる最大トークン消費量 |
+| `max_wall_clock_minutes` | `30` | Swarm全体の最大ウォールクロック時間 |
 
 ## エラーハンドリングとフォールバック
 
@@ -289,11 +299,8 @@ workflows:
   "metadata": {
     "workflow_type": "swarm",
     "total_agents": 3,
-    "agents": [
-      {"agent_id": "takao", "success": false, "error": "consecutive tool errors"},
-      {"agent_id": "mitaka", "success": false, "error": "LLM step failed at iteration 2"},
-      {"agent_id": "kichijoji", "success": false, "error": "consecutive tool errors"}
-    ]
+    "total_tokens": 45200,
+    "cost_usd": 0.058
   }
 }
 ```

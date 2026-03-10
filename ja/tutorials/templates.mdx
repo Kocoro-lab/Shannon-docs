@@ -629,6 +629,172 @@ version: "1.0.0"  # 破壊的変更時にインクリメント
   </Accordion>
 </AccordionGroup>
 
+## 合成テンプレート
+
+合成テンプレートは、すべてのエージェントが作業を完了した後に Shannon が最終出力をどのようにフォーマットするかを制御します。これらの Go テンプレートは `config/templates/synthesis/` ディレクトリに配置され、結果を返す前に Orchestrator によってレンダリングされます。
+
+### 利用可能なテンプレート
+
+| テンプレート | 用途 |
+|------------|------|
+| `normal_default.tmpl` | 非研究タスクのデフォルト |
+| `research_comprehensive.tmpl` | 詳細な研究レポート |
+| `research_concise.tmpl` | 簡潔な研究サマリー |
+| `research_with_facts.tmpl` | 事実に基づく引用付き研究 |
+| `domain_analysis_digest.tmpl` | ドメイン分析フォーマット |
+| `swarm_default.tmpl` | Swarm マルチエージェント出力 |
+| `test_bullet_summary.tmpl` | 箇条書きテスト形式 |
+
+### 基本コントラクト
+
+すべての合成テンプレートは `_base.tmpl` から動作ルールを継承します：
+
+<AccordionGroup>
+  <Accordion title="引用の処理">
+    - **CitationAgent が有効**な場合：合成内容にインライン `[n]` 引用を含めない — Citation Agent が別途追加します
+    - **CitationAgent が無効**な場合：`AvailableCitations` リストに一致するインライン `[n]` を使用
+  </Accordion>
+
+  <Accordion title="時間的参照">
+    `CurrentDate` フィールドがすべてのテンプレートに注入され、時効性のあるコンテンツで「現時点で」という表現が可能になります。
+  </Accordion>
+
+  <Accordion title="構造化アーティファクト">
+    テンプレートは構造化されたアーティファクト（テーブル、コードブロック、JSON）を保持する必要があります — 散文に平坦化してはいけません。
+  </Accordion>
+
+  <Accordion title="ソースセクション">
+    テンプレートに「ソース」セクションを含めては**いけません**。システムがソース引用を自動的に追加します。
+  </Accordion>
+</AccordionGroup>
+
+### テンプレートデータ
+
+すべての合成テンプレートは、以下のフィールドを持つ `SynthesisTemplateData` 構造体を受け取ります：
+
+```go
+type SynthesisTemplateData struct {
+    Query                string   // 元のユーザークエリ
+    QueryLanguage        string   // 検出された言語（例: "en"、"ja"）
+    ResearchAreas        []string // エージェントが調査したトピック
+    AvailableCitations   string   // フォーマットされた引用リスト
+    CitationCount        int      // 利用可能な引用の総数
+    MinCitations         int      // 含めるべき最小引用数
+    LanguageInstruction  string   // 出力言語の指示
+    AgentResults         string   // 統合されたエージェント出力
+    TargetWords          int      // 目標ワード数
+    IsResearch           bool     // 研究タイプのタスクかどうか
+    SynthesisStyle       string   // 選択された合成スタイル
+    CitationAgentEnabled bool     // Citation Agent がアクティブかどうか
+    CurrentDate          string   // 現在の日付（時間的コンテキスト）
+    NewsCount            int      // 見つかったニュース項目数
+}
+```
+
+### 合成テンプレートの選択
+
+Orchestrator はタスクタイプと設定に基づいて合成テンプレートを選択します：
+
+<Tabs>
+  <Tab title="タスクコンテキスト経由">
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "量子コンピューティングのトレンドを調査",
+    "context": {
+      "synthesis_style": "research_comprehensive"
+    }
+  }'
+```
+  </Tab>
+  <Tab title="ワークフローテンプレート経由">
+```yaml
+name: "my_research"
+version: "1.0.0"
+defaults:
+  model_tier: "medium"
+  synthesis_style: "research_with_facts"
+```
+  </Tab>
+</Tabs>
+
+<Note>
+`synthesis_style` が指定されていない場合、Shannon は研究タスクには `research_comprehensive` を、それ以外のタスクには `normal_default` を自動的に選択します。
+</Note>
+
+## サンプルワークフロー
+
+Shannon は `config/workflows/examples/` ディレクトリに 8 つのサンプルワークフローテンプレートを同梱しています。これらはすぐに使える出発点およびリファレンス実装として機能します。
+
+### ワークフローカタログ
+
+| テンプレート | 説明 | ノード数 | パターン |
+|------------|------|----------|----------|
+| `simple_analysis.yaml` | クイックサマリー | 2 | シーケンシャル（intake + summarize） |
+| `research_summary.yaml` | マルチステージ研究 | 4 | 劣化付きシーケンシャル |
+| `research_summary_enterprise.yaml` | エンタープライズ研究 | 4+ | 大規模モデルのシーケンシャル |
+| `market_analysis.yaml` | 市場調査 | 3+ | ツール付きシーケンシャル |
+| `market_analysis_playbook.yaml` | 市場プレイブック変種 | 3+ | プレイブック駆動 |
+| `complex_dag.yaml` | マルチ並列 DAG | 5+ | DAG ファンアウト/ファンイン |
+| `parallel_dag_example.yaml` | 並列実行デモ | 4+ | DAG 並列ブランチ |
+| `parallel_items_example.yaml` | バッチアイテム処理 | 3+ | 並列アイテム |
+
+### YAML 構造リファレンス
+
+すべてのサンプルワークフローは次の構造に従います：
+
+```yaml
+name: workflow_id
+description: "説明"
+
+defaults:
+  model_tier: small|medium|large    # すべてのノードのモデルサイズ
+  budget_agent_max: 3000            # 総トークン予算
+  require_approval: false           # ヒューマンインザループゲート
+
+nodes:
+  - id: node_id
+    type: simple|cognitive|dag      # 実行タイプ
+    strategy: react|chain_of_thought|tree_of_thoughts
+    depends_on: [other_node_ids]    # DAG 依存関係
+    budget_max: 1000                # ノードごとのトークン制限
+
+edges:
+  - from: node1
+    to: node2
+```
+
+### パターン劣化
+
+サンプルワークフローは、リソースが制約された場合の Shannon の自動劣化動作を示しています：
+
+```
+DAG        → sequential        （利用可能なエージェントが不足した場合）
+tree_of_thoughts → chain_of_thought  （予算が制約された場合）
+multi-node → single-node       （最小環境でのフォールバック）
+```
+
+<Warning>
+劣化は自動的に行われ、ログに記録されます。フォールバックがいつ発動したかを監視するには、Orchestrator のログで `strategy_degraded` イベントを確認してください。
+</Warning>
+
+### ラーニングルーター
+
+有効にすると、**Learning Router** は過去の成功した実行に対するクエリの類似性に基づいてワークフローテンプレートを自動的に選択します。これにより、呼び出し側がテンプレートを明示的に指定する必要がなくなります。
+
+```bash
+# 環境変数でラーニングルーターを有効化
+ORCHESTRATOR_LEARNING_ROUTER_ENABLED=true
+
+# ルーターは受信クエリを過去のパターンとマッチングし
+# 最もパフォーマンスの良いテンプレートを自動的に選択します
+```
+
+<Tip>
+Learning Router は時間とともに改善されます。新規デプロイメントでは、十分な実行履歴（通常 50 回以上の成功タスク）が蓄積されるまで、テンプレートを明示的に指定することを推奨します。
+</Tip>
+
 ## 次のステップ
 
 <CardGroup cols={2}>

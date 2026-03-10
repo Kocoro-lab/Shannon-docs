@@ -1,0 +1,223 @@
+---
+title: "Workspace Files"
+description: "Access and download files from session workspaces"
+---
+
+## Overview
+
+The Workspace Files API provides access to files generated during task execution within a session workspace. Agents can produce artifacts such as scripts, analysis results, or data exports during execution -- this API lets you browse and retrieve those files.
+
+## Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/sessions/{sessionId}/files` | GET | List files in the workspace |
+| `/api/v1/sessions/{sessionId}/files/{path...}` | GET | Download a specific file |
+
+---
+
+## Security
+
+Shannon enforces strict path security on all workspace file operations:
+
+- **Path traversal protection** -- requests containing `..` or absolute paths are rejected with `400 Bad Request`
+- **Symlink validation** -- symbolic links pointing outside the workspace are blocked
+- **File size limit** -- downloads are capped at **100 MB** per file
+
+<Warning>
+Path traversal attempts (e.g., `../../etc/passwd`) are blocked at the gateway level. All paths are resolved relative to the session workspace root.
+</Warning>
+
+---
+
+## List Workspace Files
+
+List files and directories within a session workspace.
+
+<CodeGroup>
+```bash curl
+curl "http://localhost:8080/api/v1/sessions/{sessionId}/files" \
+  -H "X-API-Key: sk_test_123456"
+```
+
+```python Python
+import requests
+
+resp = requests.get(
+    "http://localhost:8080/api/v1/sessions/{session_id}/files",
+    headers={"X-API-Key": "sk_test_123456"},
+)
+data = resp.json()
+for f in data["files"]:
+    print(f"{f['name']}  {'DIR' if f['is_dir'] else f['size']} bytes")
+```
+</CodeGroup>
+
+### Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `sessionId` | string | Yes | Session ID (UUID or external_id) |
+
+### Query Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `path` | string | No | Subdirectory path to list (defaults to workspace root `/`) |
+| `recursive` | boolean | No | If `true`, list files recursively including subdirectories |
+
+### Example with Subdirectory
+
+<CodeGroup>
+```bash curl
+curl "http://localhost:8080/api/v1/sessions/{sessionId}/files?path=output&recursive=true" \
+  -H "X-API-Key: sk_test_123456"
+```
+
+```python Python
+import requests
+
+resp = requests.get(
+    "http://localhost:8080/api/v1/sessions/{session_id}/files",
+    params={"path": "output", "recursive": True},
+    headers={"X-API-Key": "sk_test_123456"},
+)
+for f in resp.json()["files"]:
+    print(f"{f['path']}  {f['size']} bytes")
+```
+</CodeGroup>
+
+### Response
+
+```json
+{
+  "session_id": "abc-123",
+  "path": "/",
+  "files": [
+    {
+      "name": "analysis.py",
+      "path": "/analysis.py",
+      "size": 1234,
+      "is_dir": false,
+      "modified_at": "2026-03-10T10:00:00Z"
+    },
+    {
+      "name": "output",
+      "path": "/output",
+      "size": 0,
+      "is_dir": true,
+      "modified_at": "2026-03-10T10:05:00Z"
+    },
+    {
+      "name": "results.csv",
+      "path": "/output/results.csv",
+      "size": 56789,
+      "is_dir": false,
+      "modified_at": "2026-03-10T10:10:00Z"
+    }
+  ]
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `session_id` | string | Session identifier |
+| `path` | string | The listed directory path |
+| `files` | array | List of file entries |
+| `files[].name` | string | File or directory name |
+| `files[].path` | string | Full path relative to workspace root |
+| `files[].size` | integer | File size in bytes (0 for directories) |
+| `files[].is_dir` | boolean | Whether the entry is a directory |
+| `files[].modified_at` | string | Last modification timestamp (ISO 8601) |
+
+---
+
+## Download File
+
+Download a specific file from the session workspace. The response Content-Type is automatically detected based on file content.
+
+<CodeGroup>
+```bash curl
+curl "http://localhost:8080/api/v1/sessions/{sessionId}/files/analysis.py" \
+  -H "X-API-Key: sk_test_123456" \
+  -o analysis.py
+```
+
+```python Python
+import requests
+
+resp = requests.get(
+    "http://localhost:8080/api/v1/sessions/{session_id}/files/output/results.csv",
+    headers={"X-API-Key": "sk_test_123456"},
+)
+with open("results.csv", "wb") as f:
+    f.write(resp.content)
+```
+</CodeGroup>
+
+### Path Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `sessionId` | string | Yes | Session ID (UUID or external_id) |
+| `path...` | string | Yes | Full file path within the workspace (e.g., `output/results.csv`) |
+
+### Response
+
+- **Content-Type**: Automatically detected (e.g., `text/plain`, `application/octet-stream`, `text/csv`)
+- **Body**: Raw file content
+
+<Note>
+If the Firecracker executor is unavailable, the gateway falls back to reading files from the local filesystem. This fallback is transparent to the client but may return a `502` if neither source is accessible.
+</Note>
+
+---
+
+## Error Responses
+
+| Status | Description |
+|--------|-------------|
+| 400 | Invalid session ID or path traversal attempt (`..` or absolute path detected) |
+| 401 | Unauthorized -- missing or invalid API key |
+| 404 | Session workspace not found, or file does not exist |
+| 413 | File exceeds 100 MB size limit |
+| 502 | Firecracker executor unavailable and local fallback also failed |
+
+All errors follow the standard format:
+
+```json
+{
+  "error": "error message here"
+}
+```
+
+### Example Error: Path Traversal
+
+```json
+{
+  "error": "invalid path: traversal not allowed"
+}
+```
+
+### Example Error: File Too Large
+
+```json
+{
+  "error": "file exceeds maximum size limit (100MB)"
+}
+```
+
+---
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Sessions API" icon="comments" href="/en/api/rest/sessions">
+    Manage sessions and view session history
+  </Card>
+  <Card title="Tool Execution" icon="gears" href="/en/architecture/tool-execution">
+    How agents generate workspace artifacts
+  </Card>
+</CardGroup>
