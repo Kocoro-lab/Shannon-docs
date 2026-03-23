@@ -113,9 +113,10 @@ async function submitAndStream(query, onEvent, onComplete, onError) {
     console.log(`Task submitted: ${workflow_id}`);
 
     // 2. Connect to SSE stream
+    // Note: Browser EventSource does NOT support custom headers.
+    // Use api_key query param, or proxy SSE via your backend.
     const eventSource = new EventSource(
-      `http://localhost:8080${stream_url}`,
-      { withCredentials: false }
+      `http://localhost:8080${stream_url}&api_key=${localStorage.getItem('token')}`
     );
 
     eventSource.onmessage = (e) => {
@@ -189,7 +190,13 @@ function useTaskStream(apiUrl = 'http://localhost:8080') {
       setWorkflowId(workflow_id);
 
       // Connect to stream
-      const eventSource = new EventSource(`${apiUrl}${stream_url}`);
+      // Note: Browser EventSource does NOT support custom headers.
+      // Use api_key query param, or proxy SSE via your backend.
+      const token = localStorage.getItem('token');
+      const sseUrl = token
+        ? `${apiUrl}${stream_url}&api_key=${token}`
+        : `${apiUrl}${stream_url}`;
+      const eventSource = new EventSource(sseUrl);
       eventSourceRef.current = eventSource;
 
       eventSource.onmessage = (e) => {
@@ -289,7 +296,8 @@ async function submitTask(query) {
     const { task_id, workflow_id, stream_url } = await response.json();
     workflowId.value = workflow_id;
 
-    eventSource = new EventSource(`http://localhost:8080${stream_url}`);
+    // Browser EventSource does NOT support custom headers — use api_key query param
+    eventSource = new EventSource(`http://localhost:8080${stream_url}&api_key=${localStorage.getItem('token')}`);
 
     eventSource.onmessage = (e) => {
       const event = JSON.parse(e.data);
@@ -433,30 +441,34 @@ curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id=task_abc123" \
 #### Example Response
 
 ```
-id: 1
+id: 1719000000000-0
 event: WORKFLOW_STARTED
-data: {"workflow_id":"task_abc123","timestamp":"2025-10-22T10:30:00Z","message":"Workflow started"}
+data: {"workflow_id":"task_abc123","type":"WORKFLOW_STARTED","agent_id":"orchestrator","message":"Starting up","timestamp":"2025-10-22T10:30:00Z","seq":1,"stream_id":"1719000000000-0"}
 
-id: 2
+id: 1719000001000-0
 event: AGENT_THINKING
-data: {"workflow_id":"task_abc123","agent_id":"agent_1","message":"Analyzing query...","timestamp":"2025-10-22T10:30:01Z"}
+data: {"workflow_id":"task_abc123","type":"AGENT_THINKING","agent_id":"Ryogoku","message":"Analyzing query...","timestamp":"2025-10-22T10:30:01Z","seq":2,"stream_id":"1719000001000-0"}
 
-id: 3
+id: 1719000002000-0
 event: TOOL_INVOKED
-data: {"workflow_id":"task_abc123","tool":"web_search","params":{"query":"Python programming"},"timestamp":"2025-10-22T10:30:02Z"}
+data: {"workflow_id":"task_abc123","type":"TOOL_INVOKED","agent_id":"Ryogoku","message":"Calling web_search","payload":{"tool":"web_search","params":{"query":"Python programming"}},"timestamp":"2025-10-22T10:30:02Z","seq":3,"stream_id":"1719000002000-0"}
 
-id: 4
+id: 1719000005000-0
 event: TOOL_OBSERVATION
-data: {"workflow_id":"task_abc123","tool":"web_search","result":"...","timestamp":"2025-10-22T10:30:05Z"}
+data: {"workflow_id":"task_abc123","type":"TOOL_OBSERVATION","agent_id":"Ryogoku","message":"web_search completed","payload":{"success":true,"duration_ms":2800},"timestamp":"2025-10-22T10:30:05Z","seq":4,"stream_id":"1719000005000-0"}
 
-id: 5
-event: AGENT_COMPLETED
-data: {"workflow_id":"task_abc123","agent_id":"agent_1","result":"Python is a high-level programming language...","timestamp":"2025-10-22T10:30:06Z"}
+id: 1719000006000-0
+event: thread.message.completed
+data: {"workflow_id":"task_abc123","agent_id":"simple-agent","response":"Python is a high-level programming language...","metadata":{"model_used":"claude-haiku-4-5-20251001","tokens_used":850,"cost_usd":0.003},"seq":5,"stream_id":"1719000006000-0"}
 
-id: 6
+id: 1719000007000-0
 event: WORKFLOW_COMPLETED
-data: {"workflow_id":"task_abc123","status":"COMPLETED","result":"...","timestamp":"2025-10-22T10:30:07Z"}
+data: {"workflow_id":"task_abc123","type":"WORKFLOW_COMPLETED","message":"Workflow completed","timestamp":"2025-10-22T10:30:07Z","seq":6,"stream_id":"1719000007000-0"}
 ```
+
+<Warning>
+**Event ID format**: The `id` field uses Redis stream IDs (e.g., `1719000000000-0`), NOT simple integers. You must use these exact IDs when reconnecting with `last_event_id`. See [Reconnection](#reconnection) below.
+</Warning>
 
 ## WebSocket
 
@@ -588,9 +600,15 @@ For complete documentation on the OpenAI-compatible API, including request/respo
 
 | Event Type | Description | Payload Fields |
 |------------|-------------|----------------|
-| `LLM_PROMPT` | Prompt sent to LLM | `text` |
-| `LLM_PARTIAL` | Streaming LLM output | `text` |
-| `LLM_OUTPUT` | Final LLM output | `text` |
+| `LLM_PROMPT` | Prompt sent to LLM | `message`, `payload.model`, `payload.provider` |
+| `thread.message.delta` | Streaming text chunk | `delta`, `agent_id` |
+| `thread.message.completed` | Final response with usage | `response`, `metadata.model_used`, `metadata.tokens_used`, `metadata.cost_usd` |
+| `LLM_PARTIAL` | Raw LLM streaming token | `text` |
+| `LLM_OUTPUT` | Raw LLM final output | `text` |
+
+<Tip>
+**For most integrations**, listen to `thread.message.delta` (streaming text) and `thread.message.completed` (final result with usage metadata) rather than `LLM_PARTIAL`/`LLM_OUTPUT`.
+</Tip>
 
 ### Progress & System Events
 
@@ -949,9 +967,10 @@ function TaskMonitor({ taskId, apiKey }) {
   const [status, setStatus] = useState('connecting');
 
   useEffect(() => {
+    // Browser EventSource does NOT support custom headers.
+    // Use api_key query param, or proxy SSE via your backend.
     const eventSource = new EventSource(
-      `http://localhost:8080/api/v1/stream/sse?workflow_id=${taskId}`,
-      { headers: { 'X-API-Key': apiKey } }
+      `http://localhost:8080/api/v1/stream/sse?workflow_id=${taskId}&api_key=${apiKey}`
     );
 
     eventSource.onopen = () => setStatus('connected');
@@ -989,29 +1008,117 @@ function TaskMonitor({ taskId, apiKey }) {
 }
 ```
 
-## Best Practices
+## Deep Research Streaming
 
-### 1. Handle Connection Errors
+Deep Research tasks take 2-10 minutes. Use `context.force_research` to trigger Deep Research through the Task API:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/tasks/stream \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: sk_test_123456" \
+  -d '{
+    "query": "What are the latest developments in quantum computing?",
+    "session_id": "session-123",
+    "context": {"force_research": true}
+  }'
+```
+
+Control research depth with `context.research_strategy`:
+
+| Strategy | Depth | Typical Duration | Use Case |
+|----------|-------|-----------------|----------|
+| `quick` | Low | 30s-2min | Simple factual queries |
+| `standard` (default) | Medium | 2-5min | General research |
+| `deep` | High | 5-10min | Complex multi-faceted topics |
+| `academic` | Highest | 5-10min | Citation-heavy academic research |
+
+<Warning>
+**Chat API vs Task API for Deep Research**: The Chat API (`/v1/chat/completions` with `model: "shannon-deep-research"`) can also trigger Deep Research, but its streaming format does **not** include SSE event IDs — so reconnection is impossible. If your platform has connection time limits (e.g., Vercel 5-min limit) or you need to survive page refreshes, **use the Task API**.
+</Warning>
+
+## Heartbeat
+
+The server sends a `: ping` SSE comment every 10 seconds to keep connections alive through proxies and load balancers:
+
+```
+: ping
+```
+
+This is an SSE comment (not a JSON message). If you stop receiving pings, the connection is dead — reconnect immediately.
+
+## Reconnection
+
+SSE connections may drop due to network issues, proxy timeouts, or platform limits (e.g., Vercel hobby plan: 5-minute connection limit). Shannon supports resuming from where you left off.
+
+**How it works:**
+
+1. Track the `id` field of each received SSE event
+2. When disconnected, reconnect with `last_event_id` parameter
+3. The server replays all events after that ID (buffered ~256 events, 24h TTL)
+
+```bash
+# Reconnect from where you left off
+curl -N "http://localhost:8080/api/v1/stream/sse?workflow_id=task_abc123&last_event_id=1719000002000-0" \
+  -H "X-API-Key: sk_test_123456"
+```
+
+### Proactive Reconnection (Recommended)
+
+For platforms with connection time limits, proactively disconnect before the limit:
+
+```
+1. Connect to SSE
+2. Start a 4-minute timer (safety margin before 5-min limit)
+3. When timer fires:
+   a. Record last received event ID
+   b. Close connection
+   c. Immediately reconnect with last_event_id=<last_id>
+4. Repeat until you receive WORKFLOW_COMPLETED or done event
+```
+
+### Page Refresh / Fallback
+
+If the user refreshes the page and you still have the `workflow_id`:
+
+1. Check task status: `GET /api/v1/tasks/{workflow_id}`
+2. If `TASK_STATUS_RUNNING` → reconnect to SSE
+3. If `TASK_STATUS_COMPLETED` → display the result from the response
+4. If `TASK_STATUS_FAILED` → display the error
+
+### Python with Reconnection
 
 ```python
 import time
 
-def stream_with_retry(task_id: str, api_key: str, max_retries: int = 3):
-    """Stream with automatic retry on connection failure."""
+def stream_with_reconnect(task_id: str, api_key: str, max_retries: int = 5):
+    """Stream with automatic reconnection using last_event_id."""
+    last_id = None
+
     for attempt in range(max_retries):
         try:
-            for event in stream_task_events(task_id, api_key):
-                yield event
+            url = f"http://localhost:8080/api/v1/stream/sse?workflow_id={task_id}"
+            if last_id:
+                url += f"&last_event_id={last_id}"
 
-                if event.get('type') == 'WORKFLOW_COMPLETED':
-                    return
+            with httpx.stream("GET", url, headers={"X-API-Key": api_key}, timeout=None) as response:
+                for line in response.iter_lines():
+                    if line.startswith("id:"):
+                        last_id = line[3:].strip()  # Track last event ID
+                    elif line.startswith("data:"):
+                        event = json.loads(line[5:])
+                        yield event
+                        if event.get('type') in ('WORKFLOW_COMPLETED', 'STREAM_END'):
+                            return
         except Exception as e:
             if attempt < max_retries - 1:
-                print(f"Connection failed, retrying in {2 ** attempt}s...")
-                time.sleep(2 ** attempt)
+                wait = min(2 ** attempt, 10)
+                print(f"Connection lost, reconnecting in {wait}s (last_id={last_id})...")
+                time.sleep(wait)
             else:
                 raise
 ```
+
+## Best Practices
 
 ### 2. Implement Timeout
 
