@@ -565,6 +565,190 @@ client.update_schedule(
 # client.delete_schedule(schedule_id)
 ```
 
+## 直接工具执行
+
+### 列出、查看和执行工具
+
+```python
+"""直接工具执行示例"""
+import json
+from shannon import ShannonClient
+
+def main():
+    client = ShannonClient(base_url="http://localhost:8080")
+    try:
+        # 列出可用工具
+        tools = client.list_tools()
+        print(f"找到 {len(tools)} 个工具")
+        for tool in tools[:10]:
+            print(f"  - {tool.name}: {tool.description}")
+
+        if not tools:
+            return
+
+        # 获取特定工具的详细信息
+        target = tools[0].name
+        detail = client.get_tool(target)
+        print(f"\n工具: {detail.name}")
+        print(f"类别: {detail.category}")
+        print(f"描述: {detail.description}")
+        print(f"参数: {json.dumps(detail.parameters, indent=2)}")
+
+        # 执行工具
+        result = client.execute_tool(target, arguments={"expression": "6 * 7"})
+        print(f"\n成功: {result.success}")
+        if result.text:
+            print(f"文本: {result.text}")
+        if result.output is not None:
+            print(f"输出: {result.output}")
+        if result.error:
+            print(f"错误: {result.error}")
+    finally:
+        client.close()
+
+if __name__ == "__main__":
+    main()
+```
+
+## 确定性智能体执行
+
+### 执行智能体并发送集群后续消息
+
+```python
+"""确定性智能体执行示例"""
+import json
+from shannon import ShannonClient
+
+def main():
+    client = ShannonClient(base_url="http://localhost:8080")
+    try:
+        # 列出可用智能体
+        agents = client.list_agents()
+        print(f"智能体数量: {len(agents)}")
+        for agent in agents[:10]:
+            print(f"  - {agent.id}: {agent.name} ({agent.tool})")
+
+        if not agents:
+            return
+
+        # 获取智能体详情
+        agent = client.get_agent(agents[0].id)
+        print(f"\n智能体: {agent.id}")
+        print(f"名称: {agent.name}")
+        print(f"描述: {agent.description}")
+        print(f"输入 schema: {json.dumps(agent.input_schema, indent=2)}")
+
+        # 执行智能体
+        execution = client.execute_agent(
+            agent.id,
+            {"query": "分析近期趋势"},
+        )
+        print(f"\n任务 ID: {execution.task_id}")
+        print(f"工作流 ID: {execution.workflow_id}")
+        print(f"状态: {execution.status}")
+
+        # 等待结果
+        final = execution.wait(timeout=120)
+        print(f"\n结果: {final.result}")
+
+        # 可选：向集群工作流发送后续消息
+        # result = client.send_swarm_message(execution.workflow_id, "聚焦成本分析")
+        # print(f"集群后续消息已接受: {result.success}")
+    finally:
+        client.close()
+
+if __name__ == "__main__":
+    main()
+```
+
+## OpenAI 兼容聊天补全
+
+### 非流式与流式
+
+```python
+"""OpenAI 兼容聊天补全示例"""
+from shannon import ShannonClient, OpenAIChatMessage
+
+def main():
+    client = ShannonClient(base_url="http://localhost:8080")
+    try:
+        # 列出可用模型
+        models = client.list_openai_models()
+        print(f"OpenAI 兼容模型: {len(models)}")
+        for entry in models[:10]:
+            print(f"  - {entry.id}")
+
+        messages = [OpenAIChatMessage(role="user", content="用两句话总结 Shannon 的优势。")]
+
+        # 非流式补全
+        completion = client.create_chat_completion(
+            messages,
+            model="shannon-chat",
+        )
+        print(f"\n响应: {completion.choices[0].message.content}")
+        if completion.usage:
+            print(f"Token 数: {completion.usage.total_tokens}")
+
+        # 流式补全
+        print("\n流式响应:")
+        for chunk in client.stream_chat_completion(
+            [OpenAIChatMessage(role="user", content="用 3 句话讲一个故事。")],
+            model="shannon-chat",
+            include_usage=True,
+        ):
+            if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                print(chunk.choices[0].delta.content, end="", flush=True)
+        print()
+    finally:
+        client.close()
+
+if __name__ == "__main__":
+    main()
+```
+
+## 会话文件与记忆
+
+### 列出和下载工作区文件与记忆文件
+
+```python
+"""会话文件与记忆示例"""
+from shannon import ShannonClient
+
+def main():
+    client = ShannonClient(base_url="http://localhost:8080")
+    session_id = "my-session"
+
+    try:
+        # 列出记忆文件
+        memory_files = client.list_memory_files()
+        print(f"记忆文件: {len(memory_files)}")
+        for entry in memory_files[:10]:
+            print(f"  - {entry.path} ({entry.size_bytes} bytes)")
+
+        # 下载记忆文件
+        if memory_files:
+            downloaded = client.download_memory_file(memory_files[0].path)
+            print(f"\n记忆文件内容预览:")
+            print(downloaded.content[:400])
+
+        # 列出会话工作区文件
+        session_files = client.list_session_files(session_id)
+        print(f"\n会话 {session_id} 的文件: {len(session_files)}")
+        for entry in session_files[:10]:
+            print(f"  - {entry.path} ({entry.size_bytes} bytes)")
+
+        # 下载会话文件
+        if session_files:
+            downloaded = client.download_session_file(session_id, session_files[0].path)
+            print(f"\n会话文件内容预览:")
+            print(downloaded.content[:400])
+    finally:
+        client.close()
+
+if __name__ == "__main__":
+    main()
+```
+
 ## 错误处理示例
 
 参见专门页面获取完整的重试逻辑与模式：[错误处理](/cn/sdk/python/error-handling)。

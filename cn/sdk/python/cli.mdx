@@ -331,6 +331,156 @@ shannon schedule-runs SCHEDULE_ID [--page N] [--page-size N]
 
 ---
 
+## 工具
+
+### tools-list - 列出可用工具
+
+```bash
+shannon tools-list [--category CATEGORY]
+```
+
+**示例：**
+
+```bash
+shannon tools-list
+```
+
+**输出：**
+
+```
+Name                      Description
+--------------------------------------------------------------------------------
+web_search                Search the web for information
+calculator                Evaluate mathematical expressions
+```
+
+### tool-get - 获取工具详情
+
+```bash
+shannon tool-get NAME
+```
+
+**示例：**
+
+```bash
+shannon tool-get web_search
+```
+
+### tool-exec - 直接执行工具
+
+```bash
+shannon tool-exec NAME [--arguments JSON] [--session-id ID]
+```
+
+| 标志 | 类型 | 说明 |
+|------|------|------|
+| `--arguments` | JSON 字符串 | 工具参数，JSON 对象格式（默认：`{}`） |
+| `--session-id` | string | 可选的会话 ID，用于工具上下文 |
+
+**示例：**
+
+```bash
+shannon tool-exec web_search --arguments '{"query": "Shannon AI"}'
+```
+
+---
+
+## 智能体
+
+### agents-list - 列出确定性智能体
+
+```bash
+shannon agents-list
+```
+
+### agent-get - 获取智能体详情
+
+```bash
+shannon agent-get AGENT_ID
+```
+
+### agent-exec - 执行确定性智能体
+
+```bash
+shannon agent-exec AGENT_ID --input JSON [--session-id ID] [--stream]
+```
+
+| 标志 | 类型 | 说明 |
+|------|------|------|
+| `--input` | JSON 字符串 | 智能体输入，JSON 对象格式（默认：`{}`） |
+| `--session-id` | string | 可选的会话 ID |
+| `--stream` | flag | 请求流式智能体执行 |
+
+**示例：**
+
+```bash
+shannon agent-exec agent-001 --input '{"query": "分析 Q4 趋势"}'
+```
+
+### swarm-message - 向运行中的集群发送消息
+
+```bash
+shannon swarm-message WORKFLOW_ID MESSAGE
+```
+
+**示例：**
+
+```bash
+shannon swarm-message workflow-xyz789 "聚焦成本分析"
+```
+
+---
+
+## 文件
+
+### session-files - 列出会话工作区文件
+
+```bash
+shannon session-files SESSION_ID [--path SUBDIR]
+```
+
+| 标志 | 类型 | 说明 |
+|------|------|------|
+| `--path` | string | 可选的工作区子目录 |
+
+**示例：**
+
+```bash
+shannon session-files my-session
+```
+
+### session-file-get - 下载工作区文件
+
+```bash
+shannon session-file-get SESSION_ID PATH
+```
+
+**示例：**
+
+```bash
+shannon session-file-get my-session report.md
+```
+
+### memory-files - 列出用户记忆文件
+
+```bash
+shannon memory-files
+```
+
+### memory-file-get - 下载记忆文件
+
+```bash
+shannon memory-file-get PATH
+```
+
+**示例：**
+
+```bash
+shannon memory-file-get profile.md
+```
+
+---
+
 ## 技能
 
 ### skills-list - 列出可用技能

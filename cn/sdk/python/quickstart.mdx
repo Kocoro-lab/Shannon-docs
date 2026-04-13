@@ -209,6 +209,149 @@ shannon skill-get web_search
 shannon skill-versions web_search
 ```
 
+## 工具 API
+
+列出、查看和直接执行工具：
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# 列出可用工具
+tools = client.list_tools()
+for tool in tools:
+    print(f"{tool.name}: {tool.description}")
+
+# 获取工具详情
+detail = client.get_tool("web_search")
+print(detail.parameters)
+
+# 直接执行工具
+result = client.execute_tool("web_search", arguments={"query": "Shannon AI"})
+print(result.output)
+```
+
+**CLI 用法：**
+
+```bash
+# 列出工具
+shannon tools-list
+
+# 获取工具详情
+shannon tool-get web_search
+
+# 执行工具
+shannon tool-exec web_search --arguments '{"query": "Shannon AI"}'
+```
+
+## 智能体 API
+
+列出、查看和执行确定性智能体：
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# 列出确定性智能体
+agents = client.list_agents()
+
+# 获取智能体详情
+agent = client.get_agent(agents[0].id)
+print(f"{agent.name}: {agent.description}")
+
+# 执行智能体
+execution = client.execute_agent(agent.id, {"query": "test input"})
+status = execution.wait(timeout=60)
+print(status.result)
+
+# 向正在运行的集群发送后续消息
+result = client.send_swarm_message(workflow_id, "Please focus on cost analysis")
+```
+
+**CLI 用法：**
+
+```bash
+# 列出智能体
+shannon agents-list
+
+# 获取智能体详情
+shannon agent-get AGENT_ID
+
+# 执行智能体
+shannon agent-exec AGENT_ID --input '{"query": "test input"}'
+
+# 向集群发送后续消息
+shannon swarm-message WORKFLOW_ID "Please focus on cost analysis"
+```
+
+## OpenAI 兼容接口
+
+使用 OpenAI 兼容的聊天补全端点：
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# 列出可用模型
+models = client.list_openai_models()
+
+# 聊天补全（非流式）
+completion = client.create_chat_completion(
+    messages=[{"role": "user", "content": "Hello!"}],
+    model="gpt-4o-mini",
+)
+print(completion.choices[0].message.content)
+
+# 流式聊天补全
+for chunk in client.stream_chat_completion(
+    messages=[{"role": "user", "content": "Tell me a story"}]
+):
+    if chunk.choices and chunk.choices[0].delta:
+        print(chunk.choices[0].delta.content, end="")
+```
+
+## 文件访问
+
+访问会话工作区文件和用户记忆文件：
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# 列出会话的工作区文件
+files = client.list_session_files(session_id)
+for f in files:
+    print(f"{f.name} ({f.size_bytes} bytes)")
+
+# 下载文件
+content = client.download_session_file(session_id, "report.md")
+print(content.content)
+
+# 列出和下载记忆文件
+memory_files = client.list_memory_files()
+memory = client.download_memory_file("profile.md")
+```
+
+**CLI 用法：**
+
+```bash
+# 列出会话工作区文件
+shannon session-files SESSION_ID
+
+# 下载工作区文件
+shannon session-file-get SESSION_ID report.md
+
+# 列出记忆文件
+shannon memory-files
+
+# 下载记忆文件
+shannon memory-file-get profile.md
+```
+
 ## CLI
 
 ```bash

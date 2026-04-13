@@ -331,6 +331,156 @@ shannon schedule-runs SCHEDULE_ID [--page N] [--page-size N]
 
 ---
 
+## ツール
+
+### tools-list - 利用可能なツール一覧
+
+```bash
+shannon tools-list [--category CATEGORY]
+```
+
+**例：**
+
+```bash
+shannon tools-list
+```
+
+**出力：**
+
+```
+Name                      Description
+--------------------------------------------------------------------------------
+web_search                Search the web for information
+calculator                Evaluate mathematical expressions
+```
+
+### tool-get - ツール詳細
+
+```bash
+shannon tool-get NAME
+```
+
+**例：**
+
+```bash
+shannon tool-get web_search
+```
+
+### tool-exec - ツールを直接実行
+
+```bash
+shannon tool-exec NAME [--arguments JSON] [--session-id ID]
+```
+
+| フラグ | 型 | 説明 |
+|--------|-----|------|
+| `--arguments` | JSON文字列 | ツール引数（JSONオブジェクト、デフォルト: `{}`） |
+| `--session-id` | string | オプションのセッションID（ツールコンテキスト用） |
+
+**例：**
+
+```bash
+shannon tool-exec web_search --arguments '{"query": "Shannon AI"}'
+```
+
+---
+
+## エージェント
+
+### agents-list - 確定的エージェント一覧
+
+```bash
+shannon agents-list
+```
+
+### agent-get - エージェント詳細
+
+```bash
+shannon agent-get AGENT_ID
+```
+
+### agent-exec - 確定的エージェントを実行
+
+```bash
+shannon agent-exec AGENT_ID --input JSON [--session-id ID] [--stream]
+```
+
+| フラグ | 型 | 説明 |
+|--------|-----|------|
+| `--input` | JSON文字列 | エージェント入力（JSONオブジェクト、デフォルト: `{}`） |
+| `--session-id` | string | オプションのセッションID |
+| `--stream` | flag | ストリーミングエージェント実行をリクエスト |
+
+**例：**
+
+```bash
+shannon agent-exec agent-001 --input '{"query": "Q4のトレンドを分析"}'
+```
+
+### swarm-message - 実行中のスウォームにメッセージ送信
+
+```bash
+shannon swarm-message WORKFLOW_ID MESSAGE
+```
+
+**例：**
+
+```bash
+shannon swarm-message workflow-xyz789 "コスト分析に焦点を当ててください"
+```
+
+---
+
+## ファイル
+
+### session-files - セッションワークスペースファイル一覧
+
+```bash
+shannon session-files SESSION_ID [--path SUBDIR]
+```
+
+| フラグ | 型 | 説明 |
+|--------|-----|------|
+| `--path` | string | オプションのワークスペースサブディレクトリ |
+
+**例：**
+
+```bash
+shannon session-files my-session
+```
+
+### session-file-get - ワークスペースファイルをダウンロード
+
+```bash
+shannon session-file-get SESSION_ID PATH
+```
+
+**例：**
+
+```bash
+shannon session-file-get my-session report.md
+```
+
+### memory-files - ユーザーメモリファイル一覧
+
+```bash
+shannon memory-files
+```
+
+### memory-file-get - メモリファイルをダウンロード
+
+```bash
+shannon memory-file-get PATH
+```
+
+**例：**
+
+```bash
+shannon memory-file-get profile.md
+```
+
+---
+
 ## スキル
 
 ### skills-list - 利用可能なスキル一覧

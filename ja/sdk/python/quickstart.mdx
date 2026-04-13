@@ -209,6 +209,149 @@ shannon skill-get web_search
 shannon skill-versions web_search
 ```
 
+## ツール API
+
+ツールの一覧表示、詳細確認、直接実行：
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# 利用可能なツールを一覧表示
+tools = client.list_tools()
+for tool in tools:
+    print(f"{tool.name}: {tool.description}")
+
+# ツールの詳細を取得
+detail = client.get_tool("web_search")
+print(detail.parameters)
+
+# ツールを直接実行
+result = client.execute_tool("web_search", arguments={"query": "Shannon AI"})
+print(result.output)
+```
+
+**CLIの使用法:**
+
+```bash
+# ツールを一覧表示
+shannon tools-list
+
+# ツールの詳細を取得
+shannon tool-get web_search
+
+# ツールを実行
+shannon tool-exec web_search --arguments '{"query": "Shannon AI"}'
+```
+
+## エージェント API
+
+確定的エージェントの一覧表示、詳細確認、実行：
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# 確定的エージェントを一覧表示
+agents = client.list_agents()
+
+# エージェントの詳細を取得
+agent = client.get_agent(agents[0].id)
+print(f"{agent.name}: {agent.description}")
+
+# エージェントを実行
+execution = client.execute_agent(agent.id, {"query": "test input"})
+status = execution.wait(timeout=60)
+print(status.result)
+
+# 実行中のスウォームにフォローアップメッセージを送信
+result = client.send_swarm_message(workflow_id, "Please focus on cost analysis")
+```
+
+**CLIの使用法:**
+
+```bash
+# エージェントを一覧表示
+shannon agents-list
+
+# エージェントの詳細を取得
+shannon agent-get AGENT_ID
+
+# エージェントを実行
+shannon agent-exec AGENT_ID --input '{"query": "test input"}'
+
+# スウォームにフォローアップを送信
+shannon swarm-message WORKFLOW_ID "Please focus on cost analysis"
+```
+
+## OpenAI互換
+
+OpenAI互換のチャット補完エンドポイントを使用：
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# 利用可能なモデルを一覧表示
+models = client.list_openai_models()
+
+# チャット補完（非ストリーミング）
+completion = client.create_chat_completion(
+    messages=[{"role": "user", "content": "Hello!"}],
+    model="gpt-4o-mini",
+)
+print(completion.choices[0].message.content)
+
+# ストリーミングチャット補完
+for chunk in client.stream_chat_completion(
+    messages=[{"role": "user", "content": "Tell me a story"}]
+):
+    if chunk.choices and chunk.choices[0].delta:
+        print(chunk.choices[0].delta.content, end="")
+```
+
+## ファイルアクセス
+
+セッションワークスペースファイルとユーザーメモリファイルにアクセス：
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# セッションのワークスペースファイルを一覧表示
+files = client.list_session_files(session_id)
+for f in files:
+    print(f"{f.name} ({f.size_bytes} bytes)")
+
+# ファイルをダウンロード
+content = client.download_session_file(session_id, "report.md")
+print(content.content)
+
+# メモリファイルの一覧表示とダウンロード
+memory_files = client.list_memory_files()
+memory = client.download_memory_file("profile.md")
+```
+
+**CLIの使用法:**
+
+```bash
+# セッションワークスペースファイルを一覧表示
+shannon session-files SESSION_ID
+
+# ワークスペースファイルをダウンロード
+shannon session-file-get SESSION_ID report.md
+
+# メモリファイルを一覧表示
+shannon memory-files
+
+# メモリファイルをダウンロード
+shannon memory-file-get profile.md
+```
+
 ## CLI
 
 ```bash
