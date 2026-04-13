@@ -334,9 +334,9 @@ curl -X POST http://localhost:8080/api/v1/tasks \
 
 **Python SDK Example**:
 ```python
-from shannon import Client
+from shannon import ShannonClient
 
-client = Client(base_url="http://localhost:8080")
+client = ShannonClient(base_url="http://localhost:8080")
 result = client.submit_task("Your task here")
 ```
 

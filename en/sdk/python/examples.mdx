@@ -565,6 +565,190 @@ client.update_schedule(
 # client.delete_schedule(schedule_id)
 ```
 
+## Direct Tool Execution
+
+### List, Inspect, and Execute Tools
+
+```python
+"""Direct tool execution example"""
+import json
+from shannon import ShannonClient
+
+def main():
+    client = ShannonClient(base_url="http://localhost:8080")
+    try:
+        # List available tools
+        tools = client.list_tools()
+        print(f"Found {len(tools)} tools")
+        for tool in tools[:10]:
+            print(f"  - {tool.name}: {tool.description}")
+
+        if not tools:
+            return
+
+        # Get detailed info for a specific tool
+        target = tools[0].name
+        detail = client.get_tool(target)
+        print(f"\nTool: {detail.name}")
+        print(f"Category: {detail.category}")
+        print(f"Description: {detail.description}")
+        print(f"Parameters: {json.dumps(detail.parameters, indent=2)}")
+
+        # Execute the tool
+        result = client.execute_tool(target, arguments={"expression": "6 * 7"})
+        print(f"\nSuccess: {result.success}")
+        if result.text:
+            print(f"Text: {result.text}")
+        if result.output is not None:
+            print(f"Output: {result.output}")
+        if result.error:
+            print(f"Error: {result.error}")
+    finally:
+        client.close()
+
+if __name__ == "__main__":
+    main()
+```
+
+## Deterministic Agent Execution
+
+### Execute Agents and Send Swarm Follow-ups
+
+```python
+"""Deterministic agent execution example"""
+import json
+from shannon import ShannonClient
+
+def main():
+    client = ShannonClient(base_url="http://localhost:8080")
+    try:
+        # List available agents
+        agents = client.list_agents()
+        print(f"Agents: {len(agents)}")
+        for agent in agents[:10]:
+            print(f"  - {agent.id}: {agent.name} ({agent.tool})")
+
+        if not agents:
+            return
+
+        # Get agent details
+        agent = client.get_agent(agents[0].id)
+        print(f"\nAgent: {agent.id}")
+        print(f"Name: {agent.name}")
+        print(f"Description: {agent.description}")
+        print(f"Input schema: {json.dumps(agent.input_schema, indent=2)}")
+
+        # Execute the agent
+        execution = client.execute_agent(
+            agent.id,
+            {"query": "Analyze recent trends"},
+        )
+        print(f"\nTask ID: {execution.task_id}")
+        print(f"Workflow ID: {execution.workflow_id}")
+        print(f"Status: {execution.status}")
+
+        # Wait for result
+        final = execution.wait(timeout=120)
+        print(f"\nResult: {final.result}")
+
+        # Optional: send follow-up message to a swarm workflow
+        # result = client.send_swarm_message(execution.workflow_id, "Focus on cost analysis")
+        # print(f"Swarm follow-up accepted: {result.success}")
+    finally:
+        client.close()
+
+if __name__ == "__main__":
+    main()
+```
+
+## OpenAI-Compatible Chat Completions
+
+### Non-Streaming and Streaming
+
+```python
+"""OpenAI-compatible chat completions example"""
+from shannon import ShannonClient, OpenAIChatMessage
+
+def main():
+    client = ShannonClient(base_url="http://localhost:8080")
+    try:
+        # List available models
+        models = client.list_openai_models()
+        print(f"OpenAI-compatible models: {len(models)}")
+        for entry in models[:10]:
+            print(f"  - {entry.id}")
+
+        messages = [OpenAIChatMessage(role="user", content="Summarize Shannon's strengths in two sentences.")]
+
+        # Non-streaming completion
+        completion = client.create_chat_completion(
+            messages,
+            model="shannon-chat",
+        )
+        print(f"\nResponse: {completion.choices[0].message.content}")
+        if completion.usage:
+            print(f"Tokens: {completion.usage.total_tokens}")
+
+        # Streaming completion
+        print("\nStreaming response:")
+        for chunk in client.stream_chat_completion(
+            [OpenAIChatMessage(role="user", content="Tell me a story in 3 sentences.")],
+            model="shannon-chat",
+            include_usage=True,
+        ):
+            if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                print(chunk.choices[0].delta.content, end="", flush=True)
+        print()
+    finally:
+        client.close()
+
+if __name__ == "__main__":
+    main()
+```
+
+## Session Files and Memory
+
+### List and Download Workspace and Memory Files
+
+```python
+"""Session files and memory example"""
+from shannon import ShannonClient
+
+def main():
+    client = ShannonClient(base_url="http://localhost:8080")
+    session_id = "my-session"
+
+    try:
+        # List memory files
+        memory_files = client.list_memory_files()
+        print(f"Memory files: {len(memory_files)}")
+        for entry in memory_files[:10]:
+            print(f"  - {entry.path} ({entry.size_bytes} bytes)")
+
+        # Download a memory file
+        if memory_files:
+            downloaded = client.download_memory_file(memory_files[0].path)
+            print(f"\nMemory file content preview:")
+            print(downloaded.content[:400])
+
+        # List session workspace files
+        session_files = client.list_session_files(session_id)
+        print(f"\nSession files for {session_id}: {len(session_files)}")
+        for entry in session_files[:10]:
+            print(f"  - {entry.path} ({entry.size_bytes} bytes)")
+
+        # Download a session file
+        if session_files:
+            downloaded = client.download_session_file(session_id, session_files[0].path)
+            print(f"\nSession file content preview:")
+            print(downloaded.content[:400])
+    finally:
+        client.close()
+
+if __name__ == "__main__":
+    main()
+```
+
 ## Error Handling Examples
 
 See the dedicated page for complete patterns and a full retry-logic example: [Error Handling](/en/sdk/python/error-handling).

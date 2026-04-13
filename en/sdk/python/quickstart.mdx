@@ -209,6 +209,149 @@ shannon skill-get web_search
 shannon skill-versions web_search
 ```
 
+## Tool API
+
+List, inspect, and execute tools directly:
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# List available tools
+tools = client.list_tools()
+for tool in tools:
+    print(f"{tool.name}: {tool.description}")
+
+# Get tool details
+detail = client.get_tool("web_search")
+print(detail.parameters)
+
+# Execute a tool directly
+result = client.execute_tool("web_search", arguments={"query": "Shannon AI"})
+print(result.output)
+```
+
+**CLI Usage:**
+
+```bash
+# List tools
+shannon tools-list
+
+# Get tool details
+shannon tool-get web_search
+
+# Execute a tool
+shannon tool-exec web_search --arguments '{"query": "Shannon AI"}'
+```
+
+## Agents API
+
+List, inspect, and execute deterministic agents:
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# List deterministic agents
+agents = client.list_agents()
+
+# Get agent details
+agent = client.get_agent(agents[0].id)
+print(f"{agent.name}: {agent.description}")
+
+# Execute an agent
+execution = client.execute_agent(agent.id, {"query": "test input"})
+status = execution.wait(timeout=60)
+print(status.result)
+
+# Send follow-up message to a running swarm
+result = client.send_swarm_message(workflow_id, "Please focus on cost analysis")
+```
+
+**CLI Usage:**
+
+```bash
+# List agents
+shannon agents-list
+
+# Get agent details
+shannon agent-get AGENT_ID
+
+# Execute an agent
+shannon agent-exec AGENT_ID --input '{"query": "test input"}'
+
+# Send follow-up to swarm
+shannon swarm-message WORKFLOW_ID "Please focus on cost analysis"
+```
+
+## OpenAI-Compatible
+
+Use the OpenAI-compatible chat completions endpoint:
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# List available models
+models = client.list_openai_models()
+
+# Chat completion (non-streaming)
+completion = client.create_chat_completion(
+    messages=[{"role": "user", "content": "Hello!"}],
+    model="gpt-4o-mini",
+)
+print(completion.choices[0].message.content)
+
+# Streaming chat completion
+for chunk in client.stream_chat_completion(
+    messages=[{"role": "user", "content": "Tell me a story"}]
+):
+    if chunk.choices and chunk.choices[0].delta:
+        print(chunk.choices[0].delta.content, end="")
+```
+
+## File Access
+
+Access session workspace files and user memory files:
+
+```python
+from shannon import ShannonClient
+
+client = ShannonClient(base_url="http://localhost:8080")
+
+# List workspace files from a session
+files = client.list_session_files(session_id)
+for f in files:
+    print(f"{f.name} ({f.size_bytes} bytes)")
+
+# Download a file
+content = client.download_session_file(session_id, "report.md")
+print(content.content)
+
+# List and download memory files
+memory_files = client.list_memory_files()
+memory = client.download_memory_file("profile.md")
+```
+
+**CLI Usage:**
+
+```bash
+# List session workspace files
+shannon session-files SESSION_ID
+
+# Download a workspace file
+shannon session-file-get SESSION_ID report.md
+
+# List memory files
+shannon memory-files
+
+# Download a memory file
+shannon memory-file-get profile.md
+```
+
 ## CLI
 
 ```bash

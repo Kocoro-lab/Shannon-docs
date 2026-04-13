@@ -565,6 +565,190 @@ client.update_schedule(
 # client.delete_schedule(schedule_id)
 ```
 
+## ツール直接実行
+
+### ツールの一覧表示、詳細確認、実行
+
+```python
+"""ツール直接実行の例"""
+import json
+from shannon import ShannonClient
+
+def main():
+    client = ShannonClient(base_url="http://localhost:8080")
+    try:
+        # 利用可能なツールを一覧表示
+        tools = client.list_tools()
+        print(f"{len(tools)} 個のツールが見つかりました")
+        for tool in tools[:10]:
+            print(f"  - {tool.name}: {tool.description}")
+
+        if not tools:
+            return
+
+        # 特定のツールの詳細情報を取得
+        target = tools[0].name
+        detail = client.get_tool(target)
+        print(f"\nツール: {detail.name}")
+        print(f"カテゴリ: {detail.category}")
+        print(f"説明: {detail.description}")
+        print(f"パラメータ: {json.dumps(detail.parameters, indent=2)}")
+
+        # ツールを実行
+        result = client.execute_tool(target, arguments={"expression": "6 * 7"})
+        print(f"\n成功: {result.success}")
+        if result.text:
+            print(f"テキスト: {result.text}")
+        if result.output is not None:
+            print(f"出力: {result.output}")
+        if result.error:
+            print(f"エラー: {result.error}")
+    finally:
+        client.close()
+
+if __name__ == "__main__":
+    main()
+```
+
+## 確定的エージェント実行
+
+### エージェントの実行とスウォームフォローアップ
+
+```python
+"""確定的エージェント実行の例"""
+import json
+from shannon import ShannonClient
+
+def main():
+    client = ShannonClient(base_url="http://localhost:8080")
+    try:
+        # 利用可能なエージェントを一覧表示
+        agents = client.list_agents()
+        print(f"エージェント数: {len(agents)}")
+        for agent in agents[:10]:
+            print(f"  - {agent.id}: {agent.name} ({agent.tool})")
+
+        if not agents:
+            return
+
+        # エージェントの詳細を取得
+        agent = client.get_agent(agents[0].id)
+        print(f"\nエージェント: {agent.id}")
+        print(f"名前: {agent.name}")
+        print(f"説明: {agent.description}")
+        print(f"入力スキーマ: {json.dumps(agent.input_schema, indent=2)}")
+
+        # エージェントを実行
+        execution = client.execute_agent(
+            agent.id,
+            {"query": "最近のトレンドを分析"},
+        )
+        print(f"\nタスクID: {execution.task_id}")
+        print(f"ワークフローID: {execution.workflow_id}")
+        print(f"ステータス: {execution.status}")
+
+        # 結果を待つ
+        final = execution.wait(timeout=120)
+        print(f"\n結果: {final.result}")
+
+        # オプション: スウォームワークフローにフォローアップメッセージを送信
+        # result = client.send_swarm_message(execution.workflow_id, "コスト分析に焦点を当ててください")
+        # print(f"スウォームフォローアップ受理: {result.success}")
+    finally:
+        client.close()
+
+if __name__ == "__main__":
+    main()
+```
+
+## OpenAI互換チャット補完
+
+### 非ストリーミングとストリーミング
+
+```python
+"""OpenAI互換チャット補完の例"""
+from shannon import ShannonClient, OpenAIChatMessage
+
+def main():
+    client = ShannonClient(base_url="http://localhost:8080")
+    try:
+        # 利用可能なモデルを一覧表示
+        models = client.list_openai_models()
+        print(f"OpenAI互換モデル: {len(models)}")
+        for entry in models[:10]:
+            print(f"  - {entry.id}")
+
+        messages = [OpenAIChatMessage(role="user", content="Shannonの強みを2文で要約してください。")]
+
+        # 非ストリーミング補完
+        completion = client.create_chat_completion(
+            messages,
+            model="shannon-chat",
+        )
+        print(f"\nレスポンス: {completion.choices[0].message.content}")
+        if completion.usage:
+            print(f"トークン数: {completion.usage.total_tokens}")
+
+        # ストリーミング補完
+        print("\nストリーミングレスポンス:")
+        for chunk in client.stream_chat_completion(
+            [OpenAIChatMessage(role="user", content="3文で物語を教えてください。")],
+            model="shannon-chat",
+            include_usage=True,
+        ):
+            if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                print(chunk.choices[0].delta.content, end="", flush=True)
+        print()
+    finally:
+        client.close()
+
+if __name__ == "__main__":
+    main()
+```
+
+## セッションファイルとメモリ
+
+### ワークスペースファイルとメモリファイルの一覧表示とダウンロード
+
+```python
+"""セッションファイルとメモリの例"""
+from shannon import ShannonClient
+
+def main():
+    client = ShannonClient(base_url="http://localhost:8080")
+    session_id = "my-session"
+
+    try:
+        # メモリファイルを一覧表示
+        memory_files = client.list_memory_files()
+        print(f"メモリファイル: {len(memory_files)}")
+        for entry in memory_files[:10]:
+            print(f"  - {entry.path} ({entry.size_bytes} bytes)")
+
+        # メモリファイルをダウンロード
+        if memory_files:
+            downloaded = client.download_memory_file(memory_files[0].path)
+            print(f"\nメモリファイルの内容プレビュー:")
+            print(downloaded.content[:400])
+
+        # セッションワークスペースファイルを一覧表示
+        session_files = client.list_session_files(session_id)
+        print(f"\nセッション {session_id} のファイル: {len(session_files)}")
+        for entry in session_files[:10]:
+            print(f"  - {entry.path} ({entry.size_bytes} bytes)")
+
+        # セッションファイルをダウンロード
+        if session_files:
+            downloaded = client.download_session_file(session_id, session_files[0].path)
+            print(f"\nセッションファイルの内容プレビュー:")
+            print(downloaded.content[:400])
+    finally:
+        client.close()
+
+if __name__ == "__main__":
+    main()
+```
+
 ## エラーハンドリングの例
 
 完全なパターンとフルリトライロジックの例については、専用ページをご覧ください: [エラーハンドリング](/ja/sdk/python/error-handling)。

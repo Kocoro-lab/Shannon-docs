@@ -517,6 +517,249 @@ Total runs: 42
 
 ---
 
+## Tools
+
+### tools-list - List available tools
+
+```bash
+shannon tools-list [--category CATEGORY]
+```
+
+**Example:**
+
+```bash
+shannon tools-list
+```
+
+**Output:**
+
+```
+Name                      Description
+--------------------------------------------------------------------------------
+web_search                Search the web for information
+calculator                Evaluate mathematical expressions
+```
+
+### tool-get - Get tool details
+
+```bash
+shannon tool-get NAME
+```
+
+**Example:**
+
+```bash
+shannon tool-get web_search
+```
+
+**Output:**
+
+```
+Tool: web_search
+  Description: Search the web for information
+  Category: research
+  Parameters:
+{
+  "query": {
+    "type": "string",
+    "description": "Search query"
+  }
+}
+```
+
+### tool-exec - Execute a tool directly
+
+```bash
+shannon tool-exec NAME [--arguments JSON] [--session-id ID]
+```
+
+| Flag | Type | Description |
+|------|------|-------------|
+| `--arguments` | JSON string | Tool arguments as a JSON object (default: `{}`) |
+| `--session-id` | string | Optional session ID for tool context |
+
+**Example:**
+
+```bash
+shannon tool-exec web_search --arguments '{"query": "Shannon AI"}'
+```
+
+**Output:**
+
+```
+Success: True
+Text: Found 5 results for "Shannon AI"
+Output:
+{
+  "results": [...]
+}
+Execution time (ms): 342
+```
+
+---
+
+## Agents
+
+### agents-list - List deterministic agents
+
+```bash
+shannon agents-list
+```
+
+**Output:**
+
+```
+ID                   Category        Tool                 Name
+------------------------------------------------------------------------------------------
+agent-001            analysis        data_analyzer        Data Analysis Agent
+agent-002            coding          code_review          Code Review Agent
+```
+
+### agent-get - Get agent details
+
+```bash
+shannon agent-get AGENT_ID
+```
+
+**Example:**
+
+```bash
+shannon agent-get agent-001
+```
+
+**Output:**
+
+```
+Agent: agent-001
+  Name: Data Analysis Agent
+  Category: analysis
+  Tool: data_analyzer
+  Description: Analyzes structured data and produces reports
+  Input schema:
+{
+  "query": {
+    "type": "string"
+  }
+}
+```
+
+### agent-exec - Execute a deterministic agent
+
+```bash
+shannon agent-exec AGENT_ID --input JSON [--session-id ID] [--stream]
+```
+
+| Flag | Type | Description |
+|------|------|-------------|
+| `--input` | JSON string | Agent input as a JSON object (default: `{}`) |
+| `--session-id` | string | Optional session ID |
+| `--stream` | flag | Request streamed agent execution |
+
+**Example:**
+
+```bash
+shannon agent-exec agent-001 --input '{"query": "Analyze Q4 trends"}'
+```
+
+**Output:**
+
+```
+Task ID: task-abc123
+Workflow ID: workflow-xyz789
+Agent ID: agent-001
+Status: RUNNING
+```
+
+### swarm-message - Send message to running swarm
+
+```bash
+shannon swarm-message WORKFLOW_ID MESSAGE
+```
+
+**Example:**
+
+```bash
+shannon swarm-message workflow-xyz789 "Focus on cost analysis"
+```
+
+**Output:**
+
+```
+Success: True
+Status: ACCEPTED
+```
+
+---
+
+## Files
+
+### session-files - List session workspace files
+
+```bash
+shannon session-files SESSION_ID [--path SUBDIR]
+```
+
+| Flag | Type | Description |
+|------|------|-------------|
+| `--path` | string | Optional workspace subdirectory |
+
+**Example:**
+
+```bash
+shannon session-files my-session
+```
+
+**Output:**
+
+```
+Type         Size Path
+--------------------------------------------------------------------------------
+file          1234 report.md
+file           567 data.json
+dir              0 images/
+```
+
+### session-file-get - Download a workspace file
+
+```bash
+shannon session-file-get SESSION_ID PATH
+```
+
+**Example:**
+
+```bash
+shannon session-file-get my-session report.md
+```
+
+### memory-files - List user memory files
+
+```bash
+shannon memory-files
+```
+
+**Output:**
+
+```
+Type         Size Path
+--------------------------------------------------------------------------------
+file          2048 profile.md
+file           512 preferences.json
+```
+
+### memory-file-get - Download a memory file
+
+```bash
+shannon memory-file-get PATH
+```
+
+**Example:**
+
+```bash
+shannon memory-file-get profile.md
+```
+
+---
+
 ## Skills
 
 ### skills-list - List available skills
